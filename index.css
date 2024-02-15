@@ -1,0 +1,179 @@
+#hero {
+	background-color: black;
+	position: relative;
+	width: 100%;
+	height: 100vh;
+}
+
+#hero h1 {
+	position: absolute;
+	top: 62%;
+	/* background-color: red; */
+	color: var(--diff);
+	/* mix-blend-mode: difference; */
+	font-size: var(--xxl);
+	line-height: var(--xxl);
+}
+
+#hero h4 {
+	color: var(--diff);
+	mix-blend-mode: difference;
+	max-width: 1440px;
+}
+
+canvas {
+	background-attachment: fixed;
+	padding: 0 !important;
+	align-self: center;
+	width: 100%;
+	/* background-color: red; */
+}
+
+#about {
+	z-index: 1;
+	mix-blend-mode: normal;
+	background-color: var(--white);
+	height: 300vh;
+}
+
+#about-desc {
+    justify-content: space-evenly;
+	height: 100vh;
+	display: flex;
+	flex-direction: column;
+	position: sticky;
+	top: 0;
+}
+#about-page-section {
+	/* padding-top: 30vh; */
+	z-index: 1;
+	mix-blend-mode: normal;
+	height: 350vh;
+
+}
+#desc-desc {
+	width: 100%;
+	text-align: center;
+	margin: 0;
+	height: 100vh;
+	display: flex;
+	flex-direction: column;
+	position: sticky;
+	top: 0;
+}
+#about-header {
+	overflow: hidden;
+}
+#zoom-in {
+	align-self: flex-start;
+	margin-top: var(--h3);
+}
+
+#about-desc h1 {
+	font-size: var(--xl);
+	line-height: 0.9;
+	padding-top: 20px;
+}
+
+#mid {
+	position: relative;
+	bottom: 20px;
+}
+
+#bottom {
+	position: relative;
+	bottom: 40px;
+}
+
+.description {
+	max-width: 600px;
+    align-self: flex-end;
+}
+#categories,
+#elems {
+	pointer-events: none;
+	position: relative;
+	z-index: 2;
+	gap: 10rem;
+}
+
+#elem {
+	background-color: var(--black);
+	width: 20vh;
+	height: 20vh;
+}
+
+.elem-2 {
+	right: 40%;
+	top: 5%;
+}
+
+.elem-3 {
+	margin: auto;
+}
+
+.elem-4 {
+	left: 10%;
+}
+
+#category {
+	text-align: center;
+	font-weight: 700;
+	font-size: var(--h3);
+	display: flex;
+	align-items: center;
+	color: var(--black);
+	border-radius: 3rem;
+	background-color: var(--white);
+	border: 2px solid var(--black);
+	width: fit-content;
+	height: min-content;
+	padding: 1.618rem;
+}
+#work {
+	height: 100vh;
+	background-color: var(--black);
+	/* background-color: red; */
+
+}
+
+#work h1 {
+	white-space: nowrap;
+	mix-blend-mode: difference;
+	color: var(--diff);
+	font-size: var(--xl);
+	margin-bottom: 10vh;
+}
+
+.project {
+	height: 12vh;
+	width: 100%;
+}
+
+.project:hover {
+	mix-blend-mode: difference;
+	background-color: var(--diff);
+}
+
+.project a {
+	mix-blend-mode: difference;
+	color: var(--diff);
+	margin: auto;
+	font-size: var(--h1);
+}
+
+#divider {
+	/* position: absolute; */
+	width: 0%;
+	height: 1px;
+	background-color: var(--diff);
+	mix-blend-mode: difference;
+}
+
+@media only screen and (max-width: 768px) {
+
+	#zoom-in,
+	.description {
+		align-self: center;
+	}
+}
