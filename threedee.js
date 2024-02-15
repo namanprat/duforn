@@ -1,6 +1,6 @@
 //import * as THREE from './node_modules/three/build/three.module.js';
 import * as THREE from 'https://unpkg.com/three@v0.161.0/build/three.module.js';
-import { FontLoader } from 'https://unpkg.com/three@v0.161.0/examples/jsm/sm/loaders/FontLoader.js';
+import { FontLoader } from 'https://unpkg.com/three@v0.161.0/examples/jsm/loaders/FontLoader.js';
 import { TextGeometry } from 'https://unpkg.com/three@v0.161.0/examples/jsm/geometries/TextGeometry';
 
 //import { FontLoader } from './node_modules/three/examples/jsm/loaders/FontLoader.js';
