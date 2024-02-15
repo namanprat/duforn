@@ -131,7 +131,8 @@ canvas {
 	padding: 1.618rem;
 }
 #work {
-	height: 100vh;
+	padding: 10vh 0;
+	/* height: 100vh; */
 	background-color: var(--black);
 	/* background-color: red; */
 
@@ -146,7 +147,7 @@ canvas {
 }
 
 .project {
-	height: 12vh;
+	height: clamp(7.48rem, 41.53vw + -2.9rem, 11.17rem);
 	width: 100%;
 }
 

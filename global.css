@@ -361,6 +361,7 @@ main {
 }
 
 form {
+	gap: 1rem!important;
 	padding: 0 !important;
 	width: 100%;
 }
@@ -402,7 +403,7 @@ textarea {
   flex-direction: row;
 }
 #contact-cluster {
-	margin-top: 3vh;
+	/* margin-top: 3vh; */
   flex-direction: row;
 }
 #contact a {
@@ -418,7 +419,8 @@ textarea {
 	left: 0;
 	height: 100svh;
 	width: 100vw;
-	backdrop-filter: blur(10px);
+	backdrop-filter: blur(15px);
+	-webkit-backdrop-filter: blur(15px);
 	background-color: #0000009e;
 	color: var(--white) !important;
 	z-index: 9;
@@ -484,7 +486,8 @@ nav {
 .pill {
 	border: none;
 	background-color: #0000003c;
-	backdrop-filter: blur(100px);
+	backdrop-filter: blur(15px);
+	-webkit-backdrop-filter: blur(15px);
 	color: var(--diff);
 	border: 1px solid #ffffff4b;
 	border-radius: 2em;
