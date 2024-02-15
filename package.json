@@ -1,8 +1,9 @@
 {
   "name": "duforn-web",
   "private": true,
-  "version": "0.0.0",
-  "files": ["dist/*", "src/*", "!/**/__tests__"],
+  "version": "1.0.0",
+  "main": "./dist/index.js",
+  "files": ["*"],
   "type": "module",
   "scripts": {
     "dev": "vite",
