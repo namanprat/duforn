@@ -1,57 +1,70 @@
-//import * as THREE from 'three';
 import * as THREE from './node_modules/three/build/three.module.js';
-import {GLTFLoader} from './node_modules/three/examples/jsm/loaders/GLTFLoader.js';
-console.log(THREE);
+import { FontLoader } from './node_modules/three/examples/jsm/loaders/FontLoader.js';
+import { TextGeometry } from './node_modules/three/examples/jsm/geometries/TextGeometry.js';
 
+// Set up scene
 const scene = new THREE.Scene();
+
+// Set up camera
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer({
-  canvas: document.querySelector('#bg'),
+camera.position.z = 5;
+
+// Set up renderer with alpha (for transparent background)
+const renderer = new THREE.WebGLRenderer({ alpha: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// Load font
+const loader = new THREE.FontLoader();
+loader.load('./public/cooper-hewitt.json', function (font) {
+
+  // Create text geometry
+  const textGeometry = new THREE.TextGeometry('Hello', {
+    font: font,
+    size: 0.5,
+    height: 0.1,
+    curveSegments: 12,
+    bevelEnabled: true,
+    bevelThickness: 0.03,
+    bevelSize: 0.02,
+    bevelOffset: 0,
+    bevelSegments: 5
+  });
+
+  // Create material with transparent background
+  const material = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 1 });
+
+  // Create text mesh
+  const textMesh = new THREE.Mesh(textGeometry, material);
+
+  // Add text mesh to the scene
+  scene.add(textMesh);
+
 });
 
-const pointLight = new THREE.PointLight(0xffffff);
-pointLight.position.set(90, 10, 5);
-
-const ambientLight = new THREE.AmbientLight(0xffffff);
-scene.add(pointLight, ambientLight);
-
-renderer.setPixelRatio(window.devicePixelRatio);
-renderer.setSize(window.innerWidth, window.innerHeight);
-camera.position.setZ(45);
-camera.position.setX(0);
-
-renderer.render(scene, camera);
-
-//view
-const geometry = new THREE.TorusGeometry(10, 3, 16, 100);
-const material = new THREE.MeshStandardMaterial({ color: 0xff6347 });
-const torus = new THREE.Mesh(geometry, material);
-scene.add(torus);
-
-function animate(){
+// Render loop
+const animate = function () {
   requestAnimationFrame(animate);
+
+  // Rotate text
+  if (textMesh) {
+    textMesh.rotation.x += 0.01;
+    textMesh.rotation.y += 0.01;
+  }
+
+  // Render the scene
   renderer.render(scene, camera);
 };
-animate()
 
+animate();
 
-// responsive
-window.onresize = function(){
-  camera.aspect = window.innerWidth / window.innerHeight;
+// Handle window resize
+window.addEventListener('resize', function () {
+  const newWidth = window.innerWidth;
+  const newHeight = window.innerHeight;
+
+  camera.aspect = newWidth / newHeight;
   camera.updateProjectionMatrix();
 
-  renderer.setSize(window.innerWidth, window.innerHeight);
-};
-
-let oldx = 0
-let oldy = 0
-window.onmousemove = function(e){
-  let changex = e.clientX - oldx;
-  let changey = e.clientY - oldy;
-  camera.position.x += changex/100;
-  camera.position.y += changey/100;
-
-  oldx = e.clientX;
-  oldy = e.clientY;
-
-}
+  renderer.setSize(newWidth, newHeight);
+});
