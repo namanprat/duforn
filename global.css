@@ -474,9 +474,9 @@ nav {
 	line-height: var(--h2);
 }
 #nav-home h2{
-	color: var(--diff);
-
+	color: var(--white);
 	mix-blend-mode: difference;
+	padding-top: 10px;
 }
 #nav-cluster {
 	/* margin-right: auto; */
