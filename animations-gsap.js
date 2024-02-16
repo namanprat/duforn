@@ -128,8 +128,8 @@ function workReveal() {
         width: "100%",
         scrollTrigger: {
 
-            trigger: "#work",
-            start: 'top 95%',
+            trigger: ".divider",
+            start: 'top 90%',
 
         }
     }

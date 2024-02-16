@@ -538,13 +538,15 @@ nav {
 	margin: auto;
 }
 #deck a{
-	white-space: nowrap;
+	z-index: 2;
+	/* white-space: nowrap; */
 	color: var(--white);
-position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
 }
+
 @media screen and (orientation:portrait) {
 	#footer-top {
 	  flex-direction: column;
@@ -614,6 +616,9 @@ position: absolute;
     display: none;
   }
 	.pill {
-		padding: 0 1.6rem;
+		padding: 0 1.333rem;
+	}
+	#deck img {
+		rotate: -90deg;
 	}
 }
