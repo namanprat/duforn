@@ -533,16 +533,28 @@ nav {
 }
 #deck {
 	height: 100vh;
+	background-color: var(--black);
 }
-#download-deck {
-	margin: auto;
+#deck .img {
+	z-index: 1;
+	/* background-color: red; */
+	width: 100%;
+	background: transparent url('./public/deck.png');
+	background-repeat: no-repeat;
+	background-size: contain;
+  background-position: center;
+  /* rotate: 85deg; */
+
+  height: 600px;
 }
 #deck a{
-	z-index: 2;
-	/* white-space: nowrap; */
+	text-shadow: 0 0 20px #00000055;
+	/* text-align: center; */
+	z-index: 10;
+	white-space: nowrap;
 	color: var(--white);
 	position: absolute;
-	top: 50%;
+	/* top: 50%; */
 	left: 50%;
 	transform: translate(-50%, -50%);
 }
