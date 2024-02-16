@@ -28,4 +28,4 @@ function moveMagnet(event) {
     x: ((( event.clientX - bounding.left)/magnetButton.offsetWidth) - 0.5) * strength,
     y: ((( event.clientY - bounding.top)/magnetButton.offsetHeight) - 0.5) * strength,
     ease: Power4.easeOut
-  })}
+  })};

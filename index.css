@@ -98,7 +98,7 @@ canvas {
 }
 
 #elem {
-	background-color: var(--black);
+	background-color: var(--accent);
 	width: 20vh;
 	height: 20vh;
 }
