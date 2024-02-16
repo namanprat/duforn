@@ -9,7 +9,7 @@ getTime();
 setInterval(getTime, 1000);
 
 var magnets = document.querySelectorAll('.magnetic')
-var strength = 25
+var strength = 35
 
 magnets.forEach( (magnet) => {
   magnet.addEventListener('mousemove', moveMagnet );

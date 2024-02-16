@@ -531,6 +531,20 @@ nav {
 	gap: 1rem;
 	padding-bottom: var(--gap);
 }
+#deck {
+	height: 100vh;
+}
+#download-deck {
+	margin: auto;
+}
+#deck a{
+	white-space: nowrap;
+	color: var(--white);
+position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
 @media screen and (orientation:portrait) {
 	#footer-top {
 	  flex-direction: column;
