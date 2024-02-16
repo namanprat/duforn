@@ -21,12 +21,14 @@
 	max-width: 1440px;
 }
 
-canvas {
-	background-attachment: fixed;
-	padding: 0 !important;
-	align-self: center;
-	width: 100%;
-	/* background-color: red; */
+#logo {
+	position: absolute;
+	top: 0px;
+	left: 0px;
+	z-index: 3;
+	height: var(--h3);
+	width: var(--h3);
+
 }
 
 #about {
