@@ -544,14 +544,13 @@ nav {
 	background-size: contain;
   background-position: center;
   /* rotate: 85deg; */
-
   height: 600px;
 }
 #deck a{
 	text-shadow: 0 0 20px #00000055;
-	/* text-align: center; */
+	text-align: center;
 	z-index: 10;
-	white-space: nowrap;
+	/* white-space: nowrap; */
 	color: var(--white);
 	position: absolute;
 	/* top: 50%; */
@@ -601,6 +600,9 @@ nav {
   }
   .w-50 {
 	width: 100%;
+}
+#deck .img {
+  rotate: -90deg;
 }
 }
 
