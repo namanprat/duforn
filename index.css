@@ -131,7 +131,7 @@
 }
 .project:hover {
 	transition: 0.2s ease-in-out;
-	height: fit-content;
+	/* height: fit-content; */
 	background-color: var(--white);
 }
 .project img {
