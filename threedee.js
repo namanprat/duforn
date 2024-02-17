@@ -1,7 +1,8 @@
 import "./index.css";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+// import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 console.log( TextGeometry );
 console.log( GLTFLoader );
@@ -16,7 +17,7 @@ const  camera = new THREE.PerspectiveCamera(70, 2, 1, 1000);
 camera.position.z = 400;
 const scene = new THREE.Scene();
 
-const geometry = new THREE.BoxGeometry(200, 200, 200);
+const geometry = new THREE.BoxGeometry(300, 300, 200);
 const material = new THREE.MeshPhysicalMaterial({  
   roughness: 0.7,   
   transmission: 1,  
