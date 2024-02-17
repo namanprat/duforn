@@ -18,7 +18,7 @@
 	--h2: clamp(1.78rem, 1.58vw + 1.36rem, 2.78rem);
 	--h1: clamp(2.37rem, 3.36vw + 1.48rem, 4.5rem);
 
-	/* --xl: clamp(3.16rem, 7.66vw + 1.24rem, 8.14rem); */
+	--logo: clamp(3.16rem, 7.66vw + 1.24rem, 8.14rem);
 	/* --xl: clamp(4.21rem, 13.78vw + 0.76rem, 13.17rem); */
 	/* --xl: clamp(3.68rem, 10.72vw + 1rem, 10.65rem); */
 	--xl: clamp(4.21rem, 13.78vw + 0.76rem, 13.17rem);
@@ -192,7 +192,14 @@
 	display: flex;
 	flex-direction: column;
 }
-
+.abs-center {
+	position: absolute;
+margin-left: auto;
+margin-right: auto;
+left: 0;
+right: 0;
+text-align: center;
+}
 .row {
 	display: flex;
 	flex-direction: row;
@@ -461,25 +468,15 @@ nav {
 	z-index: 10;
 	padding: 1.618rem;
 }
-
-#nav-home {
-	/* background-color: transparent; */
-	mix-blend-mode: difference;
-	position: absolute;
-	top: 50%;
-	left: 50%;
-	transform: translate(-50%, -50%);
-	text-decoration: none;
-	font-size: var(--h2);
-	line-height: var(--h2);
-}
-#nav-home h2{
-	color: var(--white);
-	mix-blend-mode: difference;
-	padding-top: 10px;
+#home,
+#logo {
+	/* background-color: red; */
+	/* height: 3rem; */
+	height: var(--h1);
+	aspect-ratio: 3/1;
+	
 }
 #nav-cluster {
-	/* margin-right: auto; */
 	gap: var(--p);
 }
 
@@ -613,7 +610,7 @@ nav {
   .desc {
     display: none;
   }
-  #nav-home {
+  #home {
     position: relative;
     top: 0;
     left: 0;

@@ -5,32 +5,6 @@
 	height: 100vh;
 }
 
-#hero h1 {
-	position: absolute;
-	top: 62%;
-	/* background-color: red; */
-	color: var(--diff);
-	/* mix-blend-mode: difference; */
-	font-size: var(--xxl);
-	line-height: var(--xxl);
-}
-
-#hero h4 {
-	color: var(--diff);
-	mix-blend-mode: difference;
-	max-width: 1440px;
-}
-
-#logo {
-	position: absolute;
-	top: 0px;
-	left: 0px;
-	z-index: 3;
-	height: var(--h3);
-	width: var(--h3);
-
-}
-
 #about {
 	z-index: 1;
 	mix-blend-mode: normal;
@@ -135,7 +109,7 @@
 }
 #work {
 	padding: 10vh 0;
-	/* height: 100vh; */
+	height: 100vh;
 	background-color: var(--black);
 	/* background-color: red; */
 
@@ -150,24 +124,34 @@
 }
 
 .project {
-	height: clamp(7.48rem, 41.53vw + -2.9rem, 11.17rem);
+	/* height: clamp(7.48rem, 41.53vw + -2.9rem, 11.17rem); */
+	height: clamp(4.21rem, 13.78vw + 0.76rem, 5.03rem);
 	width: 100%;
+	transition: 0.2s ease-in-out;
 }
-
 .project:hover {
-	mix-blend-mode: difference;
-	background-color: var(--diff);
+	transition: 0.2s ease-in-out;
+	height: fit-content;
+	background-color: var(--white);
 }
-
-.project a {
-	mix-blend-mode: difference;
-	color: var(--diff);
-	margin: auto;
-	font-size: var(--h1);
+.project img {
+	display: none;
+	width: 10vh;
+	transition: 0.2s ease-in-out;
 }
-
+.project:hover img {
+	display: block;
+}
+.project * {
+	color: var(--white);
+}
+.project:hover * {
+	color: var(--black);
+}
+.project span {
+	font-size: var(--h2);
+}
 #divider {
-	/* position: absolute; */
 	width: 0%;
 	height: 1px;
 	background-color: var(--diff);
