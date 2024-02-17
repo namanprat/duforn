@@ -8,21 +8,29 @@ console.log( GLTFLoader );
 
 const renderer = new THREE.WebGLRenderer({
   canvas: document.querySelector('#logo'),
-  alpha: true,
+  alpha: true,antialiasing: true,
 });
+
+
 const  camera = new THREE.PerspectiveCamera(70, 2, 1, 1000);
 camera.position.z = 400;
 const scene = new THREE.Scene();
-const geometry = new THREE.BoxGeometry(200, 200, 200);
-const material = new THREE.MeshStandardMaterial({ color: 0xff6347 });
 
+const geometry = new THREE.BoxGeometry(200, 200, 200);
+const material = new THREE.MeshPhysicalMaterial({  
+  roughness: 0.7,   
+  transmission: 1,  
+  thickness: 1
+});
 const mesh = new THREE.Mesh(geometry, material);
 scene.add(mesh);
-const pointLight = new THREE.PointLight(0xff6347);
-pointLight.position.set(90, 10, 5);
 
-const ambientLight = new THREE.AmbientLight(0xffffff);
-scene.add(pointLight, ambientLight);
+
+const light = new THREE.DirectionalLight(0xfff0dd, 1);
+light.position.set(0, 5, 10);
+scene.add(light);
+
+
 function resizeCanvasToDisplaySize() {
   const canvas = renderer.domElement;
   const width = canvas.clientWidth;
