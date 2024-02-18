@@ -16,6 +16,7 @@
     "vite": "^5.1.0"
   },
   "dependencies": {
+    "@barba/core": "^2.9.7",
     "three": "^0.161.0"
   }
 }

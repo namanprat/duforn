@@ -1,64 +1,41 @@
-import "./index.css";
+import "./style.css";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-// import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
-console.log( TextGeometry );
-console.log( GLTFLoader );
 
-
-
-//RENDERER
-const renderer = new THREE.WebGLRenderer({
-  canvas: document.querySelector('#logo'),
-  alpha: true,antialiasing: true,
-});
-
-function resizeCanvasToDisplaySize() {
-  const canvas = renderer.domElement;
-  const width = canvas.clientWidth;
-  const height = canvas.clientHeight;
-  if (canvas.width !== width ||canvas.height !== height) {
-    // you must pass false here or three.js sadly fights the browser
-    renderer.setSize(width, height, false);
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
-    // set render target sizes here
-  }
-}
-
-
-
-const  camera = new THREE.PerspectiveCamera(70, 2, 1, 1000);
-camera.position.z = 400;
 const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(
+  75,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  1000
+);
 
-const geometry = new THREE.BoxGeometry(300, 300, 200);
-const material = new THREE.MeshPhysicalMaterial({  
-  roughness: 0.7,   
-  transmission: 1,  
-  thickness: 1
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const textureLoader = new THREE.TextureLoader();
+const myTexture = textureLoader.load("/texture.jpeg");
+
+const geometry = new THREE.BoxGeometry(1, 1, 1);
+const material = new THREE.MeshBasicMaterial({
+  color: 0xffffff,
+  map: myTexture,
 });
-const mesh = new THREE.Mesh(geometry, material);
-scene.add(mesh);
+const cube = new THREE.Mesh(geometry, material);
+scene.add(cube);
 
+camera.position.z = 1.5;
 
-const light = new THREE.DirectionalLight(0xfff0dd, 1);
-light.position.set(0, 5, 10);
-scene.add(light);
+const controls = new OrbitControls(camera, renderer.domElement);
 
-
-
-
-//ANIMATE
-function animate(time) {
-  time *= 0.001;
-  mesh.rotation.x = time * 0.5;
-  mesh.rotation.y = time * 0.5;
-  
-  resizeCanvasToDisplaySize();
-  renderer.render(scene, camera);
+function animate() {
   requestAnimationFrame(animate);
+  controls.update();
+
+  cube.rotation.x += 0.01;
+  cube.rotation.y += 0.01;
+
+  renderer.render(scene, camera);
 }
-requestAnimationFrame(animate);
+animate();

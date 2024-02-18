@@ -1,10 +1,59 @@
+import barba from '@barba/core';
+
 function valueSet() {
     gsap.set("#overlay-bg", {
         autoAlpha: 0,
        // x: "100%"
     });
 };
-
+function loader() {
+    var tl = gsap.timeline();
+    tl.to(".loader", {
+        delay: 3,
+        duration: 2,
+        ease: "power4.inOut",
+        scale: 0,
+        // opacity: 0,
+    })
+}
+function loaderText() {
+    const splitTypes = document.querySelectorAll("[loader-split]")
+        splitTypes.forEach((char,i) => {
+            const text = new SplitType(char, { types: 'chars'})
+            var tl = gsap.timeline();
+            tl.from(text.chars, {
+                y: "-100",
+                ease: "power4.inOut",
+                duration: 3,
+                //  opacity: 0,
+                  stagger: 0.1,
+                  delay: 1,
+             })
+             .to(text.chars, {
+                y: "100",
+                ease: "power4.inOut",
+                duration: 3,
+                //  opacity: 0,
+                  stagger: 0.1
+             })
+        })
+}
+function transition() {
+    var tl = gsap.timeline();
+    tl.to("#bar", {
+        duration: 1.5,
+        transformOrigin: "top",
+        ease: "power4.inOut",
+        height: "100%",
+        stagger: 0.025,
+    }).from("#bar", {
+        duration: 1.5,
+        transformOrigin: "bottom",
+        ease: "power4.inOut",
+        height: 0,
+        stagger: 0.025,
+    })
+}
 function overlayAnimation() {
     var tl = gsap.timeline({
         paused: true,
@@ -47,20 +96,6 @@ function buttonAnimation() {
     }
 }
 
-function contactReveal() {
-    const splitTypes = document.querySelectorAll("[title-split]")
-        splitTypes.forEach((char,i) => {
-            const text = new SplitType(char, { types: 'chars'})
-
-            gsap.from(text.chars, {
-                y: "-100",
-                ease: "power4.inOut",
-                duration: 2,
-                 opacity: 0,
-                  stagger: 0.025
-             })
-        })
-}
 function navScroll() {
     let mm = gsap.matchMedia();
      mm.add("(min-width: 1000px)", () => {
@@ -143,19 +178,42 @@ gsap.from("#about-header *", {
     stagger: 0.05
 })
 }
+function delay(n) {
+    n = n || 0;
+    return new Promise((done) => 
+        {
+            setTimeout(() => {
+                done();
+            }, n);
+        });
+};
+
+barba.init({
+    sync: true,
+    transitions: [
+        {
+        async leave(data) {
+            const done = this.async();
+            transition();
+            await delay(1000);
+            done();
+        },
+    },
+],
+});
+
 
 
 
 gsap.registerPlugin(ScrollTrigger);
-gsap.config({
-    nullTargetWarn: false
-    });
-    valueSet();
-    buttonAnimation();
-    overlayAnimation();
-    navScroll();
-    navFade();
-    textReveal();
-    workReveal();
-    contactReveal();
-    aboutReveal();
+gsap.config({nullTargetWarn: false});
+valueSet();
+// loader();
+buttonAnimation();
+overlayAnimation();
+navScroll();
+navFade();
+textReveal();
+// workReveal();
+loaderText();
+// aboutReveal();

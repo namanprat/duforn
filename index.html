@@ -12,7 +12,20 @@
     <script src="https://unpkg.com/split-type"></script>
 
 </head>
-<body>
+<body data-barba="wrapper">
+    <!-- <div class="loader flex justify-center">
+        <div class="self-center overflow-hidden">
+        <h1 loader-split>DUFORN</h1>
+        </div>
+    </div> -->
+    <div class="transition row">
+            <div id="bar"></div>
+            <div id="bar"></div>
+            <div id="bar"></div>
+            <div id="bar"></div>
+            <div id="bar"></div>
+            <div id="bar"></div>
+    </div>
     <!-- OVERLAY -->
     <div id="overlay-bg" class="col space-bw">
         <div id="menu-cluster" class="width-100">
@@ -36,7 +49,7 @@
         </div>
 
         <div id="contact-cluster" class="flex space-bw w">
-            <div class="col max-600 start gap">
+            <!-- <div class="col max-600 start gap">
                 <h4>Keep up with the latest, all things DUFORN! 
                     drop your email below, and let's stay connected.</h4>
                     <form class="col space-bw gap" target="_blank" action="https://formsubmit.co/06c4c788c0e0834d5b8d4fa45bed9776" method="POST">
@@ -50,8 +63,8 @@
                         <button class="self-end magnetic pill" type="submit"><h4>SUBMIT</h4></button>
                       </form>
 
-            </div>
-            <div class="row space-bw gap">
+            </div> -->
+            <div class="row w-50 self-start gap-2 space-bw w">
                 <div id="email-number" class="col">
                     <a href="mailto:a.namanprat@gmail.com">hello@duforn.com</a>
                     <a>+91 97428 13515</a>
@@ -93,7 +106,7 @@
             </h4>
         </div>
       </nav>
-      <main>
+      <main data-barba="container" data-barba-namespace="home">
         <!-- HERO -->
       <section id="hero" class="col space-even overflow-hidden w">
 
@@ -212,6 +225,6 @@
     </section>
     <script type="module" src="./script.js"></script>
     <script type="module" src="./threedee.js"></script>
-    <script type="module" src="./animations-gsap.js"></script>
+    <script type="module" src="./gsap.js"></script>
 </body>
 </html>

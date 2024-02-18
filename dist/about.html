@@ -9,10 +9,18 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
     <script src="https://unpkg.com/split-type"></script>
 
-  <script type="module" crossorigin src="/assets/animations-gsap-DE0H_dTW.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/animations-gsap-B0nXKZiT.css">
+  <script type="module" crossorigin src="/assets/gsap-DqMbwi0R.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/gsap-DpdLtVso.css">
 </head>
-<body>
+<body data-barba="wrapper">
+    <div class="transition row">
+        <div id="bar"></div>
+        <div id="bar"></div>
+        <div id="bar"></div>
+        <div id="bar"></div>
+        <div id="bar"></div>
+        <div id="bar"></div>
+</div>
     <!-- OVERLAY -->
     <div id="overlay-bg" class="col space-bw">
         <div id="menu-cluster" class="width-100">
@@ -95,7 +103,7 @@
             </h4>
         </div>
       </nav>
-      <main>
+      <main data-barba="container" data-barba-namespace="about">
       <!-- ABOUT -->
     <section id="about" class="center is-black">
         <div id="desc-desc" class="col space-even self-center w">

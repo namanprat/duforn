@@ -12,7 +12,15 @@
     <script src="https://unpkg.com/split-type"></script>
 
 </head>
-<body>
+<body data-barba="wrapper">
+    <div class="transition row">
+        <div id="bar"></div>
+        <div id="bar"></div>
+        <div id="bar"></div>
+        <div id="bar"></div>
+        <div id="bar"></div>
+        <div id="bar"></div>
+</div>
     <!-- OVERLAY -->
     <div id="overlay-bg" class="col space-bw">
         <div id="menu-cluster" class="width-100">
@@ -95,7 +103,7 @@
             </h4>
         </div>
       </nav>
-      <main>
+      <main data-barba="container" data-barba-namespace="about">
       <!-- ABOUT -->
     <section id="about" class="center is-black">
         <div id="desc-desc" class="col space-even self-center w">
@@ -179,6 +187,6 @@
     </section>
     <script type="module" src="./script.js"></script>
     <script type="module" src="./threedee.js"></script>
-    <script type="module" src="./animations-gsap.js"></script>
+    <script type="module" src="./gsap.js"></script>
 </body>
 </html>
