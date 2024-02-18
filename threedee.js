@@ -32,7 +32,7 @@ const scene = new THREE.Scene();
 
 //OBJECT
 const loader = new GLTFLoader();
-loader.load('./public/logo.glb', function(glb){
+loader.load('./logo.glb', function(glb){
   console.log(glb);
   const logo = glb.scene;
   logo.scale.set(10, 10, 10);
