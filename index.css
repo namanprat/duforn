@@ -152,14 +152,11 @@
 	font-size: var(--h2);
 }
 #divider {
-	width: 0%;
 	height: 1px;
-	background-color: var(--diff);
-	mix-blend-mode: difference;
+	background-color: var(--white);
 }
 
 @media only screen and (max-width: 768px) {
-
 	#zoom-in,
 	.description {
 		align-self: center;

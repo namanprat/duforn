@@ -8,7 +8,8 @@ var getTime = function() {
 getTime();
 setInterval(getTime, 1000);
 
-var magnets = document.querySelectorAll('.magnetic')
+function magnet() {
+  var magnets = document.querySelectorAll('.magnetic')
 var strength = 35
 
 magnets.forEach( (magnet) => {
@@ -22,10 +23,10 @@ function moveMagnet(event) {
   var magnetButton = event.currentTarget
   var bounding = magnetButton.getBoundingClientRect()
 
-  //console.log(magnetButton, bounding)
-
   TweenMax.to( magnetButton, 1, {
     x: ((( event.clientX - bounding.left)/magnetButton.offsetWidth) - 0.5) * strength,
     y: ((( event.clientY - bounding.top)/magnetButton.offsetHeight) - 0.5) * strength,
     ease: Power4.easeOut
   })};
+}
+magnet();

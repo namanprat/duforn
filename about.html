@@ -13,31 +13,31 @@
 
 </head>
 <body data-barba="wrapper">
+
     <div class="transition row">
-        <div id="bar"></div>
-        <div id="bar"></div>
-        <div id="bar"></div>
-        <div id="bar"></div>
-        <div id="bar"></div>
-        <div id="bar"></div>
-</div>
+            <div id="bar"></div>
+            <div id="bar"></div>
+            <div id="bar"></div>
+            <div id="bar"></div>
+            <div id="bar"></div>
+            <div id="bar"></div>
+    </div>
     <!-- OVERLAY -->
     <div id="overlay-bg" class="col space-bw">
         <div id="menu-cluster" class="width-100">
-
             <div id="seperator"></div>
-            <div class="menu flex self-center-">
-                <a href="./work.html" class="w">work</a></div>
+            <div class="menu flex self-center">
+                <a href="./work.html" class="menu-open w">work</a></div>
 
                 <div id="seperator"></div>
 
                 <div class="menu flex">
-                    <a href="./about.html" class="w">about</a></div>
+                    <a href="./about.html" class="menu-open w">about</a></div>
 
                     <div id="seperator"></div>
 
                 <div class="menu flex">
-                    <a href="#" class="w">shop</a></div>
+                    <a href="#" class="menu-open w">shop</a></div>
 
                         <div id="seperator"></div>
  
@@ -72,7 +72,6 @@
         </div>
         <div id="foot" class="col center gap">
             <img src="./public/logotype-white.svg" alt="logo" class="vw-100 w">
-
             <h4>[  © 2024 DUFORN. All rights reserved  ]</h4>
         </div>
       </div>
@@ -81,14 +80,15 @@
     <nav class="flex space-bw center space-bw">
         <div id="nav-cluster" class="row space-bw">
             <button type="button" id="menu" class="magnetic pill menu-open"><h4>MENU</h4></button>
+            <a class="magnetic" href="./about.html">
+                <button type="button" class="pill"><h4>about</h4>
+                </button>
+            </a>
             <a class="magnetic" href="./work.html">
                 <button type="button" class="pill"><h4>WORK</h4>
                 </button>
             </a>
-              <a class="magnetic" href="./about.html">
-                <button type="button" class="pill"><h4>about</h4>
-                </button>
-            </a>
+            
             <a class="magnetic" href="./shop.html">
                 <button type="button" class="pill"><h4>SHOP</h4>
                 </button>
@@ -143,7 +143,7 @@
 </main>
 
 <!-- CONTACT -->
-    <section id="contact" class="col center space-bw w">
+    <section id="contact" class="col center space-bw w overflow-hidden">
         <div id="footer-top" class="flex space-bw width-100 gap-2">
             <div class="max-600 col start gap">
                 <h4>Keep up with the latest, all things DUFORN! 
@@ -181,8 +181,8 @@
 
         </div>
         <div id="foot" class="col center gap">
-            <img src="./public/logotype.svg" alt="logo" class="vw-100 w">
-            <h4>[  © 2024 DUFORN. All rights reserved  ]</h4>
+            <img src="./public/logotype-hindi-black.svg" alt="logo" class="vw-100 w overflow-hidden">
+            <!-- <h4>[  © 2024 DUFORN. All rights reserved  ]</h4> -->
         </div>
     </section>
     <script type="module" src="./script.js"></script>
