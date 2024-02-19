@@ -5,7 +5,11 @@ function valueSet() {
         autoAlpha: 0,
     });
     gsap.set("#divider", {
-        width:0,
+        width: 0,
+    });
+    gsap.set("#nav-cluster a", {
+        x: 0,
+        autoAlpha: 1,
     });
     let mm = gsap.matchMedia();
     mm.add("(max-width: 900px)", () => {
@@ -21,7 +25,7 @@ function loader() {
         duration: 2,
         ease: "power4.inOut",
         scale: 0,
-        // opacity: 0,
+        opacity: 0.3,
     });
     const splitTypes = document.querySelectorAll("[loader-split]")
         splitTypes.forEach((char,i) => {
@@ -107,12 +111,12 @@ function navScroll() {
      mm.add("(min-width: 900px)", () => {
         gsap.to("#nav-cluster a", {
         ease: "power4.inOut",
-        duration: 2,
+        duration: 1,
         x: "-100%",
         stagger: 0.07,
         autoAlpha: 0,
             scrollTrigger: {
-                scrub: 1,
+                scrub: 4,
                 trigger: 'nav',
                 start: "top",
                 scroller: "body",
@@ -159,8 +163,8 @@ function lineReveal() {
 function aboutReveal() {
 gsap.from("#about-header *", {
     y: "100%",
-    delay: 0.75,
-    ease: "power4.inOut",
+    delay: 1.2,
+    ease: "expo.out",
     duration: 1.5,
     stagger: 0.05
 })
@@ -210,13 +214,11 @@ barba.init({
             },
         },
     ],
-
 })
 
 
 gsap.registerPlugin(ScrollTrigger);
 gsap.config({nullTargetWarn: false});
-// gsap.registerPlugin(ScrollToPlugin);
 
 
 
@@ -227,4 +229,4 @@ textReveal();
 buttonAnimation();
 overlayAnimation();
 lineReveal();
-// aboutReveal();
+aboutReveal();
