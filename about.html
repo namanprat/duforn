@@ -7,6 +7,7 @@
       <link rel="stylesheet" href="./global.css" type="text/css">
       <link rel="stylesheet" href="./index.css" type="text/css">
       <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollToPlugin.min.js"></script>
       <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
       <script src="https://unpkg.com/split-type"></script>
    </head>
@@ -32,7 +33,7 @@
            </div>
            <div id="seperator"></div>
            <div class="menu flex">
-              <a href="#" class="w">shop</a>
+              <a href="#" class="w">contact</a>
            </div>
            <div id="seperator"></div>
         </div>
@@ -67,9 +68,9 @@
                   <h4>WORK</h4>
                </button>
             </a>
-            <a class="magnetic" href="./shop.html">
+            <a class="magnetic" href="#contact">
                <button type="button" class="pill">
-                  <h4>SHOP</h4>
+                  <h4>CONTACT</h4>
                </button>
             </a>
          </div>
@@ -84,7 +85,14 @@
       <main data-barba="container" data-barba-namespace="about">
          <!-- ABOUT -->
          <section id="about" class="center is-black">
-            <div id="desc-desc" class="col space-even self-center w">
+            <div id="desc-desc" class="col justify-center w">
+               <span text-split class="">A CREATIVE HOUSE AND DIGITAL DELVE DEDICATED TO CREATING AND PRODUCING VISUAL NARRATIVES — MEANT TO EVOKE FEELING. OUR WORK SPANS DISCIPLINES, UNIFIED BY THE SINGULAR DRIVE OF CRAFTING UNFORGETTABLE MOMENTS OF CONNECTION.</span>
+
+            </div>
+
+         </section>
+         <!-- <section id="about" class="center is-black">
+            <div id="desc-desc" class="col center w">
                <div class="col">
                   <div id="about-header" class="self-center">
                      <h1>we are an indian creative house</h1>
@@ -103,19 +111,39 @@
                   </h4>
                </div>
             </div>
-            <!-- <div id="elems" class="col">
+            <div id="elems" class="col">
                <div id="elem" class="elem-1 self-end"></div>
                <div id="elem" class="elem-2"></div>
                <div id="elem" class="elem-3 justify-center"></div>
                <div id="elem" class="elem-4 self-end"></div>
                <div id="elem" class="elem-5"></div>
-            </div> -->
-         </section>
+            </div>
+         </section> -->
          <!-- SERVICES OFFERED -->
-         <section id="services-offered" class="col is-black divider overflow-hidden">
-            <h2 class="w">Services offered</h2>
+         <section id="services" class="col divider w gap-2">
+            <div class="col">
+               <h4 >[ Services offered ]</h4>
             <div id="divider"></div>
-            <h4 class="w-50 w">3D DESIGN, ALBUM ART, ART DIRECTION, BRAND IDENTITY, BRAND STRATEGY, CAMPAIGN DEVELOPMENT, CAMPAIGN STRATEGY, COMMUNITY MANAGEMENT, CONTENT CREATION, COPYWRITING, CREATIVE DIRECTION, GRAPHIC DESIGN, ILLUSTRATION, MERCH DESIGN, OUT OF HOME ADVERTISING, PACKAGING, PHOTOGRAPHY, PRINT DESIGN, SOCIAL MEDIA MANAGEMENT, SOCIAL STRATEGY, VISUAL IDENTITY, VISUAL PRODUCTION, WEB DESIGN & DEVELOPMENT</h4>
+            <h4 class="w-50">3D DESIGN, ALBUM ART, ART DIRECTION, 
+               BRAND IDENTITY, BRAND STRATEGY, CAMPAIGN DEVELOPMENT, 
+               CAMPAIGN STRATEGY, COMMUNITY MANAGEMENT, CONTENT CREATION, 
+               COPYWRITING, CREATIVE DIRECTION, GRAPHIC DESIGN, ILLUSTRATION, 
+               MERCH DESIGN, OUT OF HOME ADVERTISING, PACKAGING, PHOTOGRAPHY, 
+               PRINT DESIGN, SOCIAL MEDIA MANAGEMENT, SOCIAL STRATEGY, VISUAL IDENTITY, 
+               VISUAL PRODUCTION, WEB DESIGN & DEVELOPMENT</h4>
+            </div>
+
+            <div class="col">
+               <h4 >[ Services offered ]</h4>
+            <div id="divider"></div>
+            <h4 class="w-50">3D DESIGN, ALBUM ART, ART DIRECTION, 
+               BRAND IDENTITY, BRAND STRATEGY, CAMPAIGN DEVELOPMENT, 
+               CAMPAIGN STRATEGY, COMMUNITY MANAGEMENT, CONTENT CREATION, 
+               COPYWRITING, CREATIVE DIRECTION, GRAPHIC DESIGN, ILLUSTRATION, 
+               MERCH DESIGN, OUT OF HOME ADVERTISING, PACKAGING, PHOTOGRAPHY, 
+               PRINT DESIGN, SOCIAL MEDIA MANAGEMENT, SOCIAL STRATEGY, VISUAL IDENTITY, 
+               VISUAL PRODUCTION, WEB DESIGN & DEVELOPMENT</h4>
+            </div>
          </section>
          <!-- DECK -->
          <section id="deck" class="col center justify-center overflow-hidden">
@@ -146,7 +174,7 @@
                   </button>
                </form>
             </div>
-            <div class="max-600 col gap">
+            <div class="w-50 col gap">
                <h4 class="self-start desc">We are a creative house 
                   and digital delve passionately dedicated to crafting unforgettable 
                   moments through visual narratives that evoke deep feelings. We thrive 
@@ -167,10 +195,12 @@
             </div>
          </div>
          <div id="foot" class="col center gap">
-            <img src="./public/logotype-black.svg" alt="logo" class="vw-100 w">
-            <h4>[  © 2024 DUFORN. All rights reserved  ]</h4>
-         </div>
+             <img src="./public/logotype-black.svg" alt="logo" class="vw-100 w">
+             <h4>[  © 2024 DUFORN. All rights reserved  ]</h4>
+          </div>
       </section>
+
+
       <script type="module" src="./script.js"></script>
       <script type="module" src="./logo-3d.js"></script>
    </body>
