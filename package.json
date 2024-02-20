@@ -17,6 +17,8 @@
   },
   "dependencies": {
     "@barba/core": "^2.9.7",
+    "gsap": "^3.12.5",
+    "split-type": "^0.3.4",
     "three": "^0.161.0"
   }
 }

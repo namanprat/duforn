@@ -67,7 +67,6 @@
 
 #about-desc h1 {
 	text-align: right;
-	font-size: var(--xl);
 	line-height: 0.9;
 	padding-top: 20px;
 }
@@ -128,19 +127,12 @@
 	padding: 1.618rem;
 }
 #work {
-	padding: 10vh 0;
+	/* padding: 10vh 0; */
 	height: 100vh;
+	width: 400vw;
 	background-color: var(--black);
 	/* background-color: red; */
 
-}
-
-#work h1 {
-	white-space: nowrap;
-	mix-blend-mode: difference;
-	color: var(--diff);
-	font-size: var(--xl);
-	margin-bottom: 10vh;
 }
 
 .project {

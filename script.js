@@ -1,4 +1,8 @@
 import barba from '@barba/core';
+import gsap from "gsap";
+import ScrollTrigger from "gsap/ScrollTrigger";
+import SplitType from 'split-type'
+
 
 var getTime = function() {
     document.getElementById("time").innerHTML = new Date().toLocaleString("en-IN", {
@@ -15,10 +19,10 @@ function magnet() {
     magnets.forEach((magnet) => {
         magnet.addEventListener('mousemove', moveMagnet);
         magnet.addEventListener('mouseout', function(event) {
-            TweenMax.to(event.currentTarget, 1, {
+            gsap.to(event.currentTarget, 1, {
                 x: 0,
                 y: 0,
-                ease: Power4.easeOut
+                ease: "power4.inOut",
             })
         });
     });
@@ -27,16 +31,16 @@ function magnet() {
         var magnetButton = event.currentTarget
         var bounding = magnetButton.getBoundingClientRect()
 
-        TweenMax.to(magnetButton, 1, {
+        gsap.to(magnetButton, 1, {
             x: (((event.clientX - bounding.left) / magnetButton.offsetWidth) - 0.5) * strength,
             y: (((event.clientY - bounding.top) / magnetButton.offsetHeight) - 0.5) * strength,
-            ease: Power4.easeOut
+            ease: "power4.inOut",
         })
     };
 }
 
 function valueSet() {
-    gsap.set("#overlay-bg", {
+    gsap.set("#overlay", {
         autoAlpha: 0,
     });
     gsap.set("#divider", {
@@ -85,29 +89,6 @@ function loader() {
             })
     })
 }
-function logoToNav() {
-    gsap.set("#home", {
-        //y: "65vh",
-        //width: "100vw",
-        //scale: 10,
-        //yPercent: 20,
-    });
-    gsap.to("#home", {
-        y: 0,
-        //transformOrigin: "top",
-        //width: "clamp(4.21rem, 13.78vw + 0.76rem, 13.17rem)",
-        //yPercent: 0,
-        ease: "power4.inOut",
-         scrollTrigger: {
-            trigger: "#hero",
-            start: "top bottom",
-            end: "top",
-            endTrigger: "#about",
-             scrub: true,
-             markers: true,
-         },
-    });
-}
 function transition() {
     var tl = gsap.timeline();
     tl.to("#bar", {
@@ -137,7 +118,7 @@ function overlayAnimation() {
             x: "-100%",
             stagger: 0.07,
             autoAlpha: 0
-        }, "<").to("#overlay-bg", {
+        }, "<").to("#overlay", {
             ease: "power4.inOut",
             duration: 0.75,
             autoAlpha: 1
@@ -204,7 +185,7 @@ function textReveal() {
                 //  markers: true,
             },
             delay: 1,
-            opacity: 0.2,
+            opacity: 0.1,
             stagger: 1,
         })
     })
@@ -282,14 +263,12 @@ barba.init({
             textReveal(); //text reveal, added this to reset the state on other page load
             lineReveal(); //Reveals div borders scrollTrigger, added to reset state
             buttonAnimation();
-            logoToNav();
 
         },
         async leave(data) {
             console.log("leave");
             const done = this.async();
             transition(); //animation between pages
-            logoToNav();
             window.scrollTo(0, 0); //doesn't seem to work
             console.log("scroll q")
             await delay(2000);
@@ -323,7 +302,6 @@ gsap.config({
     nullTargetWarn: false
 });
 
-logoToNav();
 valueSet();
 textReveal();
 buttonAnimation();
