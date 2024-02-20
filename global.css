@@ -13,17 +13,17 @@
 :root {
 	--title: "cooper-hewitt";
 	--text: "jet-mono";
-	--p: clamp(1rem, 0.1vw + 0.97rem, 1.06rem);
+	/* --p: clamp(1rem, 0.1vw + 0.97rem, 1.06rem); */
+	--p: 0.97rem;
 	--h4: clamp(1rem, 0.1vw + 0.97rem, 1.33rem);
 	--h3: clamp(1.78rem, 1.58vw + 1.36rem, 2.78rem);
 	--h2: clamp(2.37rem, 4.09vw + 1.34rem, 5.03rem);
 	--h1-5: clamp(2.7rem, 5.51vw + 1.36rem, 6.32rem);
 	--h1: clamp(4.21rem, 13.78vw + 0.76rem, 13.17rem);
 
-	--logo: clamp(3.16rem, 7.66vw + 1.24rem, 8.14rem);
+	--logo: clamp(2.2rem, 3.7vw + 1rem, 4.5rem);
 	/* --xl: clamp(4.21rem, 13.78vw + 0.76rem, 13.17rem); */
-	/* --xl: clamp(3.68rem, 10.72vw + 1rem, 10.65rem); */
-	--xl: ;
+	--xl: clamp(3.68rem, 10.72vw + 1rem, 10.65rem);
   --gap: clamp(1.33rem, 0.91vw + 1.11rem, 1.92rem);
 --gap-2: clamp(2.37rem, 4.09vw + 1.34rem, 5.03rem);
 	--xxl: clamp(6rem, 25vw + -0.43rem, 50rem);
@@ -236,8 +236,9 @@ h0 {
 h1 {
 	text-transform: uppercase;
 	font-size: var(--h1);
+	line-height: var(--h1);
 	font-family: var(--title);
-	letter-spacing: -13px;
+	letter-spacing: -5px;
 
 }
 
@@ -266,6 +267,7 @@ h4 {
 }
 
 * {
+	font-size: var(--p);
 	letter-spacing: -1px;
 	text-transform: uppercase;
 	-webkit-font-smoothing: antialiased;
@@ -388,9 +390,12 @@ textarea {
 	width: 100vw;
 	backdrop-filter: blur(15px);
 	-webkit-backdrop-filter: blur(15px);
-	background-color: #000000d0;
+	background-color: #000000de;
 	color: var(--white) !important;
 	z-index: 4;
+}
+#menu-cluster {
+	padding-top: clamp(1rem, 0.1vw + 0.97rem, 1.06rem);
 }
 #overlay a {
 	text-decoration: none;
@@ -405,7 +410,7 @@ textarea {
 	mix-blend-mode: normal;
 }
 .menu {
-	height: 5vh;
+	height: 6vh;
 }
 .menu a {
 	margin: auto 0;
@@ -415,10 +420,11 @@ textarea {
 	border-bottom: 1px solid var(--white);
 }
 #socials {
-	margin-top: 7vh;
+	/* margin-top: 6vh; */
 }
 #overlay-bottom {
-padding-bottom: var(--uni);}
+	padding-bottom: 0.5rem;
+}
 nav {
 	/* background-color: red; */
 	width: 100%;
@@ -430,19 +436,18 @@ nav {
 	padding: 1.618rem;
 }
 #home {
-	height: 100%;
+	mix-blend-mode: difference;
 	z-index: 5;
 	position: absolute;
 	margin-left: auto;
 	margin-right: auto;
 	left: 0;
 	right: 0;
-	width: var(--h1);
-	height: auto;
+	height: var(--logo);
 	aspect-ratio: 3/1;
 }
 #logo {
-	background-color: blue;
+	mix-blend-mode: difference;
 	width: 100%;
 	height: 100%;
 }

@@ -2,6 +2,17 @@ import barba from '@barba/core';
 import gsap from "gsap";
 import ScrollTrigger from "gsap/ScrollTrigger";
 import SplitType from 'split-type'
+import Swiper from 'swiper';
+import 'swiper/css';
+
+
+var swiper = new Swiper(".swiper", {
+    direction: "vertical",
+    slidesPerView: 1,
+    spaceBetween: 0,
+    mousewheel: true,
+  });
+
 
 
 var getTime = function() {
@@ -74,14 +85,14 @@ function loader() {
         })
         var tl = gsap.timeline();
         tl.from(text.chars, {
-                y: "-100",
+                y: "-100%",
                 ease: "power4.inOut",
                 duration: 2,
                 //  opacity: 0,
                 stagger: 0.1,
             })
             .to(text.chars, {
-                y: "100",
+                y: "100%",
                 ease: "power4.inOut",
                 duration: 2,
                 //  opacity: 0,
@@ -112,13 +123,19 @@ function overlayAnimation() {
         paused: true,
         reversed: true
     });
-    tl.to("#nav-cluster a", {
+    tl.to("#home", {
+        autoAlpha: 0,
+        duration: 1,
+        ease: "power4.inOut",
+    },"<")
+    .to("#nav-cluster a", {
             ease: "power4.inOut",
             duration: 1,
             x: "-100%",
             stagger: 0.07,
             autoAlpha: 0
-        }, "<").to("#overlay", {
+        }, "<")
+        .to("#overlay", {
             ease: "power4.inOut",
             duration: 0.75,
             autoAlpha: 1
@@ -258,6 +275,7 @@ barba.init({
     transitions: [{
         once(data) {
             console.log("once");
+            
             loader(); //Initial page load, plays one time when user visits website
             navScroll(); //Hides elements of the navbar on scroll
             textReveal(); //text reveal, added this to reset the state on other page load

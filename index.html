@@ -24,6 +24,7 @@
       <!-- OVERLAY -->
       <div id="overlay" class="col space-bw">
         <div id="menu-cluster" class="width-100">
+
            <div id="seperator"></div>
            <div class="menu flex self-center">
               <a href="./work.html" class="w">WORK</a>
@@ -48,9 +49,10 @@
               <a href="https://instagram.com/namanprat_" target="_blank">linkedin</a>
            </div>
         </div>
-        <div id="overlay-bottom" class="col center gap">
-           <img src="./public/logotype-hindi-white.svg" alt="logo" class="vw-100 w">
-        </div>
+        <a id="overlay-bottom" class="col center gap menu-open">
+           <img src="./public/logotype-white.svg" alt="logo" class="vw-100 w">
+           <h4>[  © 2024 DUFORN. All rights reserved  ]</h4>
+        </a>
      </div>
      <!-- nav -->
      <nav class="flex space-bw center space-bw">
@@ -79,7 +81,7 @@
            </h4>
         </div>
         <a id="home" class="overflow-hidden" href="./index.html">
-           <canvas id="logo" ></canvas>
+            <img id="logo" src="./public/logotype-white.svg">
         </a>
      </nav>
       <main data-barba="container" data-barba-namespace="home">
@@ -116,7 +118,7 @@
                      <h1>ONLY THAT SLAPS</h1>
                   </div>
                </div>
-                <div class="max-600 col self-center center gap">
+<div class="max-600 col self-center center gap">
                   <h4 text-split>DUFORN IS AN INDEPENDENT CREATIVE STUDIO THAT IS DEDICATED TO CRAFTING 
                     UNFORGETTABLE DIGITAL EXPERIENCES BY DEVELOPING SOLUTIONS BASED ON DESIGN AND INSIGHTS.</h4>
                   <a class="magnetic" href="./about.html">
@@ -137,22 +139,21 @@
          <!-- WORK -->
 
          <!-- HORIZONTAL SCROLL!!!! -->
-         <section id="work" class="">
-            <div class="slider">
-                <project class="sage">
-                    <img>
-                    <h1>SAGE</h1>
-                </project>
-                <project class="moneyme">
-                    <img>
-                    <h1>MONEY.ME</h1>
-                </project>
-                <project class="aspen">
-                    <img>
-                    <h1>ASPEN</h1>
-                </project>
+         <section id="project-parent" class="width-100">
+         <div class="project-sticky">
+            <div id="scroll-section" class="row">
+            <div id="project" class="sage">
+                <img src="./public/sage.png">
             </div>
-         </section>
+                <div id="project" class="moneyme">
+                    <img src="./public/moneyme.png">
+                </div>
+                <div id="project" class="aspen">
+                    <img src="./public/aspen.png">
+                </div>
+            </div>
+            </div>
+        </section>
       </main>
       <!-- CONTACT -->
       <section id="contact" class="col center space-bw w">
@@ -201,5 +202,6 @@
      </section>
       <script type="module" src="./script.js"></script>
       <script type="module" src="./logo-3d.js"></script>
+
    </body>
 </html>

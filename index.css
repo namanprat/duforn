@@ -23,6 +23,13 @@
 	padding-top: 10vh;
 	height: 100vh;
 }
+.swiper {
+	position: sticky;
+	top: 0;
+	width: 100vw;
+	height: 100vh;
+	/* background-color: red;  */
+  }
 #contact svg,
 #about-2 svg {
 	/* background-color: red; */
@@ -60,17 +67,11 @@
 #about-header {
 	overflow: hidden;
 }
-#zoom-in {
-	align-self: flex-start;
-	margin-top: var(--h3);
-}
-
 #about-desc h1 {
 	text-align: right;
 	line-height: 0.9;
 	padding-top: 20px;
 }
-
 #mid {
 	position: relative;
 	bottom: 20px;
@@ -111,63 +112,38 @@
 .elem-4 {
 	left: 10%;
 }
-
-#category {
-	text-align: center;
-	font-weight: 700;
-	font-size: var(--h3);
-	display: flex;
-	align-items: center;
-	color: var(--black);
-	border-radius: 3rem;
-	background-color: var(--white);
-	border: 2px solid var(--black);
-	width: fit-content;
-	height: min-content;
-	padding: 1.618rem;
+.sticky-parent {
+	height: 300vh;
 }
-#work {
-	/* padding: 10vh 0; */
+.project-sticky {
+	overflow: hidden;
+	position: sticky;
+	top: 0;
 	height: 100vh;
-	width: 400vw;
-	background-color: var(--black);
-	/* background-color: red; */
+	/* flex-wrap: nowrap; */
 
 }
-
-.project {
-	/* height: clamp(7.48rem, 41.53vw + -2.9rem, 11.17rem); */
-	height: clamp(4.21rem, 13.78vw + 0.76rem, 5.03rem);
-	width: 100%;
-	transition: 0.2s ease-in-out;
+#scroll-section {
+	position: absolute;
+	top: 0;
+	height: 100%;
+	width: 300vw;
+	will-change: transform;
 }
-.project:hover {
-	transition: 0.2s ease-in-out;
-	/* height: fit-content; */
-	background-color: var(--white);
+#project {
+	width: 100vw;
+	background-color: red;
 }
-.project img {
-	display: none;
-	width: 10vh;
-	transition: 0.2s ease-in-out;
-}
-.project:hover img {
-	display: block;
-}
-.project * {
-	color: var(--white);
-}
-.project:hover * {
-	color: var(--black);
-}
-.project span {
-	font-size: var(--h2);
+#project img {
+	position: absolute;
+	object-fit: cover;
+	object-position: center;
+	width: 100vw;
 }
 #divider {
 	height: 1px;
 	background-color: var(--white);
 }
-
 @media only screen and (max-width: 768px) {
 	#zoom-in,
 	.description {
