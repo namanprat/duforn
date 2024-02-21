@@ -2,18 +2,18 @@ import barba from '@barba/core';
 import gsap from "gsap";
 import ScrollTrigger from "gsap/ScrollTrigger";
 import SplitType from 'split-type'
-import Swiper from 'swiper';
-import 'swiper/css';
+import Lenis from '@studio-freight/lenis'
 
 
-var swiper = new Swiper(".swiper", {
-    direction: "vertical",
-    slidesPerView: 1,
-    spaceBetween: 0,
-    mousewheel: true,
-  });
+const lenis = new Lenis()
 
+lenis.on('scroll', ScrollTrigger.update)
 
+gsap.ticker.add((time)=>{
+  lenis.raf(time * 1000)
+})
+
+gsap.ticker.lagSmoothing(0)
 
 var getTime = function() {
     document.getElementById("time").innerHTML = new Date().toLocaleString("en-IN", {
@@ -201,9 +201,8 @@ function textReveal() {
                 scrub: true,
                 //  markers: true,
             },
-            delay: 1,
-            opacity: 0.1,
-            stagger: 1,
+            opacity: 0.15,
+            stagger: 0.25,
         })
     })
 }
@@ -223,28 +222,22 @@ function lineReveal() {
 }
 
 function aboutReveal() {
-    gsap.from("#about-2 svg path", {
-        y: "105%",
-        delay: 1,
-        ease: "power4.inOut",
-        stagger: {
-            amount: 0.25
-        },
-        duration: 2,
-    });
-    const splitTypes = document.querySelectorAll("[about-split]")
+    const splitTypes = document.querySelectorAll("[header-split]")
     splitTypes.forEach((char, i) => {
         const text = new SplitType(char, {
             types: 'words'
         })
 
         gsap.from(text.words, {
-            y: "120%",
+            y: "105%",
+        delay: 0.35,
+        opacity: 0,
         ease: "power4.inOut",
-            delay: 1.75,
-            duration: 1.35,
-            opacity: 0,
-            stagger: 0.005,
+        stagger: {amount: 0.1},
+        duration: 1.75,
+        scrollTrigger: {
+            trigger: "#about",
+        }
         })
     })
 }
@@ -326,6 +319,6 @@ buttonAnimation();
 overlayAnimation();
 lineReveal();
 aboutReveal();
-magnet();
+// magnet();
 getTime();
 setInterval(getTime, 1000);
