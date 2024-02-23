@@ -2,18 +2,10 @@ import barba from '@barba/core';
 import gsap from "gsap";
 import ScrollTrigger from "gsap/ScrollTrigger";
 import SplitType from 'split-type'
-import Lenis from '@studio-freight/lenis'
+import LocomotiveScroll from 'locomotive-scroll';
 
+const locomotiveScroll = new LocomotiveScroll();
 
-const lenis = new Lenis()
-
-lenis.on('scroll', ScrollTrigger.update)
-
-gsap.ticker.add((time)=>{
-  lenis.raf(time * 1000)
-})
-
-gsap.ticker.lagSmoothing(0)
 
 var getTime = function() {
     document.getElementById("time").innerHTML = new Date().toLocaleString("en-IN", {
@@ -23,32 +15,6 @@ var getTime = function() {
     })
 };
 
-function magnet() {
-    var magnets = document.querySelectorAll('.magnetic')
-    var strength = 35
-
-    magnets.forEach((magnet) => {
-        magnet.addEventListener('mousemove', moveMagnet);
-        magnet.addEventListener('mouseout', function(event) {
-            gsap.to(event.currentTarget, 1, {
-                x: 0,
-                y: 0,
-                ease: "power4.inOut",
-            })
-        });
-    });
-
-    function moveMagnet(event) {
-        var magnetButton = event.currentTarget
-        var bounding = magnetButton.getBoundingClientRect()
-
-        gsap.to(magnetButton, 1, {
-            x: (((event.clientX - bounding.left) / magnetButton.offsetWidth) - 0.5) * strength,
-            y: (((event.clientY - bounding.top) / magnetButton.offsetHeight) - 0.5) * strength,
-            ease: "power4.inOut",
-        })
-    };
-}
 
 function valueSet() {
     gsap.set("#overlay", {
@@ -147,10 +113,10 @@ function overlayAnimation() {
             width: "100%",
         }, "<");
 
-    Array.from(document.querySelectorAll(".menu-close, .menu-open")).forEach(e => e.addEventListener("click", function() {
-        tl.reversed() ? tl.play() : tl.reverse()
-    }))
-};
+        Array.from(document.querySelectorAll(".menu-close, .menu-open")).forEach(e => e.addEventListener("click", function() {
+            tl.reversed() ? tl.play() : tl.reverse()
+        }))
+    };
 
 function buttonAnimation() {
     overlayAnimation();
@@ -164,7 +130,7 @@ function buttonAnimation() {
         // hamburger.classList.toggle("active");
         tl.reversed(!tl.reversed())
     }
-}
+};
 
 function navScroll() {
     let mm = gsap.matchMedia();
@@ -202,16 +168,16 @@ function textReveal() {
                 //  markers: true,
             },
             opacity: 0.15,
-            stagger: 0.25,
+            stagger: 0.7,
         })
     })
 }
 
 function lineReveal() {
     gsap.to("#divider", {
-        duration: 2.25,
+        duration: 2,
         ease: "power4.inOut",
-        stagger: 0.065,
+        stagger: 0.075,
         width: "100%",
         scrollTrigger: {
             trigger: ".divider",
@@ -250,63 +216,60 @@ function delay(n) {
         }, n);
     });
 };
-function contactReveal() {
-    gsap.from("#foot svg path", {
-        y: "105%",
-        ease: "power4.inOut",
-        stagger: {
-            amount: 0.25
-        },
-        duration: 2,
-        scrollTrigger: {
-            // markers: true,
-        }
-    });
-}
+
 barba.init({
-    sync: true,
+    // sync: true,
     transitions: [{
         once(data) {
             console.log("once");
-            
-            loader(); //Initial page load, plays one time when user visits website
             navScroll(); //Hides elements of the navbar on scroll
             textReveal(); //text reveal, added this to reset the state on other page load
             lineReveal(); //Reveals div borders scrollTrigger, added to reset state
             buttonAnimation();
-
         },
+
         async leave(data) {
             console.log("leave");
             const done = this.async();
             transition(); //animation between pages
-            window.scrollTo(0, 0); //doesn't seem to work
-            console.log("scroll q")
-            await delay(2000);
+            await delay(2500);
             done();
         },
-        async enter(data) {
-            textReveal();
-            aboutReveal();
-            navScroll();
-            contactReveal();
-
-        },
         async after(data) {
-            console.log("after");
-            navScroll();
-            textReveal();
-            valueSet();
-            lineReveal();
-            contactReveal();
-        },
-        async beforeLeave(data) {
-            //window.scrollTo(0, 0); //doesn't seem to work
-            //console.log("scroll 0")
-        },
+        console.log("after");
+             navScroll();
+             textReveal();
+             lineReveal();
+         },
     }, ],
 })
+barba.hooks.once((data) => {
+    loader(); //Initial page load, plays one time when user visits website
+  });
+  barba.hooks.enter((data) => {
 
+  });
+barba.hooks.beforeEnter((data) => {
+    console.log("beforeEnter");
+    valueSet();
+    console.log("Reset values");
+    window.scrollTo(0, 0); 
+    console.log("scroll 0");
+
+    buttonAnimation();
+  });
+
+  barba.hooks.afterEnter(function() {
+    console.log("afterEnter");
+    navScroll(); //Hides elements of the navbar on scroll
+    textReveal(); //text reveal, added this to reset the state on other page load
+    lineReveal(); //Reveals div borders scrollTrigger, added to reset state
+    // buttonAnimation();
+  });
+//   barba.hooks.leave((data) => {
+//     transition();
+//     console.log("beforeLeave");
+//   });
 
 gsap.registerPlugin(ScrollTrigger);
 gsap.config({

@@ -7,12 +7,13 @@
     <link rel="stylesheet" href="./global.css" type="text/css">
     <link rel="stylesheet" href="./index.css" type="text/css">
   </head>
-  <body data-barba="wrapper">
-    <div class="loader flex justify-center no-select">
+  <body data-barba="wrapper" class="noise">
+    <!-- <div class="loader flex justify-center no-select">
       <div class="self-center overflow-hidden">
         <h1>DUFORN</h1>
       </div>
-    </div>
+    </div> -->
+
     <div class="transition row no-select">
       <div id="bar"></div>
       <div id="bar"></div>
@@ -21,6 +22,7 @@
       <div id="bar"></div>
       <div id="bar"></div>
     </div>
+
     <!-- OVERLAY -->
     <div id="overlay" class="col space-bw">
       <div id="menu-cluster" class="width-100">
@@ -49,39 +51,30 @@
           </div>
       </div>
       <a id="overlay-bottom" class="col center gap menu-open">
-        <img src="./public/logotype-hindi-white.svg" alt="logo" class="vw-100 w">
+        <img src="./public/logotype-white.svg" alt="logo" class="vw-100 w">
         <h4>[ © 2024 DUFORN. All rights reserved ]</h4>
       </a>
     </div>
+    <div data-barba="container" data-barba-namespace="home">
+
     <!-- nav -->
     <nav class="flex space-bw center space-bw">
       <div id="nav-cluster" class="row space-bw">
-        <button type="button" id="menu" class="magnetic pill menu-open">
-          <h4>MENU</h4>
-        </button>
-        <a class="magnetic" href="./about.html">
-          <button type="button" class= "pill">
-            <h4>ABOUT</h4>
-          </button>
-        </a>
-        <a class="magnetic" href="./work.html">
-          <button type="button" class= "pill">
-            <h4>WORK</h4>
-          </button>
-        </a>
+        <button id="menu" class="pill menu-open">MENU</button>
+        <a href="./about.html" class= "pill">ABOUT</a>
+        <a class= "pill" href="./work.html">WORK</a>
       </div>
-      <div class="magnetic">
-        <h4 id="time" class="pointer-none pill"></h4>
-      </div>
-      <a id="home" class="overflow-hidden" href="./index.html">
+      <h4 id="time" class="pointer-none pill"></h4>
+      <!-- <a id="home" class="overflow-hidden" href="./index.html">
         <img id="logo" src="./public/logotype-white.svg">
-      </a>
+      </a> -->
     </nav>
-    <main data-barba="container" data-barba-namespace="home" class="noise">
+    
+    <main>
       <!-- HERO -->
-      <section id="hero" class="col space-even overflow-hidden">
+      <section id="hero" class="flex end">
           <!-- <div class="hero-3d"><canvas id="logo" ></canvas></div>                 -->
-          <div class="vw-100 flex justify-center">
+          <div id="intro-logo" class="vw-100 self-end">
             <svg width="1280" height="296" viewBox="0 0 1280 296" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M208.216 155.685C208.216 254.506 172.66 291.107 87.6173 291.107H0.00878906V5.62289H87.6173C172.66 5.62289 208.216 42.2234 208.216 141.045V155.685ZM59.392 239.866H84.3182C133.804 239.866 147.734 212.782 147.734 155.685V141.045C147.734 83.9479 133.804 56.8636 84.3182 56.8636H59.392V239.866Z" fill="#FFFFFF" />
               <path d="M325.548 295.865C247.837 295.865 222.91 262.924 222.91 200.704V5.62289H282.294V198.874C282.294 229.252 291.824 244.624 325.548 244.624C359.272 244.624 369.169 229.252 369.169 198.874V5.62289H428.552V200.704C428.552 262.924 403.259 295.865 325.548 295.865Z" fill="#FFFFFF" />
@@ -94,81 +87,61 @@
       </section>
       <!-- ABOUT -->
       <section id="about" class="center">
-        <div id="about-desc" class="col w-1">
-          <div class="self-center overflow-hidden">
-            <h1 header-split class="overflow-hidden">we are an indian creative house</h1>
+        <div id="about-desc" class="col center w">
+          <div class="col center gap">
+            <div class="overflow-hidden"><h1 header-split>we are an indian creative house</h1></div>
+          <h3>[ dedicated to crafting unforgettable experiences. ]</h3>
           </div>
-          <div class="w-50 col self-end">
-            <h4 text-split class="">dedicated to crafting breathtaking design solutions that evoke deep feelings to ensure our clients stand out. We thrive on challenging the predictable, pushing boundaries, and questioning established rules. Our unified drive spans disciplines, tailoring designs to exceed expecations.</h4>
-            <a class="magnetic self-end" href="./about.html">
-              <button class="link">
-                <h4>LEARN MORE</h4>
-              </button>
-            </a>
+
+          <div class="col w-50 w">
+            <h4 text-split>dedicated to crafting breathtaking design solutions that evoke deep feelings to ensure our clients stand out. We thrive on challenging the predictable, pushing boundaries, and questioning established rules. Our unified drive spans disciplines, tailoring designs to exceed expecations.</h4>
+            <a class="link" href="./about.html">LEARN MORE</a>
           </div>
         </div>
       </section>
       <!-- WORK -->
         <section id="project-wrapper" class="col gap w is-white">
             <h4 class="link">featured work</h4>
-            <a id="project" class="sage">
-                <div class="project-img"></div>
-                <div id="project-desc" class="w">
-                    <div class="col center width-100">
-                        <span id="project-attr" class="strip-top strip-bottom end">sage</span>
-                        <div class="row strip-bottom  width-100">
-                <h3 id="project-attr" class="strip-right accent">2022</h3>
-                <h3 id="project-attr" class="self-center accent">1/4</h3>
-                        </div>
-                        <ul id="project-attr" class="col self-start">
+            <div id="project-row" class="col gap-2 overflow-hidden center">
+
+                <a id="featured-project" class="flex overflow-hidden center w">
+                    <div class="abs-center overflow-hidden">
+                        <img loading="lazy" id="project-img" src="https://namanprat.com/images/aspen/asppen-cover.webp"  data-scroll data-scroll-speed="0.04">
+                    </div>
+                    
+                    <div id="featured-project-details" class="col center space-bw">
+                        <div id="" class="row space-bw width-100 center">
+                        <h3 id="project-year">2022</h3>
+                            <ul>
                             <li>user interface</li>
                             <li>user research</li>
                             <li>visual design</li>
-                        </ul>
-                    </div>
-                <h4 id="project-attr" class="strip-top strip-bottom">A decentralized news aggregation platform that sources news from various sources. It aims to raise awareness by providing unbiased insights for users to make an informed decision.</h4>
-                </div>
-              </a>
-
-              <a id="project" class="aspen">
-                <div id="project-desc" class="w">
-                    <div class="col center width-100">
-                        <span id="project-attr" class="strip-top strip-bottom end">ASPEN</span>
-                        <div class="row strip-bottom  width-100">
-                <h3 id="project-attr" class="strip-right accent">2022</h3>
-                <h3 id="project-attr" class="self-center accent">2/4</h3>
+                            </ul>
                         </div>
-                        <ul id="project-attr" class="col self-start">
+                        <h2>ASPEN</h2>
+                    </div>
+                </a>
+
+                <a id="featured-project" class="flex overflow-hidden center w">
+                    <div class="abs-center overflow-hidden">
+                        <img loading="lazy" id="project-img" src="https://namanprat.com/images/sage/sage-cover.webp"  data-scroll data-scroll-speed="0.04">
+                    </div>
+                    
+                    <div id="featured-project-details" class="col center space-bw">
+                        <div id="" class="row space-bw width-100 center">
+                        <h3 id="project-year">2022</h3>
+                            <ul>
                             <li>user interface</li>
                             <li>user research</li>
                             <li>visual design</li>
-                        </ul>
+                            </ul>
+                        </div>
+                        <h2>ASPEN</h2>
                     </div>
-                <h4 id="project-attr" class="strip-top strip-bottom">A decentralized news aggregation platform that sources news from various sources. It aims to raise awareness by providing unbiased insights for users to make an informed decision.</h4>
-                </div>
-                <div class="project-img"></div>
+                </a>
 
-              </a>
-              <a id="project" class="aspen-2">
-                <div id="project-desc" class="">
-                    <div class="col self-start min-content">
-                        <h1>ASPEN</h1>
-                <h3>2022</h3>
-                    </div>
 
-                <h4 class="max-600 self-start">A decentralized news aggregation platform that sources news from various sources. It aims to raise awareness by providing unbiased insights for users to make an informed decision</h4>
-                </div>
-              </a>
-              <a id="project" class="sage-2">
-                <div id="project-desc" class="">
-                    <div class="col self-start min-content">
-                        <h1>SAGE</h1>
-                <h3>2023</h3>
-                    </div>
-
-                <h4 class="max-600 self-start">A decentralized news aggregation platform that sources news from various sources. It aims to raise awareness by providing unbiased insights for users to make an informed decision.</h4>
-                </div>
-              </a>
+            </div>
             </section>
     </main>
     <!-- CONTACT -->
@@ -187,10 +160,12 @@
             </div>
           </div>
         <div id="footer-bottom" class="col center width-100">
-            <img src="./public/logotype-white.svg" alt="logo" class="width-100">
+          <a href="./index.html" class="width-100"><img src="./public/logotype-white.svg" alt="logo" class="width-100">
+          </a>
         <h4>[ © 2024 All rights reserved ]</h4>
         </div>
     </section>
+    </div>
     <script type="module" src="./script.js"></script>
     <script type="module" src="./logo-3d.js"></script>
   </body>
