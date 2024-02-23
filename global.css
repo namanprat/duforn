@@ -416,7 +416,7 @@ section {
 	border-bottom: 1px solid var(--white);
 }
 #socials {
-	margin-top: 6vh;
+	/* margin-top: 6vh; */
 }
 #overlay-bottom {
 	padding-bottom: 0.5rem;
