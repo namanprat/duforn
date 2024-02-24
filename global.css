@@ -349,9 +349,6 @@ section {
 
 .menu:hover {
 	background-color: var(--white);
-}
-
-.menu:hover a{
   color: var(--black)!important;
 }
 #footer-bottom {
