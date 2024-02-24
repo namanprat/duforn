@@ -266,10 +266,6 @@ barba.hooks.beforeEnter((data) => {
     lineReveal(); //Reveals div borders scrollTrigger, added to reset state
     // buttonAnimation();
   });
-//   barba.hooks.leave((data) => {
-//     transition();
-//     console.log("beforeLeave");
-//   });
 
 gsap.registerPlugin(ScrollTrigger);
 gsap.config({
@@ -282,6 +278,5 @@ buttonAnimation();
 overlayAnimation();
 lineReveal();
 aboutReveal();
-// magnet();
 getTime();
 setInterval(getTime, 1000);
