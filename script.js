@@ -255,12 +255,12 @@ barba.hooks.beforeEnter((data) => {
     console.log("Reset values");
     window.scrollTo(0, 0); 
     console.log("scroll 0");
-
     buttonAnimation();
   });
 
   barba.hooks.afterEnter(function() {
     console.log("afterEnter");
+    aboutReveal();
     navScroll(); //Hides elements of the navbar on scroll
     textReveal(); //text reveal, added this to reset the state on other page load
     lineReveal(); //Reveals div borders scrollTrigger, added to reset state
