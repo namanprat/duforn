@@ -58,12 +58,24 @@ function loader() {
                 stagger: 0.1,
             })
             .to(text.chars, {
+                opacity: 0,
                 y: "100%",
-                ease: "power4.inOut",
-                duration: 2,
-                //  opacity: 0,
-                stagger: 0.1
+                // ease: "power4.inOut",
+                // duration: 2,
+                // stagger: 0.1
             })
+    })
+}
+function introReveal() {
+    var tl = gsap.timeline();
+    tl
+    .from("#intro-logo svg path", {
+        ease: "power4.inOut",
+        y: "100%",
+        delay: 0.25,
+        duration: 2,
+        opacity: 0,
+        stagger: 0.1
     })
 }
 function transition() {
@@ -222,6 +234,7 @@ barba.init({
     transitions: [{
         once(data) {
             console.log("once");
+            introReveal();
             navScroll(); //Hides elements of the navbar on scroll
             textReveal(); //text reveal, added this to reset the state on other page load
             lineReveal(); //Reveals div borders scrollTrigger, added to reset state
@@ -250,8 +263,10 @@ barba.hooks.once((data) => {
 
   });
 barba.hooks.beforeEnter((data) => {
+    textReveal();
     console.log("beforeEnter");
     valueSet();
+    introReveal();
     console.log("Reset values");
     window.scrollTo(0, 0); 
     console.log("scroll 0");
@@ -273,6 +288,7 @@ gsap.config({
 });
 
 valueSet();
+textReveal();
 textReveal();
 buttonAnimation();
 overlayAnimation();
