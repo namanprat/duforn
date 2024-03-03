@@ -60,9 +60,6 @@ function loader() {
             .to(text.chars, {
                 opacity: 0,
                 y: "100%",
-                // ease: "power4.inOut",
-                // duration: 2,
-                // stagger: 0.1
             })
     })
 }
@@ -180,7 +177,7 @@ function textReveal() {
                 //  markers: true,
             },
             opacity: 0.15,
-            stagger: 0.7,
+            stagger: 1,
         })
     })
 }
@@ -208,10 +205,10 @@ function aboutReveal() {
 
         gsap.from(text.words, {
             y: "105%",
-        delay: 0.35,
+        delay: 0.3,
         opacity: 0,
         ease: "power4.inOut",
-        stagger: {amount: 0.1},
+        stagger: {amount: 0.2},
         duration: 1.75,
         scrollTrigger: {
             trigger: "#about",
@@ -234,7 +231,6 @@ barba.init({
     transitions: [{
         once(data) {
             console.log("once");
-            introReveal();
             navScroll(); //Hides elements of the navbar on scroll
             textReveal(); //text reveal, added this to reset the state on other page load
             lineReveal(); //Reveals div borders scrollTrigger, added to reset state
@@ -250,6 +246,7 @@ barba.init({
         },
         async after(data) {
         console.log("after");
+
              navScroll();
              textReveal();
              lineReveal();
@@ -257,12 +254,14 @@ barba.init({
     }, ],
 })
 barba.hooks.once((data) => {
-    loader(); //Initial page load, plays one time when user visits website
+    loader();
+    introReveal(); //Initial page load, plays one time when user visits website
   });
   barba.hooks.enter((data) => {
 
   });
 barba.hooks.beforeEnter((data) => {
+    aboutReveal();
     textReveal();
     console.log("beforeEnter");
     valueSet();
@@ -275,7 +274,6 @@ barba.hooks.beforeEnter((data) => {
 
   barba.hooks.afterEnter(function() {
     console.log("afterEnter");
-    aboutReveal();
     navScroll(); //Hides elements of the navbar on scroll
     textReveal(); //text reveal, added this to reset the state on other page load
     lineReveal(); //Reveals div borders scrollTrigger, added to reset state
@@ -289,10 +287,9 @@ gsap.config({
 
 valueSet();
 textReveal();
-textReveal();
+aboutReveal();
 buttonAnimation();
 overlayAnimation();
 lineReveal();
-aboutReveal();
 getTime();
 setInterval(getTime, 1000);
