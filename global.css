@@ -49,7 +49,7 @@ html.lenis{height:auto}.lenis.lenis-smooth{scroll-behavior:auto}.lenis.lenis-smo
 	--black: #000;
 	--ls: -0.08em;
 	--ratio: 1.618;
-	--uni: calc(var(--ratio) * 1.3rem);
+	--uni: calc(var(--ratio) * 1rem);
 	--ratio-2: calc(var(--ratio) * var(--ratio));
 }
 .noise::before{
@@ -425,7 +425,7 @@ nav {
 	top: 0;
 	left: 0;
 	z-index: 4;
-	padding: 1.618rem;
+	padding: var(--uni);
 }
 #home {
 	mix-blend-mode: difference;
