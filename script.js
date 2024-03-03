@@ -72,7 +72,7 @@ function introReveal() {
         delay: 0.25,
         duration: 2,
         opacity: 0,
-        stagger: 0.1
+        stagger: 0.05
     })
 }
 function transition() {
@@ -261,11 +261,12 @@ barba.hooks.once((data) => {
 
   });
 barba.hooks.beforeEnter((data) => {
-    aboutReveal();
     textReveal();
     console.log("beforeEnter");
     valueSet();
     introReveal();
+aboutReveal();
+
     console.log("Reset values");
     window.scrollTo(0, 0); 
     console.log("scroll 0");
@@ -274,6 +275,7 @@ barba.hooks.beforeEnter((data) => {
 
   barba.hooks.afterEnter(function() {
     console.log("afterEnter");
+    aboutReveal();
     navScroll(); //Hides elements of the navbar on scroll
     textReveal(); //text reveal, added this to reset the state on other page load
     lineReveal(); //Reveals div borders scrollTrigger, added to reset state
@@ -287,7 +289,6 @@ gsap.config({
 
 valueSet();
 textReveal();
-aboutReveal();
 buttonAnimation();
 overlayAnimation();
 lineReveal();
