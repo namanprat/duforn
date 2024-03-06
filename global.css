@@ -528,13 +528,13 @@ flex-direction: row;
 	}
 #project-left {
 height: 100vh;
-width: 40%;
+/* width: 40%; */
 /* width: fit-content; */
 position: sticky;
 top: 0;
 }
 #img-row {
-	margin-top: 10vh;
+	margin-top: 7.5vh;
 	width: 100%;
 }
 #project-img-2 {
