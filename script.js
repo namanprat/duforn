@@ -246,6 +246,7 @@ barba.init({
         },
         async after(data) {
         console.log("after");
+    aboutReveal();
 
              navScroll();
              textReveal();
@@ -258,6 +259,8 @@ barba.hooks.once((data) => {
     introReveal(); //Initial page load, plays one time when user visits website
   });
   barba.hooks.enter((data) => {
+    // aboutReveal();
+
 
   });
 barba.hooks.beforeEnter((data) => {

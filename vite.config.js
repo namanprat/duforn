@@ -10,6 +10,8 @@ export default defineConfig({
                 main: resolve(__dirname,'index.html'),
                 about: resolve(__dirname,'about.html'),
                 work: resolve(__dirname,'work.html'),
+                project: resolve(__dirname,'project.html'),
+
 
         },
     },
