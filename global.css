@@ -44,7 +44,7 @@ html.lenis{height:auto}.lenis.lenis-smooth{scroll-behavior:auto}.lenis.lenis-smo
 --font-size-f: clamp(31.47rem, 539.69vw + -103.45rem, 382.27rem); */
 
 	--diff: #ffffff;
-	--accent: #D2431E;
+	--accent: #77FA11;
 	--white: #ffffff;
 	--black: #000;
 	--ls: -0.08em;
@@ -63,6 +63,10 @@ html.lenis{height:auto}.lenis.lenis-smooth{scroll-behavior:auto}.lenis.lenis-smo
     z-index: 1000;
     pointer-events: none;
     background: url('./public/noise.gif') ;
+}
+.bg-accent {
+	background-color: var(--accent)!important;
+	color: var(--black);
 }
 .accent {
 	color: var(--accent);
@@ -417,6 +421,7 @@ section {
 	padding-bottom: 0.5rem;
 }
 nav {
+	mix-blend-mode: difference;
 	width: 100%;
 	flex-direction: row;
 	position: fixed;
@@ -446,7 +451,11 @@ nav {
 }
 
 .pill {
-	text-decoration: none!important;
+	/* background-color: transparent; */
+	/* text-decoration: underline!important; */
+	color: var(--diff);
+mix-blend-mode: difference;
+	/* text-decoration: none!important;
 	backdrop-filter: blur(15px);
 	-webkit-backdrop-filter: blur(15px);
 	border: 1px solid #ffffff4b;
@@ -456,7 +465,7 @@ nav {
 	height: 2.5rem;
 	line-height: 2.5rem;
 	width: fit-content;
-	padding: 0 1rem;
+	padding: 0 1rem; */
 }
 .link{
 	text-decoration: underline!important;
