@@ -16,6 +16,7 @@ html.lenis{height:auto}.lenis.lenis-smooth{scroll-behavior:auto}.lenis.lenis-smo
 	--text: "jet-mono";
 	/* --p: clamp(1rem, 0.1vw + 0.97rem, 1.06rem); */
 	--p: clamp(1rem, 0.1vw + 0.97rem, 1.2rem);
+	--h4: clamp(1rem, 0.29vw + 0.93rem, 1.19rem);
 	--h3: clamp(1.78rem, 1.58vw + 1.36rem, 2.78rem);
 	--h2: clamp(2.37rem, 4.09vw + 1.34rem, 5.03rem);
 	--h1-5: clamp(3.16rem, 7.66vw + 1.24rem, 8.14rem);
@@ -44,7 +45,7 @@ html.lenis{height:auto}.lenis.lenis-smooth{scroll-behavior:auto}.lenis.lenis-smo
 --font-size-f: clamp(31.47rem, 539.69vw + -103.45rem, 382.27rem); */
 
 	--diff: #ffffff;
-	--accent: #77FA11;
+	--accent: #00D116;
 	--white: #ffffff;
 	--black: #000;
 	--ls: -0.08em;
@@ -66,7 +67,7 @@ html.lenis{height:auto}.lenis.lenis-smooth{scroll-behavior:auto}.lenis.lenis-smo
 }
 .bg-accent {
 	background-color: var(--accent)!important;
-	color: var(--black);
+	color: var(--white);
 }
 .accent {
 	color: var(--accent);
@@ -269,8 +270,15 @@ h3 {
 	letter-spacing: var(--ls);
 	font-weight: 450;
 }
-p,
 h4 {
+	line-height: 1.1;
+	text-align: justify;
+	font-size: var(--h4);
+	font-family: var(--text);
+	letter-spacing: var(--ls);
+	font-weight: 400;
+}
+p {
 	text-align: justify;
 	font-size: var(--p);
 	font-family: var(--text);
@@ -305,9 +313,6 @@ html {
 }
 body {
 	height: 100%;
-	overflow: auto;
-	background: var(--white);
-	color: var(--black);
 	font-size: var(--p);
 	font-family: var(--text);
 	transition: 0.2s ease-in-out;
@@ -415,7 +420,7 @@ section {
 	border-bottom: 1px solid var(--white);
 }
 #socials {
-	/* margin-top: 6vh; */
+	margin-top: 6vh;
 }
 #overlay-bottom {
 	padding-bottom: 0.5rem;
@@ -449,7 +454,15 @@ nav {
 #nav-cluster {
 	gap: var(--p);
 }
-
+.round-top {
+	border-radius: 2rem 2rem 0 0;
+	/* overflow: hidden; */
+}
+.round-bottom {
+	padding-bottom: var(--uni);
+	border-radius: 0 0 2rem 2rem;
+	/* overflow: hidden; */
+}
 .pill {
 	/* background-color: transparent; */
 	/* text-decoration: underline!important; */
@@ -560,7 +573,10 @@ top: 0;
   }
 @media only screen and (max-width: 1440px) {
 	:root {
-		--xl: clamp(3.16rem, 7.66vw + 1.24rem, 8.14rem);
+	--h3: clamp(1.33rem, 0.91vw + 1.11rem, 1.92rem);
+
+			--xl: clamp(3.68rem, 10.72vw + 1rem, 10.65rem);
+
 	}
 }
 @media only screen and (max-width: 1024px) {
@@ -595,20 +611,19 @@ top: 0;
   rotate: -90deg;
 }
 }
-@media only screen and (max-width: 425px) {
+@media only screen and (max-width: 450px) {
   :root {
-	--ratio: 1.333;
+
   }
-  #home {
-    position: relative;
-    top: 0;
-    left: 0;
-    transform: translate(0);
-  }
-	#nav-cluster {
-		margin: auto;
-		width: 100%;
-	}
+  #hero svg {
+	width: 95vh!important;
+	position: absolute;
+	transform-origin: top left;
+	transform: rotate(-90deg) translateX(-20%);
+    text-align: left;
+	left: var(--uni);
+    bottom: 0;
+}
   #nav-cluster a{
     display: none;
   }
