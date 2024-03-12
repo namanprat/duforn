@@ -12,14 +12,46 @@
 	/* height: calc(100vh - 25vh); */
 	width: 100%;
 }
+.marquee {
+	width: 100vw;
+	/* --gap: 1rem; */
+	display: flex;
+	overflow: hidden;
+	user-select: none;
+	gap: var(--uni);
+  }
+  
+  .marquee__content {
+	flex-shrink: 0;
+	display: flex;
+	justify-content: space-around;
+	min-width: 100%;
+	gap: var(--uni);
+  }
+  @keyframes scroll {
+	from {
+	  transform: translateX(0);
+	}
+	to {
+	  transform: translateX(calc(-100% - var(--uni)));
+	}
+  }
+  .scroll {
+	animation: scroll 10s linear infinite;
+  }
 #about {
 	height: 300vh;
-	background-color: var(--white);
 }
+#about p {
+color: var(--opacity-text);
+}
+span .word{
+	/* opacity: 0.3; */
+	color: var(--black);
+
+	}
 #hero svg {
-
 	margin-top: 7vh;
-
 	/* background-color: red; */
 	height: auto;
 	width: 100%;

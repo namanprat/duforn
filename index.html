@@ -82,6 +82,19 @@
               <path d="M1280.01 5.62289V291.107H1217.33L1124.95 113.96L1126.79 171.423V291.107H1070.7V5.62289H1133.38L1225.39 182.769L1223.56 125.307V5.62289H1280.01Z" fill="#FFFFFF" />
             </svg>
           </div>
+          <div class="marquee">
+            <div class="marquee__content scroll">
+              <span>Item 1</span>
+              <span>Item 2</span>
+              <span>Item 3</span>
+            </div>
+            <!-- Mirrors the content above -->
+            <div class="marquee__content scroll" aria-hidden="true">
+              <span>Item 1</span>
+              <span>Item 2</span>
+              <span>Item 3</span>
+            </div>
+          </div>
       </section>
         <!-- ABOUT -->
       <section id="about" class="center round-top is-white">
@@ -91,8 +104,14 @@
           <h3>[ dedicated to crafting unforgettable experiences. ]</h3>
           </div>
 
-          <div class="col w-50 gap w">
-            <p text-split>dedicated to crafting breathtaking design solutions that evoke deep feelings to ensure our clients stand out. We thrive on challenging the predictable, pushing boundaries, and questioning established rules. Our unified drive spans disciplines, tailoring designs to exceed expecations.</p>
+          <div class="col w-50 gap">
+            <p>dedicated to crafting breathtaking design solutions 
+              that <span text-split>evoke deep feelings</span> to ensure our clients stand out. 
+              We thrive on<span text-split> challenging the predictable, pushing boundaries, and 
+                questioning established rules</span>. Our unified drive spans disciplines, 
+              tailoring designs to <span text-split>exceed expecations</span>.</p>
+
+            <!-- <p text-split>dedicated to crafting breathtaking design solutions that evoke deep feelings to ensure our clients stand out. We thrive on challenging the predictable, pushing boundaries, and questioning established rules. Our unified drive spans disciplines, tailoring designs to exceed expecations.</p> -->
             <a class="link self-center" href="./about.html"><h4>LEARN MORE</h4></a>
           </div>
         </div>

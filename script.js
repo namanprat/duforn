@@ -42,6 +42,7 @@ function valueSet() {
         x: 0,
         autoAlpha: 1,
     });
+
     let mm = gsap.matchMedia();
     mm.add("(max-width: 900px)", () => {
         gsap.set("#nav-cluster a", {
@@ -87,7 +88,7 @@ function introReveal() {
         delay: 0.25,
         duration: 2,
         opacity: 0,
-        stagger: 0.05
+        stagger: 0.06
     })
 }
 function transition() {
@@ -176,27 +177,50 @@ function navScroll() {
     })
 };
 
+// function textReveal() {
+//     const splitTypes = document.querySelectorAll("[text-split]")
+//     splitTypes.forEach((char, i) => {
+//         const text = new SplitType(char, {
+//             types: 'words'
+//         })
+
+//         gsap.from(text.words, {
+//             scrollTrigger: {
+//                 trigger: "#about",
+//                 start: 'top top',
+//                 end: "bottom bottom",
+//                 scrub: true,
+//                 //  markers: true,
+//             },
+//             opacity: 0.15,
+//             stagger: 1,
+//         })
+//     })
+// }
 function textReveal() {
     const splitTypes = document.querySelectorAll("[text-split]")
     splitTypes.forEach((char, i) => {
-        const text = new SplitType(char, {
-            types: 'words'
-        })
+         const text = new SplitType(char, {
+             types: 'words'
+         })
+         gsap.set(text.words, {
+        opacity: 0.3,
+         });
+    gsap.to(text.words, {
+        // duration: 2,
+        ease: "power4.inOut",
+        stagger: 0.1,
+        opacity: 1,
+        scrollTrigger: {
+            scrub: true,
+            trigger: "#about",
+            markers: true,
+            // start: 'top 90%',
 
-        gsap.from(text.words, {
-            scrollTrigger: {
-                trigger: "#about",
-                start: 'top top',
-                end: "bottom bottom",
-                scrub: true,
-                //  markers: true,
-            },
-            opacity: 0.15,
-            stagger: 1,
-        })
+        }
     })
+})
 }
-
 function lineReveal() {
     gsap.to("#divider", {
         duration: 2,
@@ -220,11 +244,11 @@ function aboutReveal() {
 
         gsap.from(text.words, {
             y: "105%",
-        delay: 0.3,
+        delay: 0.55,
         opacity: 0,
         ease: "power4.inOut",
-        stagger: {amount: 0.2},
-        duration: 1.75,
+        stagger: {amount: 0.25},
+        duration: 2,
         scrollTrigger: {
             trigger: "#about",
         }
