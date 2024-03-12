@@ -574,8 +574,7 @@ top: 0;
 @media only screen and (max-width: 1440px) {
 	:root {
 	--h3: clamp(1.33rem, 0.91vw + 1.11rem, 1.92rem);
-
-			--xl: clamp(3.68rem, 10.72vw + 1rem, 10.65rem);
+	--xl: clamp(3.68rem, 10.72vw + 1rem, 10.65rem);
 
 	}
 }
