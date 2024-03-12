@@ -13,6 +13,7 @@
 	width: 100%;
 }
 .marquee {
+	margin-top: var(--uni);
 	width: 100vw;
 	/* --gap: 1rem; */
 	display: flex;
@@ -43,11 +44,11 @@
 	height: 300vh;
 }
 #about p {
-color: var(--opacity-text);
+/* color: var(--opacity-text); */
 }
 span .word{
 	/* opacity: 0.3; */
-	color: var(--black);
+	/* color: var(--black); */
 
 	}
 #hero svg {

@@ -177,50 +177,27 @@ function navScroll() {
     })
 };
 
-// function textReveal() {
-//     const splitTypes = document.querySelectorAll("[text-split]")
-//     splitTypes.forEach((char, i) => {
-//         const text = new SplitType(char, {
-//             types: 'words'
-//         })
-
-//         gsap.from(text.words, {
-//             scrollTrigger: {
-//                 trigger: "#about",
-//                 start: 'top top',
-//                 end: "bottom bottom",
-//                 scrub: true,
-//                 //  markers: true,
-//             },
-//             opacity: 0.15,
-//             stagger: 1,
-//         })
-//     })
-// }
-function textReveal() {
-    const splitTypes = document.querySelectorAll("[text-split]")
-    splitTypes.forEach((char, i) => {
+ function textReveal() {
+     const splitTypes = document.querySelectorAll("[text-split]")
+     splitTypes.forEach((char, i) => {
          const text = new SplitType(char, {
              types: 'words'
          })
-         gsap.set(text.words, {
-        opacity: 0.3,
-         });
-    gsap.to(text.words, {
-        // duration: 2,
-        ease: "power4.inOut",
-        stagger: 0.1,
-        opacity: 1,
-        scrollTrigger: {
-            scrub: true,
-            trigger: "#about",
-            markers: true,
-            // start: 'top 90%',
 
-        }
-    })
-})
-}
+         gsap.from(text.words, {
+             scrollTrigger: {
+                 trigger: "#about",
+                 start: 'top top',
+                 end: "bottom bottom",
+                 scrub: true,
+                   markers: true,
+             },
+             opacity: 0.15,
+             stagger: 1,
+         })
+     })
+ }
+
 function lineReveal() {
     gsap.to("#divider", {
         duration: 2,
