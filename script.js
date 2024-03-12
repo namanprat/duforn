@@ -190,7 +190,7 @@ function navScroll() {
                  start: 'top top',
                  end: "bottom bottom",
                  scrub: true,
-                   markers: true,
+                //    markers: true,
              },
              opacity: 0.15,
              stagger: 1,
