@@ -632,4 +632,13 @@ top: 0;
 	#deck img {
 		rotate: -90deg;
 	}
+	#project-page {
+		flex-direction: column;
+	}
+	#project-left {
+		padding-top: 10vh;
+		height: fit-content;
+		/* position: relative; */
+		/* top: 0; */
+		}
 }
