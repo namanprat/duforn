@@ -179,7 +179,7 @@ function navScroll() {
 function blurReveal() {
     ScrollTrigger.batch(".blur", {
         trigger: "img",
-        markers: true,
+        // markers: true,
         start: "top center",
         // scroller: "body",
         duration: 0.3,
