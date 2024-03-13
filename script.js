@@ -176,7 +176,21 @@ function navScroll() {
         })
     })
 };
+function blurReveal() {
+    ScrollTrigger.batch(".blur", {
+        trigger: "img",
+        markers: true,
+        start: "top center",
+        // scroller: "body",
+        duration: 0.3,
+        onEnter: (batch) =>
+          gsap.to(batch, {
+            scale: 1,
+            filter: "blur(0px)",
 
+          }),
+      });
+}
  function textReveal() {
      const splitTypes = document.querySelectorAll("[text-split]")
      splitTypes.forEach((char, i) => {
@@ -251,6 +265,8 @@ barba.init({
             textReveal(); //text reveal, added this to reset the state on other page load
             lineReveal(); //Reveals div borders scrollTrigger, added to reset state
             buttonAnimation();
+    blurReveal();
+
         },
 
         async leave(data) {
@@ -267,6 +283,7 @@ barba.init({
              navScroll();
              textReveal();
              lineReveal();
+             blurReveal();
          },
     }, ],
 })
@@ -285,6 +302,7 @@ barba.hooks.beforeEnter((data) => {
     valueSet();
     introReveal();
 aboutReveal();
+blurReveal();
 
     console.log("Reset values");
     window.scrollTo(0, 0); 
@@ -298,6 +316,7 @@ aboutReveal();
     navScroll(); //Hides elements of the navbar on scroll
     textReveal(); //text reveal, added this to reset the state on other page load
     lineReveal(); //Reveals div borders scrollTrigger, added to reset state
+    blurReveal();
     // buttonAnimation();
   });
 
@@ -307,6 +326,8 @@ gsap.config({
 });
 
 valueSet();
+blurReveal();
+
 textReveal();
 buttonAnimation();
 overlayAnimation();

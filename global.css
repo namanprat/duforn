@@ -492,6 +492,13 @@ button {
 	text-decoration: none;
 	background-color: transparent;
 }
+.blur {
+	filter: blur(15px);
+  -webkit-filter: blur(15px);
+  scale: 1.1;
+	/* transition: 0.4s cubic-bezier(0.23, 1, 0.320, 1); */
+
+}
 #about .link {
 	color: var(--black);
 	margin-top: 15px;
