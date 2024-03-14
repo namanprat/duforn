@@ -1,8 +1,12 @@
 import "./index.css";
 import * as THREE from "three";
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader";
+import { pcss, MeshTransmissionMaterial } from '@pmndrs/vanilla';
 
+THREE.ColorManagement.legacyMode = false;
+
+const loader = new GLTFLoader();
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(
   75,
@@ -24,36 +28,49 @@ function resizeCanvasToDisplaySize() {
 }
 
 const renderer = new THREE.WebGLRenderer({
-  canvas: document.querySelector('#logo'),
+  canvas: document.querySelector('#logo-model'),
   alpha: true,antialiasing: true,
 });
 
 
-const loader = new GLTFLoader();
+const dLoader = new DRACOLoader();
+dLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+dLoader.setDecoderConfig({type:'js'});
+loader.setDRACOLoader(dLoader);
+
+
 loader.load('./logo.glb', function(glb){
   console.log(glb);
   const logo = glb.scene;
-  logo.scale.set(3.5, 3.5, 3.5);
   scene.add(logo);
 });
+camera.position.z = 3;
 
-//camera.position.z = 2.5;
-camera.position.set( 0, 0, 2.5 )
-
-const controls = new OrbitControls(camera, renderer.domElement);
-
+// const controls = new OrbitControls(camera, renderer.domElement);
 
 
 const light = new THREE.DirectionalLight(0xffffff, 3);
-light.position.set(3, 3, 9);
+light.position.set(0, 0, 10);
 scene.add(light);
 
 
 function animate() {
-  controls.update();
+  // controls.update();
 
   resizeCanvasToDisplaySize();
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
 }
 requestAnimationFrame(animate);
+
+// let oldx = 0;
+// let oldy = 0;
+// window.onmousemove = function(ev){
+//   let changex = ev.x -oldx;
+//   let changey = ev.y - oldy;
+//   camera.position.x += changex * 0.001;
+//   camera.position.y += changey * 0.001;
+
+//   oldx = ev.x;
+//   oldy = ev.y;
+// }

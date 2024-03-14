@@ -448,38 +448,34 @@ nav {
 	aspect-ratio: 3/1;
 }
 #logo {
-	mix-blend-mode: difference;
+	/* mix-blend-mode: difference; */
 	width: 100%;
 	height: 100%;
+}
+#logo-model {
+	z-index: 3;
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 100vw;
+	height: 100vh;
+	overflow: hidden;
 }
 #nav-cluster {
 	gap: var(--p);
 }
 .round-top {
 	border-radius: 2rem 2rem 0 0;
-	/* overflow: hidden; */
 }
 .round-bottom {
 	padding-bottom: var(--uni);
 	border-radius: 0 0 2rem 2rem;
-	/* overflow: hidden; */
 }
 .pill {
-	/* background-color: transparent; */
-	/* text-decoration: underline!important; */
+
 	color: var(--diff);
 mix-blend-mode: difference;
-	/* text-decoration: none!important;
-	backdrop-filter: blur(15px);
-	-webkit-backdrop-filter: blur(15px);
-	border: 1px solid #ffffff4b;
-	color: var(--white);
-	background-color: #000000a8;
-	border-radius: 2em;
-	height: 2.5rem;
-	line-height: 2.5rem;
-	width: fit-content;
-	padding: 0 1rem; */
+
 }
 .link{
 	text-decoration: underline!important;
