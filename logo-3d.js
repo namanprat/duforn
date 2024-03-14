@@ -1,7 +1,7 @@
 import "./index.css";
 import * as THREE from "three";
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader";
+// import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader";
 import { pcss, MeshTransmissionMaterial } from '@pmndrs/vanilla';
 
 THREE.ColorManagement.legacyMode = false;
@@ -33,10 +33,10 @@ const renderer = new THREE.WebGLRenderer({
 });
 
 
-const dLoader = new DRACOLoader();
-dLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
-dLoader.setDecoderConfig({type:'js'});
-loader.setDRACOLoader(dLoader);
+// const dLoader = new DRACOLoader();
+// dLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+// dLoader.setDecoderConfig({type:'js'});
+// loader.setDRACOLoader(dLoader);
 
 
 loader.load('./logo.glb', function(glb){
