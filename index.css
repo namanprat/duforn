@@ -176,11 +176,10 @@ ul {
   }
   #brev {
 	  height: 100vh;
-	  display: flex;
-	  flex-direction: column-reverse;
   }
   .work-text {
 	  padding-top: 12vh;
+	  font-size: var(--xxl);
   }
   /* TEXT ON TOP */
 .sage{

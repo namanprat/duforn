@@ -26,7 +26,7 @@ const locomotiveScroll = new LocomotiveScroll({
 var swiper = new Swiper(".swiper-container", {
     direction: "horizontal",
     loopedSlides: 5,
-    // loop: true,
+    loop: true,
     spaceBetween: 30,
     grabCursor: true,
     slidesPerView: "auto",
@@ -34,15 +34,15 @@ var swiper = new Swiper(".swiper-container", {
     mousewheel: {
         enabled: true,
     },
-  });
+});
 
-var getTime = function() {
-    document.getElementById("time").innerHTML = new Date().toLocaleString("en-IN", {
-        timeZone: 'Asia/Kolkata',
-        timeStyle: 'long',
-        hourCycle: 'h24'
-    })
-};
+// var getTime = function() {
+//     document.getElementById("time").innerHTML = new Date().toLocaleString("en-IN", {
+//         timeZone: 'Asia/Kolkata',
+//         timeStyle: 'long',
+//         hourCycle: 'h24'
+//     })
+// };
 
 
 function valueSet() {
@@ -93,18 +93,20 @@ function loader() {
             })
     })
 }
+
 function introReveal() {
     var tl = gsap.timeline();
     tl
-    .from("#intro-logo svg path", {
-        ease: "power4.inOut",
-        y: "100%",
-        delay: 0.25,
-        duration: 2,
-        opacity: 0,
-        stagger: 0.06
-    })
+        .from("#intro-logo svg path", {
+            ease: "power4.inOut",
+            y: "100%",
+            delay: 0.25,
+            duration: 2,
+            opacity: 0,
+            stagger: 0.06
+        })
 }
+
 function transition() {
     var tl = gsap.timeline();
     tl.to("#bar", {
@@ -129,11 +131,11 @@ function overlayAnimation() {
         reversed: true
     });
     tl.to("#home", {
-        autoAlpha: 0,
-        duration: 1,
-        ease: "power4.inOut",
-    },"<")
-    .to("#nav-cluster a", {
+            autoAlpha: 0,
+            duration: 1,
+            ease: "power4.inOut",
+        }, "<")
+        .to("#nav-cluster a", {
             ease: "power4.inOut",
             duration: 1,
             x: "-100%",
@@ -152,10 +154,10 @@ function overlayAnimation() {
             width: "100%",
         }, "<");
 
-        Array.from(document.querySelectorAll(".menu-close, .menu-open")).forEach(e => e.addEventListener("click", function() {
-            tl.reversed() ? tl.play() : tl.reverse()
-        }))
-    };
+    Array.from(document.querySelectorAll(".menu-close, .menu-open")).forEach(e => e.addEventListener("click", function() {
+        tl.reversed() ? tl.play() : tl.reverse()
+    }))
+};
 
 function buttonAnimation() {
     overlayAnimation();
@@ -190,6 +192,7 @@ function navScroll() {
         })
     })
 };
+
 function blurReveal() {
     ScrollTrigger.batch(".blur", {
         trigger: "img",
@@ -198,33 +201,34 @@ function blurReveal() {
         // scroller: "body",
         duration: 0.3,
         onEnter: (batch) =>
-          gsap.to(batch, {
-            scale: 1,
-            filter: "blur(0px)",
+            gsap.to(batch, {
+                scale: 1,
+                filter: "blur(0px)",
 
-          }),
-      });
+            }),
+    });
 }
- function textReveal() {
-     const splitTypes = document.querySelectorAll("[text-split]")
-     splitTypes.forEach((char, i) => {
-         const text = new SplitType(char, {
-             types: 'words'
-         })
 
-         gsap.from(text.words, {
-             scrollTrigger: {
-                 trigger: "#about",
-                 start: 'top top',
-                 end: "bottom bottom",
-                 scrub: true,
+function textReveal() {
+    const splitTypes = document.querySelectorAll("[text-split]")
+    splitTypes.forEach((char, i) => {
+        const text = new SplitType(char, {
+            types: 'words'
+        })
+
+        gsap.from(text.words, {
+            scrollTrigger: {
+                trigger: "#about",
+                start: 'top top',
+                end: "bottom bottom",
+                scrub: true,
                 //    markers: true,
-             },
-             opacity: 0.15,
-             stagger: 1,
-         })
-     })
- }
+            },
+            opacity: 0.15,
+            stagger: 1,
+        })
+    })
+}
 
 function lineReveal() {
     gsap.to("#divider", {
@@ -249,16 +253,47 @@ function aboutReveal() {
 
         gsap.from(text.words, {
             y: "105%",
-        delay: 0.55,
-        opacity: 0,
-        ease: "power4.inOut",
-        stagger: {amount: 0.25},
-        duration: 2,
-        scrollTrigger: {
-            trigger: "#about",
-        }
+            delay: 0.55,
+            opacity: 0,
+            ease: "power4.inOut",
+            stagger: {
+                amount: 0.25
+            },
+            duration: 2,
+            scrollTrigger: {
+                trigger: "#about",
+            }
         })
     })
+}
+
+function workReveal() {
+    var tl = gsap.timeline();
+    tl
+
+        .from(".swiper-wrapper a", {
+            opacity: 0,
+            y: "100%",
+            duration: 2,
+            ease: "power4.inOut",
+            stagger: 0.1,
+        }, "<")
+        const splitTypes = document.querySelectorAll("[project-split]")
+    splitTypes.forEach((char, i) => {
+        const text = new SplitType(char, {
+            types: 'words'
+        })
+
+        gsap.from(text.words, {
+            y: "100%",
+            delay: 0.5,
+            opacity: 0,
+            duration: 2,
+            ease: "power4.inOut",
+            stagger:  0.09,
+        })
+    })
+        
 }
 
 function delay(n) {
@@ -278,8 +313,8 @@ barba.init({
             navScroll(); //Hides elements of the navbar on scroll
             textReveal(); //text reveal, added this to reset the state on other page load
             lineReveal(); //Reveals div borders scrollTrigger, added to reset state
-            buttonAnimation();
-    blurReveal();
+            blurReveal();
+            workReveal();
 
         },
 
@@ -291,48 +326,49 @@ barba.init({
             done();
         },
         async after(data) {
-        console.log("after");
-    aboutReveal();
+            console.log("after");
+            aboutReveal();
 
-             navScroll();
-             textReveal();
-             lineReveal();
-             blurReveal();
-         },
+            navScroll();
+            textReveal();
+            lineReveal();
+            blurReveal();
+            workReveal();
+
+        },
     }, ],
 })
 barba.hooks.once((data) => {
     loader();
-    introReveal(); //Initial page load, plays one time when user visits website
-  });
-  barba.hooks.enter((data) => {
+    introReveal();
+    //Initial page load, plays one time when user visits website
+});
+barba.hooks.enter((data) => {
     // aboutReveal();
 
 
-  });
+});
 barba.hooks.beforeEnter((data) => {
+    window.scrollTo(0, 0);
+
     textReveal();
     console.log("beforeEnter");
     valueSet();
     introReveal();
-aboutReveal();
-blurReveal();
+    aboutReveal();
+    blurReveal();
+    // workReveal();
+});
 
-    console.log("Reset values");
-    window.scrollTo(0, 0);
-    console.log("scroll 0");
-    buttonAnimation();
-  });
-
-  barba.hooks.afterEnter(function() {
+barba.hooks.afterEnter(function() {
     console.log("afterEnter");
     aboutReveal();
     navScroll(); //Hides elements of the navbar on scroll
     textReveal(); //text reveal, added this to reset the state on other page load
     lineReveal(); //Reveals div borders scrollTrigger, added to reset state
     blurReveal();
-    // buttonAnimation();
-  });
+    // workReveal();
+});
 
 gsap.registerPlugin(ScrollTrigger);
 gsap.config({
@@ -346,5 +382,5 @@ textReveal();
 buttonAnimation();
 overlayAnimation();
 lineReveal();
-getTime();
-setInterval(getTime, 1000);
+// getTime();
+// setInterval(getTime, 1000);

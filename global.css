@@ -27,7 +27,7 @@ html.lenis{height:auto}.lenis.lenis-smooth{scroll-behavior:auto}.lenis.lenis-smo
 	/* --xl: clamp(3.68rem, 10.72vw + 1rem, 10.65rem); */
   --gap: clamp(1.33rem, 0.91vw + 1.11rem, 1.92rem);
 --gap-2: clamp(2.37rem, 4.09vw + 1.34rem, 5.03rem);
-	--xxl: clamp(6rem, 25vw + -0.43rem, 50rem);
+	--xxl: clamp(5.61rem, 24.15vw + -0.43rem, 21.31rem);
 
 
 	/* --font-size-sm: clamp(1rem, 0.29vw + 0.93rem, 1.19rem);
