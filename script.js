@@ -23,18 +23,17 @@ const locomotiveScroll = new LocomotiveScroll({
     },
 });
 
-var swiper = new Swiper(".mySwiper", {
+var swiper = new Swiper(".swiper-container", {
     direction: "horizontal",
-    slidesPerView: 5,
+    loopedSlides: 5,
+    // loop: true,
     spaceBetween: 30,
-    // mousewheel: true,
-    loop: true,
-    autoplay: {
-        delay: 2500,
-        disableOnInteraction: true,
-    },
-    
     grabCursor: true,
+    slidesPerView: "auto",
+    freeMode: true,
+    mousewheel: {
+        enabled: true,
+    },
   });
 
 var getTime = function() {
@@ -320,7 +319,7 @@ aboutReveal();
 blurReveal();
 
     console.log("Reset values");
-    window.scrollTo(0, 0); 
+    window.scrollTo(0, 0);
     console.log("scroll 0");
     buttonAnimation();
   });
