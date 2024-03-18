@@ -2,7 +2,9 @@ import barba from '@barba/core';
 import gsap from "gsap";
 import ScrollTrigger from "gsap/ScrollTrigger";
 import SplitType from 'split-type'
+import Swiper from 'swiper';
 import LocomotiveScroll from 'locomotive-scroll';
+import 'swiper/css';
 
 const locomotiveScroll = new LocomotiveScroll({
     lenisOptions: {
@@ -21,6 +23,19 @@ const locomotiveScroll = new LocomotiveScroll({
     },
 });
 
+var swiper = new Swiper(".mySwiper", {
+    direction: "horizontal",
+    slidesPerView: 5,
+    spaceBetween: 30,
+    // mousewheel: true,
+    loop: true,
+    autoplay: {
+        delay: 2500,
+        disableOnInteraction: true,
+    },
+    
+    grabCursor: true,
+  });
 
 var getTime = function() {
     document.getElementById("time").innerHTML = new Date().toLocaleString("en-IN", {

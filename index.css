@@ -25,9 +25,12 @@
   .marquee__content {
 	flex-shrink: 0;
 	display: flex;
-	justify-content: space-around;
+	/* justify-content: space-around; */
 	min-width: 100%;
-	gap: var(--uni);
+	/* gap: var(--uni); */
+  }
+  .marquee__content span {
+	font-size: var(--h4);
   }
   @keyframes scroll {
 	from {
@@ -38,19 +41,11 @@
 	}
   }
   .scroll {
-	animation: scroll 10s linear infinite;
+	animation: scroll 12s linear infinite;
   }
 #about {
 	height: 300vh;
 }
-#about p {
-/* color: var(--opacity-text); */
-}
-span .word{
-	/* opacity: 0.3; */
-	/* color: var(--black); */
-
-	}
 #hero svg {
 	margin-top: 7vh;
 	/* background-color: red; */
@@ -70,6 +65,7 @@ span .word{
 	top: 0;
 	justify-content: space-around;
 }
+
 #desc-desc {
 	width: 100%;
 	text-align: center;
@@ -160,9 +156,31 @@ ul {
 	height: 100%;
     width: 100%;
 }
+.swiper {
+	width: 100%;
+	height: 60vh;
+	margin: auto;
+	background-color: rebeccapurple;
+	/* margin-left: auto;
+	margin-right: auto; */
+  }
 
+  .swiper-slide {
+	width: 400px !important;
+	background-color: red;
+  }
+
+  .swiper-slide img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+  }
+#brev {
+	height: 100vh;
+	
+}
 #brev h1 {
-	padding-top: 15vh;
 }
 
 .sage{
