@@ -1,6 +1,6 @@
 html.lenis{height:auto}.lenis.lenis-smooth{scroll-behavior:auto}.lenis.lenis-smooth [data-lenis-prevent]{overscroll-behavior:contain}.lenis.lenis-stopped{overflow:hidden}.lenis.lenis-scrolling iframe{pointer-events:none}
 @font-face {
-	font-family: "cooper-hewitt";
+	font-family: "trade-gothic";
 	src: url("./public/TradeGothicLT-Bold.woff2") format("woff2");
 	font-display: swap;
 }
@@ -12,7 +12,7 @@ html.lenis{height:auto}.lenis.lenis-smooth{scroll-behavior:auto}.lenis.lenis-smo
 }
 
 :root {
-	--title: "cooper-hewitt";
+	--title: "trade-gothic";
 	--text: "jet-mono";
 	/* --p: clamp(1rem, 0.1vw + 0.97rem, 1.06rem); */
 	--p: clamp(1rem, 0.1vw + 0.97rem, 1.2rem);

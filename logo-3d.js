@@ -1,59 +1,65 @@
 import "./index.css";
 import * as THREE from "three";
-import { MeshTransmissionMaterial } from '@pmndrs/vanilla/materials/MeshTransmissionMaterial';
-// console.log(MeshTransmissionMaterial);
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader";
 
-
-const renderer = new THREE.WebGLRenderer({
-  canvas: document.querySelector('#logo-model'),
-  alpha: true,
-  antialiasing: true,
-
-});
+const dLoader = new DRACOLoader();
+const gltfLoader = new GLTFLoader();
+const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(
   45,
   window.innerWidth / window.innerHeight,
   0.1,
   1000
 );
+camera.position.z = 200;
 
-camera.position.z = 500;
-const scene = new THREE.Scene();
-const geometry = new THREE.BoxGeometry(200, 200, 200);
-const material = new THREE.MeshPhysicalMaterial();
-// glassMaterial.color = new THREE.Color(0xffff00);
-material.clearcoat = 0.8;
-material.ior = 1.15;
-material.specularIntensity = 0.6;
-material.roughness = 0.0;
-material.thickness = 0.5;
-material.transmission = 1.0;
-material.sheen = 0.0;
+const renderer = new THREE.WebGLRenderer({
+  canvas: document.querySelector('#logo-model'),
+  alpha: true,antialiasing: true,
+});
 
-
-const mesh = new THREE.Mesh(geometry, material);
-scene.add(mesh);
-
-
-const light = new THREE.DirectionalLight(0xffffff, 3);
-light.position.set(0, 3, 2);
-scene.add(light);
-
+//RESIZE
 function resizeCanvasToDisplaySize() {
   const canvas = renderer.domElement;
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
   if (canvas.width !== width ||canvas.height !== height) {
-    renderer.setSize(width, height, false);
+    renderer.setSize(width, height);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
   }
 }
-function animate(time) {
-  time *= 0.001;
-  mesh.rotation.x = time * 0.2;
-  mesh.rotation.y = time * 0.2;
-  
+
+
+dLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+dLoader.setDecoderConfig({type:'js'});
+gltfLoader.setDRACOLoader(dLoader);
+
+
+
+gltfLoader.load('./gun.glb', function(glb){
+  const logo = glb.scene;
+  scene.add(logo);
+});
+const controls = new OrbitControls(camera, renderer.domElement);
+
+
+//Directional Light
+const dirLight = new THREE.DirectionalLight(0xffffff, 10);
+dirLight.position.set(0,-3, 7);
+scene.add(dirLight);
+
+//Hemi Light
+const upColour = 0xa020f0;
+const downColour = 0x4040ff;
+const hemiLight = new THREE.HemisphereLight(upColour, downColour, 3);
+scene.add(hemiLight);
+
+function animate() {
+controls.update();
+
   resizeCanvasToDisplaySize();
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
