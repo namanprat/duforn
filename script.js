@@ -12,7 +12,7 @@ const locomotiveScroll = new LocomotiveScroll({
         content: document.documentElement,
         lerp: 0.3,
         duration: 1.2,
-        orientation: 'vertical',
+        // orientation: 'vertical',
         gestureOrientation: 'vertical',
         smoothWheel: true,
         smoothTouch: false,
@@ -24,25 +24,26 @@ const locomotiveScroll = new LocomotiveScroll({
 });
 
 var swiper = new Swiper(".swiper-container", {
+    // speed: 600,
+      parallax: true,
     direction: "horizontal",
+    grabCursor: true,
     loopedSlides: 5,
     loop: true,
-    spaceBetween: 30,
-    grabCursor: true,
     slidesPerView: "auto",
     freeMode: true,
     mousewheel: {
-        enabled: true,
+      releaseOnEdges: false,
     },
-});
+    //   breakpoints: {
+    //     640: {
+    //         direction: "vertical",
+    //         loop: false,
+    //         slidesPerView: 5,
+    //     },
+    //   },
+  });
 
-// var getTime = function() {
-//     document.getElementById("time").innerHTML = new Date().toLocaleString("en-IN", {
-//         timeZone: 'Asia/Kolkata',
-//         timeStyle: 'long',
-//         hourCycle: 'h24'
-//     })
-// };
 
 
 function valueSet() {
@@ -274,7 +275,7 @@ function workReveal() {
         .from(".swiper-wrapper a", {
             opacity: 0,
             y: "100%",
-            duration: 2,
+            duration: 2.2,
             ease: "power4.inOut",
             stagger: 0.1,
         }, "<")
@@ -285,12 +286,12 @@ function workReveal() {
         })
 
         gsap.from(text.words, {
-            y: "100%",
-            delay: 0.5,
+            y: "-100%",
+            delay: 1.2,
             opacity: 0,
-            duration: 2,
+            duration: 1.7,
             ease: "power4.inOut",
-            stagger:  0.09,
+            stagger:  0.1,
         })
     })
         
@@ -377,10 +378,7 @@ gsap.config({
 
 valueSet();
 blurReveal();
-
 textReveal();
 buttonAnimation();
 overlayAnimation();
 lineReveal();
-// getTime();
-// setInterval(getTime, 1000);

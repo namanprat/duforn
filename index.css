@@ -156,31 +156,34 @@ ul {
 	height: 100%;
     width: 100%;
 }
+#brev {
+	height: 100vh;
+}
+.work-text {
+	padding-top: 12vh;
+}
+.swiper-container,
+.swiper-wrapper {
+	transition-timing-function: linear;
+	width: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
 .swiper-slide {
-	display: flex;
-	flex-direction: column-reverse;
-	/* align-items: flex-end; */
-	width: auto;
-	img {
-	  max-width: 500px;
-	  max-height: 400px;
-	}
+  /* display: flex; */
+  /* justify-content: end; */
+  height: min-content;
+  width: auto;
+  margin: 0;
+  img {
+    max-width: 500px;
+    max-height: 450px;
   }
-  .swiper-wrapper {
-	  align-items: flex-end;
-  }
-  .swiper-slide h4 {
-	  text-decoration: none;
-	  color: var(--black);
-	  margin: 7px 0;
-  }
-  #brev {
-	  height: 100vh;
-  }
-  .work-text {
-	  padding-top: 12vh;
-	  font-size: var(--xxl);
-  }
+}
+.swiper-slide h4 {
+	color: var(--black);
+}
   /* TEXT ON TOP */
 .sage{
 	background-image: url('https://namanprat.com/images/sage/sage-cover.webp');	
