@@ -24,24 +24,13 @@ const locomotiveScroll = new LocomotiveScroll({
 });
 
 var swiper = new Swiper(".swiper-container", {
-    // speed: 600,
-      parallax: true,
-    direction: "horizontal",
-    grabCursor: true,
-    loopedSlides: 5,
+    loopedSlides: 6,
     loop: true,
     slidesPerView: "auto",
     freeMode: true,
     mousewheel: {
-      releaseOnEdges: false,
+      releaseOnEdges: true,
     },
-    //   breakpoints: {
-    //     640: {
-    //         direction: "vertical",
-    //         loop: false,
-    //         slidesPerView: 5,
-    //     },
-    //   },
   });
 
 
@@ -211,32 +200,22 @@ function blurReveal() {
 }
 
 function textReveal() {
-    const splitTypes = document.querySelectorAll("[text-split]")
-    splitTypes.forEach((char, i) => {
-        const text = new SplitType(char, {
-            types: 'words'
-        })
-
-        gsap.from(text.words, {
-            scrollTrigger: {
-                trigger: "#about",
-                start: 'top top',
-                end: "bottom bottom",
-                scrub: true,
-                //    markers: true,
-            },
-            opacity: 0.15,
-            stagger: 1,
-        })
+    gsap.from("#desc-v2 h1", {
+        opacity: 0,
+        duration: 2,
+        ease: "power4.inOut",
+        stagger: 0.09,
+        y: "100%",
     })
 }
 
 function lineReveal() {
     gsap.to("#divider", {
-        duration: 2,
-        ease: "power4.inOut",
-        stagger: 0.075,
+        opacity: 1,
         width: "100%",
+        duration: 2.2,
+        ease: "power4.inOut",
+        stagger: 0.1,
         scrollTrigger: {
             trigger: ".divider",
             start: 'top 90%',
@@ -329,7 +308,6 @@ barba.init({
         async after(data) {
             console.log("after");
             aboutReveal();
-
             navScroll();
             textReveal();
             lineReveal();
@@ -344,15 +322,9 @@ barba.hooks.once((data) => {
     introReveal();
     //Initial page load, plays one time when user visits website
 });
-barba.hooks.enter((data) => {
-    // aboutReveal();
 
-
-});
 barba.hooks.beforeEnter((data) => {
     window.scrollTo(0, 0);
-
-    textReveal();
     console.log("beforeEnter");
     valueSet();
     introReveal();
@@ -365,7 +337,6 @@ barba.hooks.afterEnter(function() {
     console.log("afterEnter");
     aboutReveal();
     navScroll(); //Hides elements of the navbar on scroll
-    textReveal(); //text reveal, added this to reset the state on other page load
     lineReveal(); //Reveals div borders scrollTrigger, added to reset state
     blurReveal();
     // workReveal();
@@ -378,7 +349,6 @@ gsap.config({
 
 valueSet();
 blurReveal();
-textReveal();
 buttonAnimation();
 overlayAnimation();
 lineReveal();
