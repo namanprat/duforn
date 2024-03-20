@@ -23,8 +23,8 @@ target.position.set(intersectionPoint.x, intersectionPoint.y, 2);
 });
 
 //Camera
-var camera = new THREE.PerspectiveCamera( 30, innerWidth/innerHeight );
-camera.position.z = 1;
+var camera = new THREE.PerspectiveCamera( 45, innerWidth/innerHeight );
+camera.position.z = 50;
 
 const renderer = new THREE.WebGLRenderer({
   canvas: document.querySelector('#logo-model'),
@@ -50,7 +50,7 @@ gltfLoader.setDRACOLoader(dLoader);
 
 
 
-gltfLoader.load('./logo.glb', function(glb){
+gltfLoader.load('./scene.glb', function(glb){
   const logo = glb.scene;
   scene.add(logo);
   pivot = logo.getObjectByName('pivot_3');

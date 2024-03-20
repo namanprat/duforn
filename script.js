@@ -30,11 +30,10 @@ function swiperInit() {
         slidesPerView: "auto",
         freeMode: true,
         mousewheel: {
-          releaseOnEdges: true,
+            releaseOnEdges: true,
         },
-      });
+    });
 }
-
 
 
 function valueSet() {
@@ -76,7 +75,6 @@ function loader() {
                 y: "-100%",
                 ease: "power4.inOut",
                 duration: 2,
-                //  opacity: 0,
                 stagger: 0.1,
             })
             .to(text.chars, {
@@ -179,7 +177,6 @@ function navScroll() {
                 trigger: 'nav',
                 start: "top",
                 scroller: "body",
-                // markers: true,
             }
         })
     })
@@ -198,6 +195,7 @@ function blurReveal() {
             }),
     });
 }
+
 function opacityReveal() {
     const splitTypes = document.querySelectorAll("[text-split]")
     splitTypes.forEach((char, i) => {
@@ -211,7 +209,6 @@ function opacityReveal() {
                 start: 'top top',
                 end: "bottom bottom",
                 scrub: true,
-                //    markers: true,
             },
             opacity: 0.15,
             stagger: 1,
@@ -278,7 +275,7 @@ function workReveal() {
             ease: "power4.inOut",
             stagger: 0.1,
         }, "<")
-        const splitTypes = document.querySelectorAll("[project-split]")
+    const splitTypes = document.querySelectorAll("[project-split]")
     splitTypes.forEach((char, i) => {
         const text = new SplitType(char, {
             types: 'words'
@@ -290,10 +287,10 @@ function workReveal() {
             opacity: 0,
             duration: 1.7,
             ease: "power4.inOut",
-            stagger:  0.1,
+            stagger: 0.1,
         })
     })
-        
+
 }
 
 function delay(n) {
@@ -316,8 +313,7 @@ barba.init({
             blurReveal();
             workReveal();
             opacityReveal();
-swiperInit();
-
+            swiperInit();
         },
 
         async leave(data) {
@@ -336,16 +332,13 @@ swiperInit();
             blurReveal();
             workReveal();
             opacityReveal();
-swiperInit();
-
-
-
+            swiperInit();
         },
     }, ],
 })
 barba.hooks.once((data) => {
     loader();
-    introReveal();//Initial page load, plays one time when user visits website
+    introReveal(); //Initial page load, plays one time when user visits website
 });
 
 barba.hooks.beforeEnter((data) => {
@@ -355,8 +348,7 @@ barba.hooks.beforeEnter((data) => {
     introReveal();
     aboutReveal();
     blurReveal();
-swiperInit();
-
+    swiperInit();
 });
 
 barba.hooks.afterEnter(function() {
@@ -365,14 +357,14 @@ barba.hooks.afterEnter(function() {
     navScroll(); //Hides elements of the navbar on scroll
     lineReveal(); //Reveals div borders scrollTrigger, added to reset state
     blurReveal();
-swiperInit();
-
+    swiperInit();
 });
 
 gsap.registerPlugin(ScrollTrigger);
 gsap.config({
     nullTargetWarn: false
 });
+
 
 valueSet();
 blurReveal();
