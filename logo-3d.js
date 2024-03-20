@@ -7,10 +7,24 @@ import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader";
 const dLoader = new DRACOLoader();
 const gltfLoader = new GLTFLoader();
 const scene = new THREE.Scene();
+const intersectionPoint = new THREE.Vector3();
+const planeNormal = new THREE. Vector3();
+const plane = new THREE.Plane();
+const mousePosition = new THREE.Vector2();
+const raycaster = new THREE.Raycaster();
+window. addEventListener ('mousemove', function(e) {
+	mousePosition.x = (e.clientX / this.window.innerWidth) * 2 -1;
+mousePosition.y = - (e.clientY / this.window.innerHeight) * 2 + 1;
+planeNormal.copy(camera.position).normalize();
+plane.setFromNormalAndCoplanarPoint(planeNormal, scene.position);
+raycaster.setFromCamera(mousePosition, camera);
+raycaster.ray.intersectPlane(plane, intersectionPoint);
+target.position.set(intersectionPoint.x, intersectionPoint.y, 2);
+});
 
 //Camera
-var camera = new THREE.PerspectiveCamera( 50, innerWidth/innerHeight );
-camera.position.z = 500;
+var camera = new THREE.PerspectiveCamera( 30, innerWidth/innerHeight );
+camera.position.z = 1;
 
 const renderer = new THREE.WebGLRenderer({
   canvas: document.querySelector('#logo-model'),
@@ -36,10 +50,12 @@ gltfLoader.setDRACOLoader(dLoader);
 
 
 
-gltfLoader.load('./gun.glb', function(glb){
+gltfLoader.load('./logo.glb', function(glb){
   const logo = glb.scene;
   scene.add(logo);
+  pivot = logo.getObjectByName('pivot_3');
 });
+
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.enablePan = false;
@@ -52,9 +68,7 @@ dirLight.position.set(0,-3, 7);
 scene.add(dirLight);
 
 //Hemi Light
-const upColour = 0xa020f0;
-const downColour = 0x4040ff;
-const hemiLight = new THREE.HemisphereLight(upColour, downColour, 3);
+const hemiLight = new THREE.HemisphereLight(0xa020f0, 0x4040ff, 3);
 scene.add(hemiLight);
 
 
@@ -102,6 +116,7 @@ function doSmoothReset( )
 }
 
 function animate() {
+
 controls.update();
 if( smoothReset ) doSmoothReset();
   resizeCanvasToDisplaySize();
