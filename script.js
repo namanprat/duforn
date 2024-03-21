@@ -306,7 +306,6 @@ barba.init({
     sync: true,
     transitions: [{
         once(data) {
-            console.log("once");
             navScroll(); //Hides elements of the navbar on scroll
             textReveal(); //text reveal, added this to reset the state on other page load
             lineReveal(); //Reveals div borders scrollTrigger, added to reset state
@@ -324,7 +323,6 @@ barba.init({
             done();
         },
         async after(data) {
-            console.log("after");
             aboutReveal();
             navScroll();
             textReveal();
@@ -343,7 +341,6 @@ barba.hooks.once((data) => {
 
 barba.hooks.beforeEnter((data) => {
     window.scrollTo(0, 0);
-    console.log("beforeEnter");
     valueSet();
     introReveal();
     aboutReveal();
@@ -352,7 +349,6 @@ barba.hooks.beforeEnter((data) => {
 });
 
 barba.hooks.afterEnter(function() {
-    console.log("afterEnter");
     aboutReveal();
     navScroll(); //Hides elements of the navbar on scroll
     lineReveal(); //Reveals div borders scrollTrigger, added to reset state

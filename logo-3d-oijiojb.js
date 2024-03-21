@@ -8,9 +8,10 @@ const dLoader = new DRACOLoader();
 const gltfLoader = new GLTFLoader();
 const scene = new THREE.Scene();
 
+
 //Camera
-var camera = new THREE.PerspectiveCamera( 30, innerWidth/innerHeight );
-camera.position.z = 1;
+var camera = new THREE.PerspectiveCamera( 10, innerWidth/innerHeight );
+camera.position.z = 3.3;
 
 const renderer = new THREE.WebGLRenderer({
   canvas: document.querySelector('#logo-model'),
@@ -38,21 +39,32 @@ gltfLoader.setDRACOLoader(dLoader);
 
 gltfLoader.load('./logo.glb', function(glb){
   const logo = glb.scene;
-  scene.add(logo);
+  scene.add(logo); 
 });
+
+function getCenterPoint(logo) {
+    var geometry = logo.geometry;
+    geometry.computeBoundingBox();
+    var center = new THREE.Vector3();
+    geometry.boundingBox.getCenter( center );
+    logo.localToWorld( center );
+    return center;
+}
+
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
-// controls.enablePan = false;
-// controls.enableZoom = false;
+controls.enablePan = false;
+controls.enableZoom = false;
 
 
 //Directional Light
-const dirLight = new THREE.DirectionalLight(0xffffff, 10);
-dirLight.position.set(0,-3, 7);
+const dirLight = new THREE.DirectionalLight(0x878787, 2);
+dirLight.position.set(0,0, 2);
 scene.add(dirLight);
 
 //Hemi Light
-const hemiLight = new THREE.HemisphereLight(0xa020f0, 0x4040ff, 3);
+const hemiLight = new THREE.HemisphereLight(0xF8F4A6, 0x3943B7, 3);
+hemiLight.position.set(0,0, 7);
 scene.add(hemiLight);
 
 
@@ -100,6 +112,7 @@ function doSmoothReset( )
 }
 
 function animate() {
+
 controls.update();
 if( smoothReset ) doSmoothReset();
   resizeCanvasToDisplaySize();
@@ -107,15 +120,4 @@ if( smoothReset ) doSmoothReset();
   requestAnimationFrame(animate);
 }
 requestAnimationFrame(animate);
-
-let old = 0;
-let oldy = 0;
-window. onmousemove = function (ev){
-let changex = ev.x - oldx;
-let changey = ev-y - oldy;
-camera.position.x += changex/100;
-camera.position.y += changey/100;
-
-oldx = ev.x;
-oldy = ev.y;
-}
+getCenterPoint();
