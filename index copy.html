@@ -52,7 +52,7 @@
     </div>
 
     <!-- nav -->
-    <nav class="flex space-bw center">
+    <nav class="flex space-bw center space-bw">
       <a href="./index.html" class= "pill"><h4>DUFORN</h4></a>
       <div id="nav-cluster" class="row space-bw">
         <a href="./about.html" class= "pill"><h4>ABOUT</h4></a>
@@ -63,36 +63,10 @@
     
     <main>
       <!-- HERO -->
-      <section id="hero" class="col center w space-bw">
-          <!-- <canvas id="logo-model"></canvas>   -->
-          <div class="w vw-100 col gap">
-            <img id="intro-logo" src="./public/logotype-white.svg" alt="logo" class="corners w">
-            <div class="corners">
-              <div class="marquee">
-                <div class="marquee__content scroll">
-                  <span>IS AN INDEPENDENT CREATIVE STUDIO THAT IS DEDICATED TO CRAFTING UNFORGETTABLE DIGITAL EXPERIENCES BY DEVELOPING SOLUTIONS BASED ON DESIGN AND INSIGHTS.</span>
-                </div>
-                <div class="marquee__content scroll" aria-hidden="true">
-                  <span>IS AN INDEPENDENT CREATIVE STUDIO THAT IS DEDICATED TO CRAFTING UNFORGETTABLE DIGITAL EXPERIENCES BY DEVELOPING SOLUTIONS BASED ON DESIGN AND INSIGHTS.</span>
-                </div>
-                <div class="marquee__content scroll" aria-hidden="true">
-                  <span>IS AN INDEPENDENT CREATIVE STUDIO THAT IS DEDICATED TO CRAFTING UNFORGETTABLE DIGITAL EXPERIENCES BY DEVELOPING SOLUTIONS BASED ON DESIGN AND INSIGHTS.</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          
-          <div id="hero-bottom" class="row space-bw">
-            <p id="bottom-left">welcome to our SITE. IT HAS COME TO our ATTENTION THAT YOU MIGHT BE A CURIOUS TRAVELLER, WHO IS WANDERING THROUGH THE WAST EXPANSES OF THE INTERNET. we HOPE YOU WILL FIND OUT SOON ENOUGH, THAT YOU ARE AT THE RIGHT PLACE!
-            </p>
-            <div id="bottom-right" class="row gap self-end">
-              <a class="bubble" href="./work.html">WORK</a>
-        <a class="bubble" href="./about.html">ABOUT</a>
-            </div>
-          </div>
+      <section id="hero" class="col center">
+          <canvas id="logo-model"></canvas>                
 
-          <!-- <div class="marquee">
+          <div class="marquee">
             <div class="marquee__content scroll">
               <span>IS AN INDEPENDENT CREATIVE STUDIO THAT IS DEDICATED TO CRAFTING UNFORGETTABLE DIGITAL EXPERIENCES BY DEVELOPING SOLUTIONS BASED ON DESIGN AND INSIGHTS.</span>
             </div>
@@ -102,13 +76,20 @@
             <div class="marquee__content scroll" aria-hidden="true">
               <span>IS AN INDEPENDENT CREATIVE STUDIO THAT IS DEDICATED TO CRAFTING UNFORGETTABLE DIGITAL EXPERIENCES BY DEVELOPING SOLUTIONS BASED ON DESIGN AND INSIGHTS.</span>
             </div>
-          </div> -->
+          </div>
       </section>
         <!-- ABOUT -->
-        <section id="about" class="center is-white round-top w">
-          <div id="desc-v3" class="col self-center justify-center">
-        <span text-split>AN INDEPENDENT CREATIVE STUDIO THAT IS DEDICATED TO CRAFTING UNFORGETTABLE DIGITAL EXPERIENCES BY DEVELOPING SOLUTIONS BASED ON DESIGN AND INSIGHTS.</span>
+      <section id="about" class="center round-top is-black">
+        <div id="about-desc" class="col center w">
+          <div class="col center gap">
+            <div class="overflow-hidden"><h1 header-split>a multidisciplinary design studio</h1></div>
+          <h3>[ specialising in crafting unforgettable Digital experiences ]</h3>
+          </div>
 
+          <div class="col w-50 gap">
+            <p text-split>dedicated to crafting breathtaking design solutions that evoke deep feelings to ensure our clients stand out. We thrive on challenging the predictable, pushing boundaries, and questioning established rules. Our unified drive spans disciplines, tailoring designs to exceed expecations.</p>
+            <a class="link self-center" href="./about.html"><h4>LEARN MORE</h4></a>
+          </div>
         </div>
       </section>
       <!-- WORK -->
@@ -180,6 +161,5 @@
     </div>
     <script type="module" src="./script.js"></script>
     <script type="module" src="./logo-3d.js"></script>
-
   </body>
 </html>

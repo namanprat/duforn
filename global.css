@@ -19,7 +19,7 @@ html.lenis{height:auto}.lenis.lenis-smooth{scroll-behavior:auto}.lenis.lenis-smo
 	--h4: clamp(1rem, 0.29vw + 0.93rem, 1.19rem);
 	--h3: clamp(1.78rem, 1.58vw + 1.36rem, 2.78rem);
 	--h2: clamp(2.37rem, 4.09vw + 1.34rem, 5.03rem);
-	--h1-5: clamp(3.16rem, 7.66vw + 1.24rem, 8.14rem);
+	--h1-5: clamp(3rem, 7.5vw + 1.2rem, 7.31rem);
 	--h1: clamp(4.21rem, 13.78vw + 0.76rem, 13.17rem);
 
 	--logo: clamp(2.2rem, 3.7vw + 1rem, 4.5rem);
@@ -44,7 +44,7 @@ html.lenis{height:auto}.lenis.lenis-smooth{scroll-behavior:auto}.lenis.lenis-smo
 --font-size-e: clamp(23.61rem, 327.16vw + -58.18rem, 236.26rem);
 --font-size-f: clamp(31.47rem, 539.69vw + -103.45rem, 382.27rem); */
 
-	--diff: #ffffff;
+	--white-50: #ffffff72;
 	--opacity-text: rgba(0, 0, 0, 0.231);
 	--accent: #00D116;
 	--white: #ffffff;
@@ -113,6 +113,10 @@ html.lenis{height:auto}.lenis.lenis-smooth{scroll-behavior:auto}.lenis.lenis-smo
 	width: 100vw;
 }
 
+.vh-100 {
+	height: 100vh;
+}
+
 .gap {
 	gap: var(--gap);
 }
@@ -161,7 +165,13 @@ right: 0;
 .space-bw {
 	justify-content: space-between;
 }
+.space-around {
+	justify-content: space-around;
+}
 
+.space-even {
+	justify-content: space-evenly;
+}
 .justify-center {
 	justify-content: center;
 }
@@ -170,9 +180,7 @@ right: 0;
 	justify-content: end;
 }
 
-.space-even {
-	justify-content: space-evenly;
-}
+
 
 .diff {
 	color: var(--diff);
@@ -323,6 +331,8 @@ main {
 	z-index: 2;
 }
 section {
+	/* min-height: 100vh; */
+	width: 100%;
 	position: relative;
 
 }
@@ -447,21 +457,17 @@ nav {
 	height: var(--logo);
 	aspect-ratio: 3/1;
 }
-#logo {
-	/* mix-blend-mode: difference; */
-	width: 100%;
-	height: 100%;
-}
 #logo-model {
 	margin-top: 5vh;
 	z-index: 3;
-	/* position: fixed;
-	left: 0;
-	top: 0; */
 	width: 100vw;
-	/* background-color: red; */
 	height: 50vh;
-	/* overflow: hidden; */
+}
+#logo {
+	position: absolute;
+	z-index: 3;
+	width: 100%;
+	height: 100vh;
 }
 #nav-cluster {
 	gap: var(--p);
@@ -474,10 +480,21 @@ nav {
 	border-radius: 0 0 2rem 2rem;
 }
 .pill {
-
 	color: var(--diff);
 mix-blend-mode: difference;
-
+}
+.bubble {
+	font-size: var(--uni);
+	color: var(--white);
+	height: 2.75rem;
+	line-height: 2.75rem;
+	border: 1.5px solid var(--white);
+	padding: 0 1.5rem;
+	border-radius: 1.6rem;
+}
+.bubble:hover {
+	background-color: var(--white);
+	color: var(--black);
 }
 .link{
 	text-decoration: underline!important;
