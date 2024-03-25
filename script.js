@@ -1,4 +1,4 @@
-import barba from '@barba/core';
+// import barba from '@barba/core';
 import gsap from "gsap";
 import ScrollTrigger from "gsap/ScrollTrigger";
 import SplitType from 'split-type'
@@ -292,78 +292,20 @@ function workReveal() {
 
 }
 
-function delay(n) {
-    n = n || 1500;
-    return new Promise((done) => {
-        setTimeout(() => {
-            done();
-        }, n);
-    });
-};
+gsap.registerPlugin(ScrollTrigger);
+gsap.config({
+    nullTargetWarn: false
+});
 
-barba.init({
-    sync: true,
-    transitions: [{
-        once(data) {
-            navScroll(); //Hides elements of the navbar on scroll
+navScroll(); //Hides elements of the navbar on scroll
             textReveal(); //text reveal, added this to reset the state on other page load
             lineReveal(); //Reveals div borders scrollTrigger, added to reset state
             blurReveal();
             workReveal();
             opacityReveal();
             swiperInit();
-        },
-
-        async leave(data) {
-            console.log("leave");
-            const done = this.async();
-            transition(); //animation between pages
-            await delay(2500);
-            done();
-        },
-        async after(data) {
-            aboutReveal();
-            navScroll();
-            textReveal();
-            lineReveal();
-            blurReveal();
-            workReveal();
-            opacityReveal();
-            swiperInit();
-        },
-    }, ],
-})
-barba.hooks.once((data) => {
-    loader();
-    introReveal(); //Initial page load, plays one time when user visits website
-});
-
-barba.hooks.beforeEnter((data) => {
-    window.scrollTo(0, 0);
-    valueSet();
-    introReveal();
-    aboutReveal();
-    blurReveal();
-    swiperInit();
-});
-
-barba.hooks.afterEnter(function() {
-    aboutReveal();
-    navScroll(); //Hides elements of the navbar on scroll
-    lineReveal(); //Reveals div borders scrollTrigger, added to reset state
-    blurReveal();
-    swiperInit();
-});
-
-gsap.registerPlugin(ScrollTrigger);
-gsap.config({
-    nullTargetWarn: false
-});
-
-
 valueSet();
-blurReveal();
 buttonAnimation();
 overlayAnimation();
-lineReveal();
-swiperInit();
+aboutReveal();
+
