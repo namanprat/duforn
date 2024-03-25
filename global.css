@@ -44,6 +44,7 @@ html.lenis{height:auto}.lenis.lenis-smooth{scroll-behavior:auto}.lenis.lenis-smo
 --font-size-e: clamp(23.61rem, 327.16vw + -58.18rem, 236.26rem);
 --font-size-f: clamp(31.47rem, 539.69vw + -103.45rem, 382.27rem); */
 
+    --diff: #ffffff;
 	--white-50: #ffffff72;
 	--opacity-text: rgba(0, 0, 0, 0.231);
 	--accent: #00D116;
