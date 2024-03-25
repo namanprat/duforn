@@ -484,10 +484,11 @@ nav {
 mix-blend-mode: difference;
 }
 .bubble {
+	width: min-content;
 	font-size: var(--uni);
 	color: var(--white);
-	height: 2.75rem;
-	line-height: 2.75rem;
+	height: 3rem;
+	line-height: 3rem;
 	border: 1.5px solid var(--white);
 	padding: 0 1.5rem;
 	border-radius: 1.6rem;

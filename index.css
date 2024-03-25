@@ -33,7 +33,9 @@
 #bottom-left {
 	max-width: 600px;
 }
-
+#bottom-right {
+	gap: 1rem;
+}
 .marquee {
 	/* border: 1px solid var(--white);
 	border-radius: 2rem; */
