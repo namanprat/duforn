@@ -2,7 +2,6 @@ import "./index.css";
 import * as THREE from "three";
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 
 const dLoader = new DRACOLoader();
@@ -16,7 +15,7 @@ scene.environment = texture;
 
 //Camera
 var camera = new THREE.PerspectiveCamera( 15, innerWidth/innerHeight );
-camera.position.z = 2.5;
+camera.position.z = 4.5;
 
 const renderer = new THREE.WebGLRenderer({
   canvas: document.querySelector('#logo-model'),
@@ -47,11 +46,6 @@ gltfLoader.load('./logo.glb', function(glb){
   scene.add(logo); 
 });
 
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.enablePan = false;
-controls.enableZoom = false;
-
 //Directional Light
  const dirLight = new THREE.DirectionalLight(0x878787, 1);
 dirLight.position.set(0,0, 10);
@@ -63,7 +57,6 @@ hemiLight.position.set(0,0, 0);
 scene.add(hemiLight);
 
 function animate() {
-controls.update();
   resizeCanvasToDisplaySize();
   renderer.render(scene, camera);
   requestAnimationFrame(animate);

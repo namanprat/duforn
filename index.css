@@ -133,6 +133,25 @@
 		line-height: 0.95;
 		text-align: center;
 	}
+	.corners{
+		color: var(--black);
+	}
+}
+#desc-v4 {
+	h1 {
+		font-size: var(--h1-7)
+	}
+	/* background-color: red; */
+	height: 92vh;
+	max-width: 1600px;
+	margin: auto;
+	gap: var(--uni);
+	#yo {
+		width: 60%;
+		/* background-color: red; */
+		align-items: start;
+		height: 100%;
+	}
 }
 #categories,
 #elems {

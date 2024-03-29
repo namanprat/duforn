@@ -24,7 +24,7 @@ html.lenis{height:auto}.lenis.lenis-smooth{scroll-behavior:auto}.lenis.lenis-smo
 
 	--logo: clamp(2.2rem, 3.7vw + 1rem, 4.5rem);
 	--xl: clamp(4.21rem, 13.78vw + 0.76rem, 13.17rem);
-	/* --xl: clamp(3.68rem, 10.72vw + 1rem, 10.65rem); */
+	--h1-7: clamp(4rem, 10.72vw + 1rem, 12rem);
   --gap: clamp(1.33rem, 0.91vw + 1.11rem, 1.92rem);
 --gap-2: clamp(2.37rem, 4.09vw + 1.34rem, 5.03rem);
 	--xxl: clamp(4rem, 20vw + -0.43rem, 14.5rem);
@@ -459,10 +459,13 @@ nav {
 	aspect-ratio: 3/1;
 }
 #logo-model {
+position: absolute;
+left: 0;
+top: 0;
 	margin-top: 5vh;
 	z-index: 3;
 	width: 100vw;
-	height: 50vh;
+	height: 100vh;
 }
 #logo {
 	position: absolute;
