@@ -15,14 +15,16 @@ scene.environment = texture;
 
 //Camera
 var camera = new THREE.PerspectiveCamera( 15, innerWidth/innerHeight );
-camera.position.z = 4.5;
+camera.position.z = 7;
+camera.position.y = 0.5;
+
 
 const renderer = new THREE.WebGLRenderer({
   canvas: document.querySelector('#logo-model'),
   alpha: true,antialiasing: true,
 });
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.7;
+renderer.toneMappingExposure = 0.9;
 renderer.outputEncoding = THREE.sRGBEncoding;
 
 //RESIZE
@@ -41,7 +43,7 @@ dLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/'
 dLoader.setDecoderConfig({type:'js'});
 gltfLoader.setDRACOLoader(dLoader);
 
-gltfLoader.load('./logo.glb', function(glb){
+gltfLoader.load('./vase.glb', function(glb){
   const logo = glb.scene;
   scene.add(logo); 
 });
