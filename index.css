@@ -1,12 +1,24 @@
 #hero {
-	background-color: rgb(63, 63, 63);
 	position: relative;
 	width: 100%;
 	height: 100vh;
 	padding-bottom: var(--uni);
 	flex-direction: column;
-	position: sticky;
-	top: 0;
+	/* position: sticky;
+	top: 0; */
+}
+.bg {
+	position: fixed;
+}
+#gradient-canvas {
+	width: 100%;
+	height: 100vh;
+		--gradient-color-1: #727272; 
+  --gradient-color-2: #212121; 
+  --gradient-color-3: #292929;  
+  --gradient-color-4: #000000;
+  filter: blur(50px);
+
 }
 .corners {
 		--s: var(--h4); /* the size on the corner */
@@ -121,22 +133,18 @@
 	}
 }
 #desc-v3 {
-	width: 85%;
-	margin: auto;
 	height: 100vh;
-	position: sticky;
-	top: 0;
-	span {
-		font-family: var(--title);
-		/* color: var(--white); */
-		font-size: var(--h1-5);
-		line-height: 0.95;
-		text-align: center;
+	justify-content: space-evenly;
+	#header-layout {
+		/* background-color: red; */
+		width: 100%;
+		gap: 0.1rem;
 	}
-	.corners{
-		color: var(--black);
+	#desc {
+		margin-top: var(--h2);
 	}
 }
+
 #desc-v4 {
 	h1 {
 		font-size: var(--h1-7)
@@ -152,32 +160,6 @@
 		align-items: start;
 		height: 100%;
 	}
-}
-#categories,
-#elems {
-	pointer-events: none;
-	position: relative;
-	z-index: 2;
-	gap: 10rem;
-}
-
-#elem {
-	background-color: var(--accent);
-	width: 20vh;
-	height: 20vh;
-}
-
-.elem-2 {
-	right: 40%;
-	top: 5%;
-}
-
-.elem-3 {
-	margin: auto;
-}
-
-.elem-4 {
-	left: 10%;
 }
 #project-attr {
 	width: 100%;

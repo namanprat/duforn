@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="./global.css" type="text/css">
     <link rel="stylesheet" href="./index.css" type="text/css">
   </head>
-  <body data-barba="wrapper" class="noise is-black">
+  <body data-barba="wrapper" class="is-black">
     <!-- <div class="loader flex justify-center no-select">
       <div class="self-center overflow-hidden">
         <h1 loader-split>DUFORN</h1>
@@ -61,7 +61,10 @@
       </div>
     </nav>
     
-    <main>
+    <main class="col gap-2 is-black">
+      <div class="bg noise">
+      <canvas id="gradient-canvas" data-transition-in>
+      </div>
       <!-- HERO -->
       <section id="hero" class="col center w space-bw">
           <canvas id="logo-model"></canvas>  
@@ -92,41 +95,22 @@
 
             </div>
           </div>
-
-          <!-- <div class="marquee">
-            <div class="marquee__content scroll">
-              <span>IS AN INDEPENDENT CREATIVE STUDIO THAT IS DEDICATED TO CRAFTING UNFORGETTABLE DIGITAL EXPERIENCES BY DEVELOPING SOLUTIONS BASED ON DESIGN AND INSIGHTS.</span>
-            </div>
-            <div class="marquee__content scroll" aria-hidden="true">
-              <span>IS AN INDEPENDENT CREATIVE STUDIO THAT IS DEDICATED TO CRAFTING UNFORGETTABLE DIGITAL EXPERIENCES BY DEVELOPING SOLUTIONS BASED ON DESIGN AND INSIGHTS.</span>
-            </div>
-            <div class="marquee__content scroll" aria-hidden="true">
-              <span>IS AN INDEPENDENT CREATIVE STUDIO THAT IS DEDICATED TO CRAFTING UNFORGETTABLE DIGITAL EXPERIENCES BY DEVELOPING SOLUTIONS BASED ON DESIGN AND INSIGHTS.</span>
-            </div>
-          </div> -->
       </section>
         <!-- ABOUT -->
-        <!-- <section class="width-100 is-white flex justify-center vh-100">
-          <div id="desc-v4" class="width-100 col center gap">
-            <h1 class="self-start">we ensure</h1>
-            <div class="row space-bw width-100"><h1>your</h1><h1>brand</h1></div>
-            <div id="yo" class="col space-bw">
-              <h1>stands</h1>
-            <h1>out</h1>
-            </div>
-          </div>
-        </section> -->
         
-
-        <section id="about" class="center is-black round-top w ">
-          <div id="desc-v3" class="col justify-center center gap-2">
-        <span text-split class="corners is-black">DUFORN IS A DESIGN STUDIO THAT CREATES DIGITAL AND PHYSICAL EXPERIENCES THAT ARE UNFORGETTABLE.</span>
-        <a href="./about.html">[ LEARN MORE ABOUT US ]</a>
-        </div>
+        <section id="desc-v3" class="col space-even center w">
+            <div id="header-layout" class="col center w">
+              <div id="top" class="row w-50 space-bw self-start"><h1>we</h1><h1>help</h1></div>
+              <div id="center" class="row width-100 space-bw"><h1>brands</h1><h1>with</h1></div>
+              <div id="end" class="self-center"><h1>( a mission* )</h1></div>
+            </div>
+        <div id="desc" class="col center gap max-600">
+          <p>as a multi-disciplinary design studio, We help new ideas emerge, and existing products grow by building timeless brand experiences for the modern age. We harmonise design, culture, and technology, serving as silent storytellers and revealing emotions, ambitions, and the very essence of a brand.</p>
+          <a href="./about.html">[ LEARN MORE ABOUT US ]</a></div>
       </section>
       <!-- WORK -->
-        <section id="project-wrapper" class="col gap w is-black round-bottom">
-            <h4 class="link">selected work</h4>
+        <section id="project-wrapper" class="col gap w round-bottom">
+            <h1 class="lik">selected work</h1>
             <div id="project-row" class="col gap-2 overflow-hidden center">
 
                 <a id="featured-project" href="./project.html" class="flex overflow-hidden center w">

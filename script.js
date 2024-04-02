@@ -5,7 +5,10 @@ import SplitType from 'split-type'
 import Swiper from 'swiper';
 import LocomotiveScroll from 'locomotive-scroll';
 import 'swiper/css';
+import { Gradient } from './Gradient.js';
 
+const gradient = new Gradient();
+gradient.initGradient('#gradient-canvas');
 
 const locomotiveScroll = new LocomotiveScroll({
     lenisOptions: {

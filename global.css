@@ -21,7 +21,7 @@ html.lenis{height:auto}.lenis.lenis-smooth{scroll-behavior:auto}.lenis.lenis-smo
 	--h3: clamp(1.78rem, 1.58vw + 1.36rem, 2.78rem);
 	--h2: clamp(2.37rem, 4.09vw + 1.34rem, 5.03rem);
 	--h1-5: clamp(3rem, 7.5vw + 1.2rem, 7.31rem);
-	--h1: clamp(4.21rem, 13.78vw + 0.76rem, 13.17rem);
+	--h1: clamp(4.21rem, 13.7vw + 0.75rem, 13rem);
 
 	--logo: clamp(2.2rem, 3.7vw + 1rem, 4.5rem);
 	--xl: clamp(4.21rem, 13.78vw + 0.76rem, 13.17rem);
@@ -45,12 +45,12 @@ html.lenis{height:auto}.lenis.lenis-smooth{scroll-behavior:auto}.lenis.lenis-smo
 --font-size-e: clamp(23.61rem, 327.16vw + -58.18rem, 236.26rem);
 --font-size-f: clamp(31.47rem, 539.69vw + -103.45rem, 382.27rem); */
 
-    --diff: #ffffff;
+    --diff: #FEFFFE;
 	--white-50: #ffffff72;
 	--opacity-text: rgba(0, 0, 0, 0.231);
 	--accent: #00D116;
-	--white: #ffffff;
-	--black: #000;
+	--white: #FEFFFE;
+	--black: #010001;
 	--ls: -0.07em;
 	--ratio: 1.618;
 	--uni: calc(var(--ratio) * 1rem);
@@ -620,13 +620,19 @@ top: 0;
   }
 }
 @media only screen and (max-width: 768px) {
-	#time {
+	#header-layout {
+		padding: 0;
+	  }
+	#bottom-left {
+		min-width: 100%;
+	}
+
+	#bottom-right {
 		display: none;
 	}
-  #footer-desc{
-	display: none;
-    /* padding-top: 10vh; */
-  }
+	#desc-v3 {
+		justify-content: s;
+	}
   #footer-socials {
 	width: 100%;
   }
@@ -643,9 +649,6 @@ top: 0;
 }
 }
 @media only screen and (max-width: 450px) {
-  :root {
-
-  }
   #hero svg {
 	width: 95vh!important;
 	position: absolute;
@@ -658,6 +661,7 @@ top: 0;
   #nav-cluster a{
     display: none;
   }
+
   #contact .description {
     display: none;
   }

@@ -8,10 +8,10 @@ const dLoader = new DRACOLoader();
 const gltfLoader = new GLTFLoader();
 const scene = new THREE.Scene();
 const hdriLoader = new RGBELoader();
-hdriLoader.load( './env.hdr', function (texture) {
-texture.mapping = THREE.EquirectangularReflectionMapping;
-scene.environment = texture;
-});
+// hdriLoader.load( './env.hdr', function (texture) {
+// texture.mapping = THREE.EquirectangularReflectionMapping;
+// scene.environment = texture;
+// });
 
 //Camera
 var camera = new THREE.PerspectiveCamera( 15, innerWidth/innerHeight );
@@ -23,9 +23,8 @@ const renderer = new THREE.WebGLRenderer({
   canvas: document.querySelector('#logo-model'),
   alpha: true,antialiasing: true,
 });
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.9;
-renderer.outputEncoding = THREE.sRGBEncoding;
+// renderer.toneMapping = THREE.ACESFilmicToneMapping;
+// renderer.toneMappingExposure = 0.9;
 
 //RESIZE
 function resizeCanvasToDisplaySize() {
