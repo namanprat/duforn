@@ -322,7 +322,7 @@ function normalizeColor(hexCode) {
             rotation: 0,
             playing: true
         }, 
-        document.querySelectorAll("canvas").length < 1 ? console.log("DID NOT LOAD HERO STRIPE CANVAS") : (
+        document.querySelectorAll("canvas").length < 1 ? console.log() : (
           
           this.minigl = new MiniGl(this.el, null, null, !0), 
           requestAnimationFrame(() => {
