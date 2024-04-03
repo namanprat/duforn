@@ -329,7 +329,7 @@ body {
 	transition: 0.2s ease-in-out;
 }
 main {
-	background-color: red;
+	/* background-color: red; */
 	/* border: 3px solid blue; */
 	position: relative;
 	z-index: 2;
