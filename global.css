@@ -186,6 +186,9 @@ right: 0;
 	color: var(--diff);
 	mix-blend-mode: difference;
 }
+.white {
+	color: var(--white);
+}
 
 .self-center {
 	align-self: center;
@@ -302,7 +305,6 @@ p {
 	margin: 0;
 	padding: 0;
 	box-sizing: border-box;
-	box-sizing: border-box;
     -moz-box-sizing: border-box;
     -webkit-box-sizing: border-box;
 	text-decoration: none !important;
@@ -317,7 +319,7 @@ html[data-scroll-orientation="horizontal"] {
     }
 }
 html {
-	height: 100%;
+	/* height: 100%; */
 	overscroll-behavior: none;
 }
 body {
@@ -327,6 +329,8 @@ body {
 	transition: 0.2s ease-in-out;
 }
 main {
+	background-color: red;
+	/* border: 3px solid blue; */
 	position: relative;
 	z-index: 2;
 }
