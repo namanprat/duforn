@@ -10,6 +10,34 @@ import { Gradient } from './Gradient.js';
 const gradient = new Gradient();
 gradient.initGradient('#gradient-canvas');
 
+// const races = document.querySelector("#project-row");
+
+// function getScrollAmount() {
+// 	let racesWidth = races.scrollWidth;
+// 	return -(racesWidth - window.innerWidth);
+// }
+
+// const tween = gsap.to(races, {
+// 	x: getScrollAmount,
+// 	duration: 3,
+// 	ease: "none",
+// });
+
+
+// ScrollTrigger.create({
+// 	trigger:"#project-row",
+// 	start:"top 20%",
+// 	end: () => `+=${getScrollAmount() * -1}`,
+// 	pin:true,
+// 	animation: tween,
+// 	scrub:1,
+// 	invalidateOnRefresh:true,
+// 	markers:true
+// });
+
+
+
+
 const locomotiveScroll = new LocomotiveScroll({
     lenisOptions: {
         wrapper: window,
@@ -38,7 +66,6 @@ function swiperInit() {
         },
     });
 }
-
 
 function valueSet() {
     gsap.set("#overlay", {
@@ -246,23 +273,16 @@ function lineReveal() {
 }
 
 function aboutReveal() {
-    const splitTypes = document.querySelectorAll("[header-split]")
-    splitTypes.forEach((char, i) => {
-        const text = new SplitType(char, {
-            types: 'words'
-        })
-
-        gsap.from(text.words, {
-            scrollTrigger: {
-                trigger: "section",
-                start: 'top',
-                end: "bottom bottom",
-                scrub: true,
-                markers: true,
-            },
-            opacity: 0.15,
-            stagger: 1,
-        })
+    gsap.from("#header-layout h1", {
+        opacity: 0,
+            y: "100%",
+            duration: 2.2,
+            ease: "power4.inOut",
+            stagger: 0.1,
+        scrollTrigger: {
+            trigger: "#desc-v3",
+            start: 'top 80%',
+        }
     })
 }
 

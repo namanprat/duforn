@@ -8,16 +8,21 @@
 	top: 0; */
 }
 .bg {
+	z-index: -1;
+	width: 100%;
+	height:100vh;
 	position: fixed;
+left: 0;
+top: 0;
 }
 #gradient-canvas {
 	width: 100%;
-	height: 100vh;
-		--gradient-color-1: #727272; 
+	height: 100%;
+  --gradient-color-1: #727272; 
   --gradient-color-2: #212121; 
   --gradient-color-3: #292929;  
   --gradient-color-4: #000000;
-  filter: blur(50px);
+  filter: blur(20px);
 
 }
 .corners {
@@ -38,6 +43,7 @@
 	/* height: calc(100vh - 25vh); */
 }
 #hero-bottom {
+	z-index: 3;
 	padding-bottom: var(--uni);
 	width: 100%;
 	/* padding: var(--uni); */
@@ -49,11 +55,6 @@
 	gap: 1rem;
 }
 .marquee {
-	/* border: 1px solid var(--white);
-	border-radius: 2rem; */
-	/* line-height: 130%; */
-	/* height: 3rem;
-	margin-top: var(--uni); */
 	width: 100%;
 	/* --gap: 1rem; */
 	display: flex;
@@ -66,9 +67,7 @@
 	flex-shrink: 0;
 	display: flex;
 	align-items: center;
-	/* justify-content: space-around; */
 	min-width: 100%;
-	/* gap: var(--uni); */
   }
   .marquee__content span {
 	font-size: var(--h4);
@@ -89,7 +88,6 @@
 }
 #hero svg {
 	margin-top: 7vh;
-	/* background-color: red; */
 	height: auto;
 	width: 100%;
 	padding-left: var(--uni);
@@ -124,41 +122,19 @@
 		text-align: center;
 	}
 }
-#desc-v2 {
-	width: 100%;
-	height: 100vh;
-	h1{
-		font-size: var(--xxl);
-		line-height: 0.7;
-	}
-}
 #desc-v3 {
 	height: 100vh;
 	justify-content: space-evenly;
 	#header-layout {
 		/* background-color: red; */
 		width: 100%;
-		gap: 0.1rem;
+		gap: 0.6rem;
 	}
 	#desc {
 		margin-top: var(--h2);
 	}
-}
-
-#desc-v4 {
-	h1 {
-		font-size: var(--h1-7)
-	}
-	/* background-color: red; */
-	height: 92vh;
-	max-width: 1600px;
-	margin: auto;
-	gap: var(--uni);
-	#yo {
-		width: 60%;
-		/* background-color: red; */
-		align-items: start;
-		height: 100%;
+	h1{
+		padding-right:0.9rem;
 	}
 }
 #project-attr {
@@ -193,8 +169,13 @@ ul {
 	will-change: transform;
 }
 #project-wrapper{
-	display: flex;
-	flex-wrap: wrap;
+	/* overflow-x: scroll; */
+	/* position: relative; */
+}
+#project-row {
+	width:fit-content;
+	display:flex;
+	flex-wrap:nowrap;
 }
 #featured-project {
 	position: relative;
@@ -214,9 +195,6 @@ ul {
 	object-fit: cover;
 	height: 100%;
     width: 100%;
-}
-#brev {
-	height: 100vh;
 }
 .work-text {
 	padding-top: 12vh;

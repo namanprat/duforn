@@ -1,30 +1,20 @@
 import "./index.css";
 import * as THREE from "three";
-import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { pcss, MeshTransmissionMaterial } from '@pmndrs/vanilla';
+console.log(pcss, MeshTransmissionMaterial);
 
-const dLoader = new DRACOLoader();
-const gltfLoader = new GLTFLoader();
+THREE.ColorManagement.legacyMode = false;
+
+
 const scene = new THREE.Scene();
-const hdriLoader = new RGBELoader();
-hdriLoader.load( './env.hdr', function (texture) {
-texture.mapping = THREE.EquirectangularReflectionMapping;
-scene.environment = texture;
-});
-
-//Camera
-var camera = new THREE.PerspectiveCamera( 15, innerWidth/innerHeight );
-camera.position.z = 4.5;
-
-const renderer = new THREE.WebGLRenderer({
-  canvas: document.querySelector('#logo-model'),
-  alpha: true,antialiasing: true,
-});
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.7;
-renderer.outputEncoding = THREE.sRGBEncoding;
+const camera = new THREE.PerspectiveCamera(
+  75,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  1000
+);
 
 //RESIZE
 function resizeCanvasToDisplaySize() {
@@ -32,38 +22,55 @@ function resizeCanvasToDisplaySize() {
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
   if (canvas.width !== width ||canvas.height !== height) {
-    renderer.setSize(width, height);
+    renderer.setSize(width, height, false);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
   }
 }
 
-dLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
-dLoader.setDecoderConfig({type:'js'});
-gltfLoader.setDRACOLoader(dLoader);
-
-gltfLoader.load('./logo.glb', function(glb){
-  const logo = glb.scene;
-  scene.add(logo); 
+const renderer = new THREE.WebGLRenderer({
+  canvas: document.querySelector('#logo-model'),
+  alpha: true,antialiasing: true,
 });
 
+
+
+const loader = new GLTFLoader();
+loader.load('./logo.glb', function(glb){
+  console.log(glb);
+  const logo = glb.scene;
+  logo.scale.set(3.5, 3.5, 3.5);
+  logo.material = Object.assign(new MeshTransmissionMaterial(10), {
+    clearcoat: 1,
+    clearcoatRoughness: 0,
+    transmission: 1,
+    chromaticAberration: 0.03,
+    anisotrophicBlur: 0.1,
+    roughness: 0,
+    thickness: 4.5,
+    ior: 1.5,
+    distortion: 0.1,
+    distortionScale: 0.2,
+    temporalDistortion: 0.2
+  })
+  scene.add(logo);
+});
+
+//camera.position.z = 2.5;
+camera.position.set( 0, 0, 5 )
+
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.enablePan = false;
-controls.enableZoom = false;
 
-//Directional Light
- const dirLight = new THREE.DirectionalLight(0x878787, 1);
-dirLight.position.set(0,0, 10);
-scene.add(dirLight);
 
-//Hemi Light
-const hemiLight = new THREE.HemisphereLight(0xF8F4A6, 0x3943B7, 3);
-hemiLight.position.set(0,0, 0);
-scene.add(hemiLight);
+
+const light = new THREE.DirectionalLight(0xffffff, 3);
+light.position.set(3, 3, 9);
+scene.add(light);
+
 
 function animate() {
-controls.update();
+  controls.update();
+
   resizeCanvasToDisplaySize();
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
