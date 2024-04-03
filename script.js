@@ -10,35 +10,35 @@ import { Gradient } from './Gradient.js';
 const gradient = new Gradient();
 gradient.initGradient('#gradient-canvas');
 
-function horizontalScroll() {
-const races = document.querySelector("#project-row");
-console.log(races.offsetWidth);
+// function horizontalScroll() {
+// const races = document.querySelector("#project-row");
+// console.log(races.offsetWidth);
 
-function getScrollAmount() {
-	let racesWidth = races.scrollWidth;
-	return -(racesWidth - window.innerWidth);
-}
+// function getScrollAmount() {
+// 	let racesWidth = races.scrollWidth;
+// 	return -(racesWidth - window.innerWidth);
+// }
 
-const tween = gsap.to(races, {
-	x: getScrollAmount,
-	duration: 3,
-	ease: "none",
-});
-
-
-ScrollTrigger.create({
-	trigger:"#project-wrapper",
-	start:"top 20%",
-	end: () => `+=${getScrollAmount() * -1}`,
-	pin:true,
-	animation:tween,
-	scrub:1,
-	invalidateOnRefresh:true,
-	markers:true
-})
+// const tween = gsap.to(races, {
+// 	x: getScrollAmount,
+// 	duration: 3,
+// 	ease: "none",
+// });
 
 
-}
+// ScrollTrigger.create({
+// 	trigger:"#project-wrapper",
+// 	start:"top 20%",
+// 	end: () => `+=${getScrollAmount() * -1}`,
+// 	pin:true,
+// 	animation:tween,
+// 	scrub:1,
+// 	invalidateOnRefresh:true,
+// 	markers:true
+// })
+
+
+// }
 
 
 
@@ -337,5 +337,5 @@ valueSet();
 buttonAnimation();
 overlayAnimation();
 aboutReveal();
-horizontalScroll();
+// horizontalScroll();
 
