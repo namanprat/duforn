@@ -426,16 +426,14 @@ section {
 	}
 
 	}
-	#menu-logo {
+	#menu-bg {
+		position: absolute;
 	z-index: 1;
+	overflow: hidden;
+	background-color: red;
 		pointer-events: none;
-		width: 60%;
+		width: 100%;
 		height: 100%;
-		#logo-model {
-			position: relative;
-			width: 100%;
-			height: 100%;
-			}
 	}
 	#menu-cluster {
 		width: 100%;
@@ -447,6 +445,8 @@ section {
 			border-radius: var(--h4);
 			transition: 0.2s ease-in-out;
 			h1{
+				text-wrap: nowrap;
+				font-size: clamp(4.21rem, 13.78vw + 0.76rem, 13rem)!important;
 				/* opacity: 0; */
 				/* transform: translateY(100%); */
 				
@@ -662,6 +662,11 @@ top: 0;
 }
 }
 @media only screen and (max-width: 768px) {
+	#menu-cluster {
+		a {
+			padding: 0;
+		}
+	}
 	#header-layout {
 		padding: 0;
 	  }

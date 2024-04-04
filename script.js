@@ -11,15 +11,15 @@ const gradient = new Gradient();
 gradient.initGradient('#gradient-canvas');
 
 function horizontalScroll() {
-    const races = document.querySelector("#project-row");
-    console.log(races.offsetWidth)
+    const container = document.querySelector("#project-row");
+    console.log(container.offsetWidth)
     
     function getScrollAmount() {
-        let racesWidth = races.scrollWidth;
-        return -(racesWidth - window.innerWidth);
+        let containerWidth = container.scrollWidth;
+        return -(containerWidth - window.innerWidth);
     }
     
-    const tween = gsap.to(races, {
+    const tween = gsap.to(container, {
         x: getScrollAmount,
         duration: 3,
         ease: "none",
@@ -30,11 +30,9 @@ function horizontalScroll() {
         trigger:"#project-wrapper",
         start:"top",
         end: () => `+=${getScrollAmount() * -1}`,
-        //pin:true,
         animation:tween,
-        scrub:1,
+        scrub:true,
         invalidateOnRefresh:true,
-        markers:true
     })
 
 }
@@ -78,9 +76,6 @@ function valueSet() {
     });
     gsap.set("#overlay-bg", {
         autoAlpha: 0,
-    });
-    gsap.set("#divider", {
-        width: 0,
     });
     gsap.set("#nav-cluster a", {
         x: 0,
@@ -278,9 +273,9 @@ function lineReveal() {
     gsap.to("#divider", {
         opacity: 1,
         width: "100%",
-        duration: 2.2,
+        duration: 2.1,
         ease: "power4.inOut",
-        stagger: 0.1,
+        stagger: 0.15,
         scrollTrigger: {
             trigger: ".divider",
             start: 'top 90%',
