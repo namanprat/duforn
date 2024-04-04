@@ -680,7 +680,6 @@ top: 0;
 		#desc {
 			margin-top: 15vh!important;
 		}
-		/* justify-content: space-between!important; */
 	}
 	#contact {
 		align-items: center;
@@ -719,6 +718,9 @@ top: 0;
 }
 }
 @media only screen and (max-width: 475px) {
+	:root {
+		--ratio: 1.444
+	}
 	#hero{
 		padding-bottom: 0!important;
 
@@ -738,10 +740,6 @@ top: 0;
   #nav-cluster a{
     display: none;
   }
-
-	#deck img {
-		rotate: -90deg;
-	}
 	#project-page {
 		flex-direction: column;
 	}
