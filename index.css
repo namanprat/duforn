@@ -85,9 +85,7 @@
   .scroll {
 	animation: scroll 12s linear infinite;
   }
-#about {
-	height: 300vh;
-}
+
 #hero svg {
 	margin-top: 7vh;
 	height: auto;
@@ -170,42 +168,55 @@ ul {
 	width: 300vw;
 	will-change: transform;
 }
-#project-v2{
-	height: 200vh;
-	/* overflow-x: scroll; */
-	position: relative;
+#project-showcase {
+	height: 400vh;
+	span {
+		font-size: var(--h1);
+		font-family: var(--title);
+		margin-bottom: -5rem;
+		/* background-color: red; */
+	}
+	#project-wrapper{
+		width: 100%;
+		margin: 0;
+		height: 100vh;
+		display: flex;
+		flex-direction: column;
+		position: sticky;
+		top: 0;
+		justify-content: center;
+	}
+	#project-row {
+		width:200vw;
+		display:flex;
+		flex-wrap:nowrap;
+	}
+	#featured-project {
+		flex-shrink: 0;
+		margin: auto;
+		position: relative;
+		color: var(--white);
+		width: 70vw;
+		height: 80vh;
+		img {
+			scale: 1.2;
+			display: block;
+			z-index: 1;
+			background-position: center;
+			background-repeat: no-repeat;
+			background-size: cover;
+			object-fit: cover;
+			height: 100%;
+			width: 100%;
+		}
+	}
 }
-#project-wrapper{
-	position: sticky;
-	/* overflow-x: scroll; */
-	/* position: relative; */
-}
-#project-row {
-	width:fit-content;
-	display:flex;
-	flex-wrap:nowrap;
-}
-#featured-project {
-	position: relative;
-	padding: 1rem;
-	color: var(--white);
-	width: 70vw;
-	height: 80vh;
-    overflow: hidden;
-}
-#project-img {
-	scale: 1.2;
-	display: block;
-	z-index: 1;
-	background-position: center;
-	background-repeat: no-repeat;
-	background-size: cover;
-	object-fit: cover;
-	height: 100%;
-    width: 100%;
-}
+
+#brev {
+	height: 100vh;
 .work-text {
 	padding-top: 12vh;
+}
 }
 .swiper-container,
 .swiper-wrapper {

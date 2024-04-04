@@ -10,35 +10,34 @@ import { Gradient } from './Gradient.js';
 const gradient = new Gradient();
 gradient.initGradient('#gradient-canvas');
 
-// function horizontalScroll() {
-// const races = document.querySelector("#project-row");
-// console.log(races.offsetWidth);
+function horizontalScroll() {
+    const races = document.querySelector("#project-row");
+    console.log(races.offsetWidth)
+    
+    function getScrollAmount() {
+        let racesWidth = races.scrollWidth;
+        return -(racesWidth - window.innerWidth);
+    }
+    
+    const tween = gsap.to(races, {
+        x: getScrollAmount,
+        duration: 3,
+        ease: "none",
+    });
+    
+    
+    ScrollTrigger.create({
+        trigger:"#project-wrapper",
+        start:"top",
+        end: () => `+=${getScrollAmount() * -1}`,
+        //pin:true,
+        animation:tween,
+        scrub:1,
+        invalidateOnRefresh:true,
+        markers:true
+    })
 
-// function getScrollAmount() {
-// 	let racesWidth = races.scrollWidth;
-// 	return -(racesWidth - window.innerWidth);
-// }
-
-// const tween = gsap.to(races, {
-// 	x: getScrollAmount,
-// 	duration: 3,
-// 	ease: "none",
-// });
-
-
-// ScrollTrigger.create({
-// 	trigger:"#project-wrapper",
-// 	start:"top 20%",
-// 	end: () => `+=${getScrollAmount() * -1}`,
-// 	pin:true,
-// 	animation:tween,
-// 	scrub:1,
-// 	invalidateOnRefresh:true,
-// 	markers:true
-// })
-
-
-// }
+}
 
 
 
@@ -63,18 +62,21 @@ const locomotiveScroll = new LocomotiveScroll({
 
 function swiperInit() {
     var swiper = new Swiper(".swiper-container", {
-        loopedSlides: 6,
+        loopedSlides: 8,
         loop: true,
         slidesPerView: "auto",
         freeMode: true,
         mousewheel: {
-            releaseOnEdges: true,
+          releaseOnEdges: true,
         },
-    });
+      });
 }
 
 function valueSet() {
     gsap.set("#overlay", {
+        autoAlpha: 0,
+    });
+    gsap.set("#overlay-bg", {
         autoAlpha: 0,
     });
     gsap.set("#divider", {
@@ -151,41 +153,50 @@ function transition() {
         stagger: 0.07,
     })
 }
-
 function overlayAnimation() {
     var tl = gsap.timeline({
         paused: true,
         reversed: true
     });
-    tl.to("#home", {
-            autoAlpha: 0,
-            duration: 1,
+    const splitTypes = document.querySelectorAll("[text-split]")
+    splitTypes.forEach((char, i) => {
+        const text = new SplitType(char, {
+            types: 'chars'
+        })
+
+        tl.from(text.chars, {
+            y: "100%",
+            opacity: 0,
+            duration: 2,
             ease: "power4.inOut",
+            stagger: 0.1,
         }, "<")
-        .to("#nav-cluster a", {
+    })
+    tl.to("#nav-cluster a", {
             ease: "power4.inOut",
             duration: 1,
-            x: "-100%",
+            x: "100%",
             stagger: 0.07,
-            autoAlpha: 0
+            autoAlpha: 0,
         }, "<")
-        .to("#overlay", {
+        .to("#overlay-bg", {
             ease: "power4.inOut",
             duration: 0.75,
             autoAlpha: 1
         }, "<")
-        .to("#seperator", {
-            duration: 2.25,
+        .to("#div", {
+            duration: 2.5,
             ease: "power4.inOut",
             stagger: 0.065,
             width: "100%",
+            opacity: 0,
         }, "<");
+
 
     Array.from(document.querySelectorAll(".menu-close, .menu-open")).forEach(e => e.addEventListener("click", function() {
         tl.reversed() ? tl.play() : tl.reverse()
     }))
 };
-
 function buttonAnimation() {
     overlayAnimation();
     var tl = gsap.timeline({
@@ -234,7 +245,7 @@ function blurReveal() {
 }
 
 function opacityReveal() {
-    const splitTypes = document.querySelectorAll("[text-split]")
+    const splitTypes = document.querySelectorAll("[tet-split]")
     splitTypes.forEach((char, i) => {
         const text = new SplitType(char, {
             types: 'words'
@@ -337,5 +348,5 @@ valueSet();
 buttonAnimation();
 overlayAnimation();
 aboutReveal();
-// horizontalScroll();
+horizontalScroll();
 

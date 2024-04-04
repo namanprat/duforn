@@ -8,12 +8,7 @@
     <link rel="stylesheet" href="./index.css" type="text/css">
   </head>
   <body data-barba="wrapper">
-    <!-- <div class="loader flex justify-center no-select">
-      <div class="self-center overflow-hidden">
-        <h1 loader-split>DUFORN</h1>
-      </div>
-    </div> -->
-
+    <!-- <div class="loader flex justify-center no-select"><div class="self-center overflow-hidden"><h1 loader-split>DUFORN</h1></div></div> -->
     <div class="transition row no-select">
       <div id="bar"></div>
       <div id="bar"></div>
@@ -23,162 +18,132 @@
       <div id="bar"></div>
     </div>
     <div data-barba="container" data-barba-namespace="home">
-
-    <!-- OVERLAY -->
-    <div id="overlay" class="col space-bw">
-      <div id="menu-cluster" class="width-100">
-        <div id="seperator"></div>
-          <a class="menu flex center w" href="./index.html">INDEX</a>
-        <div id="seperator"></div>
-        <a class="menu flex center w" href="./work.html">WORK</a>
-        <div id="seperator"></div>
-        <a class="menu flex center w" href="./about.html">ABOUT</a>
-        <div id="seperator"></div>
-      </div>
-      <div id="socials" class="row w-50 self-start gap-2 space-bw w">
-        <div class="col">
-            <a href="mailto:a.namanprat@gmail.com" class="link">hello@duforn.com</a>
-            <a class="link">+91 97428 13515</a>
+      <!-- OVERLAY -->
+      <div id="overlay-bg" class="flex justify-center">
+        <div id="menu" class="col center overflow-hidden">
+          <button class="menu-open">
+            <h4>[ close ]</h4>
+          </button>
+          <div id="menu-cluster" class="col space-even">
+            <div id="div"></div>
+            <a class="w menu-open">
+              <h1 text-split>INDEX</h1>
+            </a>
+            <div id="div"></div>
+            <a class="w" href="./work.html">
+              <h1 text-split>WORK</h1>
+            </a>
+            <div id="div"></div>
+            <a class="w" href="./about.html">
+              <h1 text-split>ABOUT</h1>
+            </a>
+            <div id="div"></div>
+            <a class="w" href="./about.html">
+              <h1 text-split>CONTACT</h1>
+            </a>
+            <div id="div"></div>
           </div>
-          <div class="col">
-            <a href="https://instagram.com/namanprat_" class="link" target="_blank">instagram</a>
-            <a href="https://instagram.com/namanprat_" class="link" target="_blank">linkedin</a>
-          </div>
+        </div>
       </div>
-      <a id="overlay-bottom" class="col center gap menu-open">
-        <img src="./public/logotype-hindi-white.svg" alt="logo" class="vw-100 w">
-        <!-- <h4>[ © 2024 DUFORN. All rights reserved ]</h4> -->
-      </a>
-    </div>
-
-    <!-- nav -->
-    <nav class="flex space-bw center">
-      <a href="./index.html" class= "pill"><h4>DUFORN</h4></a>
-      <div id="nav-cluster" class="row space-bw">
-        <a href="./about.html" class= "pill"><h4>ABOUT</h4></a>
-        <a class= "pill" href="./work.html"><h4>WORK</h4></a>
-        <button id="menu" class="pill menu-open"><h4>MENU</h4></button>
-      </div>
-    </nav>
-    
-    <main class="col gap-2">
-      <div class="bg noise overflow-hidden">
-      <canvas id="gradient-canvas" data-transition-in></canvas>
-      </div>
-      <!-- HERO -->
-      <section id="hero" class="col center w space-bw">
-          <canvas id="logo-model"></canvas>  
+      <!-- nav -->
+      <nav class="flex space-bw center">
+        <a href="./index.html" class="pill">
+          <h4>DUFORN</h4>
+        </a>
+        <div id="nav-cluster" class="row space-bw">
+          <a href="./about.html" class="pill">
+            <h4>ABOUT</h4>
+          </a>
+          <a class="pill" href="./work.html">
+            <h4>WORK</h4>
+          </a>
+          <button id="menu" class="pill menu-open">
+            <h4>MENU</h4>
+          </button>
+        </div>
+      </nav>
+      <main class="col gap-2">
+        <div class="bg noise overflow-hidden">
+          <canvas id="gradient-canvas" data-transition-in></canvas>
+        </div>
+        <!-- HERO -->
+        <section id="hero" class="col center w space-bw">
+          <canvas id="logo-model"></canvas>
           <div class="w vw-100 col gap">
             <img id="intro-logo" src="./public/logotype-white.svg" alt="logo" class="corners w pointer-none">
             <div id="marquee" class="corners white">
-                <div class="marquee">
-                  <div class="marquee__content scroll">
-                    <span>IS AN INDEPENDENT CREATIVE STUDIO THAT IS DEDICATED TO CRAFTING UNFORGETTABLE DIGITAL EXPERIENCES BY DEVELOPING SOLUTIONS BASED ON DESIGN AND INSIGHTS.</span>
-                  </div>
-                  <div class="marquee__content scroll" aria-hidden="true">
-                    <span>IS AN INDEPENDENT CREATIVE STUDIO THAT IS DEDICATED TO CRAFTTABLE DIGITAL EXPERIENCES BY DEVELOPING SOLUTIONS BASED ON DESIGN AND INSIGHTS.</span>
-                  </div>
-                  <div class="marquee__content scroll" aria-hidden="true">
-                    <span>IS AN INDEPENDENT CREATIVE STUDIO THAT IS DEDICATED TO CRAFTING UNFORGETTABLE DIGITAL EXPERIENCES BY DEVELOPING SOLUTIONS BASED ON DESIGN AND INSIGHTS.</span>
-                  </div>
+              <div class="marquee">
+                <div class="marquee__content scroll">
+                  <span>IS AN INDEPENDENT CREATIVE STUDIO THAT IS DEDICATED TO CRAFTING UNFORGETTABLE DIGITAL EXPERIENCES BY DEVELOPING SOLUTIONS BASED ON DESIGN AND INSIGHTS.</span>
                 </div>
+                <div class="marquee__content scroll" aria-hidden="true">
+                  <span>IS AN INDEPENDENT CREATIVE STUDIO THAT IS DEDICATED TO CRAFTTABLE DIGITAL EXPERIENCES BY DEVELOPING SOLUTIONS BASED ON DESIGN AND INSIGHTS.</span>
+                </div>
+                <div class="marquee__content scroll" aria-hidden="true">
+                  <span>IS AN INDEPENDENT CREATIVE STUDIO THAT IS DEDICATED TO CRAFTING UNFORGETTABLE DIGITAL EXPERIENCES BY DEVELOPING SOLUTIONS BASED ON DESIGN AND INSIGHTS.</span>
+                </div>
+              </div>
             </div>
           </div>
-          
-          
           <div id="hero-bottom" class="row space-bw diff">
-            <p id="bottom-left">welcome to our SITE. IT HAS COME TO our ATTENTION THAT YOU MIGHT BE A CURIOUS TRAVELLER, WHO IS WANDERING THROUGH THE WAST EXPANSES OF THE INTERNET. we HOPE YOU WILL FIND OUT SOON ENOUGH, THAT YOU ARE AT THE RIGHT PLACE!
-            </p>
+            <p id="bottom-left">welcome to our SITE. IT HAS COME TO our ATTENTION THAT YOU MIGHT BE A CURIOUS TRAVELLER, WHO IS WANDERING THROUGH THE WAST EXPANSES OF THE INTERNET. we HOPE YOU WILL FIND OUT SOON ENOUGH, THAT YOU ARE AT THE RIGHT PLACE! </p>
             <div id="bottom-right" class="flex self-end">
               <a href="https://instagram.com/namanprat_">[ instagram ]</a>
               <a href="https://instagram.com/namanprat_">[ linkedin ]</a>
-
             </div>
           </div>
-      </section>
+        </section>
         <!-- ABOUT -->
-        
         <section id="desc-v3" class="col center w">
-            <div id="header-layout" class="col center w white">
-              <div id="top" class="row overflow-hidden w-50 space-bw self-start"><h1>we</h1><h1>help</h1></div>
-              <div id="center" class="row overflow-hidden width-100 space-bw"><h1>brands</h1><h1>with</h1></div>
-              <div id="end" class="self-center overflow-hidden"><h1>( a mission* )</h1></div>
+          <div id="header-layout" class="col center w white">
+            <div id="top" class="row overflow-hidden w-50 space-bw self-start">
+              <h1>we</h1>
+              <h1>help</h1>
             </div>
-        <div id="desc" class="col center gap max-600 diff">
-          <p>as a multi-disciplinary design studio, We help new ideas emerge, and existing products grow by building timeless brand experiences for the modern age. We harmonise design, culture, and technology, serving as silent storytellers and revealing emotions, ambitions, and the very essence of a brand.</p>
-          <a href="https://cal.com/namanprat/discovery-call">[ SCHEDULE A DISCOVERY CALL ]</a></div>
-      </section>
-
-
-      <!-- WORK -->
-        <!-- <section id="project-v2" class="col gap w">
-            <h2 class="">selected work</h2>
-            <div id="project-wrapper" class="overflow-hidden">
-            <div id="project-row" class="gap-2">
-                  <a id="featured-project" href="./project.html" class="flex overflow-hidden center w">
-                    <div class="abs-center overflow-hidden">
-                        <img loading="lazy" id="project-img" class="blur" src="https://namanprat.com/images/aspen/asppen-cover.webp">
-                    </div>
-                    
-                    <div id="featured-project-details" class="col center space-bw">
-                        <div id="" class="row space-bw width-100 center">
-                        <h3 id="project-year">2022</h3>
-                            <ul>
-                            <li>user interface</li>
-                            <li>user research</li>
-                            <li>visual design</li>
-                            </ul>
-                        </div>
-                        <h2>ASPEN</h2>
-                    </div>
-                </a>
-
-                  <a id="featured-project" href="./project.html" class="flex overflow-hidden center w">
-                    <div class="abs-center overflow-hidden">
-                        <img loading="lazy" class="blur" id="project-img" src="https://namanprat.com/images/sage/sage-cover.webp">
-                    </div>
-                    
-                    <div id="featured-project-details" class="col center space-bw">
-                        <div id="" class="row space-bw width-100 center">
-                        <h3 id="project-year">2022</h3>
-                            <ul>
-                            <li>user interface</li>
-                            <li>user research</li>
-                            <li>visual design</li>
-                            </ul>
-                        </div>
-                        <h2>ASPEN</h2>
-                    </div>
-                </a>
-
-                
-
-
+            <div id="center" class="row overflow-hidden width-100 space-bw">
+              <h1>brands</h1>
+              <h1>with</h1>
+            </div>
+            <div id="end" class="self-center overflow-hidden">
+              <h1>( a mission* )</h1>
             </div>
           </div>
+          <div id="desc" class="col center gap max-600 diff">
+            <p>as a multi-disciplinary design studio, We help new ideas emerge, and existing products grow by building timeless brand experiences for the modern age. We harmonise design, culture, and technology, serving as silent storytellers and revealing emotions, ambitions, and the very essence of a brand.</p>
+            <a href="https://cal.com/namanprat/discovery-call">[ SCHEDULE A DISCOVERY CALL ]</a>
+          </div>
+        </section>
+        <!-- WORK -->
+        <section id="project-showcase" class="col w">
+          <span class="white">selected work</span>
+          <div id="project-wrapper" class="overflow-hidden">
+            <div id="project-row" class=" center gap-2">
+              <a id="featured-project" href="./project.html" class="flex overflow-hidden center w">
+                <div class="abs-center overflow-hidden"><img loading="lazy" src="https://namanprat.com/images/aspen/asppen-cover.webp"></div>
+                  </a>
 
-            </section> -->
-  </main>
-  
-    <!-- CONTACT -->
-    <section id="contact" class="row space-bw end overflow-hidden is-white">
-      <h4 id="rights">[ © 2024 All rights reserved ]</h4>
+                  <a id="featured-project" href="./project.html" class="flex overflow-hidden center w">
+                    <div class="abs-center overflow-hidden"><img loading="lazy" src="https://namanprat.com/images/aspen/asppen-cover.webp"></div>
+                      </a>
 
-      <div id="footer-logo" class="flex overflow-hidden">
-
-        <img src="./public/logotype-black.svg" alt="logo">
+                      <a id="featured-project" href="./project.html" class="flex overflow-hidden center w">
+                        <div class="abs-center overflow-hidden"><img loading="lazy" src="https://namanprat.com/images/aspen/asppen-cover.webp"></div>
+                          </a>
+      </main>
+      <!-- CONTACT -->
+      <section id="contact" class="row space-bw end overflow-hidden is-white">
+        <h4 id="rights">[ © 2024 All rights reserved ]</h4>
+        <div id="footer-logo" class="flex overflow-hidden">
+          <img src="./public/logotype-black.svg" alt="logo">
         </div>
-
-      <div id="footer-socials" class="col end">
-      <a href="mailto:a.namanprat@gmail.com">[ email ]</a>
-      <a href="https://instagram.com/namanprat_" target="_blank">[ instagram ]</a>
-      <a href="https://instagram.com/namanprat_" target="_blank">[ linkedin ]</a>
-      </div>
-    </section>
-
+        <div id="footer-socials" class="col end">
+          <a href="mailto:a.namanprat@gmail.com">[ email ]</a>
+          <a href="https://instagram.com/namanprat_" target="_blank">[ instagram ]</a>
+          <a href="https://instagram.com/namanprat_" target="_blank">[ linkedin ]</a>
+        </div>
+      </section>
     </div>
     <script type="module" src="./script.js"></script>
     <script type="module" src="./logo-3d.js"></script>
-
   </body>
 </html>
