@@ -63,7 +63,7 @@ html.lenis{height:auto}.lenis.lenis-smooth{scroll-behavior:auto}.lenis.lenis-smo
     width: 100vw;
     height: 100vh;
     content: "";
-    opacity: .02;  
+    opacity: .04;  
     z-index: 1000;
     pointer-events: none;
     background: url('./public/noise.gif') ;
@@ -248,7 +248,6 @@ right: 0;
 	color: var(--black) !important;
 	background-color: var(--white) !important;
 }
-
 h0 {
 	margin-top: 1rem;
 	font-size: var(--xxl);
