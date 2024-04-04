@@ -26,7 +26,7 @@
   --gradient-color-2: #212121; 
   --gradient-color-3: #292929;  
   --gradient-color-4: #000000;
-  filter: blur(15px);
+  filter: blur(20px);
 
 }
 .corners {
