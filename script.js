@@ -37,10 +37,6 @@ function horizontalScroll() {
 
 }
 
-
-
-
-
 const locomotiveScroll = new LocomotiveScroll({
     lenisOptions: {
         wrapper: window,
@@ -60,7 +56,7 @@ const locomotiveScroll = new LocomotiveScroll({
 
 function swiperInit() {
     var swiper = new Swiper(".swiper-container", {
-        loopedSlides: 5,
+        loopedSlides: 4,
         loop: true,
         slidesPerView: "auto",
         freeMode: true,
