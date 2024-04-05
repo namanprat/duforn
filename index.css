@@ -227,8 +227,8 @@ ul {
 .swiper-slide {
   /* display: flex; */
   /* justify-content: end; */
-  height: min-content;
-  width: auto;
+  height: fit-content;
+  width: fit-content;
   margin: 0;
   img {
     max-width: 500px;
@@ -239,13 +239,6 @@ ul {
 	color: var(--black);
 }
   /* TEXT ON TOP */
-.sage{
-	background-image: url('https://namanprat.com/images/sage/sage-cover.webp');	
-}
-#project-year {
-	/* rotate: -90deg; */
-
-}
 #featured-project-details {
 	position: relative;
 	z-index: 3;
