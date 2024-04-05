@@ -438,7 +438,7 @@ section {
 			h1{
 				padding: 1rem 0;
 				text-wrap: nowrap;
-				font-size: clamp(5.7rem, 13.78vw + 0.76rem, 12.9rem)!important;
+				font-size: clamp(5.6rem, 13.78vw + 0.76rem, 12.9rem)!important;
 			}
 		}
 		a:hover {
@@ -553,7 +553,7 @@ form {
 			background-color: red;
 		}
 		input[type=checkbox]{
-			display:none;
+			/* display:none; */
 		 }
 	}
 }
