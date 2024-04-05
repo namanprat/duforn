@@ -514,6 +514,49 @@ button {
 	text-decoration: none;
 	background-color: transparent;
 }
+textarea,
+input {
+	margin-top: 0.3rem;
+	font-size: var(--h4);
+	color: var(--white);
+	font-family: var(--text);
+	text-decoration: none;
+	background: transparent;
+	border: none;
+	border-bottom: 2px solid var(--white-50);
+	width: 100%;
+	height: 2.2rem;
+}
+form {
+	gap: 1rem;
+	background-color: var(--accent);
+	padding: 2rem;
+	border-radius: var(--h4);
+	label {
+		cursor: pointer;
+		font-size: var(--h4);
+	}
+	textarea {
+		height: 10rem;
+		width: 100%;
+	}
+	.checkbox-wrapper {
+		border: 1px solid var(--white);
+		border-radius: var(--h3);
+		position: relative;
+		display: inline-block;
+		padding: 0.8rem;
+		/* height: var(--h2);
+		line-height: var(--h2); */
+		/* background-color: red; */
+		label:checked {
+			background-color: red;
+		}
+		input[type=checkbox]{
+			display:none;
+		 }
+	}
+}
 .blur {
 	filter: blur(15px);
   -webkit-filter: blur(15px);
