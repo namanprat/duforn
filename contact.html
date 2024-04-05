@@ -62,8 +62,8 @@
          <section class="vh-100 col center space-around white w">
 
             
-            <form name="contact" method="POST" netlify class="col gap">
-               <input type="hidden" name="contact" value="register_company" />
+            <form name="contact" method="POST" netlify class="col gap" netlify-honeypot="bot-field">
+               <input type="hidden" name="contact" value="" />
                <div class="col start">
                  <p>Name:</p>
                  <input type="text" name="name" />
@@ -73,29 +73,33 @@
                   <input type="email" name="email" />
                 </div>
                 <p class="checkbox-label">I'm interested in...</p>
-              <div name="services" class="checkbox-container">
-                  <label class="checkbox-wrapper flex center">
-                     <h4 class="self-center">UI / UX</h4>
-                      <input type="checkbox" id="uiux-checkbox" />
-                      
+                <div class="form-check">
+                  <label class="form-check-label">
+                    <input class="form-check-input" type="checkbox" name="services" value="Graphic Design Branding">
+                    Graphic Design / Branding
                   </label>
-
-                  <label class="checkbox-wrapper col center">
-                     <h4 class="self-center">Branding</h4>
-                      <input type="checkbox" id="branding-checkbox" />
+                </div>
+                <!-- UI/UX Design -->
+                <div class="form-check">
+                  <label class="form-check-label">
+                    <input class="form-check-input" type="checkbox" name="services" value="UI UX Design">
+                    UI/UX Design
                   </label>
-
-                  <label class="checkbox-wrapper col center">
-                     <h4 class="self-center">Web Development</h4>
-                      <input type="checkbox" id="web-checkbox" />
+                </div>
+                <!-- Static Site  -->
+                <div class="form-check">
+                  <label class="form-check-label">
+                    <input class="form-check-input" type="checkbox" name="services" value="Static Site">
+                    Static Site
                   </label>
-
-                  <label class="checkbox-wrapper col center">
-                     <h4 class="self-center">Other</h4>
-                      <input type="checkbox" id="others-checkbox" />
+                </div>
+                <!-- Dynamic Site  -->
+                <div class="form-check">
+                  <label class="form-check-label">
+                    <input class="form-check-input" type="checkbox" name="services" value="Dynamic Site">
+                    Dynamic Site
                   </label>
-
-              </div>
+                </div>
                 <div class="col start">
                   <p>Tell us about your project:</p>
                   <textarea name="message"></textarea>

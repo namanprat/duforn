@@ -385,7 +385,7 @@ section {
 	padding-top: 10vh;
 	top: 0;
 	left: 0;
-	height: 100svh;
+	height: 100dvh;
 	width: 100vw;
 	backdrop-filter: blur(15px);
 	-webkit-backdrop-filter: blur(15px);
@@ -398,7 +398,7 @@ section {
 	/* padding-top: 10vh; */
 	top: 0;
 	left: 0;
-	height: 100svh;
+	height: 100dvh;
 	width: 100vw;
 	backdrop-filter: blur(15px);
 	-webkit-backdrop-filter: blur(15px);
