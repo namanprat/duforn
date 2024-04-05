@@ -60,8 +60,10 @@
          <!-- ABOUT -->
          <!-- <h2 text-split>a creative agency dreaming up worthwhile ideas.</h2> -->
          <section class="vh-100 col center space-around white w">
-  
-            <form name="contact" netlify class="col gap">
+
+            
+            <form name="contact" method="POST" netlify class="col gap">
+               <input type="hidden" name="contact" value="register_company" />
                <div class="col start">
                  <p>Name:</p>
                  <input type="text" name="name" />
