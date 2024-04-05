@@ -61,7 +61,7 @@ html.lenis{height:auto}.lenis.lenis-smooth{scroll-behavior:auto}.lenis.lenis-smo
     width: 100vw;
     height: 100vh;
     content: "";
-    opacity: .04;  
+    opacity: .02;  
     z-index: 1000;
     pointer-events: none;
     background: url('./public/noise.gif') ;
@@ -439,10 +439,6 @@ section {
 				padding: 0.5rem;
 				text-wrap: nowrap;
 				font-size: clamp(5.5rem, 13.78vw + 0.76rem, 13rem)!important;
-				/* opacity: 0; */
-				/* transform: translateY(100%); */
-				
-
 			}
 		}
 		a:hover {
@@ -463,12 +459,6 @@ section {
 	background-color: var(--white);
 	mix-blend-mode: normal;
 }
-/* .menu {
-	height: 6vh;
-} */
-/* .menu a {
-	margin: auto 0;
-} */
 #socials {
 	margin-top: 6vh;
 }
