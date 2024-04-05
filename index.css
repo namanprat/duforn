@@ -224,12 +224,12 @@ ul {
 	transition-timing-function: linear;
 	width: 100%;
 	display: flex;
-	align-items: flex-end;
+	align-items: flex-end !important;
 }
 
 .swiper-slide {
-  height: fit-content;
-  width: fit-content;
+  height: fit-content !important;
+  width: fit-content !important;
   margin: 0;
   img {
     max-width: 500px;
