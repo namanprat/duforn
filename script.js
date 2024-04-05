@@ -18,23 +18,23 @@ function horizontalScroll() {
         let containerWidth = container.scrollWidth;
         return -(containerWidth - window.innerWidth);
     }
-    
+    let mm = gsap.matchMedia();
+    mm.add("(min-width: 768px)", () => {
     const tween = gsap.to(container, {
         x: getScrollAmount,
         duration: 3,
         ease: "none",
-    });
-    
+    });    
     
     ScrollTrigger.create({
         trigger:"#project-wrapper",
-        start:"top",
+        start:"clamp(top)",
         end: () => `+=${getScrollAmount() * -1}`,
         animation:tween,
         scrub:true,
         invalidateOnRefresh:true,
     })
-
+})
 }
 
 const locomotiveScroll = new LocomotiveScroll({
@@ -43,7 +43,6 @@ const locomotiveScroll = new LocomotiveScroll({
         content: document.documentElement,
         lerp: 0.3,
         duration: 1.2,
-        // orientation: 'vertical',
         gestureOrientation: 'vertical',
         smoothWheel: true,
         smoothTouch: false,
@@ -255,7 +254,7 @@ function opacityReveal() {
     })
 }
 
-function textReveal() {
+function aboutTextReveal() {
     gsap.from("#desc-v2 h1", {
         opacity: 0,
         duration: 2,
@@ -265,20 +264,22 @@ function textReveal() {
     })
 }
 
-function lineReveal() {
-    gsap.to("#divider", {
-        opacity: 1,
-        width: "100%",
-        duration: 2.1,
-        ease: "power4.inOut",
-        stagger: 0.15,
-        scrollTrigger: {
-            trigger: ".divider",
-            start: 'top 90%',
-
-        }
+function dividerReveal() {
+    ScrollTrigger.batch("#divider", {
+        trigger: "section",
+        //markers: true,
+        start: 'top 90%',
+        onEnter: (batch) =>
+            gsap.to(batch, {
+                opacity: 1,
+                stagger: 0.15,
+                width: "100%",
+                duration: 2.1,
+                ease: "power4.inOut",
+            }),
     })
 }
+
 
 function aboutReveal() {
     gsap.from("#header-layout h1", {
@@ -289,7 +290,7 @@ function aboutReveal() {
             stagger: 0.1,
         scrollTrigger: {
             trigger: "#desc-v3",
-            start: 'top 80%',
+            start: 'top 90%',
         }
     })
 }
@@ -329,8 +330,8 @@ gsap.config({
 });
 
 navScroll(); //Hides elements of the navbar on scroll
-            textReveal(); //text reveal, added this to reset the state on other page load
-            lineReveal(); //Reveals div borders scrollTrigger, added to reset state
+            aboutTextReveal(); //text reveal, added this to reset the state on other page load
+            dividerReveal(); //Reveals div borders scrollTrigger, added to reset state
             blurReveal();
             workReveal();
             opacityReveal();

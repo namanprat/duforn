@@ -166,7 +166,7 @@ ul {
 	will-change: transform;
 }
 #project-showcase {
-	height: 400vh;
+	height: 325vh;
 	span {
 		/* text-wrap: nowrap; */
 		font-size: var(--xl);
@@ -185,9 +185,10 @@ ul {
 		justify-content: center;
 	}
 	#project-row {
-		width:200vw;
+		width:fit-content;
 		display:flex;
 		flex-wrap:nowrap;
+		padding-bottom: var(--h3);
 	}
 	#featured-project {
 		flex-shrink: 0;
@@ -196,28 +197,24 @@ ul {
 		color: var(--white);
 		width: 70vw;
 		height: 80vh;
-		img {
-			scale: 1.2;
+			/* scale: 1.2; */
 			display: block;
 			z-index: 1;
 			background-position: center;
 			background-repeat: no-repeat;
 			background-size: cover;
 			object-fit: cover;
-			height: 100%;
-			width: 100%;
-		}
 	}
 }
 
 #brev {
 	height: 100vh;
 .work-text {
-	padding-top: 12vh;
+	padding-top: 10vh;
 }
 }
 .swiper-container {
-	padding-bottom: var(--h4);
+	padding-bottom: var(--p);
 }
 .swiper-container,
 .swiper-wrapper {
@@ -286,10 +283,10 @@ line-height: 0.8;
 	width: 100%;
 	height: 100%;
 }
-.sage .project-img{
+.sage {
 	background-image: url('https://namanprat.com/images/sage/sage-cover.webp');	
 }
-.aspen .project-img{
+.aspen {
 	background-image: url('https://namanprat.com/images/aspen/asppen-cover.webp');
 }
 .aspen-2{
