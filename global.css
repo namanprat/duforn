@@ -436,9 +436,9 @@ section {
 			border-radius: var(--h4);
 			transition: 0.2s ease-in-out;
 			h1{
-				padding: 0.5rem;
+				padding: 1rem 0;
 				text-wrap: nowrap;
-				font-size: clamp(5.5rem, 13.78vw + 0.76rem, 12.9rem)!important;
+				font-size: clamp(5.7rem, 13.78vw + 0.76rem, 12.9rem)!important;
 			}
 		}
 		a:hover {
