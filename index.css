@@ -172,11 +172,10 @@ ul {
 #project-showcase {
 	height: 325vh;
 	span {
-		/* text-wrap: nowrap; */
+	line-height: 0.85;
 		font-size: var(--xl);
 		font-family: var(--title);
-		margin-bottom: -5rem;
-		/* background-color: red; */
+		margin-bottom: -3rem;
 	}
 	#project-wrapper{
 		width: 100%;
@@ -217,8 +216,13 @@ ul {
 
 #brev {
 	height: 100vh;
+	h1{
+		display: none;
+		font-size: clamp(6.2rem, 24.15vw + -0.43rem, 21.31rem);
+	}
 .work-text {
 	padding-top: 10vh;
+	
 }
 }
 .swiper-container {

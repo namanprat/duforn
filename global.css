@@ -259,7 +259,7 @@ h1 {
 	text-align: center;
 	text-transform: uppercase;
 	font-size: var(--h1);
-	line-height: 0.85;
+	line-height: 0.8;
 	font-family: var(--title);
 	letter-spacing: var(--ls);
 }
@@ -754,7 +754,14 @@ top: 0;
   .w-50 {
 	width: 100%;
 }
-
+#brev {
+	.work-text img {
+		display: none;
+	}
+	h1 {
+	display: block !important;
+}
+}
 }
 @media only screen and (max-width: 475px) {
 	:root {
