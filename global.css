@@ -26,7 +26,7 @@ html.lenis{height:auto}.lenis.lenis-smooth{scroll-behavior:auto}.lenis.lenis-smo
 	--h1-7: clamp(4rem, 10.72vw + 1rem, 12rem);
   --gap: clamp(1.33rem, 0.91vw + 1.11rem, 1.92rem);
 --gap-2: clamp(2.37rem, 4.09vw + 1.34rem, 5.03rem);
-	--xxl: clamp(4rem, 20vw + -0.43rem, 14.5rem);
+	--xxl: clamp(5.5rem, 20vw + -0.43rem, 12rem);
 
 
 	/* --font-size-sm: clamp(1rem, 0.29vw + 0.93rem, 1.19rem);
@@ -258,7 +258,7 @@ h0 {
 h1 {
 	text-align: center;
 	text-transform: uppercase;
-	font-size: var(--xl);
+	font-size: var(--h1);
 	line-height: 0.85;
 	font-family: var(--title);
 	letter-spacing: var(--ls);
@@ -438,7 +438,7 @@ section {
 			h1{
 				padding: 1rem 0;
 				text-wrap: nowrap;
-				font-size: clamp(5.6rem, 13.78vw + 0.76rem, 12.9rem)!important;
+				font-size: var(--xxl)!important;
 			}
 		}
 		a:hover {
@@ -664,7 +664,7 @@ top: 0;
 @media only screen and (max-width: 1440px) {
 	:root {
 	--h3: clamp(1.33rem, 0.91vw + 1.11rem, 1.92rem);
-	--xl: clamp(3.68rem, 10.72vw + 1rem, 10.65rem);
+	--h1: clamp(4.1rem, 10.72vw + 1rem, 10.65rem);
 
 	}
 }

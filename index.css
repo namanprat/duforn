@@ -126,6 +126,10 @@
 		/* background-color: red; */
 		width: 100%;
 		gap: 0.6rem;
+		h1 {
+			font-size: var(--h1);
+			font-family: var(--title);
+		}
 	}
 	#desc {
 		margin-top: var(--h2);
