@@ -204,7 +204,11 @@ ul {
 			background-repeat: no-repeat;
 			background-size: cover;
 			object-fit: cover;
+			filter: grayscale(1);
 	}
+	#featured-project:hover {
+		filter: grayscale(0);
+		}
 }
 
 #brev {
