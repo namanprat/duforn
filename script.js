@@ -160,7 +160,7 @@ function overlayAnimation() {
         })
 
         tl.from(text.chars, {
-            y: "100%",
+            y: "-100%",
             opacity: 0,
             duration: 2,
             ease: "power4.inOut",
