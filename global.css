@@ -27,7 +27,7 @@ html.lenis{height:auto}.lenis.lenis-smooth{scroll-behavior:auto}.lenis.lenis-smo
 	--h1-7: clamp(4rem, 10.72vw + 1rem, 12rem);
 	--gap: clamp(1.33rem, 0.91vw + 1.11rem, 1.92rem);
 	--gap-2: clamp(2.37rem, 4.09vw + 1.34rem, 5.03rem);
-	--xxl: clamp(5.5rem, 20vw + -0.43rem, 12rem);
+	--xxl: clamp(5.5rem, 20vw + -0.43rem, 11rem);
 
 
 	/* --font-size-sm: clamp(1rem, 0.29vw + 0.93rem, 1.19rem);
@@ -492,7 +492,7 @@ section {
 			.h1 {
 				padding: 1rem 0;
 				text-wrap: nowrap;
-				/* font-size: var(--xxl) !important; */
+				font-size: var(--xxl) !important;
 			}
 		}
 
@@ -757,7 +757,7 @@ form {
 	}
 }
 
-@media only screen and (max-width: 768px) {
+@media only screen and (max-width: 850px) {
 	#menu-cluster {
 		a {
 			padding: 0;

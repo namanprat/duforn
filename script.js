@@ -19,7 +19,7 @@ function horizontalScroll() {
         return -(containerWidth - window.innerWidth);
     }
     let mm = gsap.matchMedia();
-    mm.add("(min-width: 768px)", () => {
+    mm.add("(min-width: 850px)", () => {
     const tween = gsap.to(container, {
         x: getScrollAmount,
         duration: 3,
@@ -62,6 +62,11 @@ function swiperInit() {
         mousewheel: {
           releaseOnEdges: true,
         },
+        breakpoints: {
+            900: {
+               orientation: "vertical", 
+            },
+        }
       });
 }
 
