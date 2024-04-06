@@ -159,7 +159,9 @@ function overlayAnimation() {
             opacity: 0,
             duration: 2,
             ease: "power4.inOut",
-            stagger: 0.1,
+            stagger: {
+                amount: 0.5,
+            },
         }, "<")
     })
     tl.to("#nav-cluster a", {
@@ -284,7 +286,7 @@ function dividerReveal() {
 function aboutReveal() {
     gsap.from("#header-layout .h1", {
         opacity: 0,
-            y: "100%",
+            y: "-100%",
             duration: 2.2,
             ease: "power4.inOut",
             stagger: 0.1,
