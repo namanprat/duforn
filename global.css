@@ -595,29 +595,6 @@ form {
 		gap: var(--p);
 	}
 }
-#deck {
-	height: 100vh;
-	background-color: var(--black);
-}
-#deck .img {
-	z-index: 1;
-	width: 100%;
-	background: transparent url('./public/deck.png');
-	background-repeat: no-repeat;
-	background-size: contain;
-  background-position: center;
-  /* rotate: 85deg; */
-  height: 600px;
-}
-#deck a{
-	text-shadow: 0 0 20px #00000055;
-	text-align: center;
-	z-index: 10;
-	color: var(--white);
-	position: absolute;
-	left: 50%;
-	transform: translate(-50%, -50%);
-}
 /* PROJECT PAGE */
 #project-page {
 	width: 100%;
@@ -661,6 +638,22 @@ top: 0;
 	height: auto;
 }
 @media screen and (orientation:portrait) {
+	
+	  #hero{
+		padding-bottom: 0!important;
+
+		#marquee {
+			display: none;
+		}
+  #intro-logo {
+	width: 72vh!important;
+	position: absolute;
+	transform-origin: top left;
+	transform: rotate(-90deg) translateX(-5%);
+	left: var(--uni);
+    bottom: 0;
+}
+	}
   }
 @media only screen and (max-width: 1440px) {
 	:root {
@@ -690,11 +683,6 @@ top: 0;
 	#bottom-right {
 		display: none;
 	}
-	#desc-v3 {
-		#desc {
-			margin-top: 15vh!important;
-		}
-	}
 	#project-showcase {
 		height: fit-content !important;
 		gap: 5rem;
@@ -720,6 +708,11 @@ top: 0;
 		  }
 		}
 	  }
+	#desc-v3 {
+		#desc {
+			margin-top: 15vh!important;
+		}
+	}
 	#contact {
 		align-items: center;
 		flex-direction: column-reverse;
@@ -768,22 +761,7 @@ top: 0;
 	:root {
 		--ratio: 1.444
 	}
-	
-	#hero{
-		padding-bottom: 0!important;
 
-		#marquee {
-			display: none;
-		}
-  #intro-logo {
-	width: 72vh!important;
-	position: absolute;
-	transform-origin: top left;
-	transform: rotate(-90deg) translateX(-5%);
-	left: var(--uni);
-    bottom: 0;
-}
-	}
   #nav-cluster a{
     display: none;
   }
