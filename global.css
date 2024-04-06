@@ -752,7 +752,7 @@ top: 0;
 	.work-text img {
 		display: none;
 	}
-	h1 {
+	.h1 {
 	display: block !important;
 }
 }

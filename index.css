@@ -216,7 +216,7 @@ ul {
 
 #brev {
 	height: 100vh;
-	h1{
+	.h1{
 		display: none;
 		font-size: clamp(6.2rem, 24.15vw + -0.43rem, 21.31rem);
 	}
