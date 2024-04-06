@@ -190,7 +190,7 @@ function overlayAnimation() {
         }, "<");
 
 
-    Array.from(document.querySelectorAll(".menu-close, .menu-open")).forEach(e => e.addEventListener("click", function() {
+    Array.from(document.querySelectorAll(".menu-open")).forEach(e => e.addEventListener("click", function() {
         tl.reversed() ? tl.play() : tl.reverse()
     }))
 };
@@ -201,9 +201,7 @@ function buttonAnimation() {
         reversed: true
     });
     const toggleBtn = document.getElementById("menu");
-    // const hamburger = document.getElementById("hamburger");
     toggleBtn.onclick = function(e) {
-        // hamburger.classList.toggle("active");
         tl.reversed(!tl.reversed())
     }
 };
