@@ -282,7 +282,7 @@ function dividerReveal() {
 
 
 function aboutReveal() {
-    gsap.from("#header-layout h1", {
+    gsap.from("#header-layout .h1", {
         opacity: 0,
             y: "100%",
             duration: 2.2,
