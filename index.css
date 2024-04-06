@@ -123,19 +123,14 @@
 	height: 100vh;
 	justify-content: space-evenly;
 	#header-layout {
-		/* background-color: red; */
 		width: 100%;
-		gap: 0.6rem;
-		h1 {
-			font-size: var(--h1);
-			font-family: var(--title);
+		gap: 1rem;
+		.h1 {
+		padding-right:0.5rem;
 		}
 	}
 	#desc {
 		margin-top: var(--h2);
-	}
-	h1{
-		padding-right:0.9rem;
 	}
 }
 #project-attr {
