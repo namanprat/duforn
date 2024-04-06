@@ -23,7 +23,7 @@ html.lenis{height:auto}.lenis.lenis-smooth{scroll-behavior:auto}.lenis.lenis-smo
 	--h1: clamp(4.21rem, 13.7vw + 0.75rem, 13rem);
 
 	--logo: clamp(2.2rem, 3.7vw + 1rem, 4.5rem);
-	--xl: clamp(4.21rem, 13.78vw + 0.76rem, 13.17rem);
+	--xl: clamp(4.21rem, 13.78vw + 0.76rem, 12rem);
 	--h1-7: clamp(4rem, 10.72vw + 1rem, 12rem);
 	--gap: clamp(1.33rem, 0.91vw + 1.11rem, 1.92rem);
 	--gap-2: clamp(2.37rem, 4.09vw + 1.34rem, 5.03rem);
@@ -492,7 +492,7 @@ section {
 			.h1 {
 				padding: 1rem 0;
 				text-wrap: nowrap;
-				font-size: var(--xxl) !important;
+				/* font-size: var(--xxl) !important; */
 			}
 		}
 
