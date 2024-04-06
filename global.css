@@ -255,15 +255,22 @@ h0 {
 	font-family: var(--title);
 }
 
-.h1,
-h1 {
+.h1{
+	text-align: center;
+	text-transform: uppercase;
+	font-size: var(--xl);
+	line-height: 0.8;
+	font-family: var(--title) !important;
+	letter-spacing: var(--ls);
+}
+/* h1 {
 	text-align: center;
 	text-transform: uppercase;
 	font-size: var(--h1);
 	line-height: 0.8;
 	font-family: var(--title) !important;
 	letter-spacing: var(--ls);
-}
+} */
 
 h2 {
 	text-transform: uppercase;
