@@ -255,6 +255,7 @@ h0 {
 	font-family: var(--title);
 }
 
+.h1,
 h1 {
 	text-align: center;
 	text-transform: uppercase;
