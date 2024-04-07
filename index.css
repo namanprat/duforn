@@ -186,7 +186,6 @@ ul {
 		width:fit-content;
 		display:flex;
 		flex-wrap:nowrap;
-		padding-bottom: var(--h3);
 	}
 	#featured-project {
 		flex-shrink: 0;

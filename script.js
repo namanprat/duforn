@@ -1,11 +1,11 @@
-// import barba from '@barba/core';
+import barba from '@barba/core';
 import gsap from "gsap";
 import ScrollTrigger from "gsap/ScrollTrigger";
 import SplitType from 'split-type'
 import Swiper from 'swiper';
 import LocomotiveScroll from 'locomotive-scroll';
 import 'swiper/css';
-import { Gradient } from './Gradient.js';
+import {Gradient} from './Gradient.js';
 
 const gradient = new Gradient();
 gradient.initGradient('#gradient-canvas');
@@ -13,28 +13,28 @@ gradient.initGradient('#gradient-canvas');
 function horizontalScroll() {
     const container = document.querySelector("#project-row");
     console.log(container.offsetWidth)
-    
+
     function getScrollAmount() {
         let containerWidth = container.scrollWidth;
         return -(containerWidth - window.innerWidth);
     }
     let mm = gsap.matchMedia();
     mm.add("(min-width: 850px)", () => {
-    const tween = gsap.to(container, {
-        x: getScrollAmount,
-        duration: 3,
-        ease: "none",
-    });    
-    
-    ScrollTrigger.create({
-        trigger:"#project-wrapper",
-        start:"clamp(top)",
-        end: () => `+=${getScrollAmount() * -1}`,
-        animation:tween,
-        scrub:true,
-        invalidateOnRefresh:true,
+        const tween = gsap.to(container, {
+            x: getScrollAmount,
+            duration: 3,
+            ease: "none",
+        });
+
+        ScrollTrigger.create({
+            trigger: "#project-wrapper",
+            start: "clamp(top)",
+            end: () => `+=${getScrollAmount() * -1}`,
+            animation: tween,
+            scrub: true,
+            invalidateOnRefresh: true,
+        })
     })
-})
 }
 
 const locomotiveScroll = new LocomotiveScroll({
@@ -60,14 +60,9 @@ function swiperInit() {
         slidesPerView: "auto",
         freeMode: true,
         mousewheel: {
-          releaseOnEdges: true,
+            releaseOnEdges: true,
         },
-        breakpoints: {
-            900: {
-               orientation: "vertical", 
-            },
-        }
-      });
+    });
 }
 
 function valueSet() {
@@ -133,21 +128,29 @@ function introReveal() {
 
 function transition() {
     var tl = gsap.timeline();
-    tl.to("#bar", {
-        duration: 1.25,
-        scaleY: 1,
-        transformOrigin: "top",
-        ease: "power4.inOut",
-        stagger: 0.07,
-        delay: 1,
-    }).to("#bar", {
-        transformOrigin: "bottom",
-        duration: 1.25,
-        scaleY: 0,
-        ease: "power4.inOut",
-        stagger: 0.07,
-    })
+    tl.to("#bar .sweep-left", {
+            duration: 1.25,
+            scaleX: 1,
+            transformOrigin: "left",
+            ease: "power4.inOut",
+            stagger: 0.07,
+            delay: 1,
+        }, "<")
+        .to("#bar .sweep-right", {
+            duration: 1.25,
+            scaleX: 1,
+            transformOrigin: "right",
+            ease: "power4.inOut",
+            stagger: 0.07,
+            delay: 1,
+        }, "<")
+        .to("#bar", {
+            duration: 1.25,
+            ease: "power4.inOut",
+            autoAlpha: 0,
+        })
 }
+
 function overlayAnimation() {
     var tl = gsap.timeline({
         paused: true,
@@ -194,6 +197,7 @@ function overlayAnimation() {
         tl.reversed() ? tl.play() : tl.reverse()
     }))
 };
+
 function buttonAnimation() {
     overlayAnimation();
     var tl = gsap.timeline({
@@ -239,33 +243,21 @@ function blurReveal() {
     });
 }
 
-function opacityReveal() {
-    const splitTypes = document.querySelectorAll("[tet-split]")
+function aboutTextReveal() {
+    const splitTypes = document.querySelectorAll("[about-split]")
     splitTypes.forEach((char, i) => {
         const text = new SplitType(char, {
             types: 'words'
         })
 
         gsap.from(text.words, {
-            scrollTrigger: {
-                trigger: "#about",
-                start: 'top top',
-                end: "bottom bottom",
-                scrub: true,
-            },
-            opacity: 0.15,
-            stagger: 1,
+            y: "100%",
+            // delay: 1.2,
+            opacity: 0,
+            duration: 1.7,
+            ease: "power4.inOut",
+            stagger: 0.1,
         })
-    })
-}
-
-function aboutTextReveal() {
-    gsap.from("#desc-v2 h1", {
-        opacity: 0,
-        duration: 2,
-        ease: "power4.inOut",
-        stagger: 0.09,
-        y: "100%",
     })
 }
 
@@ -289,10 +281,10 @@ function dividerReveal() {
 function aboutReveal() {
     gsap.from("#header-layout .h1", {
         opacity: 0,
-            y: "-100%",
-            duration: 2.2,
-            ease: "power4.inOut",
-            stagger: 0.1,
+        y: "-100%",
+        duration: 2.2,
+        ease: "power4.inOut",
+        stagger: 0.1,
         scrollTrigger: {
             trigger: "#desc-v3",
             start: 'top 90%',
@@ -334,16 +326,23 @@ gsap.config({
     nullTargetWarn: false
 });
 
+function delay(n) {
+    n = n || 1500;
+    return new Promise((done) => {
+        setTimeout(() => {
+            done();
+        }, n);
+    });
+};
+
+
 navScroll(); //Hides elements of the navbar on scroll
-            aboutTextReveal(); //text reveal, added this to reset the state on other page load
-            dividerReveal(); //Reveals div borders scrollTrigger, added to reset state
-            blurReveal();
-            workReveal();
-            opacityReveal();
-            swiperInit();
+aboutTextReveal(); //text reveal, added this to reset the state on other page load
+dividerReveal(); //Reveals div borders scrollTrigger, added to reset state
+blurReveal();
+workReveal();
+swiperInit();
 valueSet();
 buttonAnimation();
-overlayAnimation();
 aboutReveal();
 horizontalScroll();
-

@@ -17,16 +17,14 @@
     <link rel="stylesheet" href="./global.css" type="text/css">
     <link rel="stylesheet" href="./index.css" type="text/css">
   </head>
-  <body  class="noise">
+  <body data-barba="wrapper" class="noise">
     <!-- <div class="loader flex justify-center no-select"><div class="self-center overflow-hidden"><h1 loader-split>DUFORN</h1></div></div> -->
-    <div class="transition row no-select">
-      <div id="bar"></div>
-      <div id="bar"></div>
-      <div id="bar"></div>
-      <div id="bar"></div>
-      <div id="bar"></div>
-      <div id="bar"></div>
-    </div>
+    <div class="transition">
+      <div id="bar" class="sweep-left"></div>
+      <div id="bar" class="sweep-right"></div>
+      <div id="bar" class="sweep-left"></div>
+   </div>
+   <div data-barba="container" data-barba-namespace="index">
       <!-- OVERLAY -->
       <div id="overlay-bg" class="flex justify-center">
          <div id="menu" class="col center overflow-hidden">
@@ -128,17 +126,20 @@
                           </a>
       </main>
       <!-- CONTACT -->
-      <section id="contact" class="row space-bw end overflow-hidden is-white">
+      <section id="contact" class="col space-bw center overflow-hidden is-white w">
+        <div class="row space-bw width-100">
+           <div id="footer-logo" class="flex overflow-hidden">
+              <img src="./public/logotype-black.svg" alt="logo">
+              </div>
+              <div id="footer-socials" class="col end">
+               <a href="mailto:a.namanprat@gmail.com" class="black">[ email ]</a>
+               <a href="https://instagram.com/namanprat_" target="_blank" class="black">[ instagram ]</a>
+               <a href="https://instagram.com/namanprat_" target="_blank" class="black">[ linkedin ]</a>
+             </div>
+        </div>
         <h4 id="rights">[ © 2024 All rights reserved ]</h4>
-        <div id="footer-logo" class="flex overflow-hidden">
-          <img src="./public/logotype-black.svg" alt="logo">
-        </div>
-        <div id="footer-socials" class="col end">
-          <a href="mailto:a.namanprat@gmail.com" class="black">[ email ]</a>
-          <a href="https://instagram.com/namanprat_" target="_blank" class="black">[ instagram ]</a>
-          <a href="https://instagram.com/namanprat_" target="_blank" class="black">[ linkedin ]</a>
-        </div>
       </section>
+   </div>
     <script type="module" src="./script.js"></script>
     <script type="module" src="./logo-3d.js"></script>
   </body>
