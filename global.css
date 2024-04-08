@@ -47,10 +47,10 @@ html.lenis{height:auto}.lenis.lenis-smooth{scroll-behavior:auto}.lenis.lenis-smo
 	--diff: #FEFFFE;
 	--white-50: #ffffff72;
 	--opacity-text: rgba(0, 0, 0, 0.231);
-	--accent: #ff6633;
+	--accent: #fa531c;
 	--white: #FEFFFE;
 	--black: #010001;
-	--ls: -0.07em;
+	--ls: -0.05em;
 	--ratio: 1.618;
 	--uni: calc(var(--ratio) * 1rem);
 	--ratio-2: calc(var(--ratio) * var(--ratio));
