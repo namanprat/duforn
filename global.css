@@ -388,12 +388,10 @@ section {
 }
 
 .transition {
-	/* display: none; */
 	display: flex;
 	flex-direction: column;
-	gap: 2rem;
 	position: fixed;
-	z-index: 10;
+	z-index: 100;
 	width: 100%;
 	height: 100vh;
 	top: 0;
@@ -405,8 +403,8 @@ section {
 	width: 100%;
 	height: 100%;
 	background-color: var(--accent);
-	transform: scalex(0%);
-	-webkit-transform: scaleY(0);
+	transform: scaleX(0);
+	-webkit-transform: scaleX(0);
 }
 
 #contact {
@@ -424,7 +422,7 @@ section {
 		color: var(--white);
 	border-top: 1px var(--white) solid;
 	}
-	#footer-socials a {
+	#contact a {
 		color: var(--white);
 		}
 
@@ -435,6 +433,9 @@ section {
 	text-align: center;
 	border-top: 1px var(--black) solid;
 	padding: 1rem 0;
+	a {
+		color: var(--black);
+	}
 
 }
 #footer-top {

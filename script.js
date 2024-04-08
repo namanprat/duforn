@@ -1,4 +1,3 @@
-import barba from '@barba/core';
 import gsap from "gsap";
 import ScrollTrigger from "gsap/ScrollTrigger";
 import SplitType from 'split-type'
@@ -12,7 +11,7 @@ gradient.initGradient('#gradient-canvas');
 
 function horizontalScroll() {
     const container = document.querySelector("#project-row");
-    console.log(container.offsetWidth)
+    // console.log(container.offsetWidth)
 
     function getScrollAmount() {
         let containerWidth = container.scrollWidth;
@@ -76,7 +75,6 @@ function valueSet() {
         x: 0,
         autoAlpha: 1,
     });
-
     let mm = gsap.matchMedia();
     mm.add("(max-width: 900px)", () => {
         gsap.set("#nav-cluster a", {
@@ -85,50 +83,11 @@ function valueSet() {
     });
 };
 
-function loader() {
-    var tl = gsap.timeline();
-    tl.to(".loader", {
-        delay: 3,
-        duration: 2,
-        ease: "power4.inOut",
-        scale: 0,
-        opacity: 0.3,
-    });
-    const splitTypes = document.querySelectorAll("[loader-split]")
-    splitTypes.forEach((char, i) => {
-        const text = new SplitType(char, {
-            types: 'chars'
-        })
-        var tl = gsap.timeline();
-        tl.from(text.chars, {
-                y: "-100%",
-                ease: "power4.inOut",
-                duration: 2,
-                stagger: 0.1,
-            })
-            .to(text.chars, {
-                opacity: 0,
-                y: "100%",
-            })
-    })
-}
-
-function introReveal() {
-    var tl = gsap.timeline();
-    tl
-        .from("#intro-logo svg path", {
-            ease: "power4.inOut",
-            y: "100%",
-            delay: 0.25,
-            duration: 2,
-            opacity: 0,
-            stagger: 0.06
-        })
-}
 
 function transition() {
     var tl = gsap.timeline();
     tl.to("#bar .sweep-left", {
+        autoAlpha: 1,
             duration: 1.25,
             scaleX: 1,
             transformOrigin: "left",
@@ -137,6 +96,7 @@ function transition() {
             delay: 1,
         }, "<")
         .to("#bar .sweep-right", {
+        autoAlpha: 1,
             duration: 1.25,
             scaleX: 1,
             transformOrigin: "right",
@@ -193,10 +153,10 @@ function overlayAnimation() {
         }, "<");
 
 
-    Array.from(document.querySelectorAll(".menu-open")).forEach(e => e.addEventListener("click", function() {
-        tl.reversed() ? tl.play() : tl.reverse()
-    }))
-};
+        Array.from(document.querySelectorAll(".menu-close, .menu-open")).forEach(e => e.addEventListener("click", function() {
+            tl.reversed() ? tl.play() : tl.reverse()
+        }))
+    };
 
 function buttonAnimation() {
     overlayAnimation();
@@ -205,7 +165,9 @@ function buttonAnimation() {
         reversed: true
     });
     const toggleBtn = document.getElementById("menu");
+    // const hamburger = document.getElementById("hamburger");
     toggleBtn.onclick = function(e) {
+        // hamburger.classList.toggle("active");
         tl.reversed(!tl.reversed())
     }
 };
@@ -228,20 +190,6 @@ function navScroll() {
         })
     })
 };
-
-function blurReveal() {
-    ScrollTrigger.batch(".blur", {
-        trigger: "img",
-        start: "top center",
-        duration: 0.3,
-        onEnter: (batch) =>
-            gsap.to(batch, {
-                scale: 1,
-                filter: "blur(0px)",
-
-            }),
-    });
-}
 
 function aboutTextReveal() {
     const splitTypes = document.querySelectorAll("[about-split]")
@@ -294,9 +242,7 @@ function aboutReveal() {
 
 function workReveal() {
     var tl = gsap.timeline();
-    tl
-
-        .from(".swiper-wrapper a", {
+    tl.from(".swiper-wrapper a", {
             opacity: 0,
             y: "100%",
             duration: 2.2,
@@ -326,20 +272,12 @@ gsap.config({
     nullTargetWarn: false
 });
 
-function delay(n) {
-    n = n || 1500;
-    return new Promise((done) => {
-        setTimeout(() => {
-            done();
-        }, n);
-    });
-};
 
 
+transition();
 navScroll(); //Hides elements of the navbar on scroll
 aboutTextReveal(); //text reveal, added this to reset the state on other page load
 dividerReveal(); //Reveals div borders scrollTrigger, added to reset state
-blurReveal();
 workReveal();
 swiperInit();
 valueSet();
