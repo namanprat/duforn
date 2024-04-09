@@ -15,7 +15,7 @@ const hdriLoader = new RGBELoader();
 
 //Camera
 var camera = new THREE.PerspectiveCamera( 15, innerWidth/innerHeight );
-camera.position.z = 4.5;
+camera.position.z = 2;
 // camera.position.y = 0.5;
 
 
@@ -42,7 +42,7 @@ dLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/'
 dLoader.setDecoderConfig({type:'js'});
 gltfLoader.setDRACOLoader(dLoader);
 
-gltfLoader.load('./untitled.glb', function(glb){
+gltfLoader.load('./uzi.glb', function(glb){
   const logo = glb.scene;
   scene.add(logo); 
 });

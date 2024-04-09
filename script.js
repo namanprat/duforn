@@ -1,4 +1,4 @@
-import barba from '@barba/core';
+import Draggable from "gsap/Draggable";
 import gsap from "gsap";
 import ScrollTrigger from "gsap/ScrollTrigger";
 import SplitType from 'split-type'
@@ -6,9 +6,51 @@ import Swiper from 'swiper';
 import LocomotiveScroll from 'locomotive-scroll';
 import 'swiper/css';
 import {Gradient} from './Gradient.js';
+import InfiniteMarquee from 'vanilla-infinite-marquee';
+
+new InfiniteMarquee({
+	element: '.marquee-container',
+	speed: 50000,
+	smoothEdges: true,
+	direction: 'left',
+	gap: '2rem',
+	duplicateCount: 2,
+	mobileSettings: {
+		direction: 'top',
+		speed: 20000
+	},
+	on: {
+		beforeInit: () => {
+			console.log('Not Yet Initialized');
+		},
+
+		afterInit: () => {
+			console.log('Initialized');
+		}
+	}
+});
+const title = document.querySelector('#work-title .h1')
+      const links = document.querySelectorAll('#brev a')
+      const date = document.querySelector('#work-title span')
+      const body = document.querySelector('body')
+      links.forEach((link) => {
+        link.addEventListener('mouseenter', () => {
+          title.innerText = link.getAttribute('data-title')
+          date.innerText = link.getAttribute('data-year')
+          body.classList.add('hovered')
+          link.classList.add('hovered')
+        })
+        link.addEventListener('mouseleave', () => {
+          title.innerText = 'Featured Work'
+          date.innerText = '[ 4 ]'
+          body.classList.remove('hovered')
+          link.classList.remove('hovered')
+        })
+      })
 
 const gradient = new Gradient();
 gradient.initGradient('#gradient-canvas');
+
 
 function horizontalScroll() {
     const container = document.querySelector("#project-row");
@@ -288,7 +330,7 @@ function workReveal() {
 
 }
 
-gsap.registerPlugin(ScrollTrigger);
+gsap.registerPlugin(ScrollTrigger, Draggable);
 gsap.config({
     nullTargetWarn: false
 });
