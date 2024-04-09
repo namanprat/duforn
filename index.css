@@ -201,14 +201,14 @@ ul {
 }
 #work-wrapper {
 	z-index: 2;
-	width: 200%;
-	height: 100vh;
+	width: 500vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
 	padding: var(--h4);
 }
-.drag-proxy {
-	visibility: hidden;
-	position: absolute;
-  }
+
 #work-slide {
 	height: fit-content !important;
 	width: fit-content !important;
@@ -288,7 +288,23 @@ line-height: 0.8;
 	width: 100%;
 	height: 100%;
 }
-
+.sage {
+	background-image: url('https://namanprat.com/images/sage/sage-cover.webp');	
+}
+.aspen {
+	background-image: url('https://namanprat.com/images/aspen/asppen-cover.webp');
+}
+.aspen-2{
+	color: var(--white);
+	background-repeat: no-repeat;
+	background-position: center;
+	background-size: cover;
+    overflow: hidden;
+	width: 100%;
+	height: 100%;
+	/* position: absolute; */
+	background-image: url('https://namanprat.com/images/aspen/asppen-cover.webp');
+}
 .sage-2{
 	color: var(--white);
 	background-repeat: no-repeat;
@@ -300,6 +316,9 @@ line-height: 0.8;
 	/* position: absolute; */
 	background-image: url('https://namanprat.com/images/sage/sage-cover.webp');	
 
+}
+.moneyme {
+	background-image: url('./public/moneyme.png');
 }
 
 #divider {

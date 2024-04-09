@@ -15,7 +15,7 @@ const hdriLoader = new RGBELoader();
 
 //Camera
 var camera = new THREE.PerspectiveCamera( 15, innerWidth/innerHeight );
-camera.position.z = 2;
+camera.position.z = 5;
 // camera.position.y = 0.5;
 
 
@@ -23,8 +23,8 @@ const renderer = new THREE.WebGLRenderer({
   canvas: document.querySelector('#logo-model'),
   alpha: true,antialiasing: true,
 });
-// renderer.toneMapping = THREE.ACESFilmicToneMapping;
-// renderer.toneMappingExposure = 0.9;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.9;
 
 //RESIZE
 function resizeCanvasToDisplaySize() {
@@ -42,7 +42,7 @@ dLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/'
 dLoader.setDecoderConfig({type:'js'});
 gltfLoader.setDRACOLoader(dLoader);
 
-gltfLoader.load('./uzi.glb', function(glb){
+gltfLoader.load('./untitled.glb', function(glb){
   const logo = glb.scene;
   scene.add(logo); 
 });
@@ -52,10 +52,6 @@ gltfLoader.load('./uzi.glb', function(glb){
 dirLight.position.set(0,0, 10);
 scene.add(dirLight);
 
-//Hemi Light
-const hemiLight = new THREE.HemisphereLight(0xF8F4A6, 0x3943B7, 3);
-hemiLight.position.set(0,0, 0);
-scene.add(hemiLight);
 
 function animate() {
   resizeCanvasToDisplaySize();

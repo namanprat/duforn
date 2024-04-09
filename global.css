@@ -16,18 +16,18 @@ html.lenis{height:auto}.lenis.lenis-smooth{scroll-behavior:auto}.lenis.lenis-smo
 	--title: "trade-gothic";
 	--text: "jet-mono";
 	--p: 1rem;
-	--h4: clamp(1.1rem, 0.29vw + 0.93rem, 1.19rem);
-	--h3: clamp(1.78rem, 1.58vw + 1.36rem, 2.78rem);
-	--h2: clamp(2.37rem, 4.09vw + 1.34rem, 5.03rem);
-	--h1-5: clamp(3rem, 7.5vw + 1.2rem, 7.31rem);
-	--h1: clamp(4.21rem, 13.7vw + 0.75rem, 13rem);
+	--h4: clamp(1.1rem, 0.29vi + 0.93rem, 1.16rem);
+	--h3: clamp(1.78rem, 1.58vi + 1.36rem, 2.78rem);
+	--h2: clamp(2.37rem, 4.09vi + 1.34rem, 5.03rem);
+	--h1-5: clamp(3rem, 7.5vi + 1.2rem, 7.31rem);
+	--h1: clamp(4.21rem, 13.7vi + 0.75rem, 13rem);
 
-	--logo: clamp(2.2rem, 3.7vw + 1rem, 4.5rem);
-	--xl: clamp(4.21rem, 13.78vw + 0.76rem, 11.5rem);
-	--h1-7: clamp(4rem, 10.72vw + 1rem, 12rem);
-	--gap: clamp(1.33rem, 0.91vw + 1.11rem, 1.92rem);
-	--gap-2: clamp(2.37rem, 4.09vw + 1.34rem, 5.03rem);
-	--xxl: clamp(5.5rem, 20vw + -0.43rem, 10rem);
+	--logo: clamp(2.2rem, 3.7vi + 1rem, 4.5rem);
+	--xl: clamp(4.21rem, 13.78vi + 0.76rem, 11.5rem);
+	--h1-7: clamp(4rem, 10.72vi + 1rem, 12rem);
+	--gap: clamp(1.33rem, 0.91vi + 1.11rem, 1.92rem);
+	--gap-2: clamp(2.37rem, 4.09vi + 1.34rem, 5.03rem);
+	--xxl: clamp(5.5rem, 20vi + -0.43rem, 10rem);
 
 
 	/* --font-size-sm: clamp(1rem, 0.29vw + 0.93rem, 1.19rem);

@@ -18,15 +18,6 @@ new InfiniteMarquee({
 	mobileSettings: {
 		direction: 'top',
 		speed: 20000
-	},
-	on: {
-		beforeInit: () => {
-			console.log('Not Yet Initialized');
-		},
-
-		afterInit: () => {
-			console.log('Initialized');
-		}
 	}
 });
 const title = document.querySelector('#work-title .h1')
@@ -47,7 +38,44 @@ const title = document.querySelector('#work-title .h1')
           link.classList.remove('hovered')
         })
       })
+    //   const sections = gsap.utils.toArray("#work-slide");
 
+    //   let maxWidth = 0;
+      
+    //   const getMaxWidth = () => {
+    //     maxWidth = 0;
+    //     sections.forEach((section) => {
+    //       maxWidth += section.offsetWidth;
+    //     });
+    //   };
+    //   getMaxWidth();
+    //   ScrollTrigger.addEventListener("refreshInit", getMaxWidth);
+      
+    //   let scrollTween = gsap.to(sections, {
+    //     x: () => -(maxWidth - window.innerWidth),
+    //     ease: "none",
+    //     scrollTrigger: {
+    //       trigger: "#work-wrapper",
+    //       pin: true,
+    //       scrub: true,
+    //       end: "+=5000",
+    //       invalidateOnRefresh: true
+    //     }
+    //   });
+      
+    //   ScrollTrigger.create({
+    //     start: 0.1,
+    //     end: () => ScrollTrigger.maxScroll(window) - 1,
+    //     refreshPriority: -100, // always update last
+    //     onLeave: (self) => {
+    //       self.scroll(self.start + 1);
+    //       ScrollTrigger.update();
+    //     },
+    //     onLeaveBack: (self) => {
+    //       self.scroll(self.end - 1);
+    //       ScrollTrigger.update();
+    //     }
+    //   });
 const gradient = new Gradient();
 gradient.initGradient('#gradient-canvas');
 
@@ -330,7 +358,7 @@ function workReveal() {
 
 }
 
-gsap.registerPlugin(ScrollTrigger, Draggable);
+gsap.registerPlugin(ScrollTrigger);
 gsap.config({
     nullTargetWarn: false
 });
