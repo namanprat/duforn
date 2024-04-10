@@ -521,7 +521,7 @@ section {
 			transition: 0.2s ease-in-out;
 
 			.h1 {
-				padding: 0.75rem 0;
+				padding: 1rem 0;
 				text-wrap: nowrap;
 				font-size: var(--xxl) !important;
 			}

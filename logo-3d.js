@@ -3,19 +3,20 @@ import * as THREE from "three";
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 const dLoader = new DRACOLoader();
 const gltfLoader = new GLTFLoader();
 const scene = new THREE.Scene();
 const hdriLoader = new RGBELoader();
-// hdriLoader.load( './env.hdr', function (texture) {
-// texture.mapping = THREE.EquirectangularReflectionMapping;
-// scene.environment = texture;
-// });
+hdriLoader.load( './env.hdr', function (texture) {
+texture.mapping = THREE.EquirectangularReflectionMapping;
+scene.environment = texture;
+});
 
 //Camera
 var camera = new THREE.PerspectiveCamera( 15, innerWidth/innerHeight );
-camera.position.z = 5;
+camera.position.z = 0.9;
 // camera.position.y = 0.5;
 
 
@@ -24,7 +25,7 @@ const renderer = new THREE.WebGLRenderer({
   alpha: true,antialiasing: true,
 });
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.9;
+renderer.toneMappingExposure = 0.3;
 
 //RESIZE
 function resizeCanvasToDisplaySize() {
@@ -42,18 +43,24 @@ dLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/'
 dLoader.setDecoderConfig({type:'js'});
 gltfLoader.setDRACOLoader(dLoader);
 
-gltfLoader.load('./untitled.glb', function(glb){
+gltfLoader.load('./logo.glb', function(glb){
   const logo = glb.scene;
   scene.add(logo); 
 });
 
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.enablePan = false;
+controls.enableZoom = false;
+
 //Directional Light
- const dirLight = new THREE.DirectionalLight(0x878787, 1);
+ const dirLight = new THREE.DirectionalLight(0x878787, 10);
 dirLight.position.set(0,0, 10);
 scene.add(dirLight);
 
 
 function animate() {
+  controls.update();
   resizeCanvasToDisplaySize();
   renderer.render(scene, camera);
   requestAnimationFrame(animate);

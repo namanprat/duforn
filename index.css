@@ -8,8 +8,10 @@ padding: 0 var(--uni);
 	height: 100vh;
 	padding-bottom: var(--uni);
 	flex-direction: column;
-	/* position: sticky;
-	top: 0; */
+	#marquee {
+		mix-blend-mode: difference;
+		z-index: 5;
+	}
 }
 .bg {
 	/* border: 3px solid red; */
@@ -201,7 +203,7 @@ ul {
 }
 #work-wrapper {
 	z-index: 2;
-	width: 500vw;
+	width: 100vw;
   height: 100vh;
   display: flex;
   flex-direction: row;
