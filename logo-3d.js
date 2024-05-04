@@ -16,7 +16,7 @@ scene.environment = texture;
 
 //Camera
 var camera = new THREE.PerspectiveCamera( 15, innerWidth/innerHeight );
-camera.position.z = 0.9;
+camera.position.z = 0.44;
 // camera.position.y = 0.5;
 
 
@@ -25,7 +25,7 @@ const renderer = new THREE.WebGLRenderer({
   alpha: true,antialiasing: true,
 });
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.3;
+// renderer.toneMappingExposure = 0.9;
 
 //RESIZE
 function resizeCanvasToDisplaySize() {
@@ -43,7 +43,7 @@ dLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/'
 dLoader.setDecoderConfig({type:'js'});
 gltfLoader.setDRACOLoader(dLoader);
 
-gltfLoader.load('./logo.glb', function(glb){
+gltfLoader.load('./logonew.glb', function(glb){
   const logo = glb.scene;
   scene.add(logo); 
 });
@@ -54,8 +54,8 @@ controls.enablePan = false;
 controls.enableZoom = false;
 
 //Directional Light
- const dirLight = new THREE.DirectionalLight(0x878787, 10);
-dirLight.position.set(0,0, 10);
+ const dirLight = new THREE.DirectionalLight(0xffffff, 0);
+dirLight.position.set(0,0, 0);
 scene.add(dirLight);
 
 
