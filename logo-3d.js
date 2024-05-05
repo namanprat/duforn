@@ -16,7 +16,7 @@ scene.environment = texture;
 
 //Camera
 var camera = new THREE.PerspectiveCamera( 15, innerWidth/innerHeight );
-camera.position.z = 0.44;
+camera.position.z = 0.41;
 // camera.position.y = 0.5;
 
 
