@@ -53,8 +53,6 @@ controls.enableDamping = true;
 controls.enablePan = false;
 controls.enableZoom = false;
 
-//Directional Light
-
 
 function animate() {
   controls.update();

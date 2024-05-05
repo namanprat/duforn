@@ -16,7 +16,7 @@ html.lenis{height:auto}.lenis.lenis-smooth{scroll-behavior:auto}.lenis.lenis-smo
 	--title: "trade-gothic";
 	--text: "jet-mono";
 	--p: 1rem;
-	--h4: clamp(1.1rem, 0.29vi + 0.93rem, 1.16rem);
+	--h4: clamp(1.09rem, 0.29vi + 0.93rem, 1.15rem);
 	--h3: clamp(1.78rem, 1.58vi + 1.36rem, 2.78rem);
 	--h2: clamp(2.37rem, 4.09vi + 1.34rem, 5.03rem);
 	--h1-5: clamp(3rem, 7.5vi + 1.2rem, 7.31rem);
@@ -413,6 +413,10 @@ section {
 	position: -webkit-sticky;
 	bottom: 0;
 	gap: 0.6rem;
+	a {
+		color: var(--black);
+		font-size: var(--p);
+	}
 }
 
 .contact-black {
@@ -432,7 +436,7 @@ section {
 	width: 100%;
 	text-align: center;
 	border-top: 1px var(--black) solid;
-	padding: 1rem 0;
+	padding: 0.6rem 0;
 	a {
 		color: var(--black);
 	}
@@ -442,10 +446,10 @@ section {
 	flex-direction: row;
 }
 
-#footer-socials a {
-	color: var(--black);
-		height: 100%;
-		justify-content: space-evenly;
+#footer-socials  {
+	align-items: flex-end;
+	height: fit-content;
+
 	}
 
 #footer-logo {
@@ -912,5 +916,8 @@ form {
 		.col {
 			gap: var(--p);
 		}
+	}
+	#contact {
+		padding: 0.5rem !important;
 	}
 }
