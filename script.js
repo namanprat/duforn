@@ -160,6 +160,22 @@ function introReveal() {
         })
 }
 
+function canvasZoom() {
+    var tl = gsap.timeline();
+    tl
+        .to("#hero canvas", {
+            scale: 1.2,
+            transformOrigin: "center",
+            // ease: "power4.inOut",
+            scrollTrigger: {
+                scrub: 1,
+                trigger: '#hero',
+                start: "top",
+                scroller: "body",
+            }
+        })
+}
+
 function transition() {
     var tl = gsap.timeline();
     tl.to("#bar .sweep-left", {
@@ -345,3 +361,4 @@ valueSet();
 buttonAnimation();
 aboutReveal();
 horizontalScroll();
+canvasZoom();

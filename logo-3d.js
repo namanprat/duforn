@@ -22,7 +22,7 @@ camera.position.z = 0.41;
 
 const renderer = new THREE.WebGLRenderer({
   canvas: document.querySelector('#logo-model'),
-  alpha: true,antialiasing: true,
+  alpha: true,antialias: true,
 });
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 // renderer.toneMappingExposure = 0.9;
@@ -54,9 +54,6 @@ controls.enablePan = false;
 controls.enableZoom = false;
 
 //Directional Light
- const dirLight = new THREE.DirectionalLight(0xffffff, 0);
-dirLight.position.set(0,0, 0);
-scene.add(dirLight);
 
 
 function animate() {
