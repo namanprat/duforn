@@ -919,5 +919,9 @@ form {
 	}
 	#contact {
 		padding: 0.5rem !important;
+		#rights {
+		padding: 0.3rem !important;
+
+		}
 	}
 }
