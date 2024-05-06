@@ -1,4 +1,3 @@
-import Draggable from "gsap/Draggable";
 import gsap from "gsap";
 import ScrollTrigger from "gsap/ScrollTrigger";
 import SplitType from 'split-type'
@@ -7,6 +6,8 @@ import LocomotiveScroll from 'locomotive-scroll';
 import 'swiper/css';
 import {Gradient} from './Gradient.js';
 import InfiniteMarquee from 'vanilla-infinite-marquee';
+import barba from '@barba/core';
+
 
 new InfiniteMarquee({
 	element: '.marquee-container',
@@ -327,14 +328,6 @@ gsap.config({
     nullTargetWarn: false
 });
 
-function delay(n) {
-    n = n || 1500;
-    return new Promise((done) => {
-        setTimeout(() => {
-            done();
-        }, n);
-    });
-};
 
 navScroll(); //Hides elements of the navbar on scroll
 // aboutTextReveal(); //text reveal, added this to reset the state on other page load

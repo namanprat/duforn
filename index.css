@@ -59,9 +59,6 @@ padding: 0 var(--uni);
 #bottom-left {
 	max-width: 600px;
 }
-#bottom-right {
-	gap: 1rem;
-}
 #hero svg {
 	margin-top: 7vh;
 	height: auto;
