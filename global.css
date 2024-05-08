@@ -572,6 +572,7 @@ nav {
 }
 
 #logo-model {
+	filter: grayscale(100%);
 	scale: 1;
 	position: absolute;
 	left: 0;
