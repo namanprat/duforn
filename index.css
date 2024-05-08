@@ -143,7 +143,6 @@ ul {
 #project-showcase {
 	height: 325vh;
 	span {
-	line-height: 0.85;
 		font-size: var(--h1-5);
 		font-family: var(--title);
 		/* margin-bottom: -3rem; */
