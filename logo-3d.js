@@ -15,7 +15,7 @@ scene.environment = texture;
 });
 
 //Camera
-var camera = new THREE.PerspectiveCamera( 15, innerWidth/innerHeight );
+var camera = new THREE.PerspectiveCamera( 15,  window.innerWidth / window.innerHeight, 0.1, 100 );
 camera.position.z = 0.41;
 // camera.position.y = 0.5;
 
@@ -24,40 +24,44 @@ const renderer = new THREE.WebGLRenderer({
   canvas: document.querySelector('#logo-model'),
   alpha: true,antialias: true,
 });
+renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-// renderer.toneMappingExposure = 0.9;
 
 //RESIZE
-function resizeCanvasToDisplaySize() {
-  const canvas = renderer.domElement;
-  const width = canvas.clientWidth;
-  const height = canvas.clientHeight;
-  if (canvas.width !== width ||canvas.height !== height) {
-    renderer.setSize(width, height);
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
-  }
+const resize = () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  console.log(camera.aspect);
+
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
 dLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
 dLoader.setDecoderConfig({type:'js'});
 gltfLoader.setDRACOLoader(dLoader);
 
+const group = new THREE.Group();
+scene.add(group);
+
 gltfLoader.load('./logonew.glb', function(glb){
-  const logo = glb.scene;
-  scene.add(logo); 
+  group.add(glb.scene); 
 });
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.enablePan = false;
 controls.enableZoom = false;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 1;
+controls.update();
 
-
-function animate() {
+const render = () => {
   controls.update();
-  resizeCanvasToDisplaySize();
+  group.rotation.set(0, window.scrollY * 0.001, 0);
+
+  requestAnimationFrame(render);
   renderer.render(scene, camera);
-  requestAnimationFrame(animate);
 }
-requestAnimationFrame(animate);
+
+render();
+window.addEventListener('resize', resize);

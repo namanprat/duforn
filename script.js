@@ -47,7 +47,7 @@ gradient.initGradient('#gradient-canvas');
 
 function horizontalScroll() {
     const container = document.querySelector("#project-row");
-    console.log(container.offsetWidth)
+    // console.log(container.offsetWidth)
 
     function getScrollAmount() {
         let containerWidth = container.scrollWidth;
@@ -158,22 +158,6 @@ function introReveal() {
             duration: 2,
             opacity: 0,
             stagger: 0.06
-        })
-}
-
-function canvasZoom() {
-    var tl = gsap.timeline();
-    tl
-        .to("#hero canvas", {
-            scale: 0.8,
-            transformOrigin: "center",
-            // ease: "power4.inOut",
-            scrollTrigger: {
-                scrub: 1,
-                trigger: '#hero',
-                start: "top",
-                scroller: "body",
-            }
         })
 }
 
@@ -354,4 +338,3 @@ valueSet();
 buttonAnimation();
 aboutReveal();
 horizontalScroll();
-canvasZoom();
