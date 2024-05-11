@@ -226,6 +226,7 @@ ul {
 }
 .swiper-container,
 .swiper-wrapper {
+	height: 100vh;
 	transition-timing-function: linear;
 	width: 100%;
 	display: flex;
