@@ -818,6 +818,8 @@ form {
 	#project-showcase {
 		height: fit-content !important;
 		gap: 5rem;
+		padding-bottom: 3vh;
+
 
 		#project-wrapper {
 			width: 100%;
