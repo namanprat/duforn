@@ -247,7 +247,7 @@ function aboutReveal() {
         stagger: 0.1,
         scrollTrigger: {
             trigger: "#desc-v3",
-            start: 'top 90%',
+            start: 'top 80%',
         }
     })
 }
