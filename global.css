@@ -931,4 +931,7 @@ form {
 
 		}
 	}
+	form {
+		margin-top: 3vh;
+	}
 }
