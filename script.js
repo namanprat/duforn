@@ -183,7 +183,7 @@ function overlayAnimation() {
             ease: "power4.inOut",
             stagger: 0.065,
             width: "100%",
-            opacity: 0,
+            // opacity: 0,
         }, "<");
         
         Array.from(document.querySelectorAll(".menu-close, .menu-open")).forEach(e => e.addEventListener("click", function() {
