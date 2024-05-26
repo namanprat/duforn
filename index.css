@@ -295,6 +295,9 @@ line-height: 0.8;
 .sage {
 	background-image: url('https://namanprat.com/images/sage/sage-cover.webp');	
 }
+.haptic {
+	background-image: url('./public/haptic-cover.png');	
+}
 .aspen {
 	background-image: url('https://namanprat.com/images/aspen/asppen-cover.webp');
 }
