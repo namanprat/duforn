@@ -290,11 +290,11 @@ function workReveal() {
 }
 function initDrag() {
     gsap.from(".polaroid-frame", {
-        duration: 1.8,
+        duration: 2,
         scale: 0,
         ease: 'expo.inOut',
         onComplete: drag,
-        stagger: 0.08,
+        stagger: 0.09,
     });
 };
 
@@ -318,7 +318,6 @@ function drag() {
         },
     });
 }
-console.log(drag);
 
 gsap.registerPlugin(ScrollTrigger, Draggable);
 gsap.config({

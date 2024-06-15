@@ -428,10 +428,10 @@ line-height: 0.8;
     /* padding: 0.8rem; */
     flex-direction: column;
     align-items: flex-start;
-    gap: 1rem;
 	cursor: pointer;
     /* background-color: var(--white); */
     color: var(--black);
+	
 }
 
 .polaroid {
@@ -446,6 +446,29 @@ line-height: 0.8;
     touch-action: none;
 	cursor: pointer;
     pointer-events: none !important;
+}
+#polaroid-info {
+	padding-top: 0.5rem;
+	h3 {
+		font-family: var(--title);
+		color: var(--white);
+		font-size: var(--h2-5);
+		line-height: 1;
+	}
+}
+#chips {
+	padding-top: 0.5rem;
+ span {
+	font-size: 0.8rem;
+	line-height: 0.8rem;
+	height: fit-content;
+	color: var(--white);
+	background-color: #ffffff38;
+	border-radius: 1rem;
+	-webkit-backdrop-filter: blur(5px);
+	backdrop-filter: blur(5px);
+	padding: 0.5rem 0.8rem ;
+}
 }
 /*! All these infos about the frame positioning come from the concept design in Figma ;) */
 
