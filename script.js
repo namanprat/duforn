@@ -1,12 +1,12 @@
 import gsap from "gsap";
 import ScrollTrigger from "gsap/ScrollTrigger";
+import Draggable from "gsap/Draggable";
 import SplitType from 'split-type'
 import Swiper from 'swiper';
 import LocomotiveScroll from 'locomotive-scroll';
 import 'swiper/css';
 import {Gradient} from './Gradient.js';
 import InfiniteMarquee from 'vanilla-infinite-marquee';
-import barba from '@barba/core';
 
 
 new InfiniteMarquee({
@@ -150,22 +150,30 @@ function overlayAnimation() {
         paused: true,
         reversed: true
     });
-    const splitTypes = document.querySelectorAll("[text-split]")
-    splitTypes.forEach((char, i) => {
-        const text = new SplitType(char, {
-            types: 'chars'
-        })
+    // const splitTypes = document.querySelectorAll("[text-split]")
+    // splitTypes.forEach((char, i) => {
+    //     const text = new SplitType(char, {
+    //         types: 'words'
+    //     })
 
-        tl.from(text.chars, {
-            y: "-100%",
-            opacity: 0,
-            duration: 2,
-            ease: "power4.inOut",
-            stagger: {
-                amount: 0.5,
-            },
-        }, "<")
-    })
+    //     tl.from(text.words, {
+    //         y: "-100%",
+    //         opacity: 0,
+    //         duration: 2,
+    //         ease: "power4.inOut",
+    //         stagger: {
+    //             amount: 0.5,
+    //         },
+    //     }, "<")
+    // })
+    tl.from("#menu-cluster .h1", {
+        y: "100%",
+        delay: -1,
+        opacity: 0,
+        duration: 2.2,
+        ease: "power4.inOut",
+        stagger: 0.1,
+    }, "<")
     tl.to("#nav-cluster a", {
             ease: "power4.inOut",
             duration: 1,
@@ -185,7 +193,7 @@ function overlayAnimation() {
             width: "100%",
             // opacity: 0,
         }, "<");
-        
+
         Array.from(document.querySelectorAll(".menu-close, .menu-open")).forEach(e => e.addEventListener("click", function() {
             tl.reversed() ? tl.play() : tl.reverse()
     }))
@@ -285,7 +293,6 @@ gsap.registerPlugin(ScrollTrigger);
 gsap.config({
     nullTargetWarn: false
 });
-
 
 navScroll();
 dividerReveal();
