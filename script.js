@@ -45,32 +45,32 @@ const gradient = new Gradient();
 gradient.initGradient('#gradient-canvas');
 
 
-function horizontalScroll() {
-    const container = document.querySelector("#project-row");
-    console.log(container.offsetWidth)
+// function horizontalScroll() {
+//     const container = document.querySelector("#project-row");
+//     console.log(container.offsetWidth)
 
-    function getScrollAmount() {
-        let containerWidth = container.scrollWidth;
-        return -(containerWidth - window.innerWidth);
-    }
-    let mm = gsap.matchMedia();
-    mm.add("(min-width: 850px)", () => {
-        const tween = gsap.to(container, {
-            x: getScrollAmount,
-            duration: 3,
-            ease: "none",
-        });
+//     function getScrollAmount() {
+//         let containerWidth = container.scrollWidth;
+//         return -(containerWidth - window.innerWidth);
+//     }
+//     let mm = gsap.matchMedia();
+//     mm.add("(min-width: 850px)", () => {
+//         const tween = gsap.to(container, {
+//             x: getScrollAmount,
+//             duration: 3,
+//             ease: "none",
+//         });
 
-        ScrollTrigger.create({
-            trigger: "#project-wrapper",
-            start: "clamp(top)",
-            end: () => `+=${getScrollAmount() * -1}`,
-            animation: tween,
-            scrub: true,
-            invalidateOnRefresh: true,
-        })
-    })
-}
+//         ScrollTrigger.create({
+//             trigger: "#project-wrapper",
+//             start: "clamp(top)",
+//             end: () => `+=${getScrollAmount() * -1}`,
+//             animation: tween,
+//             scrub: true,
+//             invalidateOnRefresh: true,
+//         })
+//     })
+// }
 
     const locomotiveScroll = new LocomotiveScroll({
         lenisOptions: {
@@ -288,8 +288,39 @@ function workReveal() {
     })
 
 }
+function initDrag() {
+    gsap.from(".polaroid-frame", {
+        duration: 1.8,
+        scale: 0,
+        ease: 'expo.inOut',
+        onComplete: drag,
+        stagger: 0.08,
+    });
+};
 
-gsap.registerPlugin(ScrollTrigger);
+function drag() {
+    Draggable.create(".project_wrapper", {
+        type: 'x,y',
+        bounds: window,
+        onDragStart: function () {
+            gsap.to(".polaroid-frame", {
+                duration: 0.2,
+                scale: 1.05,
+                ease: 'power1.out',
+            });
+        },
+        onDragEnd: function () {
+            gsap.to(".polaroid-frame", {
+                duration: 0.2,
+                scale: 1,
+                ease: 'power1.out',
+            });
+        },
+    });
+}
+console.log(drag);
+
+gsap.registerPlugin(ScrollTrigger, Draggable);
 gsap.config({
     nullTargetWarn: false
 });
@@ -301,4 +332,5 @@ swiperInit();
 valueSet();
 buttonAnimation();
 aboutReveal();
-horizontalScroll();
+// horizontalScroll();
+initDrag();
