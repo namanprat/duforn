@@ -1017,9 +1017,10 @@ form {
 		#menu {
 			border-radius: 0;
 		}
-		.h1 {
+		.text {
 			font-size: clamp(5.5rem, 20vi + -0.43rem, 10rem) !important;
-		}
+			height: clamp(5.5rem, 20vi + -0.43rem, 10rem) !important;
+		  }
 	}
 
 

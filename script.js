@@ -339,6 +339,8 @@ function drag() {
         },
     });
 }
+
+
  const gridBox = document.querySelectorAll('.polaroid-frame');
  const isMobile = window.matchMedia('(max-width: 900px)').matches;
 
@@ -351,7 +353,7 @@ function hoverBoxes() {
                     otherBox.style.scale = "1";
                 } else {
                     otherBox.style.opacity = '1';
-                    otherBox.style.scale = "1.1";
+                    otherBox.style.scale = "1.05";
                 }
             });
         });
