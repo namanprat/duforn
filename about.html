@@ -28,25 +28,25 @@
       <div data-barba="container" data-barba-namespace="about">
       <!-- OVERLAY -->
       <div id="overlay-bg">
-         <div id="menu" class="col center overflow-hidden ">
-           <button class="menu-open"><h4>[ close ]</h4></button>
-             <div id="menu-cluster" class="col">
-               <div id="div"></div>
-                 <a class="w" href="./index.html"><div class="h1" text-split>INDEX</div></a>
-               <div id="div"></div>
-               <a class="w" href="./work.html"><div class="h1" text-split>WORK</div></a>
-               <div id="div"></div>
-               <a class="w menu-open"><div class="h1" text-split>ABOUT</div></a>
-               <div id="div"></div>
-               <a class="w" href="./contact.html"><div class="h1" text-split>CONTACT</div></a>
-               <div id="div"></div>
-             </div>
-             <div id="social-cluster" class="row center space-even">
-              <a href="https://instagram.com/">instagram</a>
-              <a href="https://instagram.com/">linkedin</a>
-             </div>
-         </div>
-       </div>
+        <div id="menu" class="col center overflow-hidden">
+         <button class="menu-open">[ close ]</button>
+            <div id="menu-cluster" class="col">
+              <div id="div"></div>
+              <a href="./index.html"><div class="text">INDEX</div></a>
+              <div id="div"></div>
+              <a href="./work.html"><div class="text">WORK</div></a>
+              <div id="div"></div>
+              <a class="menu-open activ"><div class="text">ABOUT</div></a>
+              <div id="div"></div>
+              <a href="./contact.html"><div class="text">CONTACT</div></a>
+              <div id="div"></div>
+            </div>
+            <div id="social-cluster" class="row center space-even">
+             <a href="https://instagram.com/">instagram</a>
+             <a href="https://instagram.com/">linkedin</a>
+            </div>
+        </div>
+      </div>
 
       <!-- nav -->
       <nav class="flex space-bw center diff">
@@ -66,9 +66,11 @@
          </div>
        </nav>
       <main class="col gap-2">
-         <div class="bg noise overflow-hidden">
-            <canvas id="gradient-canvas" data-transition-in></canvas>
+        <div id="bg-canvas">
+          <div id="brev-canvas" class="noise overflow-hidden">
+          <canvas id="gradient-canvas" data-transition-in></canvas>
           </div>
+        </div>
          <!-- ABOUT -->
          <!-- <h2 text-split>a creative agency dreaming up worthwhile ideas.</h2> -->
          <section id="desc-v2" class="vh-100 col center space-around white w">

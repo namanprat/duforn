@@ -546,6 +546,20 @@ section {
 		font-size: var(--p);
 	}
 }
+#bg-canvas {
+	display: flex;
+	width: 100vw;
+	height:100%;
+	position: absolute;
+	top: 0;
+}
+#brev-canvas {
+	width: 100%;
+	height: 100vh;
+	background-color: #212121;
+	position: sticky;
+	top: 0;
+}
 
 .contact-black {
 	color: var(--white) !important;

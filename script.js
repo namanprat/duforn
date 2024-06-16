@@ -174,7 +174,7 @@ function overlayAnimation() {
         opacity: 0,
         duration: 2.2,
         ease: "power4.inOut",
-        stagger: 0.1,
+        stagger: 0.12,
     }, "<")
     tl.to("#nav-cluster a", {
             ease: "power4.inOut",
@@ -333,8 +333,10 @@ function hoverBoxes() {
             gridBox.forEach((otherBox) => {
                 if (otherBox !== box) {
                     otherBox.style.opacity = '0';
+                    otherBox.style.scale = "1";
                 } else {
                     otherBox.style.opacity = '1';
+                    otherBox.style.scale = "1.1";
                 }
             });
         });
@@ -342,12 +344,14 @@ function hoverBoxes() {
         box.addEventListener('mouseleave', () => {
             gridBox.forEach((otherBox) => {
                 otherBox.style.opacity = '1';
+                otherBox.style.scale = "1";
             });
         });
     });
 }
 
-let elements = document.querySelectorAll(".text");
+function menuHover() {
+    let elements = document.querySelectorAll(".text");
 
       elements.forEach((element) => {
         let innerText = element.innerText;
@@ -372,6 +376,7 @@ let elements = document.querySelectorAll(".text");
           element.classList.remove("play");
         });
       });
+}
 
 gsap.registerPlugin(ScrollTrigger, Draggable);
 gsap.config({
@@ -387,3 +392,6 @@ buttonAnimation();
 aboutReveal();
 initDrag();
 if (!isMobile) hoverBoxes();
+if (!isMobile) menuHover();
+
+
