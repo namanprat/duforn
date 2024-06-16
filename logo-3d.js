@@ -16,7 +16,7 @@ scene.environment = texture;
 
 //Camera
 var camera = new THREE.PerspectiveCamera( 15,  window.innerWidth / window.innerHeight, 0.1, 100 );
-camera.position.z = 0.41;
+camera.position.z = 0.45;
 // camera.position.y = 0.5;
 
 
@@ -43,7 +43,7 @@ gltfLoader.setDRACOLoader(dLoader);
 const group = new THREE.Group();
 scene.add(group);
 
-gltfLoader.load('./logonew.glb', function(glb){
+gltfLoader.load('./newlogo.glb', function(glb){
   group.add(glb.scene); 
 });
 
