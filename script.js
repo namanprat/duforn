@@ -7,6 +7,8 @@ import LocomotiveScroll from 'locomotive-scroll';
 import 'swiper/css';
 import {Gradient} from './Gradient.js';
 import InfiniteMarquee from 'vanilla-infinite-marquee';
+import Ukiyo from "ukiyojs";
+import barba from "@barba/core";
 
 
 new InfiniteMarquee({
@@ -166,7 +168,7 @@ function overlayAnimation() {
     //         },
     //     }, "<")
     // })
-    tl.from("#menu-cluster .h1", {
+    tl.from("#menu-cluster .text", {
         y: "100%",
         delay: -1,
         opacity: 0,
@@ -289,13 +291,17 @@ function workReveal() {
 
 }
 function initDrag() {
+    let mm = gsap.matchMedia();
+    mm.add("(min-width: 900px)", () => {
+
     gsap.from(".polaroid-frame", {
         duration: 2,
         scale: 0,
         ease: 'expo.inOut',
         onComplete: drag,
         stagger: 0.09,
-    });
+    })
+    })
 };
 
 function drag() {
@@ -318,6 +324,54 @@ function drag() {
         },
     });
 }
+ const gridBox = document.querySelectorAll('.polaroid-frame');
+ const isMobile = window.matchMedia('(max-width: 900px)').matches;
+
+function hoverBoxes() {
+    gridBox.forEach((box) => {
+        box.addEventListener('mouseenter', () => {
+            gridBox.forEach((otherBox) => {
+                if (otherBox !== box) {
+                    otherBox.style.opacity = '0';
+                } else {
+                    otherBox.style.opacity = '1';
+                }
+            });
+        });
+
+        box.addEventListener('mouseleave', () => {
+            gridBox.forEach((otherBox) => {
+                otherBox.style.opacity = '1';
+            });
+        });
+    });
+}
+
+let elements = document.querySelectorAll(".text");
+
+      elements.forEach((element) => {
+        let innerText = element.innerText;
+        element.innerHTML = "";
+
+        let textContainer = document.createElement("div");
+        textContainer.classList.add("block");
+
+        for (let letter of innerText) {
+          let span = document.createElement("span");
+          span.innerText = letter.trim() === "" ? "\xa0" : letter;
+          span.classList.add("letter");
+          textContainer.appendChild(span);
+        }
+
+        element.appendChild(textContainer);
+        element.appendChild(textContainer.cloneNode(true));
+      });
+
+      elements.forEach((element) => {
+        element.addEventListener("mouseover", () => {
+          element.classList.remove("play");
+        });
+      });
 
 gsap.registerPlugin(ScrollTrigger, Draggable);
 gsap.config({
@@ -331,5 +385,5 @@ swiperInit();
 valueSet();
 buttonAnimation();
 aboutReveal();
-// horizontalScroll();
 initDrag();
+if (!isMobile) hoverBoxes();

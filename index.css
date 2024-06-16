@@ -398,7 +398,10 @@ line-height: 0.8;
 
 
 
-/* ?project Section */
+/* WORK */
+.work #contact {
+	display: hidden;
+}
 #project {
 	background-color: var(--black);
     position: absolute;
@@ -408,7 +411,9 @@ line-height: 0.8;
     height: 100vh;
     z-index: -1;
 }
-
+#project h1 {
+	display: none;
+}
 .project_wrapper {
     position: fixed;
     left: 50%;
@@ -430,21 +435,23 @@ line-height: 0.8;
     align-items: flex-start;
 	cursor: pointer;
     /* background-color: var(--white); */
-    color: var(--black);
-	
+    color: var(--black);	
 }
 
 .polaroid {
+	height: 30rem;
+	aspect-ratio: 1/1;
+	overflow: hidden;
     position: relative;
-    border-radius: 0.2rem;
-    overflow: hidden;
+	cursor: pointer;
+
+
 }
 .polaroid img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     touch-action: none;
-	cursor: pointer;
     pointer-events: none !important;
 }
 #polaroid-info {
@@ -522,20 +529,10 @@ line-height: 0.8;
     left: 120rem;
 }
 
-.polaroid-frame:nth-child(11) {
-    top: 135rem;
-    left: 190rem;
-}
-
-.polaroid-frame:nth-child(12) {
-    top: 110rem;
-    left: 235rem;
-}
-
 
 /*! Same here! Everything was deisgned in Figma :D */
 
-.polaroid-frame:nth-child(1) .polaroid {
+/* .polaroid-frame:nth-child(1) .polaroid {
     width: 20rem;
     height: 25rem;
 }
@@ -583,16 +580,70 @@ line-height: 0.8;
 .polaroid-frame:nth-child(10) .polaroid {
     width: 20rem;
     height: 25rem;
+} */
+@media only screen and (max-width: 850px) {
+	.work #contact {
+		display: flex;
+	}
+	#project h1 {
+		display: block;
+	}
+	#project {
+		position: relative;
+		/* width: 100vw; */
+		height: fit-content;
+		z-index: 1;
+		padding: var(--uni);
+	}
+	
+	.project_wrapper {
+		padding-top: 10vh;
+		position: relative;
+		left: 0;
+		top: 0;
+		width: 100%;
+		height: fit-content;
+		transform: translate(0);
+		z-index: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 3rem;
+	}
+	.polaroid-frame {
+		position: relative;
+		display: flex;
+		/* padding: 0.8rem; */
+		flex-direction: column;
+		align-items: flex-start;
+		cursor: pointer;
+		/* background-color: var(--white); */
+		color: var(--black);
+		
+		
+		
+	}
+	.polaroid {
+		width: 100%;
+		aspect-ratio: 1/1;
+		overflow: hidden;
+		position: relative;
+		cursor: pointer;
+	
+	
+	}
+	.polaroid img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		touch-action: none;
+		pointer-events: none !important;
+	}
+	.polaroid-frame:nth-child(odd){
+		top: 0;
+		left: 0;
+	}
+	.polaroid-frame:nth-child(even){
+		top: 0;
+		left: 0;
+	}
 }
-
-.polaroid-frame:nth-child(11) .polaroid {
-    width: 25rem;
-    height: 30rem;
-}
-
-.polaroid-frame:nth-child(12) .polaroid {
-    width: 35rem;
-    height: 30rem;
-}
-
-
