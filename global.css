@@ -1115,6 +1115,11 @@ form {
 		--ratio: 1.444
 	}
 
+	#logo-model {
+		touch-action: none;
+		pointer-events: none;
+	}
+
 	#nav-cluster a {
 		display: none;
 	}
