@@ -172,7 +172,7 @@ table {
 	height: 100lvh;
 	/* height: 100vh; */
 	content: "";
-	opacity: .015;
+	opacity: .01;
 	z-index: 1000;
 	pointer-events: none;
 	background: url('./public/noise.gif');
