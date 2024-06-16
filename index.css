@@ -32,7 +32,9 @@ padding: 0 var(--uni);
   --gradient-color-2: #212121; 
   --gradient-color-3: #292929;  
   --gradient-color-4: #000000;
-  filter: blur(20px);
+  -webkit-backdrop-filter: blur(15px);
+  filter: blur(15px);
+
 
 }
 .corners {
