@@ -232,6 +232,21 @@ function navScroll() {
     })
 };
 
+function heroFade() {
+    gsap.to(".fade", {
+        opacity: 0,
+
+        ease: "power4.inOut",
+        // stagger: 0.1,
+        scrollTrigger: {
+            scrub: true,
+            trigger: "main",
+           // markers: true,
+            //start: 'top 10%',
+            end: 'bottom 55%',
+        }
+    })
+}
 function dividerReveal() {
     ScrollTrigger.batch("#divider", {
         trigger: "section",
@@ -384,6 +399,7 @@ gsap.config({
 });
 
 navScroll();
+heroFade();
 dividerReveal();
 workReveal();
 swiperInit();
