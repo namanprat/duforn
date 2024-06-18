@@ -420,12 +420,11 @@ line-height: 0.8;
     position: fixed;
     left: 50%;
     top: 50%;
-    width: 320rem;
+    width: 200rem;
     height: 200rem;
     transform: translate(-50%, -50%);
     z-index: 1;
 
-    /* touch-action: none; */
     transition: transform 1.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -479,110 +478,111 @@ line-height: 0.8;
 	padding: 0.5rem 0.8rem ;
 }
 }
+#chips-xl li {
+	width: fit-content;
+	list-style-type: none;
+	text-decoration: none;
+	font-size: var(--h3-5);
+	line-height: var(--h3-5);
+	height: fit-content;
+	color: var(--white);
+	background-color: #ffffff38;
+	border-radius: 2rem;
+	-webkit-backdrop-filter: blur(20px);
+	backdrop-filter: blur(20px);
+	padding: 0.65rem 1rem ;
+}
 /*! All these infos about the frame positioning come from the concept design in Figma ;) */
 
 .polaroid-frame:nth-child(1) {
-    top: 35rem;
-    left: 60rem;
+    top: 80rem;
+    left: 90rem;
 }
 
 .polaroid-frame:nth-child(2) {
-    top: 25rem;
-    left: 120rem;
+    top: 125rem;
+    left: 150rem;
 }
 
 .polaroid-frame:nth-child(3) {
     top: 40rem;
-    left: 165rem;
+    left: 130rem;
 }
 
 .polaroid-frame:nth-child(4) {
-    top: 35rem;
-    left: 240rem;
+    top: 95rem;
+    left: 35rem;
 }
 
 .polaroid-frame:nth-child(5) {
-    top: 85rem;
-    left: 50rem;
+    top: 10rem;
+    left: 60rem;
 }
 
-.polaroid-frame:nth-child(6) {
-    top: 70rem;
-    left: 105rem;
+/*?-----> Gallery Section Heading */
+#gallery-container {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: inherit;
+	 
 }
 
-.polaroid-frame:nth-child(7) {
-    top: 95rem;
-    left: 155rem;
+#gallery-bg {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+	img {
+		z-index: -1;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+}
+#gallery-container:nth-child(1) {
+    z-index: 3;
+}
+#gallery-container:nth-child(2) {
+    z-index: 2;
+}
+#gallery-container:nth-child(3) {
+    z-index: 1;
+}
+#gallery-media {
+	position: relative;
+	padding: 1rem;
+	/* width: 100%; */
+	height: 95vh;
+	/* background-color: red; */
+	overflow: hidden;
+}
+#gallery-container {
+	position: absolute;
+    left: 0;
+    top: 0;
+	width: 100%;
+	overflow: hidden;
+	height: 100%;
+	/* background-color: green; */
+}
+#gallery-content {
+	height: fit-content;
+    position: absolute;
+    top: 5rem;
+    z-index: 1;
+    /* overflow: hidden; */
+	> * {
+		color: var(--white);
+	}
+}
+#gallery-title {
+	padding: 0 0.8rem;
+	text-align: left;
+	margin: 0;
+	/* padding: 0; */
 }
 
-.polaroid-frame:nth-child(8) {
-    top: 65rem;
-    left: 205rem;
-}
-
-.polaroid-frame:nth-child(9) {
-    top: 110rem;
-    left: 80rem;
-}
-
-.polaroid-frame:nth-child(10) {
-    top: 150rem;
-    left: 120rem;
-}
-
-
-/*! Same here! Everything was deisgned in Figma :D */
-
-/* .polaroid-frame:nth-child(1) .polaroid {
-    width: 20rem;
-    height: 25rem;
-}
-
-.polaroid-frame:nth-child(2) .polaroid {
-    width: 20rem;
-    height: 30rem;
-}
-
-.polaroid-frame:nth-child(3) .polaroid {
-    width: 30rem;
-    height: 30rem;
-}
-
-.polaroid-frame:nth-child(4) .polaroid {
-    width: 25rem;
-    height: 30rem;
-}
-
-.polaroid-frame:nth-child(5) .polaroid {
-    width: 20rem;
-    height: 30rem;
-}
-
-.polaroid-frame:nth-child(6) .polaroid {
-    width: 25rem;
-    height: 30rem;
-}
-
-.polaroid-frame:nth-child(7) .polaroid {
-    width: 40rem;
-    height: 30rem;
-}
-
-.polaroid-frame:nth-child(8) .polaroid {
-    width: 20rem;
-    height: 30rem;
-}
-
-.polaroid-frame:nth-child(9) .polaroid {
-    width: 35rem;
-    height: 30rem;
-}
-
-.polaroid-frame:nth-child(10) .polaroid {
-    width: 20rem;
-    height: 25rem;
-} */
 @media only screen and (max-width: 850px) {
 	.work #contact {
 		display: flex;

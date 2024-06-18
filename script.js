@@ -2,13 +2,9 @@ import gsap from "gsap";
 import ScrollTrigger from "gsap/ScrollTrigger";
 import Draggable from "gsap/Draggable";
 import SplitType from 'split-type'
-import Swiper from 'swiper';
-import LocomotiveScroll from 'locomotive-scroll';
-import 'swiper/css';
+import Lenis from 'lenis'
 import {Gradient} from './Gradient.js';
 import InfiniteMarquee from 'vanilla-infinite-marquee';
-import Ukiyo from "ukiyojs";
-import barba from "@barba/core";
 
 
 new InfiniteMarquee({
@@ -74,33 +70,18 @@ gradient.initGradient('#gradient-canvas');
 //     })
 // }
 
-    const locomotiveScroll = new LocomotiveScroll({
-        lenisOptions: {
-            wrapper: window,
-            content: document.documentElement,
-            lerp: 0.3,
-            duration: 1.2,
-            gestureOrientation: 'vertical',
-            smoothWheel: true,
-            smoothTouch: false,
-            wheelMultiplier: 1,
-            touchMultiplier: 2,
-            normalizeWheel: true,
-            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), // https://www.desmos.com/calculator/brs54l4xou
-        },
+function lenisInit() {
+    const lenis = new Lenis({
+        lerp: 0.05,
+        smoothWheel: true,
     });
 
-function swiperInit() {
-    var swiper = new Swiper(".swiper-container", {
-        loopedSlides: 4,
-        loop: true,
-        slidesPerView: "auto",
-        freeMode: true,
-        mousewheel: {
-            releaseOnEdges: true,
-        },
-    });
-}
+    lenis.on('scroll', ScrollTrigger.update);
+
+    gsap.ticker.add((time) => lenis.raf(time * 1000));
+    gsap.ticker.lagSmoothing(0);
+};
+
 
 function valueSet() {
     gsap.set("#overlay", {
@@ -276,35 +257,6 @@ function aboutReveal() {
         }
     })
 }
-
-function workReveal() {
-    var tl = gsap.timeline();
-    tl
-
-        .from(".swiper-wrapper a", {
-            opacity: 0,
-            y: "100%",
-            duration: 2.2,
-            ease: "power4.inOut",
-            stagger: 0.1,
-        }, "<")
-    const splitTypes = document.querySelectorAll("[project-split]")
-    splitTypes.forEach((char, i) => {
-        const text = new SplitType(char, {
-            types: 'words'
-        })
-
-        gsap.from(text.words, {
-            y: "-100%",
-            delay: 1.2,
-            opacity: 0,
-            duration: 1.7,
-            ease: "power4.inOut",
-            stagger: 0.1,
-        })
-    })
-
-}
 function initDrag() {
     let mm = gsap.matchMedia();
     mm.add("(min-width: 900px)", () => {
@@ -395,16 +347,16 @@ function menuHover() {
       });
 }
 
+
 gsap.registerPlugin(ScrollTrigger, Draggable);
 gsap.config({
     nullTargetWarn: false
 });
 
+lenisInit()
 navScroll();
 heroFade();
 dividerReveal();
-workReveal();
-swiperInit();
 valueSet();
 buttonAnimation();
 aboutReveal();
