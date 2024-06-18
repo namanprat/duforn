@@ -41,7 +41,7 @@
                 <div id="div"></div>
               </div>
               <div id="social-cluster" class="row center space-even">
-               <a href="https://instagram.com/">instagram</a>
+               <a href="https://instagram.com/dufornstudio">instagram</a>
                <a href="https://instagram.com/">linkedin</a>
               </div>
           </div>
@@ -71,56 +71,77 @@
           </div>
         </div>
          <!-- ABOUT -->
-         <section class="svh-100 col center space-around white w">
+         <section id="contact-container" class="svh-100 col w space-bw white">
+          <div id="contact-title" class="flex center self-start">
+            <h1><div class="h1">get in touch</div></h1>
+          </div>
+          <div id="contact-cluster" class="flex start self-end space-bw white">
             
-            <form name="contact" method="POST" netlify class="col gap" netlify-honeypot="bot-field">
-               <input type="hidden" name="contact" value="" />
-               <div class="col start">
-                 <p>Name:</p>
-                 <input type="text" name="name" />
-               </div>
-               <div class="col start">
-                  <p>Email:</p>
-                  <input type="email" name="email" />
-                </div>
-                <div class="col start">
-                  <p class="checkbox-label">I'm interested in...</p>
-                <div class="checkbox-wrapper flex">
-                  <div class="form-check">
-                     <label class="form-check-label">
-                       <input class="form-check-input" type="checkbox" name="services" value="Branding">
-                       <h4>Branding</h4>
-                     </label>
-                   </div>
-                   <!-- UI/UX Design -->
-                   <div class="form-check">
-                     <label class="form-check-label">
-                       <input class="form-check-input" type="checkbox" name="services" value="UI UX Design">
-                       <h4>UI/UX Design</h4>
-                     </label>
-                   </div>
-                   <!-- Static Site  -->
-                   <div class="form-check">
-                     <label class="form-check-label">
-                       <input class="form-check-input" type="checkbox" name="services" value="Web Development">
-                       <h4>Web Development</h4>
-                     </label>
-                   </div>
-                   <!-- Other  -->
-                   <div class="form-check">
-                     <label class="form-check-label">
-                       <input class="form-check-input" type="checkbox" name="services" value="Other">
-                       <h4>Other</h4>
-                     </label>
-                   </div>
-                </div>
-                </div>
-                <div class="col start">
-                  <p>Tell us about your project:</p>
-                  <textarea name="message"></textarea>
-                </div>
-                 <button type="submit" class="self-center text-container"><div class="text">Send Request</div></button>
-             </form>
+           <div id="contact-left" class="col space-bw">
+            <div id="contact-social-cluster" class="col start">
+              <div class="col">
+                <h4>email</h4>
+                <a href="./index.html" class="text-container"><div class="text">naman@duforn.com</div></a>
+              </div>
+              <div class="col">
+                <h4>instagram</h4>
+                <a href="https://instagram.com/dufornstudio" class="text-container"><div class="text">@dufornstudio</div></a>
+              </div>
+            </div>
+            <div id="reserved" class="width-100 row space-bw">
+              <h4>Duforn Studio</h4>
+              <h4>all rights reserved</h4>
+            </div>
+           </div>
+              <form name="contact" method="POST" netlify class="col gap" netlify-honeypot="bot-field">
+                 <input type="hidden" name="contact" value="" />
+                 <div class="col start">
+                   <p>Name:</p>
+                   <input type="text" name="name" />
+                 </div>
+                 <div class="col start">
+                    <p>Email:</p>
+                    <input type="email" name="email" />
+                  </div>
+                  <div class="col start">
+                    <p class="checkbox-label">I'm interested in...</p>
+                  <div class="checkbox-wrapper flex">
+                    <div class="form-check">
+                       <label class="form-check-label">
+                         <input class="form-check-input" type="checkbox" name="services" value="Branding">
+                         <h4>Branding</h4>
+                       </label>
+                     </div>
+                     <!-- UI/UX Design -->
+                     <div class="form-check">
+                       <label class="form-check-label">
+                         <input class="form-check-input" type="checkbox" name="services" value="UI UX Design">
+                         <h4>UI/UX Design</h4>
+                       </label>
+                     </div>
+                     <!-- Static Site  -->
+                     <div class="form-check">
+                       <label class="form-check-label">
+                         <input class="form-check-input" type="checkbox" name="services" value="Web Development">
+                         <h4>Web Development</h4>
+                       </label>
+                     </div>
+                     <!-- Other  -->
+                     <div class="form-check">
+                       <label class="form-check-label">
+                         <input class="form-check-input" type="checkbox" name="services" value="Other">
+                         <h4>Other</h4>
+                       </label>
+                     </div>
+                  </div>
+                  </div>
+                  <div class="col start">
+                    <p>Tell us about your project:</p>
+                    <textarea name="message"></textarea>
+                  </div>
+                   <button type="submit" class="self-end text-container"><div class="text">Send Request</div></button>
+               </form>
+          </div>
          </section>
       </main>
             <!-- CONTACT -->

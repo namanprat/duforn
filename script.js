@@ -84,23 +84,16 @@ function lenisInit() {
 
 
 function valueSet() {
-    gsap.set("#overlay", {
-        autoAlpha: 0,
-    });
-    gsap.set("#overlay-bg", {
-        autoAlpha: 0,
-    });
-    gsap.set("#nav-cluster a", {
-        x: 0,
-        autoAlpha: 1,
-    });
+    gsap.set("#overlay", {autoAlpha: 0,});
+    gsap.set("#overlay-bg", { autoAlpha: 0,});
+    gsap.set("#nav-cluster a", {x: 0,autoAlpha: 1,});
 
     let mm = gsap.matchMedia();
-    mm.add("(max-width: 900px)", () => {
-        gsap.set("#nav-cluster a", {
-            autoAlpha: 0
-        })
-    });
+    mm.add("(max-width: 900px)", () => {gsap.set("#nav-cluster a", {autoAlpha: 0})});
+    
+    gsap.set('#gallery-bg', { clipPath: 'inset(0 0 0 0)' });
+    gsap.set('#gallery-title h1', { y: "0%" });
+    gsap.set('#chips-xl li', { y: "0%" });
 };
 
 function transition() {
@@ -257,6 +250,46 @@ function aboutReveal() {
         }
     })
 }
+
+function animateGallery() {
+    var tl = gsap.timeline({
+        scrollTrigger: {
+            trigger: "#gallery-media",
+            start: 'top 2.5%',
+            end: '+=8000 bottom',
+            scrub: true,
+            pin: "#gallery-media",
+            //markers: true,
+        },
+    });
+
+    tl
+    .from('#gallery-bg img',{
+        duration: 1,
+        scale: 1.2,
+    },'<-0.3'
+    )
+
+    .to('#gallery-bg',{
+        clipPath: 'inset(0 0 100% 0)',
+    },'>-0.2'
+    )
+
+     .to('#gallery-title h1',{
+        y: "-100%",
+        opacity: 0,
+
+     },'>-0.7'
+     )
+     
+    .to('#chips-xl li',{
+        y: "-100%",
+        opacity: 0,
+        stagger: 0.07,
+    },'>-0.7'
+    )
+}
+
 function initDrag() {
     let mm = gsap.matchMedia();
     mm.add("(min-width: 900px)", () => {
@@ -357,6 +390,7 @@ gsap.config({
 
 lenisInit()
 navScroll();
+animateGallery();
 heroFade();
 dividerReveal();
 valueSet();
