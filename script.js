@@ -292,32 +292,34 @@ function drag() {
     });
 }
 
+const isMobile = window.matchMedia('(max-width: 900px)').matches;
 
- const gridBox = document.querySelectorAll('.polaroid-frame');
- const isMobile = window.matchMedia('(max-width: 900px)').matches;
+//  const gridBox = document.querySelectorAll('.polaroid-frame');
+// function hoverBoxes() {
+//     gridBox.forEach((box) => {
+//         box.addEventListener('mouseenter', () => {
+//             gridBox.forEach((otherBox) => {
+//                 if (otherBox !== box) {
+//                     otherBox.style.opacity = '0';
+//                     otherBox.style.scale = "1";
+                    
 
-function hoverBoxes() {
-    gridBox.forEach((box) => {
-        box.addEventListener('mouseenter', () => {
-            gridBox.forEach((otherBox) => {
-                if (otherBox !== box) {
-                    otherBox.style.opacity = '0';
-                    otherBox.style.scale = "1";
-                } else {
-                    otherBox.style.opacity = '1';
-                    otherBox.style.scale = "1.05";
-                }
-            });
-        });
+//                 } else {
+//                     otherBox.style.opacity = '1';
+//                     otherBox.style.scale = "1.05";
+                    
+//                 }
+//             });
+//         });
 
-        box.addEventListener('mouseleave', () => {
-            gridBox.forEach((otherBox) => {
-                otherBox.style.opacity = '1';
-                otherBox.style.scale = "1";
-            });
-        });
-    });
-}
+//         box.addEventListener('mouseleave', () => {
+//             gridBox.forEach((otherBox) => {
+//                 otherBox.style.opacity = '1';
+//                 otherBox.style.scale = "1";
+//             });
+//         });
+//     });
+// }
 
 function menuHover() {
     let elements = document.querySelectorAll(".text");
@@ -361,7 +363,7 @@ valueSet();
 buttonAnimation();
 aboutReveal();
 initDrag();
-if (!isMobile) hoverBoxes();
+// if (!isMobile) hoverBoxes();
 if (!isMobile) menuHover();
 
 

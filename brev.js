@@ -12,11 +12,11 @@ function animateGallery() {
     var tl = gsap.timeline({
         scrollTrigger: {
             trigger: "#gallery-media",
-            start: 'top top',
-            end: '+=4000 bottom',
-            scrub: 1,
+            start: 'top 2.5%',
+            end: '+=8000 bottom',
+            scrub: true,
             pin: true,
-            // markers: true
+            //markers: true,
         },
     });
 
