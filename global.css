@@ -174,7 +174,7 @@ table {
 	--diff: #faf6ef;
 	--white-50: #faf6ef72;
 	--opacity-text: rgba(0, 0, 0, 0.231);
-	--accent: #ff3b14;
+	--accent: #f14827;
 	--white: #faf6ef;
 	--black: #010001;
 	--ls: -0.07em;
@@ -921,7 +921,7 @@ form {
 	max-width: 1024px;
 	gap: 1rem;
 	background-color: var(--accent);
-	padding: var(--h4);
+	padding: var(--h3-5);
 	/* border-radius: var(--h4); */
 	 h4,p {
 		color: var(--white);
@@ -1187,11 +1187,16 @@ form {
 		width: 100%;
 	}
 	form {
+		align-self: center;
+		margin: auto;
 		flex-shrink: 1;
 		margin-top: 3.5vh;
 	}
 	#contact-left {
 		display: none;
+	}
+	#contact-title {
+		align-self: center;
 	}
 
 }

@@ -420,8 +420,9 @@ line-height: 0.8;
     position: fixed;
     left: 50%;
     top: 50%;
-    width: 200rem;
-    height: 200rem;
+    width: 200vw;
+    height: 200lvh;
+    height: 200vh;
     transform: translate(-50%, -50%);
     z-index: 1;
 
