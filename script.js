@@ -43,33 +43,6 @@ const gradient = new Gradient();
 gradient.initGradient('#gradient-canvas');
 
 
-// function horizontalScroll() {
-//     const container = document.querySelector("#project-row");
-//     console.log(container.offsetWidth)
-
-//     function getScrollAmount() {
-//         let containerWidth = container.scrollWidth;
-//         return -(containerWidth - window.innerWidth);
-//     }
-//     let mm = gsap.matchMedia();
-//     mm.add("(min-width: 850px)", () => {
-//         const tween = gsap.to(container, {
-//             x: getScrollAmount,
-//             duration: 3,
-//             ease: "none",
-//         });
-
-//         ScrollTrigger.create({
-//             trigger: "#project-wrapper",
-//             start: "clamp(top)",
-//             end: () => `+=${getScrollAmount() * -1}`,
-//             animation: tween,
-//             scrub: true,
-//             invalidateOnRefresh: true,
-//         })
-//     })
-// }
-
 function lenisInit() {
     const lenis = new Lenis({
         lerp: 0.05,
@@ -91,9 +64,7 @@ function valueSet() {
     let mm = gsap.matchMedia();
     mm.add("(max-width: 900px)", () => {gsap.set("#nav-cluster a", {autoAlpha: 0})});
     
-    gsap.set('#gallery-bg', { clipPath: 'inset(0 0 0 0)' });
-    gsap.set('#gallery-title h1', { y: "0%" });
-    gsap.set('#chips-xl li', { y: "0%" });
+
 };
 
 function transition() {
@@ -251,44 +222,56 @@ function aboutReveal() {
     })
 }
 
-function animateGallery() {
-    var tl = gsap.timeline({
-        scrollTrigger: {
-            trigger: "#gallery-media",
-            start: 'top 2.5%',
-            end: '+=8000 bottom',
-            scrub: true,
-            pin: "#gallery-media",
-            //markers: true,
-        },
-    });
+// function animateGallery() {
+//     var tl = gsap.timeline({
+//         scrollTrigger: {
+//             trigger: "#gallery-media",
+//             start: 'top 2.5%',
+//             end: '+=8000 bottom',
+//             scrub: true,
+//             pin: true,
+//             markers: true,
+//         },
+//     });
+    
+//     const container = document.querySelectorAll('#gallery-container');
 
-    tl
-    .from('#gallery-bg img',{
-        duration: 1,
-        scale: 1.2,
-    },'<-0.3'
-    )
+//     container.forEach((element) => {
+//         const medias = element.querySelectorAll('#gallery-bg img');
+//         const title = element.querySelectorAll('#gallery-title h1');
+//         const chips = element.querySelectorAll('#chips-xl li');
 
-    .to('#gallery-bg',{
-        clipPath: 'inset(0 0 100% 0)',
-    },'>-0.2'
-    )
+//     gsap.set(medias, { clipPath: 'inset(0 0 0 0)' });
+//     gsap.set(title, { y: "0%" });
+//     gsap.set(chips, { y: "0%" });
 
-     .to('#gallery-title h1',{
-        y: "-100%",
-        opacity: 0,
+//     tl
+//     .from(medias,{
+//         duration: 1,
+//         scale: 1.2,
+//     },'<-0.3'
+//     )
 
-     },'>-0.7'
-     )
+//     .to(medias,{
+//         clipPath: 'inset(0 0 100% 0)',
+//     },'>-0.2'
+//     )
+
+//      .to(title,{
+//         y: "-100%",
+//         opacity: 0,
+
+//      },'>-0.7'
+//      )
      
-    .to('#chips-xl li',{
-        y: "-100%",
-        opacity: 0,
-        stagger: 0.07,
-    },'>-0.7'
-    )
-}
+//     .to(chips,{
+//         y: "-100%",
+//         opacity: 0,
+//         stagger: 0.07,
+//     },'>-0.7'
+//     )
+// });
+// }
 
 function initDrag() {
     let mm = gsap.matchMedia();
@@ -390,7 +373,7 @@ gsap.config({
 
 lenisInit()
 navScroll();
-animateGallery();
+// animateGallery();
 heroFade();
 dividerReveal();
 valueSet();
