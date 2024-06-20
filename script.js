@@ -323,6 +323,17 @@ function menuHover() {
   });
 }
 
+//Time
+var getTime = function() {
+  document.getElementById("time").innerHTML = new Date().toLocaleString("en-IN", {
+      timeZone: 'Asia/Kolkata',
+      timeStyle: 'long',
+      hourCycle: 'h24'
+  })
+};
+getTime();
+setInterval(getTime, 1000);
+
 // Register GSAP plugins
 gsap.registerPlugin(ScrollTrigger, Draggable);
 gsap.config({

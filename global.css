@@ -140,7 +140,7 @@ table {
 :root {
 	--title: "trade-gothic";
 	--text: "jet-mono";
-	--p: 1rem;
+	--p: clamp(1rem, 0.29vw + 0.93rem, 1.1rem);
 	--h4: clamp(1.09rem, 0.29vi + 0.93rem, 1.15rem);
 	--h3-5: clamp(1.2rem, 0.91vw + 1.11rem, 1.3rem);
 	--h3: clamp(1.78rem, 1.58vi + 1.36rem, 2.78rem);
@@ -150,7 +150,7 @@ table {
 	--h1: clamp(4.21rem, 13.7vi + 0.75rem, 13rem);
 
 	--logo: clamp(2.2rem, 3.7vi + 1rem, 4.5rem);
-	--xl: clamp(4.21rem, 13.78vi + 0.76rem, 11.5rem);
+	--xl: clamp(4.2rem, 13.7vi + 0.7rem, 11rem);
 	--h1-7: clamp(4rem, 10.72vi + 1rem, 12rem);
 	--gap: clamp(1.33rem, 0.91vi + 1.11rem, 1.92rem);
 	--gap-2: clamp(2.37rem, 4.09vi + 1.34rem, 5.03rem);
@@ -171,13 +171,14 @@ table {
 --font-size-e: clamp(23.61rem, 327.16vw + -58.18rem, 236.26rem);
 --font-size-f: clamp(31.47rem, 539.69vw + -103.45rem, 382.27rem); */
 
-	--diff: #faf6ef;
-	--white-50: #faf6ef72;
+	--diff: #f9f7f3;
+	--white-50: #f9f7f372;
 	--opacity-text: rgba(0, 0, 0, 0.231);
 	--accent: #f14827;
-	--white: #faf6ef;
+	--white: #f9f7f3;
 	--black: #010001;
 	--ls: -0.07em;
+	--gfs: 16.18;
 	--ratio: 1.618;
 	--uni: calc(var(--ratio) * 1rem);
 	--ratio-2: calc(var(--ratio) * var(--ratio));
@@ -822,17 +823,58 @@ footer {
 	padding-bottom: 0.5rem;
 }
 
-nav {
-	mix-blend-mode: difference;
-	width: 100%;
-	flex-direction: row;
-	position: fixed;
-	top: 0;
-	left: 0;
-	z-index: 4;
-	padding: var(--uni);
-}
 
+nav {
+	padding: var(--p);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: grid;
+    display: grid;
+grid-template-columns: repeat(8, 1fr);
+grid-template-rows: 1fr;
+grid-column-gap: 0px;
+grid-row-gap: 0px;
+    z-index: 100;
+}
+/* a.active {
+	display: flex;
+	flex-direction: row;
+}
+a.active::before {
+		content: "";
+		position: absolute;
+		width: calc(6 / var(--gfs)* 1rem);
+		height: calc(6 / var(--gfs)* 1rem);
+		background-color: #fff;
+		mix-blend-mode: difference;
+		transform: translateZ(0);
+		transition: all .3s cubic-bezier(.25,1,.5,1);
+} */
+nav a {
+	cursor: pointer;
+	height: var(--p);
+	font-size: var(--p);
+}
+.nav-1 {
+	grid-column: 6 / span 2;
+}
+.nav-links {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+}
+.nav-tagline {
+    grid-column: 3 / span 2;
+	/* background-color: red; */
+    /* width: 72%; */
+}
+.time {
+    grid-column: 8 / span 1;
+	/* align-items: end; */
+
+
+}
 #logo-model {
 	filter: grayscale(100%);
 	scale: 1;
@@ -1205,7 +1247,7 @@ form {
 		pointer-events: none;
 	}
 
-	#nav-cluster a {
+	.nav-links {
 		display: none;
 	}
 
