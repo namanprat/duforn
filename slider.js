@@ -3,25 +3,6 @@ import ScrollTrigger from 'gsap/ScrollTrigger';
 import Draggable from 'gsap/Draggable';
 
 
-const title = document.querySelector('#work-title .h1')
-const links = document.querySelectorAll('.slider-wrapper a')
-const date = document.querySelector('#work-title span')
-const body = document.querySelector('main')
-links.forEach((link) => {
-  link.addEventListener('mouseenter', () => {
-    title.innerText = link.getAttribute('data-title')
-    date.innerText = link.getAttribute('data-year')
-    body.classList.add('hovered')
-    link.classList.add('hovered')
-  })
-  link.addEventListener('mouseleave', () => {
-    title.innerText = 'Featured Work'
-    date.innerText = '[ 5 ]'
-    body.classList.remove('hovered')
-    link.classList.remove('hovered')
-  })
-})
-
 
 let target = 0;
       let current = 0;

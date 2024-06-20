@@ -21,6 +21,25 @@ const marquee = new InfiniteMarquee({
     }
   });
 
+  const title = document.querySelector('#work-title .h1')
+      const links = document.querySelectorAll('#brev a')
+      const date = document.querySelector('#work-title span')
+      const body = document.querySelector('body')
+      links.forEach((link) => {
+        link.addEventListener('mouseenter', () => {
+          title.innerText = link.getAttribute('data-title')
+          date.innerText = link.getAttribute('data-year')
+          body.classList.add('hovered')
+          link.classList.add('hovered')
+        })
+        link.addEventListener('mouseleave', () => {
+          title.innerText = 'Featured Work'
+          date.innerText = '[ 5 ]'
+          body.classList.remove('hovered')
+          link.classList.remove('hovered')
+        })
+      })
+      
 // Initialize gradient
 const gradient = new Gradient();
 gradient.initGradient('#gradient-canvas');
