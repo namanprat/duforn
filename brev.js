@@ -1,6 +1,5 @@
 import gsap from "gsap";
 import ScrollTrigger from "gsap/ScrollTrigger";
-import SplitType from 'split-type'
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -10,8 +9,8 @@ var tl = gsap.timeline({
     scrollTrigger: {
         trigger: '#gallery',
         start: 'top top',
-        end: '+=8000 bottom',
-        scrub: 3,
+        end: '+=7000 bottom',
+        scrub: true,
         pin: true,
     },
 });
@@ -36,17 +35,17 @@ function animateMedia() {
             .to(
                 medias,
                 {
-                    duration: 2,
+                    duration: 3,
                     scale: 1.2,
                 },
-                '<-0.2'
+                
             )
             .to(
                 medias,
                 {
                     clipPath: 'inset(0 0 100% 0)',
                 },
-                '>-0.2'
+                
             )
             .to(
                 heading,

@@ -945,18 +945,12 @@ form {
 		gap: 0.8rem;
 	}
 
-	.form-check:hover {
+	.form-check h4:hover {
 		background-color: #00000055;
 		color: var(--white);
 	}
 
-	.form-check input[type=checkbox]:checked {
-		background-color: var(--black);
-		border: 1px solid var(--black);
-		color: var(--white);
-	}
-
-	.form-check {
+	.form-check h4  {
 		text-wrap: nowrap;
 		border: 2px solid var(--white-50);
 		border-radius: var(--h3);
@@ -965,15 +959,15 @@ form {
 		line-height: var(--h4);
 		padding: 0.7rem 1rem;
 		transition: 0.2s ease-in-out;
+	}
+	input[type="checkbox"].form-check-input:checked + h4 {
+		background-color: var(--black);
+		border: 2px solid var(--black);
+		color: var(--white);
+	}
 
 		input[type=checkbox] {
 			display: none;
-		}
-
-		input[type=checkbox]:checked {
-			background-color: var(--black);
-			color: var(--white);
-		}
 	}
 	
 	input:focus,

@@ -406,6 +406,9 @@ line-height: 0.8;
 }
 #project {
 	background-color: var(--black);
+	/* background-image: linear-gradient(var(--white-50) 0.1rem, transparent 0.1rem),
+	linear-gradient(90deg, var(--white-50), 0.1rem, transparent 0.1rem);
+	background-size: 4rem 4rem; */
     position: absolute;
     top: 0;
     left: 0;
