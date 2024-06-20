@@ -6,6 +6,7 @@ import SplitType from 'split-type';
 import Lenis from 'lenis';
 import { Gradient } from './Gradient.js';
 import InfiniteMarquee from 'vanilla-infinite-marquee';
+import barba from '@barba/core';
 
 // Initialize infinite marquee
 const marquee = new InfiniteMarquee({
@@ -118,7 +119,7 @@ function overlayAnimation() {
       duration: 0.75,
       autoAlpha: 1
     }, '<')
-    .to('#div', {
+    .to('line', {
       duration: 2.5,
       ease: 'power4.inOut',
       stagger: 0.065,
@@ -308,6 +309,9 @@ gsap.registerPlugin(ScrollTrigger, Draggable);
 gsap.config({
   nullTargetWarn: false
 });
+
+//Barba
+//barba.init({})
 
 // Call functions
 lenisInit();

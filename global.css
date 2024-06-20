@@ -603,7 +603,7 @@ section {
 	position: sticky;
 	top: 0;
 }
-#contact {
+footer {
     padding-top: 1rem;
     position: sticky;
     position: -webkit-sticky;
@@ -799,7 +799,7 @@ section {
 		background-color: black;
 		color: var(--white) !important;
 	}
-	#div {
+	line {
 		width: 0;
 		height: 1px;
 		background-color: var(--black);
@@ -1145,7 +1145,7 @@ form {
 		}
 	}
 
-	#contact {
+	footer {
 		align-items: center;
 	}
 
@@ -1232,7 +1232,7 @@ form {
 			gap: var(--p);
 		}
 	}
-	#contact {
+	footer {
 		padding: 0.5rem !important;
 		#rights {
 			width: 100%;

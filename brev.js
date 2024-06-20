@@ -7,10 +7,10 @@ const container = document.querySelectorAll('#gallery-container');
 
 var tl = gsap.timeline({
     scrollTrigger: {
-        trigger: '#gallery',
+        trigger: settings.trigger,
         start: 'top top',
-        end: '+=7000 bottom',
-        scrub: true,
+        end: '+=8000 bottom',
+        scrub: 1,
         pin: true,
     },
 });

@@ -18,26 +18,36 @@
 
       <link rel="stylesheet" href="./global.css" type="text/css">
       <link rel="stylesheet" href="./index.css" type="text/css">
+    <script type="module" src="./script.js"></script>
+
     </head> 
-    <body data-barba="wrapper" class="noise">
-      <div class="transition">
+    <body data-barba="wrapper">
+      <!-- <div class="transition">
          <div id="bar" class="sweep-left"></div>
          <div id="bar" class="sweep-right"></div>
          <div id="bar" class="sweep-left"></div>
-      </div>
-      <div data-barba="container" data-barba-namespace="about">
+      </div> -->
+      <nav class="flex space-bw center diff">
+        <a href="./index.html"><h4>DUFORN</h4></a>
+        <div id="nav-cluster" class="row space-bw">
+          <a href="./about.html"><h4>ABOUT</h4></a>
+          <a href="./work.html"><h4>WORK</h4></a>
+          <button id="menu" class="menu-open"><h4>MENU</h4></button>
+        </div>
+      </nav>
+      <main data-barba="container" data-barba-namespace="about" class="noise">
       <!-- OVERLAY -->
       <div id="overlay-bg">
         <div id="menu" class="col center overflow-hidden">
          <button class="menu-open">[ close ]</button>
             <div id="menu-cluster" class="col">
-              <div id="div"></div>
+              <line></line>
               <a href="./index.html"><div class="text">INDEX</div></a>
-              <div id="div"></div>
+              <line></line>
               <a href="./work.html"><div class="text">WORK</div></a>
-              <div id="div"></div>
+              <line></line>
               <a href="./contact.html"><div class="text">CONTACT</div></a>
-              <div id="div"></div>
+              <line></line>
             </div>
             <div id="social-cluster" class="row center space-even">
              <a href="https://instagram.com/">instagram</a>
@@ -45,32 +55,13 @@
             </div>
         </div>
       </div>
-
-      <!-- nav -->
-      <nav class="flex space-bw center diff">
-         <a href="./index.html" >
-           <h4>DUFORN</h4>
-         </a>
-         <div id="nav-cluster" class="row space-bw">
-           <a href="./about.html">
-             <h4>ABOUT</h4>
-           </a>
-           <a href="./work.html">
-             <h4>WORK</h4>
-           </a>
-           <button id="menu" class="menu-open">
-             <h4>MENU</h4>
-           </button>
-         </div>
-       </nav>
-      <main class="col gap-2">
+      <div class="col gap-2">
         <div id="bg-canvas">
           <div id="brev-canvas" class="noise overflow-hidden">
           <canvas id="gradient-canvas" data-transition-in></canvas>
           </div>
         </div>
          <!-- ABOUT -->
-         <!-- <h2 text-split>a creative agency dreaming up worthwhile ideas.</h2> -->
          <section id="desc-v2" class="vh-100 col center space-around white w">
             <div class="col center gap w overflow-hidden">
               <div class="h1 overflow-hidden" about-split>a multi-disciplinary design studio</div>
@@ -125,23 +116,22 @@
                   </div>
                </div>
          </section>
-      </main>
-      <!-- CONTACT -->
-      <section id="contact" class="col space-bw center overflow-hidden is-white w">
-         <div id="footer-top" class="flex space-bw width-100 center">
+        </main>
+        <footer class="col space-bw center overflow-hidden is-white w">
+          <div id="footer-top" class="flex space-bw width-100 center">
             <div id="footer-logo" class="flex overflow-hidden">
-               <img src="./public/logotype-black.svg" alt="logo">
-               </div>
-               <div id="footer-socials" class="col end">
-                <a href="mailto:naman@duforn.com" class="black">email</a>
-                <a href="https://instagram.com/dufornstudio" target="_blank" class="black">instagram</a>
-                <a href="https://linkedin.com" target="_blank" class="black">linkedin</a>
-              </div>
-         </div>
-         <a id="rights" class="self-center">© 2024 All rights reserved</a>
-       </section>
-      </div>
-      <script type="module" src="./script.js"></script>
-      <!-- <script type="module" src="./logo-3d.js"></script> -->
-   </body>
-</html>
+              <img src="./public/logotype-black.svg" alt="Duforn logo">
+            </div>
+            <div id="footer-socials" class="col end">
+              <a href="mailto:naman@duforn.com" class="black">email</a>
+              <a href="https://instagram.com/dufornstudio" target="_blank" class="black">instagram</a>
+              <a href="https://linkedin.com" target="_blank" class="black">linkedin</a>
+            </div>
+          </div>
+          <a id="rights" class="self-center">© 2024 All rights reserved</a>
+        </footer>
+        <!-- <script type="module" src="./script.js"></script> -->
+    <!-- <script type="module" src="./barbainit.js"></script> -->
+
+      </body>
+    </html>
