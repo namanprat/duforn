@@ -836,22 +836,8 @@ grid-template-columns: repeat(8, 1fr);
 grid-template-rows: 1fr;
 grid-column-gap: 0px;
 grid-row-gap: 0px;
-    z-index: 100;
+    z-index: 10;
 }
-/* a.active {
-	display: flex;
-	flex-direction: row;
-}
-a.active::before {
-		content: "";
-		position: absolute;
-		width: calc(6 / var(--gfs)* 1rem);
-		height: calc(6 / var(--gfs)* 1rem);
-		background-color: #fff;
-		mix-blend-mode: difference;
-		transform: translateZ(0);
-		transition: all .3s cubic-bezier(.25,1,.5,1);
-} */
 nav a {
 	cursor: pointer;
 	height: var(--p);
@@ -866,14 +852,13 @@ nav a {
 }
 .nav-tagline {
     grid-column: 3 / span 2;
-	/* background-color: red; */
-    /* width: 72%; */
 }
-.time {
+#time {
+	display: block;
     grid-column: 8 / span 1;
-	/* align-items: end; */
-
-
+}
+nav button {
+	display: flex;
 }
 #logo-model {
 	filter: grayscale(100%);
@@ -1236,7 +1221,22 @@ form {
 	}
 
 }
+@media only screen and (max-width: 768px) {
+	nav {
+		padding: var(--uni);
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+	}
+	.nav-tagline,
+	.nav-links,
+	#time,
+	nav button
+	.nav-1 {
+	display: none;
+}
 
+}
 @media only screen and (max-width: 475px) {
 	:root {
 		--ratio: 1.444
@@ -1246,11 +1246,6 @@ form {
 		touch-action: none;
 		pointer-events: none;
 	}
-
-	.nav-links {
-		display: none;
-	}
-
 	#project-page {
 		flex-direction: column;
 	}
