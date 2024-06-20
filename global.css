@@ -850,15 +850,15 @@ nav a {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
 }
+nav button {
+	display: none;
+}
 .nav-tagline {
     grid-column: 3 / span 2;
 }
 #time {
 	display: block;
     grid-column: 8 / span 1;
-}
-nav button {
-	display: flex;
 }
 #logo-model {
 	filter: grayscale(100%);
