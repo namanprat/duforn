@@ -140,7 +140,7 @@ table {
 :root {
 	--title: "trade-gothic";
 	--text: "jet-mono";
-	--p: clamp(1rem, 0.29vw + 0.93rem, 1.1rem);
+	--p: 0.95rem;
 	--h4: clamp(1.09rem, 0.29vi + 0.93rem, 1.15rem);
 	--h3-5: clamp(1.2rem, 0.91vw + 1.11rem, 1.3rem);
 	--h3: clamp(1.78rem, 1.58vi + 1.36rem, 2.78rem);
@@ -150,7 +150,7 @@ table {
 	--h1: clamp(4.21rem, 13.7vi + 0.75rem, 13rem);
 
 	--logo: clamp(2.2rem, 3.7vi + 1rem, 4.5rem);
-	--xl: clamp(4.2rem, 13.7vi + 0.7rem, 11rem);
+	--xl: clamp(4.2rem, 13.5vi + 0.5rem, 11rem);
 	--h1-7: clamp(4rem, 10.72vi + 1rem, 12rem);
 	--gap: clamp(1.33rem, 0.91vi + 1.11rem, 1.92rem);
 	--gap-2: clamp(2.37rem, 4.09vi + 1.34rem, 5.03rem);
@@ -423,7 +423,7 @@ h0 {
 	text-align: center;
 	text-transform: uppercase;
 	font-size: var(--xl);
-	line-height: 0.9;
+	line-height: 0.95;
 	font-family: var(--title) !important;
 	letter-spacing: var(--ls);
 }
@@ -563,7 +563,7 @@ section {
 	}
 }
 #contact-title {
-	height: 100%;
+	height: 90%;
 	/* background-color: red; */
 }
 #contact-social-cluster {
@@ -1231,9 +1231,11 @@ form {
 	.nav-tagline,
 	.nav-links,
 	#time,
-	nav button
 	.nav-1 {
 	display: none;
+}
+nav button {
+	display: block;
 }
 
 }
