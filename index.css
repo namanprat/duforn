@@ -13,6 +13,9 @@ padding: 0 var(--uni);
 		z-index: 5;
 	}
 }
+#bottom-right {
+	/* gap: 0.3rem; */
+}
 .bg {
 	/* border: 3px solid red; */
 	background-color: #212121;
