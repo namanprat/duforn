@@ -1,8 +1,29 @@
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
 import Draggable from 'gsap/Draggable';
+import SplitType from 'split-type';
 
 
+const nameHover = () => {
+  const title = document.querySelector('#work-title h2')
+      const links = document.querySelectorAll('#brev a')
+      const date = document.querySelector('#work-title span')
+      const body = document.querySelector('body')
+      links.forEach((link) => {
+        link.addEventListener('mouseenter', () => {
+          title.innerText = link.getAttribute('data-title')
+          date.innerText = link.getAttribute('data-year')
+          body.classList.add('hovered')
+          link.classList.add('hovered')
+        })
+        link.addEventListener('mouseleave', () => {
+          title.innerText = 'Featured Work'
+          date.innerText = ''
+          body.classList.remove('hovered')
+          link.classList.remove('hovered')
+        })
+      })
+    }; 
 
 let target = 0;
       let current = 0;
@@ -61,5 +82,40 @@ gsap.config({
   nullTargetWarn: false
 });
 
-console.log(update);
-      update();
+      
+function sliderAnimate() {
+  gsap.set('.slider-wrapper a', { x:'-10rem' });  
+  const tl = gsap.timeline();
+  const splitTypes = document.querySelectorAll("[text-split]")
+   splitTypes.forEach((char, i) => {
+       const text = new SplitType(char, {
+           types: 'chars'
+       })
+
+       tl.from(text.chars, {
+           y: "100%",
+           opacity: 0,
+           duration: 2,
+           ease: "power3.inOut",
+           stagger: {
+               amount: 0.15,
+           },
+       })
+   })
+  tl.from('.slider-wrapper a', {
+    duration: 1.5,
+    stagger: 0.07,
+    autoAlpha: 0,
+    x: 0,
+    y: '100%',
+    ease: 'power3.inOut',
+  },'-=1.25')
+}
+
+ const isMobile = window.matchMedia('(max-width: 768px)').matches;
+
+if(!isMobile) update();
+if(!isMobile) nameHover();
+sliderAnimate();
+
+

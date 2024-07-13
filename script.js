@@ -20,26 +20,7 @@ const marquee = new InfiniteMarquee({
       speed: 20000
     }
   });
-
-  const title = document.querySelector('#work-title .h1')
-      const links = document.querySelectorAll('#brev a')
-      const date = document.querySelector('#work-title span')
-      const body = document.querySelector('body')
-      links.forEach((link) => {
-        link.addEventListener('mouseenter', () => {
-          title.innerText = link.getAttribute('data-title')
-          date.innerText = link.getAttribute('data-year')
-          body.classList.add('hovered')
-          link.classList.add('hovered')
-        })
-        link.addEventListener('mouseleave', () => {
-          title.innerText = 'Featured Work'
-          date.innerText = '[ 5 ]'
-          body.classList.remove('hovered')
-          link.classList.remove('hovered')
-        })
-      })
-      
+  
 // Initialize gradient
 const gradient = new Gradient();
 gradient.initGradient('#gradient-canvas');
@@ -59,12 +40,10 @@ const lenisInit = () => {
 
 // Set initial values for elements
 const valueSet = () => {
+  gsap.set('.fade', { opacity: 1 });
+
   gsap.set('#overlay', { autoAlpha: 0 });
   gsap.set('#overlay-bg', { autoAlpha: 0 });
-  gsap.set('#nav-cluster a', { x: 0, autoAlpha: 1 });
-
-  const mm = gsap.matchMedia();
-  mm.add('(max-width: 900px)', () => gsap.set('#nav-cluster a', { autoAlpha: 0 }));
 };
 
 // Transition animation for the bar
@@ -126,13 +105,6 @@ function overlayAnimation() {
     ease: 'power4.inOut',
     stagger: 0.12
   }, '<')
-    .to('#nav-cluster a', {
-      ease: 'power4.inOut',
-      duration: 1,
-      x: '100%',
-      stagger: 0.07,
-      autoAlpha: 0
-    }, '<')
     .to('#overlay-bg', {
       ease: 'power4.inOut',
       duration: 0.75,
@@ -165,27 +137,6 @@ function buttonAnimation() {
     tl.reversed(!tl.reversed());
   };
 }
-
-// Animation for navigation on scroll
-function navScroll() {
-  const mm = gsap.matchMedia();
-  mm.add('(min-width: 900px)', () => {
-    gsap.to('#nav-cluster a', {
-      ease: 'power4.inOut',
-      duration: 1,
-      x: '-100%',
-      stagger: 0.07,
-      autoAlpha: 0,
-      scrollTrigger: {
-        scrub: 4,
-        trigger: 'nav',
-        start: 'top',
-        scroller: 'body'
-      }
-    });
-  });
-}
-
 // Fade animation for hero section
 function heroFade() {
   gsap.to('.fade', {
@@ -230,98 +181,9 @@ function aboutReveal() {
   });
 }
 
-// Initialize drag functionality for project frames
-function initDrag() {
-  const mm = gsap.matchMedia();
-  mm.add('(min-width: 900px)', () => {
-    gsap.from('.polaroid-frame', {
-      duration: 2,
-      scale: 0,
-      ease: 'expo.inOut',
-      onComplete: drag,
-      stagger: 0.09
-    });
-  });
-}
-
-// Drag functionality for project frames
-function drag() {
-  Draggable.create('.project_wrapper', {
-    type: 'x,y',
-    bounds: window,
-    onDragStart: function () {
-      gsap.to('.polaroid-frame', {
-        duration: 0.2,
-        scale: 1.05,
-        ease: 'power1.out'
-      });
-    },
-    onDragEnd: function () {
-      gsap.to('.polaroid-frame', {
-        duration: 0.2,
-        scale: 1,
-        ease: 'power1.out'
-      });
-    }
-  });
-}
-
 // Check if the device is mobile
 const isMobile = window.matchMedia('(max-width: 900px)').matches;
 
-// Uncomment this section to add hover effects for project frames
-// const gridBox = document.querySelectorAll('.polaroid-frame');
-// function hoverBoxes() {
-//     gridBox.forEach((box) => {
-//         box.addEventListener('mouseenter', () => {
-//             gridBox.forEach((otherBox) => {
-//                 if (otherBox !== box) {
-//                     otherBox.style.opacity = '0';
-//                     otherBox.style.scale = "1";
-//                 } else {
-//                     otherBox.style.opacity = '1';
-//                     otherBox.style.scale = "1.05";
-//                 }
-//             });
-//         });
-
-//         box.addEventListener('mouseleave', () => {
-//             gridBox.forEach((otherBox) => {
-//                 otherBox.style.opacity = '1';
-//                 otherBox.style.scale = "1";
-//             });
-//         });
-//     });
-// }
-
-// Add hover effects for menu items
-function menuHover() {
-  const elements = document.querySelectorAll('.text');
-
-  elements.forEach(element => {
-    const innerText = element.innerText;
-    element.innerHTML = '';
-
-    const textContainer = document.createElement('div');
-    textContainer.classList.add('block');
-
-    for (const letter of innerText) {
-      const span = document.createElement('span');
-      span.innerText = letter.trim() === '' ? '\xa0' : letter;
-      span.classList.add('letter');
-      textContainer.appendChild(span);
-    }
-
-    element.appendChild(textContainer);
-    element.appendChild(textContainer.cloneNode(true));
-  });
-
-  elements.forEach(element => {
-    element.addEventListener('mouseover', () => {
-      element.classList.remove('play');
-    });
-  });
-}
 
 //Time
 var getTime = function() {
@@ -341,16 +203,14 @@ gsap.config({
 });
 
 //Barba
-//barba.init({})
+// barba.init({
+//  logLevel: 'error'
+// });
 
 // Call functions
 lenisInit();
-navScroll();
 heroFade();
 dividerReveal();
 valueSet();
 buttonAnimation();
 aboutReveal();
-initDrag();
-// if (!isMobile) hoverBoxes();
-if (!isMobile) menuHover();
