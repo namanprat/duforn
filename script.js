@@ -6,7 +6,6 @@ import SplitType from 'split-type';
 import Lenis from 'lenis';
 import { Gradient } from './Gradient.js';
 import InfiniteMarquee from 'vanilla-infinite-marquee';
-import barba from '@barba/core';
 
 // Initialize infinite marquee
 const marquee = new InfiniteMarquee({
