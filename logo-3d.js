@@ -43,7 +43,7 @@ const resize = () => {
 const group = new THREE.Group();
 scene.add(group);
 
-gltfLoader.load("./remesh.glb", (glb) => {
+gltfLoader.load("./newlogo.glb", (glb) => {
   group.add(glb.scene);
 });
 
