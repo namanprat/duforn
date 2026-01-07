@@ -1,196 +1,95 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-X5EDPQP6NY"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag() {
-        dataLayer.push(arguments);
-      }
-      gtag('js', new Date());
-      gtag('config', 'G-X5EDPQP6NY');
-    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      name="description"
-      content="Duforn is a multi-disciplinary design studio. We help new ideas emerge, and existing products grow by building timeless brand experiences for the modern age. We harmonise design, culture, and technology, serving as silent storytellers and revealing emotions, ambitions, and the very essence of a brand."
-    />
-    <title>Contact - Duforn</title>
-    <link rel="icon" type="image/x-icon" href="/public/logo.ico" />
-    <link rel="stylesheet" href="./global.css" type="text/css" />
-    <link rel="stylesheet" href="./index.css" type="text/css" />
+    <title>naman pratulya | Duforn | MWT Sept 2025</title>
+    <link rel="icon" href="/site-icon.png" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="author" content="Duforn" />
+
+    <link rel="stylesheet" href="/styles.css" />
+
+
   </head>
-  <body data-barba="wrapper" class="noise">
+  <body data-barba="wrapper" class="page-wrap">
+
     <div class="transition">
-      <div id="bar" class="sweep-left"></div>
-      <div id="bar" class="sweep-right"></div>
-      <div id="bar" class="sweep-left"></div>
+      <div class="transition-overlay"></div>
     </div>
-    <div data-barba="container" data-barba-namespace="contact" class="contact">
-      <!-- OVERLAY -->
-      <div id="overlay-bg">
-        <div id="menu" class="col center overflow-hidden">
-          <button class="menu-open">[ close ]</button>
-          <div id="menu-cluster" class="col">
-            <line></line>
-            <a href="./index.html"><div class="text">INDEX</div></a>
-            <line></line>
-            <a href="./work.html"><div class="text">WORK</div></a>
-            <line></line>
-            <a href="./about.html"><div class="text">ABOUT</div></a>
-            <line></line>
-          </div>
-          <div id="social-cluster" class="row center space-even">
-            <a href="https://instagram.com/">instagram</a>
-            <a href="https://instagram.com/">linkedin</a>
-          </div>
-        </div>
-      </div>
-      <!-- nav -->
-      <nav class="diff">
-        <a href="./index.html">DUFORN</a>
 
-        <div class="nav-1">
-          <ul class="nav-links">
-            <li><a href="./index.html">HOME</a></li>
-            <li><a href="./about.html">ABOUT</a></li>
-            <li><a href="./work.html">WORK</a></li>
-            <li><a class="active">CONTACT</a></li>
-          </ul>
+    <!-- menu -->
+      <nav class="nav-wrap u-position-fixed">
+        <div class="nav-contain u-container-full">
+          <a class="u-mobile-hidden" href="/work">work</a>
+          <a href="/" class="u-text-style-font-secondary">naman pratulya</a>
+          <a class="u-mobile-hidden" href="/contact">contact</a>
+        <div class="menu-toggle-btn">
+          <div class="menu-toggle-btn-wrapper">
+            <a>MENU</a>
+          </div>
         </div>
-        <a id="time"></a>
-        <button id="menu" class="menu-open"><a>MENU</a></button>
+        </div>
       </nav>
-    <main>
-      <div id="bg-canvas">
-        <div id="brev-canvas" class="noise overflow-hidden">
-          <canvas id="gradient-canvas" data-transition-in></canvas>
+      <div class="bottom-nav-wrap u-position-fixed u-container-full u-mobile-hidden">
+        <div class="bottom-nav-contain">
+          <a href="/archive">archive</a>
+          <a id="time">12:34:56 IST</a> 
+        </div>
+ 
+</div>
+    <div class="menu-wrap">
+      <div class="menu-content u-container-full">
+        <div class="menu-box">
+       <div class="menu-items">
+        <a class="menu-item" href="/work" data-animate="font-weight-reverse"><h3>Work</h3></a>
+         <a class="menu-item" href="/about" data-animate="font-weight-reverse"><h3>About</h3></a>
+        <a class="menu-item" href="/archive" data-animate="font-weight-reverse"><h3>Archive</h3></a>
+        <a class="menu-item" href="/contact" data-animate="font-weight-reverse"><h3>Contact</h3></a>
+      </div>
+      <line></line>
+      <div class="menu-footer">
+        <div class="menu-footer-item">
+          <a href="https://www.instagram.com/namanprat/" target="_blank">Instagram</a>
+            <a href="mailto:npratulya@gmail.com" target="_blank">Email</a>
         </div>
       </div>
-      <section id="contact-container" class="svh-100 col w space-bw white">
-        <div id="contact-title" class="flex center self-start">
-          <h1><div class="h1">get in touch</div></h1>
-        </div>
-        <div id="contact-cluster" class="flex start self-end space-bw white">
-          <div id="contact-left" class="col space-bw">
-            <div id="contact-social-cluster" class="col start">
-              <div class="col">
-                <h4>email</h4>
-                <a href="mailto:naman@duforn.com" class="text-container">
-                  <div class="text">naman@duforn.com</div>
-                </a>
-              </div>
-              <div class="col">
-                <h4>instagram</h4>
-                <a
-                  href="https://instagram.com/dufornstudio"
-                  class="text-container"
-                >
-                  <div class="text">@dufornstudio</div>
-                </a>
-              </div>
-            </div>
-            <div id="reserved" class="width-100 row space-bw">
-              <p>Duforn Studio</p>
-              <p>all rights reserved</p>
-            </div>
-          </div>
-          <form
-            name="contact"
-            method="POST"
-            netlify
-            class="col gap"
-            netlify-honeypot="bot-field"
-          >
-            <input type="hidden" name="contact" value="" />
-            <div class="col start">
-              <label for="name">Name:</label>
-              <input type="text" id="name" name="name" required />
-            </div>
-            <div class="col start">
-              <label for="email">Email:</label>
-              <input type="email" id="email" name="email" required />
-            </div>
-            <div class="col start">
-              <p class="checkbox-label">I'm interested in...</p>
-              <div class="checkbox-wrapper flex">
-                <div class="form-check">
-                  <input
-                    class="form-check-input"
-                    type="checkbox"
-                    id="branding"
-                    name="services"
-                    value="Branding"
-                  />
-                  <label for="branding" class="form-check-label">
-                    <h4>Branding</h4>
-                  </label>
-                </div>
-                <div class="form-check">
-                  <input
-                    class="form-check-input"
-                    type="checkbox"
-                    id="ui-ux"
-                    name="services"
-                    value="UI UX Design"
-                  />
-                  <label for="ui-ux" class="form-check-label">
-                    <h4>UI/UX Design</h4>
-                  </label>
-                </div>
-                <div class="form-check">
-                  <input
-                    class="form-check-input"
-                    type="checkbox"
-                    id="web-dev"
-                    name="services"
-                    value="Web Development"
-                  />
-                  <label for="web-dev" class="form-check-label">
-                    <h4>Web Development</h4>
-                  </label>
-                </div>
-                <div class="form-check">
-                  <input
-                    class="form-check-input"
-                    type="checkbox"
-                    id="other"
-                    name="services"
-                    value="Other"
-                  />
-                  <label for="other" class="form-check-label">
-                    <h4>Other</h4>
-                  </label>
-                </div>
-              </div>
-            </div>
-            <div class="col start">
-              <label for="message">Tell us about your project:</label>
-              <textarea id="message" name="message" required></textarea>
-            </div>
-            <button type="submit" class="self-end text-container">
-              <div class="text">Send Request</div>
-            </button>
-          </form>
-        </div>
-      </section>
-    </main>
-    <footer class="col space-bw center overflow-hidden is-white w">
-      <div id="footer-top" class="flex space-bw width-100 center">
-        <div id="footer-logo" class="flex overflow-hidden">
-          <img src="./public/logotype-black.svg" alt="Duforn logo">
-        </div>
-        <div id="footer-socials" class="col end">
-          <a href="mailto:naman@duforn.com" class="black">email</a>
-          <a href="https://instagram.com/dufornstudio" target="_blank" class="black">instagram</a>
-          <a href="https://linkedin.com" target="_blank" class="black">linkedin</a>
-        </div>
-      </div>
-      <a id="rights" class="self-center">© 2024 All rights reserved</a>
-    </footer>
-    <script type="module" src="./script.js"></script>
+    </div>
+    </div>
+    </div>
+      <div id="background"></div>
 
+<main data-barba="container" data-barba-namespace="contact">
+    <!-- home: pixelated-video section -->
+    <section class="hero u-background-transparent">
+      <div class="u-container contact-contain u-alignment-center" data-animate="font-weight">
+          <div class="contact-col-copy u-flex-vertical-wrap">
+            <h4 class="contact-header">Say Hi!</h4>
+            <a href="mailto:naman@duforn.com"  class="u-text-style-h4 u-text-style-font-primary">naman@duforn.com</a>
+            </div>
+
+            <div class="middle u-flex-horizontal-wrap u-alignment-center u-gap-1">
+              <a href="https://www.instagram.com/namanprat_"   target="_blank" class="u-text-style-h4 u-text-style-font-primary">Instagram</a>
+              <p class="u-text-style-h4 u-text-style-font-primary">/</p>
+              <a href="https://are.na/namanprat"   target="_blank" class="u-text-style-h4 u-text-style-font-primary">are.na</a>
+              <p class="u-text-style-h4 u-text-style-font-primary">/</p>
+              <a href="https://www.linkedin.com/in/namanprat/"   target="_blank" class="u-text-style-h4 u-text-style-font-primary">LinkedIn</a>
+            </div>
+
+          <div class="contact-col-copy">
+             <a href="https://cal.com/namanprat/discovery-call"  class="u-text-style-h4 u-text-style-font-primary">schedule a discovery call</a>
+          </div>
+      </div>
+    </section>
+    </main>
+
+
+
+    <script type="module" src="/scripts/barba.js"></script>
+
+    
+    <!-- <script type="module" src="/scripts/menu.js"></script>
+    <script type="module" src="/scripts/three.js"></script>
+    <script type="module" src="/scripts/variable-font.js"></script> -->
   </body>
 </html>

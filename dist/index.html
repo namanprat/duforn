@@ -1,141 +1,131 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-X5EDPQP6NY"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Naman Pratulya</title>
+    <link rel="icon" href="/site-icon.png" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="author" content="Duforn" />
 
-  gtag('config', 'G-X5EDPQP6NY');
-</script>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Duforn is a multi-disciplinary design studio. We help new ideas emerge, and existing products grow by building timeless brand experiences for the modern age. We harmonise design, culture, and technology, serving as silent storytellers and revealing emotions, ambitions, and the very essence of a brand.">
-    <title>Duforn</title>
-    <link rel="icon" type="image/x-icon" href="/assets/logo-BKuL2dJD.ico">
-    <script type="module" crossorigin src="/assets/logo-3d-BI29y_b7.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/logo-3d-DvekyfE8.css">
+
+    <script type="module" crossorigin src="/assets/menu-DAg-UDe3.js"></script>
+    <script type="module" crossorigin src="/assets/barba-5ky2mBgG.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/menu-DtJv3R38.css">
   </head>
-  <body data-barba="wrapper" class="noise">
-    <!-- <div class="loader flex justify-center no-select"><div class="self-center overflow-hidden"><h1 loader-split>DUFORN</h1></div></div> -->
-    <div class="transition no-select">
-      <div id="bar" class="sweep-left"></div>
-      <div id="bar" class="sweep-right"></div>
-      <div id="bar" class="sweep-left"></div>
-   </div>
-   <div data-barba="container" data-barba-namespace="home">
-      <!-- OVERLAY -->
-      <div id="overlay-bg" class="flex justify-center">
-         <div id="menu" class="col center overflow-hidden">
-           <button class="menu-open"><h4>[ close ]</h4></button>
-             <div id="menu-cluster" class="col space-even">
-               <div id="div"></div>
-                 <a class="w menu-open"><div class="h1" text-split>INDEX</div></a>
-               <div id="div"></div>
-               <a class="w" href="./work.html"><div class="h1" text-split>WORK</div></a>
-               <div id="div"></div>
-               <a class="w" href="./about.html"><div class="h1" text-split>ABOUT</div></a>
-               <div id="div"></div>
-               <a class="w" href="./contact.html"><div class="h1" text-split>CONTACT</div></a>
-               <div id="div"></div>
-             </div>
-         </div>
-       </div>
-      <!-- nav -->
-      <nav class="flex space-bw center diff">
-        <a href="./index.html" >
-          <h4>DUFORN</h4>
-        </a>
-        <div id="nav-cluster" class="row space-bw">
-          <a href="./about.html">
-            <h4>ABOUT</h4>
-          </a>
-          <a href="./work.html">
-            <h4>WORK</h4>
-          </a>
-          <button id="menu" class="menu-open">
-            <h4>MENU</h4>
-          </button>
+  <body data-barba="wrapper" class="page-wrap">
+
+    <!-- page transition -->
+    <div class="transition">
+      <div class="transition-overlay"></div>
+    </div>
+
+    <!-- menu -->
+     <nav class="nav-wrap u-position-fixed">
+        <div class="nav-contain u-container-full">
+          <a class="u-mobile-hidden" href="/work">work</a>
+          <a href="/" class="u-text-style-font-secondary">naman pratulya</a>
+          <a class="u-mobile-hidden" href="/contact">contact</a>
+        <div class="menu-toggle-btn">
+          <div class="menu-toggle-btn-wrapper">
+            <a>MENU</a>
+          </div>
+        </div>
         </div>
       </nav>
-      
-      <main class="col gap-2">
-        <div class="bg noise overflow-hidden">
-          <canvas id="gradient-canvas" data-transition-in></canvas>
+      <div class="bottom-nav-wrap u-position-fixed u-container-full u-mobile-hidden">
+        <div class="bottom-nav-contain">
+          <a href="/archive">archive</a>
+          <a id="time">12:34:56 IST</a> 
         </div>
-        <!-- HERO -->
-        <section id="hero" class="col center w space-bw">
-          <canvas id="logo-model"></canvas>
-          <div class="w vw-100 col gap">
-            <img id="intro-logo" src="data:image/svg+xml,%3csvg%20width='1030'%20height='315'%20viewBox='0%200%201030%20315'%20fill='none'%20xmlns='http://www.w3.org/2000/svg'%3e%3cpath%20d='M916.646%20312.224L903.646%20161.972C901.646%20141.263%20901.146%20122.316%20900.646%20102.488C898.646%20122.316%20896.646%20141.263%20893.646%20161.972L870.146%20312.224H821.146L870.146%203.78857H940.646L950.646%20139.941C952.146%20160.209%20952.146%20179.597%20952.146%20199.425C954.646%20179.597%20956.145%20160.209%20959.646%20139.5L981.146%203.78857H1029.65L980.646%20312.224H916.646Z'%20fill='%23FEFEFE'/%3e%3cpath%20d='M812.831%20216.168L806.331%20258.028C803.331%20277.856%20801.331%20296.802%20805.831%20312.224H747.331C743.331%20302.09%20745.831%20283.584%20748.831%20264.196L757.831%20207.797C760.831%20189.291%20758.331%20180.478%20739.831%20180.478H718.331L697.331%20312.224H640.831L689.831%203.78857H782.831C833.331%203.78857%20844.831%2017.8885%20836.831%2066.3569L831.331%2099.4036C825.331%20134.653%20816.331%20150.956%20792.331%20157.566C813.831%20164.175%20818.331%20181.359%20812.831%20216.168ZM772.831%20111.3L779.331%2072.9663C782.331%2055.782%20780.831%2050.4945%20764.831%2050.4945H738.831L725.831%20133.772H751.331C767.831%20133.772%20769.831%20128.044%20772.831%20111.3Z'%20fill='%23FEFEFE'/%3e%3cpath%20d='M477.156%20251.859L507.156%2064.1538C514.656%2015.6854%20530.156%201.58545%20581.156%201.58545H610.156C660.656%201.58545%20671.156%2015.6854%20663.656%2064.1538L634.156%20251.859C626.656%20300.327%20610.656%20314.427%20560.156%20314.427H531.156C480.156%20314.427%20469.156%20300.327%20477.156%20251.859ZM578.656%20245.25L606.656%2070.7631C609.656%2053.5789%20608.656%2048.2914%20592.156%2048.2914H584.156C567.656%2048.2914%20564.656%2053.5789%20562.156%2070.7631L534.656%20245.25C532.156%20262.434%20532.656%20267.721%20548.656%20267.721H556.656C573.156%20267.721%20575.656%20262.434%20578.656%20245.25Z'%20fill='%23FEFEFE'/%3e%3cpath%20d='M442.798%2049.5598L429.798%20131.808H478.298L470.739%20178.681H422.298L401.298%20312.224H344.798L393.798%202.68701H504.185L491.278%2049.5598L442.798%2049.5598Z'%20fill='%23FEFEFE'/%3e%3cpath%20d='M279.798%202.68701L241.298%20244.148C238.798%20261.332%20239.298%20266.62%20255.798%20266.62H263.798C279.798%20266.62%20282.798%20261.332%20285.298%20244.148L323.798%202.68701H376.798L337.298%20250.757C329.798%20299.226%20314.298%20313.326%20263.798%20313.326H237.798C187.298%20313.326%20176.298%20299.226%20183.798%20250.757L223.298%202.68701H279.798Z'%20fill='%23FEFEFE'/%3e%3cpath%20d='M0.353516%20309.208L49.3535%200.772461H142.354C192.854%200.772461%20204.354%2014.8724%20196.354%2063.3408L166.854%20246.64C158.854%20295.108%20143.854%20309.208%2093.3535%20309.208H0.353516ZM124.354%2047.4784H98.3535L64.3535%20262.502H89.8535C106.354%20262.502%20109.354%20257.215%20111.854%20240.03L138.854%2069.9502C141.354%2052.7659%20140.854%2047.4784%20124.354%2047.4784Z'%20fill='%23FEFEFE'/%3e%3c/svg%3e" alt="logo" class="corners w pointer-none">
+ 
+</div>
+    <div class="menu-wrap">
+      <div class="menu-content u-container-full">
+        <div class="menu-box">
+       <div class="menu-items">
+        <a class="menu-item" href="/work" data-animate="font-weight"><h3>Work</h3></a>
+         <a class="menu-item" href="/about" data-animate="font-weight"><h3>About</h3></a>
+        <a class="menu-item" href="/archive" data-animate="font-weight"><h3>Archive</h3></a>
+        <a class="menu-item" href="/contact" data-animate="font-weight"><h3>Contact</h3></a>
+      </div>
+      <line></line>
+      <div class="menu-footer">
+        <div class="menu-footer-item">
+          <a href="https://www.instagram.com/namanprat/" target="_blank">Instagram</a>
+            <a href="mailto:npratulya@gmail.com" target="_blank">Email</a>
+        </div>
+      </div>
+    </div>
+    </div>
+    </div>
 
-            <div id="marquee" class="corners">
-              <div class="marquee-container white">
-                <h4>DUFORN IS AN INDEPENDENT CREATIVE STUDIO THAT IS DEDICATED TO CRAFTING UNFORGETTABLE DIGITAL EXPERIENCES BY DEVELOPING SOLUTIONS BASED ON DESIGN AND INSIGHTS</h4>
-            </div>
-            </div>
-          </div>
-          <div id="hero-bottom" class="row space-bw diff">
-            <p id="bottom-left">welcome to our SITE. IT HAS COME TO our ATTENTION THAT YOU MIGHT BE A CURIOUS TRAVELLER, WHO IS WANDERING THROUGH THE VAST EXPANSES OF THE INTERNET. we HOPE YOU WILL FIND OUT SOON ENOUGH, THAT YOU ARE AT THE RIGHT PLACE! </p>
-            <div id="bottom-right" class="col self-end">
-              <a href="https://instagram.com/namanprat_">[ instagram ]</a>
-              <a href="https://instagram.com/namanprat_">[ linkedin ]</a>
-            </div>
-          </div>
-        </section>
-        <!-- ABOUT -->
-        <section id="desc-v3" class="col center w">
-          <div id="header-layout" class="col center w white">
-            <div id="top" class="row overflow-hidden w-50 space-bw self-start">
-              <div class="h1">we</div>
-              <div class="h1">help</div>
-            </div>
-            <div id="center" class="row overflow-hidden width-100 space-bw">
-              <div class="h1">brands</div>
-              <div class="h1">with</div>
-            </div>
-            <div id="end" class="self-center overflow-hidden">
-              <div class="h1">( a mission* )</div>
-            </div>
-          </div>
-          <div id="desc" class="col center gap max-600 diff">
-            <p>as a multi-disciplinary design studio, We help new ideas emerge, and existing products grow by building timeless brand experiences for the modern age. We harmonise design, culture, and technology, serving as silent storytellers and revealing emotions, ambitions, and the very essence of a brand.</p>
-            <a href="https://cal.com/namanprat/discovery-call">[ SCHEDULE A DISCOVERY CALL ]</a>
-          </div>
-        </section>
-        <!-- WORK -->
-        <section id="project-showcase" class="col w">
-          <span class="white">selected work</span>
-          <div id="project-wrapper" class="overflow-hidden">
-            <div id="project-row" class="center gap-2">
-              <a id="featured-project" href="./project.html" class="flex overflow-hidden center w sage">
-                <!-- <div class="abs-center overflow-hidden"><img loading="lazy" src="https://namanprat.com/images/aspen/asppen-cover.webp"></div> -->
-                  </a>
+      <div id="background"></div>
 
-                  <a id="featured-project" href="./project.html" class="flex overflow-hidden center w aspen">
-                    <!-- <div class="abs-center overflow-hidden"><img loading="lazy" src="https://namanprat.com/images/covihelp/covihelp-cover.webp"></div> -->
-                      </a>
+    <main data-barba="container" data-barba-namespace="home">
+    <section class="hero u-background-transparent">
+      <div class="u-container hero-contain u-alignment-center u-flex-vertical-wrap u-gap-2 ">
+                <p class="u-text-style-large">We Shoot. We fracture. We reform.</p>
+            <h3 class="hero-header u-text-transform-capitalize" data-animate="font-weight">
+                Creating Experiences
+                <br>Lorem Ipsum
+              </h3>
+      </div>
+    </section>
 
-                      <a id="featured-project" href="./project.html" class="flex overflow-hidden center w sage">
-                        <!-- <div class="abs-center overflow-hidden"><img loading="lazy" src="https://namanprat.com/images/sage/sage-cover.webp"></div> -->
-                          </a>
-      </main>
-      <!-- CONTACT -->
-      <section id="contact" class="col space-bw center overflow-hidden is-white w">
-        <div id="footer-top" class="flex space-bw width-100 center">
-           <div id="footer-logo" class="flex overflow-hidden">
-              <img src="data:image/svg+xml,%3csvg%20width='1039'%20height='312'%20viewBox='0%200%201039%20312'%20fill='none'%20xmlns='http://www.w3.org/2000/svg'%3e%3cpath%20d='M0.751953%20309.447L49.752%202.68093H142.752C193.252%202.68093%20204.752%2016.7045%20196.752%2064.9107L167.252%20247.218C159.252%20295.424%20144.252%20309.447%2093.752%20309.447H0.751953ZM124.752%2049.1342H98.752L64.752%20262.994H90.252C106.752%20262.994%20109.752%20257.735%20112.252%20240.644L139.252%2071.4843C141.752%2054.393%20141.252%2049.1342%20124.752%2049.1342Z'%20fill='black'/%3e%3cpath%20d='M282.752%202.68093L244.252%20242.835C241.752%20259.927%20242.252%20265.185%20258.752%20265.185H266.752C282.752%20265.185%20285.752%20259.927%20288.252%20242.835L326.752%202.68093H379.752L340.252%20249.409C332.752%20297.615%20317.252%20311.639%20266.752%20311.639H240.752C190.252%20311.639%20179.252%20297.615%20186.752%20249.409L226.252%202.68093H282.752Z'%20fill='black'/%3e%3cpath%20d='M450.822%2049.1342L437.822%20130.646H486.322L479.322%20177.1H430.322L409.322%20309.447H352.822L401.822%202.68093H518.822L511.322%2049.1342H450.822Z'%20fill='black'/%3e%3cpath%20d='M486.053%20249.409L516.053%2062.7195C523.553%2014.5134%20539.053%200.489746%20590.053%200.489746H619.053C669.553%200.489746%20680.053%2014.5134%20672.553%2062.7195L643.053%20249.409C635.553%20297.615%20619.553%20311.639%20569.053%20311.639H540.053C489.053%20311.639%20478.053%20297.615%20486.053%20249.409ZM587.553%20242.835L615.553%2069.2931C618.553%2052.2018%20617.553%2046.943%20601.053%2046.943H593.053C576.553%2046.943%20573.553%2052.2018%20571.053%2069.2931L543.553%20242.835C541.053%20259.927%20541.553%20265.185%20557.553%20265.185H565.553C582.053%20265.185%20584.553%20259.927%20587.553%20242.835Z'%20fill='black'/%3e%3cpath%20d='M825.111%20213.912L818.611%20255.544C815.611%20275.265%20813.611%20294.109%20818.111%20309.447H759.611C755.611%20299.368%20758.111%20280.962%20761.111%20261.68L770.111%20205.585C773.111%20187.179%20770.611%20178.414%20752.111%20178.414H730.611L709.611%20309.447H653.111L702.111%202.68093H795.111C845.611%202.68093%20857.111%2016.7045%20849.111%2064.9107L843.611%2097.7786C837.611%20132.838%20828.611%20149.052%20804.611%20155.626C826.111%20162.2%20830.611%20179.291%20825.111%20213.912ZM785.111%20109.611L791.611%2071.4843C794.611%2054.393%20793.111%2049.1342%20777.111%2049.1342H751.111L738.111%20131.961H763.611C780.111%20131.961%20782.111%20126.264%20785.111%20109.611Z'%20fill='black'/%3e%3cpath%20d='M925.146%20309.447L912.146%20160.008C910.146%20139.411%20909.646%20120.567%20909.146%20100.846C907.146%20120.567%20905.146%20139.411%20902.146%20160.008L878.646%20309.447H829.646L878.646%202.68093H949.146L959.146%20138.096C960.646%20158.255%20960.646%20177.538%20960.646%20197.259C963.146%20177.538%20964.646%20158.255%20968.146%20137.658L989.646%202.68093H1038.15L989.146%20309.447H925.146Z'%20fill='black'/%3e%3c/svg%3e" alt="logo">
+    <!-- home: about & spotlight section -->
+    <section class="spotlight">
+      <div class="u-container spotlight-contain u-column-width-7">
+            <div class="about-top">
+              <div>
+                <p class="u-text-style-small">Designing motion, systems, and stories with intent.</p>
+                <p class="u-text-style-small">creative designer & developer.</p>
               </div>
-              <div id="footer-socials" class="col end">
-               <a href="mailto:a.namanprat@gmail.com" class="black">email</a>
-               <a href="https://instagram.com/namanprat_" target="_blank" class="black">instagram</a>
-               <a href="https://instagram.com/namanprat_" target="_blank" class="black">linkedin</a>
-             </div>
+              <h4 data-animate="font-weight" class="text-reveal">
+                CREATIVE DESIGNER & DEVELOPER FROM MUMBAI, 
+                <span>PARTNERING GLOBALLY</span>
+              </h4>
+            </div>
+
+            <div class="spotlight-container">
+              <div class="spotlight-gallery"></div>
+            </div>
+
+            <p class="about-bottom">
+             Naman Pratulya is a Mumbai-based creative designer and developer
+             crafting motion-led digital experiences. He blends brand systems,
+             typography, and interactive storytelling to build web products
+             that feel intentional and alive. He partners with purpose-driven
+             teams worldwide to design expressive interfaces, tight design systems,
+             and animations that serve clear outcomes.
+            </p>
+      </div>
+    </section>
+
+
+    <!-- home: banner section -->
+    <section class="section-3">
+      <div class="section-3_contain">
+        <div class="u-container">
         </div>
-        <a id="rights" class="self-center">© 2024 All rights reserved</a>
-      </section>
-   </div>
+      </div>
+    </section>
+    <section class="section-4">
+      <div class="section-4_contain">
+        <div class="u-container"></div>
+      </div>
+    </section>
+    </main>
+
+
+
+
+    <!-- <script type="module" src="/scripts/lenis-scroll.js"></script>
+    <script type="module" src="/scripts/transition.js"></script>
+    <script type="module" src="/scripts/menu.js"></script>
+    <script type="module" src="/scripts/parallax.js"></script>
+    <script type="module" src="/scripts/spotlight.js"></script>
+    <script type="module" src="/scripts/three.js"></script>
+    <script type="module" src="/scripts/variable-font.js"></script> -->
   </body>
 </html>

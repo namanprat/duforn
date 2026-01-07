@@ -1,0 +1,10 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/work", "destination": "/work.html" },
+    { "source": "/archive", "destination": "/archive.html" },
+    { "source": "/contact", "destination": "/contact.html" },
+    { "source": "/film", "destination": "/film.html" }
+  ]
+}
