@@ -380,12 +380,16 @@ const onPointerDown = (e) => {
   // Ignore clicks on UI buttons
   if (e.target.closest('.nav-btn') || e.target.closest('#archive-close')) return;
   startDrag(e.clientX, e.clientY);
+  // Immediately zoom out on mousedown (same as dragging)
+  if (targetZoom === 1.0) targetZoom = config.zoomLevel;
 };
 
 const onTouchStart = (e) => {
   if (e.target.closest('.nav-btn') || e.target.closest('#archive-close')) return;
   e.preventDefault();
   startDrag(e.touches[0].clientX, e.touches[0].clientY);
+  // Immediately zoom out on touch down (same as dragging)
+  if (targetZoom === 1.0) targetZoom = config.zoomLevel;
 };
 
 const onPointerUp = (event) => {
