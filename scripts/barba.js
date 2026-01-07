@@ -66,14 +66,14 @@ barba.init({
       to: { namespace: ['home', 'contact'] },
       async leave(data) {
         closeMenuIfOpen();
-        const texts = data?.current?.container?.querySelectorAll('a,p,h3,h4');
+        const texts = data?.current?.container?.querySelectorAll('a,p,h2,h3,h4');
         if (texts?.length) {
           await gsap.to(texts, { opacity: 0, duration: 0.4, ease: 'power2.out' });
         }
       },
       async enter(data) {
         const container = data?.next?.container;
-        const texts = container?.querySelectorAll('a,p,h3,h4');
+        const texts = container?.querySelectorAll('a,p,h2,h3,h4');
         if (texts?.length) {
           gsap.set(texts, { opacity: 0, clearProps: 'transform' });
           await gsap.fromTo(

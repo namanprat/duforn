@@ -40,10 +40,8 @@ function initVariableFont() {
       const isReverse = item.getAttribute('data-animate') === 'font-weight-reverse';
       const targets = isReverse ? split.chars : split.words;
 
-      // Set initial weight for reverse (Menu) to be Thick
-      if (isReverse) {
-        gsap.set(targets, { fontWeight: MAX_FONT_WEIGHT });
-      }
+      // Set initial weight: reverse items thick, regular items light
+      gsap.set(targets, { fontWeight: isReverse ? MAX_FONT_WEIGHT : MIN_FONT_WEIGHT });
 
       item.addEventListener("mousemove", (e) => {
         targets.forEach((target) => {

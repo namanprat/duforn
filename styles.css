@@ -222,6 +222,11 @@ h4 {
   line-height: var(--typography-line-height-1);
 }
 
+/* Override for spotlight h4 to start lighter */
+h4.text-reveal {
+  font-weight: var(--typography-font-primary-regular);
+}
+
 h5 {
   text-decoration: none;
   font-size: var(--typography-font-size-h5);
@@ -953,7 +958,7 @@ section {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: var(--spacing-space-8);
+  gap: var(--spacing-space-9);
   align-items: center;
   margin: 0 auto;
   text-align: center;
