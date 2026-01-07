@@ -7,7 +7,8 @@
 
   @font-face {
     font-family: secondary;
-    src: url(./public/XanhMono-Regular.ttf);
+    src: url(./public/InterVariable.woff2);
+    /* src: url(./public/XanhMono-Regular.ttf); */
   }
 
 :root {
@@ -69,7 +70,7 @@
 
   /* Typography sizes */
   --typography-font-size-text-small: 0.9rem;
-  --typography-font-size-text-main: 0.9rem;
+  --typography-font-size-text-main: 1rem;
   --typography-font-size-text-large: 1.25rem;
   --typography-font-size-h4: 3rem;
   --typography-font-size-h3: 5rem;
@@ -230,7 +231,7 @@ h5 {
 }
 
 a, p {
-  /* letter-spacing: var(--typography-letter-spacing-default); */
+  /* letter-spacing: 0.5px !important; */
   font-weight: 400;
   font-family: var(--text-style-font-secondary);
   font-style: normal;
