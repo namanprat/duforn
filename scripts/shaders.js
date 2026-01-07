@@ -20,11 +20,25 @@ export const fragmentShader = `
   uniform float uTime;
   uniform float uFocusState;
   uniform float uFocusIndex;
+  uniform float uJitterAmount;
+  uniform float uMaxRotation;
+  uniform float uScaleVariance;
+  uniform float uEmptyProbability;
   uniform sampler2D uImageAtlas;
   varying vec2 vUv;
 
   float random(vec2 st) {
     return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+  }
+
+  vec2 rotateAround(vec2 uv, vec2 center, float angle) {
+    float s = sin(angle);
+    float c = cos(angle);
+    uv -= center;
+    mat2 m = mat2(c, -s, s, c);
+    uv = m * uv;
+    uv += center;
+    return uv;
   }
   
   void main() {
@@ -73,13 +87,27 @@ export const fragmentShader = `
     vec3 color = vec3(0.0);
     float outAlpha = 0.0;
     
-    float baseImageSize = 0.6;
-    float targetImageSize = isFocused ? 0.96 : 0.6 * 0.7;
+    // Playful per-cell variations
+    float rSize = random(cellId + 13.37);
+    float rRot = random(cellId + 27.91);
+    vec2 rJitter = vec2(random(cellId + 7.77), random(cellId + 19.19));
+
+    // Optionally leave some cells empty for negative space
+    float rEmpty = random(cellId + 42.42);
+    bool isEmptyCell = rEmpty < uEmptyProbability;
+    
+    float baseImageSize = mix(0.50, 0.80, rSize * uScaleVariance + (1.0 - uScaleVariance) * 0.5);
+    float targetImageSize = isFocused ? 0.96 : baseImageSize * 0.85;
     float imageSize = mix(baseImageSize, targetImageSize, uFocusState);
     
     float imageBorder = (1.0 - imageSize) * 0.5;
-    
-    vec2 imageUV = (cellUV - imageBorder) / imageSize;
+
+    // Jitter position and rotate slightly for a playful layout
+    vec2 jitter = (rJitter - 0.5) * uJitterAmount;
+    vec2 imagePos = cellUV + jitter;
+    vec2 imageUV = (imagePos - imageBorder) / imageSize;
+    float angle = (rRot - 0.5) * uMaxRotation;
+    imageUV = rotateAround(imageUV, vec2(0.5), angle);
 
     float edgeSmooth = 0.01;
     vec2 imageMask = smoothstep(-edgeSmooth, edgeSmooth, imageUV) * 
@@ -88,7 +116,7 @@ export const fragmentShader = `
     
     bool inImageArea = imageUV.x >= 0.0 && imageUV.x <= 1.0 && imageUV.y >= 0.0 && imageUV.y <= 1.0;
     
-    if (inImageArea && imageAlpha > 0.0) {
+    if (!isEmptyCell && inImageArea && imageAlpha > 0.0) {
       float atlasSize = ceil(sqrt(uTextureCount));
       vec2 atlasPos = vec2(mod(texIndex, atlasSize), floor(texIndex / atlasSize));
       

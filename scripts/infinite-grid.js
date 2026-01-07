@@ -6,13 +6,18 @@ import { projects } from "./data.js";
 import { vertexShader, fragmentShader } from "./shaders.js";
 
 const config = {
-  cellSize: 0.75,
+  cellSize: 0.78,
   zoomLevel: 1.25,
   lerpFactor: 0.075,
   borderColor: "rgba(255, 255, 255, 0.15)",
   backgroundColor: "rgba(0, 0, 0, 0)",
   textColor: "rgba(128, 128, 128, 1)",
   hoverColor: "rgba(255, 255, 255, 0)",
+  // Playful layout controls
+  jitterAmount: 0.12,       // 0..~0.3 position jitter per cell (in cell UV units)
+  maxRotation: 0.10,        // radians (~5.7 degrees)
+  scaleVariance: 0.85,      // 0..1 how much size varies per cell
+  emptyProbability: 0.10    // 10% cells are empty for breathing space
 };
 
 let scene, camera, renderer, plane, logoModel, composer;
@@ -446,6 +451,11 @@ const init = async () => {
     uCellSize: { value: config.cellSize },
     uTextureCount: { value: projects.length },
     uImageAtlas: { value: imageAtlas },
+    // Playful layout uniforms
+    uJitterAmount: { value: config.jitterAmount },
+    uMaxRotation: { value: config.maxRotation },
+    uScaleVariance: { value: config.scaleVariance },
+    uEmptyProbability: { value: config.emptyProbability },
   };
 
   const geometry = new THREE.PlaneGeometry(2, 2);
