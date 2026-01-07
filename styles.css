@@ -324,7 +324,7 @@ a, p {
   overflow: hidden;
 }
 
-.grain {
+.page-wrap::after {
   content: "";
   top: -50%;
   left: -50%;
@@ -338,7 +338,7 @@ a, p {
   background-size: 1000px;
   opacity: 0.5;
   mix-blend-mode: overlay;
-  animation: grain 0.5s steps(5) infinite;
+  animation: grain 0.7s steps(5) infinite;
 }
 
 @keyframes grain {

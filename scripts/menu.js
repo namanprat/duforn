@@ -7,6 +7,7 @@ gsap.registerPlugin(SplitText);
 let isMenuOpen = false;
 let isAnimating = false;
 let menuParent = null;
+let menuInitialized = false;
 const splits = new Map();
 
 function getOrSplit(element) {
@@ -126,6 +127,8 @@ function closeMenu() {
 
 // main execution
 function initMenu() {
+  if (menuInitialized) return;
+  menuInitialized = true;
   const menuToggleBtn = document.querySelector(".menu-toggle-btn");
   const menuBox = document.querySelector(".menu-box");
   const menuItems = document.querySelectorAll(".menu-item");
@@ -159,10 +162,6 @@ function initMenu() {
     });
   }
 }
-
-document.addEventListener("DOMContentLoaded", () => {
-  initMenu();
-});
 
 export { initMenu };
 
