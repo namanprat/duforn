@@ -1,26 +1,8 @@
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { SplitText } from "gsap/SplitText";
+import { getOrSplit } from "./text-reveal.js";
 
-gsap.registerPlugin(ScrollTrigger, SplitText);
-
-const splits = new Map();
-
-function getOrSplit(element) {
-  if (splits.has(element)) return splits.get(element);
-  // Split into lines, words, AND chars to support both animation types
-  const split = new SplitText(element, { type: "lines, words, chars" });
-  
-  // Apply overflow hidden to lines (parents of words)
-  if (split.lines) {
-    split.lines.forEach(line => {
-      line.style.overflow = "hidden";
-    });
-  }
-
-  splits.set(element, split);
-  return split;
-}
+gsap.registerPlugin(ScrollTrigger);
 
 
 function initVariableFont() {
@@ -32,7 +14,7 @@ function initVariableFont() {
     );
     const MAX_DISTANCE = 300; // Adjust the maximum distance for
     const MAX_FONT_WEIGHT = 800; // Maximum font weight
-    const MIN_FONT_WEIGHT = 400; // Minimum font weight
+    const MIN_FONT_WEIGHT = 500; // Minimum font weight
 
     // Split up any text with the data attribute into individual
     fontweightItems.forEach((item) => {
@@ -96,32 +78,6 @@ function initVariableFont() {
   });
 
 
-  // Spotlight text reveal animation
-  const textReveal = document.querySelector(".text-reveal");
-  if (textReveal) {
-    const split = getOrSplit(textReveal);
-    gsap.fromTo(
-      split.words,
-      {
-        y: -100,
-        filter: "blur(5px)",
-        opacity: 0,
-      },
-      {
-        y: 0,
-        filter: "blur(0px)",
-        opacity: 1,
-        duration: 1,
-        stagger: 0.05,
-        ease: "power2.out",
-        scrollTrigger: {
-          trigger: textReveal,
-          start: "top 80%",
-        //   markers: true,
-        },
-      }
-    );
-  }
 }
 
 document.addEventListener("DOMContentLoaded", () => {

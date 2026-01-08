@@ -7,6 +7,7 @@ import { initSpotlight } from './spotlight.js';
 import { initVariableFont } from './variable-font.js';
 import { initWork, destroyWork } from './work.js';
 import { initArchiveScene, destroyArchiveScene } from './archive-scene.js';
+import { animateRevealEnter, initScrollTextReveals } from './text-reveal.js';
 import webgl, { destroyWebgl } from './three.js';
 
 
@@ -36,6 +37,7 @@ function initPageFeatures(namespace) {
   initTime();
   initMenu();
   initVariableFont();
+  initScrollTextReveals();
   initSpotlight();
 
   const ns = namespace || document.querySelector('[data-barba="container"]')?.dataset.barbaNamespace;
@@ -72,16 +74,7 @@ barba.init({
         }
       },
       async enter(data) {
-        const container = data?.next?.container;
-        const texts = container?.querySelectorAll('a,p,h2,h3,h4');
-        if (texts?.length) {
-          gsap.set(texts, { opacity: 0, clearProps: 'transform' });
-          await gsap.fromTo(
-            texts,
-            { opacity: 0 },
-            { opacity: 1, duration: 0.55, ease: 'power2.out', stagger: 0.03 }
-          );
-        }
+        await animateRevealEnter(data?.next?.container);
       },
       async after(data) {
         initPageFeatures(data?.next?.namespace || data?.current?.namespace);

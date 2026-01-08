@@ -12,24 +12,16 @@
   }
 
 :root {
-  /* User's Variables */
-  --margin: 30rem;
-  --gap: 20rem;
-  --frame-font-size: 1rem;
-  --frame-line-height: 1.2;
-  --frame-max-width: 350rem;
-  --site--width: 97.5rem;
 
   /* Core Theme & Typography */
   --text-style-font-primary: "InterVariable", sans-serif;
   --text-style-font-secondary: secondary, monospace;
 
-
   /* Colours */
   --theme-accent: #ddbb7d;
-  --theme-primary:#8C7343;
+  --theme-primary:#a38855;
   --swatch-light: #fefefe;
-  --swatch-dark: #0c0b0a;
+  --swatch-dark: color-mix(in srgb, var(--theme-primary), black 88%);
 
   --theme-background: var(--swatch-dark);
   --theme-background-2: var(--swatch-light);
@@ -69,16 +61,19 @@
   --size-10rem: 10rem;
 
   /* Typography sizes */
-  --typography-font-size-text-small: 0.9rem;
-  --typography-font-size-text-main: 1rem;
-  --typography-font-size-text-large: 1.25rem;
-  --typography-font-size-h4: 3rem;
-  --typography-font-size-h3: 5rem;
-  --typography-font-size-h2: 7rem;
-  --typography-font-size-h1: 15rem;
+  --typography-font-size-text-small: clamp(0.875 * 1rem, ((0.875 - ((1 - 0.875) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((1 - 0.875) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 1 * 1rem);
+  --typography-font-size-text-main: clamp(1 * 1rem, ((1 - ((1.125 - 1) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((1.125 - 1) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 1.125 * 1rem);
+  --typography-font-size-large: clamp(1.125 * 1rem, ((1.125 - ((1.25 - 1.125) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((1.25 - 1.125) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 1.25 * 1rem);
+  --typography-font-size-h5: clamp(1.375 * 1rem, ((1.375 - ((1.5 - 1.375) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((1.5 - 1.375) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 1.5 * 1rem);
+  --typography-font-size-h4: clamp(1.75 * 1rem, ((1.75 - ((2 - 1.75) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((2 - 1.75) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 2 * 1rem);
+  --typography-font-size-h3: clamp(2.25 * 1rem, ((2.25 - ((3 - 2.25) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((3 - 2.25) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 3 * 1rem);
+  --typography-font-size-h2: clamp(2.5 * 1rem, ((2.5 - ((4 - 2.5) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((4 - 2.5) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 4 * 1rem);
+  --typography-font-size-h1: clamp(3 * 1rem, ((3 - ((5 - 3) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((5 - 3) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 5 * 1rem);
+  --typography-font-size-display: clamp(4 * 1rem, ((4 - ((7 - 4) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((7 - 4) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 7 * 1rem);
 
-    --_typography---font--primary-trim-top: 0.33em;
-  --_typography---font--primary-trim-bottom: 0.38em;
+
+  --font-primary-trim-top: 0.33em;
+  --font-primary-trim-bottom: 0.38em;
 
 
     /* Typography line heights */
@@ -100,28 +95,34 @@
 
 
   /* Section spacing */
-  --spacing-section-space-none: var(--size-0rem);
-  --spacing-section-space-small: var(--size-5rem);
-  --spacing-section-space-medium: var(--size-7rem);
-  --spacing-section-space-large: var(--size-10rem);
+  --spacing-section-space-none: 0px;
+  --spacing-section-space-small: clamp(3 * 1rem, ((3 - ((5 - 3) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((5 - 3) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 5 * 1rem);
+  --spacing-section-space-medium: clamp(4 * 1rem, ((4 - ((7 - 4) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((7 - 4) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 7 * 1rem);
+  --spacing-section-space-large: clamp(5.5 * 1rem, ((5.5 - ((10 - 5.5) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((10 - 5.5) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 10 * 1rem);
+  --spacing-section-space-page-top: clamp(10 * 1rem, ((10 - ((14 - 10) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((14 - 10) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 14 * 1rem);
 
   /* Site Layout */
-  --site--viewport-max: 90;
+  --max-width--small: 50rem;
+  --max-width--main: calc(var(--site--viewport-max) * 1rem);
+--site--column-count: 12;
+
+  --site--viewport-max: 110;
   --site--viewport-min: 20;
-  --site--margin: 56px;
-  --site--gutter: 1rem;
-  --site--column-count: 12;
+  --site--margin: clamp(1 * 1rem, ((1 - ((3 - 1) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((3 - 1) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 3 * 1rem);
+  --site--gutter: clamp(1 * 1rem, ((1 - ((2 - 1) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((2 - 1) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 2 * 1rem);
+  /* --site--column-count: calc(var(--site--viewport-max)* 1rem); */
+  
+  --column-width: calc((min(var(--max-width--main), 100% - var(--site--margin) * 2) - (var(--site--gutter) * (var(--site--column-count) - 1))) / var(--site--column-count));
+
   --site--gutter-total: calc(var(--site--gutter) * (var(--site--column-count) - 1));
-  --site--max-width: min(var(--site--width), 100%);
 
   /* Container Sizes */
-  --container--main: calc(var(--site--max-width) - var(--site--margin) * 2);
-  --container--small: 110rem;
-  --container--full: 100vw;
+  --container--main: calc(var(--site--viewport-max) * 1rem);
+  --container--small: 50rem;
+  --container--full: calc(100vw - (var(--site--margin) * 2));
 
   /* Column Widths */
-  --column-width-1: calc((100% - var(--site--gutter-total)) / var(--site--column-count));
-  --column-width-plus-gutter: calc(var(--column-width-1) + var(--site--gutter));
+  --column-width-plus-gutter: calc(var(--column-width) + var(--site--gutter));
   --column-width-2: calc(var(--column-width-plus-gutter) * 2 - var(--site--gutter));
   --column-width-3: calc(var(--column-width-plus-gutter) * 3 - var(--site--gutter));
   --column-width-4: calc(var(--column-width-plus-gutter) * 4 - var(--site--gutter));
@@ -142,8 +143,6 @@
   --column-margin--10: 10px;
 
   /* Additional Variables */
-  --max-width--small: 50rem;
-  --column-count-value: 1;
   --border-width--main: 0.094rem;
   --radius-main: 1rem;
   --radius-small: 0.5rem;
@@ -152,16 +151,14 @@
 
 
   /* Spacing scale */
-  --spacing-space-1: var(--size-0-5rem);
-  --spacing-space-2: var(--size-0-75rem);
-  --spacing-space-3: var(--size-1rem);
-  --spacing-space-4: var(--size-1-5rem);
-  --spacing-space-5: var(--size-2rem);
-  --spacing-space-6: var(--size-2-5rem);
-  --spacing-space-7: var(--size-3rem);
-  --spacing-space-8: var(--size-4rem);
-  --spacing-space-9: var(--size-5rem);
-  --spacing-space-10: var(--size-7rem);
+  --spacing-space-1: clamp(0.375 * 1rem, ((0.375 - ((0.5 - 0.375) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((0.5 - 0.375) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 0.5 * 1rem);
+  --spacing-space-2: clamp(0.625 * 1rem, ((0.625 - ((0.75 - 0.625) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((0.75 - 0.625) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 0.75 * 1rem);
+  --spacing-space-3: clamp(0.875 * 1rem, ((0.875 - ((1 - 0.875) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((1 - 0.875) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 1 * 1rem);
+  --spacing-space-4: clamp(1.25 * 1rem, ((1.25 - ((1.5 - 1.25) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((1.5 - 1.25) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 1.5 * 1rem);
+  --spacing-space-5: clamp(1.75 * 1rem, ((1.75 - ((2 - 1.75) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((2 - 1.75) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 2 * 1rem);
+  --spacing-space-6: clamp(2 * 1rem, ((2 - ((2.5 - 2) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((2.5 - 2) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 2.5 * 1rem);
+  --spacing-space-7: clamp(2.25 * 1rem, ((2.25 - ((3 - 2.25) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((3 - 2.25) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 3 * 1rem);
+  --spacing-space-8: clamp(2.5 * 1rem, ((2.5 - ((4 - 2.5) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((4 - 2.5) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 4 * 1rem);
 }
 
 /* --- BASE STYLES --- */
@@ -182,12 +179,12 @@ body {
 }
 
 span {
-  /* font-size: calc(var(--typography-font-size-text-main) * 2.5); */
   color: var(--theme-accent);
-  /* font-variation-settings: "wdth" 80; */
 }
 
 h1, h2, h3, h4, h5, h6, p, a {
+  padding-top: calc(var(--font-primary-trim-top)*-1);
+  padding-bottom: calc(var(--font-primary-trim-bottom)*-1);
   leading-trim: both;
   text-edge: cap;
   text-wrap: pretty;
@@ -222,28 +219,26 @@ h4 {
   line-height: var(--typography-line-height-1);
 }
 
-/* Override for spotlight h4 to start lighter */
-h4.text-reveal {
-  font-weight: var(--typography-font-primary-regular);
-}
 
 h5 {
   text-decoration: none;
   font-size: var(--typography-font-size-h5);
   font-weight: 400;
-  line-height: var(--typography-line-height-1);
-  color: var(--tone-500);
+  line-height: var(--typography-line-height-medium);
+}
+
+ a {
+  text-decoration: none;
+  color: var(--theme-accent);
 }
 
 a, p {
-  /* letter-spacing: 0.5px !important; */
   font-weight: 400;
   font-family: var(--text-style-font-secondary);
   font-style: normal;
   text-decoration: none;
   font-size: var(--typography-font-size-text-main);
   line-height: var(--typography-line-height-medium);
-  color: var(--theme-accent);
 }
 .page-wrap {
     z-index: 1;
@@ -315,11 +310,7 @@ a, p {
     width: fit-content;
 }
 
- a {
-  font-size: var(--typography-font-size-text-small);
-  text-decoration: none;
-  color: var(--theme-accent);
-}
+
 /* Three.js Canvas */
 #background {
   position: fixed;
@@ -383,8 +374,8 @@ a, p {
   position: relative;
 }
 .u-grid-wrapper {
-  grid-column-gap: var(--gap-size);
-  grid-row-gap: var(--gap-size);
+  grid-column-gap: var(--site--gutter);
+  grid-row-gap: var(--site--gutter);
   width: 100%;
   display: flex;
 }
@@ -475,12 +466,13 @@ section {
   position: relative;
 }
 .u-container {
-  display: flex;
+  container-type: inline-size;
+  z-index: 1;
   height: 100%;
-    width: 100%;
-    max-width: var(--container--main);
-    margin: auto;
-    position: static;
+  width: calc(100% - var(--site--margin) * 2);
+  max-width: var(--max-width--main);
+  margin: 0 auto;
+  position: relative;
 }
 .u-container-small {
   z-index: 1;
@@ -497,14 +489,10 @@ section {
   container-type: inline-size;
 }
 .u-container-full {
-    padding-left: var(--site--margin);
-    padding-right: var(--site--margin);
-
     width: 100%;
     max-width: var(--container--full);
     margin: auto;
-    position: static;
-
+    position: relative;
 }
 .u-svg {
   width: 100%;
@@ -617,7 +605,7 @@ section {
 .u-row-span-4 { grid-row-end: span 4; }
 .u-row-span-5 { grid-row-end: span 5; }
 .u-row-span-6 { grid-row-end: span 6; }
-.u-column-width-1 { width: var(--column-width-1); }
+.u-column-width-1 { width: var(--column-width); }
 .u-column-width-2 { width: var(--column-width-2); }
 .u-column-width-3 { width: var(--column-width-3); }
 .u-column-width-4 { width: var(--column-width-4); }
@@ -625,6 +613,10 @@ section {
 .u-column-width-6 { width: var(--column-width-6); }
 .u-column-width-7 { width: var(--column-width-7); }
 .u-column-width-8 { width: var(--column-width-8); }
+.u-column-width-9 { width: var(--column-width-9); }
+.u-column-width-10 { width: var(--column-width-10); }
+.u-column-width-11 { width: var(--column-width-11); }
+.u-column-width-12 { width: var(--column-width-12); }
 
 
 /* Spacing */
@@ -701,7 +693,7 @@ section {
 .u-text-style-h4 { font-size: var(--typography-font-size-h4); line-height: var(--typography-line-height-medium); font-weight: var(--typography-font-primary-regular); }
 .u-text-style-h5 { font-size: var(--typography-font-size-h5); line-height: var(--typography-line-height-medium); font-weight: var(--typography-font-primary-medium); }
 .u-text-style-h6 { font-size: var(--typography-font-size-h6); line-height: var(--typography-line-height-medium); font-weight: var(--typography-font-primary-medium); }
-.u-text-style-large { font-size: var(--typography-font-size-text-large); line-height: var(--typography-line-height-huge); }
+.u-text-style-large { font-size: var(--typography-font-size-large); line-height: var(--typography-line-height-huge); }
 .u-text-style-main { font-size: var(--typography-font-size-text-main); line-height: var(--typography-line-height-1-3); }
 .u-text-style-small { font-size: var(--typography-font-size-text-small); line-height: var(--typography-line-height-1); }
 .u-text-style-font-primary { font-family: var(--text-style-font-primary); }
@@ -889,7 +881,6 @@ section {
 @media (max-width: 1024px) {
   :root {
     --margin: 15px;
-    --gap: 10rem;
     --frame-font-size: 10px;
   }
 }
@@ -945,6 +936,9 @@ section {
   justify-content: center;
   overflow: hidden;
 }
+.hero-contain {
+  gap: var(--size-1-25rem);
+}
 .about-top  {
   display: flex;
   flex-direction: column;
@@ -954,11 +948,11 @@ section {
 }
 
 .spotlight-contain {
-  height: 110vh;
+  height: 105vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: var(--spacing-space-9);
+  gap: var(--spacing-space-8);
   align-items: center;
   margin: 0 auto;
   text-align: center;
@@ -966,8 +960,8 @@ section {
 }
 
 .spotlight .spotlight-container {
-  width: 90vw;
-  max-width: 1400px;
+  width: 100%;
+  /* max-width: 1400px; */
   display: flex;
   justify-content: center;
   padding: 0;
@@ -1220,6 +1214,7 @@ flex-direction: column;
 
 /* --- CONTACT STYLES --- */
 .contact-contain {
+  gap: var(--size-1rem);
     flex-flow: column;
     justify-content: center;
     align-items: center;
@@ -1237,6 +1232,35 @@ img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* Grid Guide Overlay */
+.grid-guide {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+}
+.grid-guide__inner {
+  box-sizing: border-box;
+  margin-left: auto;
+  margin-right: auto;
+  width: calc(100% - var(--site--margin) * 2);
+  max-width: var(--container--main);
+  height: 100%;
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  column-gap: var(--site--gutter);
+}
+.grid-guide__col {
+  background: rgba(255, 255, 255, 0.06);
+  outline: 1px dashed rgba(255, 255, 255, 0.15);
+}
+@media (prefers-color-scheme: light) {
+  .grid-guide__col {
+    background: rgba(0, 0, 0, 0.06);
+    outline-color: rgba(0, 0, 0, 0.12);
+  }
 }
 
 .slider {
@@ -1314,8 +1338,8 @@ img {
 .archive-header {
   width: 100%;
   text-align: center;
-  margin-top: 5rem; /* Space for nav */
-  overflow: hidden; /* For SplitText animation */
+  margin-top: 5rem; 
+  overflow: hidden; 
 }
 
 
@@ -1361,5 +1385,5 @@ img {
 #archive-year {
   font-family: var(--text-style-font-secondary);
   color: var(--theme-accent);
-  font-size: var(--typography-font-size-text-large);
+  font-size: var(--typography-font-size-h5);
 }

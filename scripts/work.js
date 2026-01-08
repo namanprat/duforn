@@ -1,5 +1,8 @@
 import gsap from "gsap";
+import { MotionPathPlugin } from "gsap/MotionPathPlugin";
 import { workItems } from "../data/work-items.js";
+
+gsap.registerPlugin(MotionPathPlugin);
 
 let slider;
 let slideTitle;
@@ -21,6 +24,49 @@ let scrollTimeout;
 let activeSlideIndex = 0;
 let isInitialized = false;
 
+let isThumbnailIntroPlaying = false;
+let thumbnailIntroTl = null;
+
+const THUMBNAIL_INTRO_DELAY = 0.2;
+const THUMBNAIL_INTRO_EASE = "power2.out";
+const THUMBNAIL_INTRO_STAGGER = 0.05;
+const TAU = Math.PI * 2;
+
+function getThumbnailRadius() {
+  return isMobile ? 150 : 350;
+}
+
+function getCurrentRotationAngleDeg() {
+  const exactSlideProgress = Math.abs(currentX) / slideWidth;
+  return -(exactSlideProgress * (360 / totalSlides)) + 90;
+}
+
+function getArcPointsAntiClockwise({ cx, cy, radius, fromAngle, toAngle, steps = 14 }) {
+  const normalize = (angle) => {
+    let a = angle;
+    while (a < 0) a += TAU;
+    while (a >= TAU) a -= TAU;
+    return a;
+  };
+
+  const start = normalize(fromAngle);
+  let end = normalize(toAngle);
+
+  // Screen coords use +sin(angle) for y, so decreasing angle moves anti-clockwise.
+  if (end > start) end -= TAU;
+
+  const points = [];
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps;
+    const angle = start + (end - start) * t;
+    points.push({
+      x: cx + radius * Math.cos(angle),
+      y: cy + radius * Math.sin(angle),
+    });
+  }
+  return points;
+}
+
 function createSlides() {
   if (!slider) return;
   for (let i = 0; i < totalSlides * 3; i++) {
@@ -36,13 +82,11 @@ function createSlides() {
   }
 }
 
-function createThumbnailItems() {
+function createThumbnailItems({ atOrigin = false } = {}) {
   if (!thumbnailWheel) return;
   for (let i = 0; i < totalSlides; i++) {
     const angle = (i / totalSlides) * Math.PI * 2;
-    const radius = isMobile ? 100 : 350;
-    const x = radius * Math.cos(angle) + window.innerWidth / 2;
-    const y = radius * Math.sin(angle) + window.innerHeight / 2 - 25;
+    const radius = getThumbnailRadius();
 
     const thumbnail = document.createElement("div");
     thumbnail.className = "thumbnail-item";
@@ -55,11 +99,23 @@ function createThumbnailItems() {
     img.src = item.image;
     thumbnail.appendChild(img);
 
-    gsap.set(thumbnail, {
-      x,
-      y,
-      transformOrigin: "center center",
-    });
+    if (atOrigin) {
+      gsap.set(thumbnail, {
+        x: window.innerWidth / 2,
+        y: window.innerHeight,
+        xPercent: -50,
+        yPercent: -100,
+        transformOrigin: "center center",
+      });
+    } else {
+      const x = radius * Math.cos(angle) + window.innerWidth / 2;
+      const y = radius * Math.sin(angle) + window.innerHeight / 2 - 25;
+      gsap.set(thumbnail, {
+        x,
+        y,
+        transformOrigin: "center center",
+      });
+    }
 
     thumbnailWheel.appendChild(thumbnail);
   }
@@ -145,7 +201,7 @@ function animate() {
   slideTitle.textContent = currentItem.title;
   slideTitle.dataset.href = currentItem.href || "";
 
-  updateThumbnailItems();
+  if (!isThumbnailIntroPlaying) updateThumbnailItems();
 
   rafId = requestAnimationFrame(animate);
 }
@@ -157,7 +213,7 @@ function updateThumbnailItems() {
   const thumbnails = document.querySelectorAll(".thumbnail-item");
   thumbnails.forEach((thumbnail) => {
     const baseAngle = parseFloat(thumbnail.dataset.angle);
-    const radius = isMobile ? 150 : 350;
+    const radius = getThumbnailRadius();
     const currentAngle = baseAngle + (currentRotationAngle * Math.PI) / 180;
 
     const x = radius * Math.cos(currentAngle) + window.innerWidth / 2;
@@ -172,6 +228,71 @@ function updateThumbnailItems() {
   });
 }
 
+function playThumbnailWheelIntro() {
+  if (!thumbnailWheel) return;
+
+  const thumbnails = Array.from(thumbnailWheel.querySelectorAll(".thumbnail-item"));
+  if (thumbnails.length === 0) return;
+
+  if (thumbnailIntroTl) {
+    thumbnailIntroTl.kill();
+    thumbnailIntroTl = null;
+  }
+
+  isThumbnailIntroPlaying = true;
+
+  const cx = window.innerWidth / 2;
+  const cy = window.innerHeight / 2 - 25;
+  const radius = getThumbnailRadius();
+
+  const origin = { x: cx, y: window.innerHeight };
+  const stickEnd = { x: cx, y: cy + radius };
+  const startAngle = Math.PI / 2; // 6 o'clock in this coordinate system
+
+  const currentRotationDeg = getCurrentRotationAngleDeg();
+  const currentRotationRad = (currentRotationDeg * Math.PI) / 180;
+
+  thumbnailIntroTl = gsap.timeline({
+    delay: THUMBNAIL_INTRO_DELAY,
+    defaults: { ease: THUMBNAIL_INTRO_EASE },
+    onComplete: () => {
+      thumbnails.forEach((t) => gsap.set(t, { xPercent: 0, yPercent: 0 }));
+      updateThumbnailItems();
+      isThumbnailIntroPlaying = false;
+    },
+  });
+
+  thumbnails.forEach((thumbnail, index) => {
+    const baseAngle = parseFloat(thumbnail.dataset.angle);
+    const targetAngle = baseAngle + currentRotationRad;
+    const arcPoints = getArcPointsAntiClockwise({
+      cx,
+      cy,
+      radius,
+      fromAngle: startAngle,
+      toAngle: targetAngle,
+    });
+
+    const path = [origin, stickEnd, ...arcPoints];
+    const endPoint = arcPoints[arcPoints.length - 1] || stickEnd;
+
+    thumbnailIntroTl.to(
+      thumbnail,
+      {
+        duration: 1.1,
+        x: endPoint.x,
+        y: endPoint.y,
+        yPercent: -50,
+        motionPath: {
+          path,
+          curviness: 1.2,
+        },
+      },
+      index * THUMBNAIL_INTRO_STAGGER
+    );
+  });
+}
+
 function preventScroll(e) {
   if (e.target === document || e.target === document.body) {
     window.scrollTo(0, 0);
@@ -179,6 +300,11 @@ function preventScroll(e) {
 }
 
 function onResize() {
+  if (thumbnailIntroTl) {
+    thumbnailIntroTl.kill();
+    thumbnailIntroTl = null;
+  }
+  isThumbnailIntroPlaying = false;
   isMobile = window.innerWidth < 1000;
   slideWidth = window.innerWidth * 0.45;
   viewportCenter = window.innerWidth / 2;
@@ -197,6 +323,11 @@ function setupEventListeners() {
 }
 
 function cleanupWork() {
+  if (thumbnailIntroTl) {
+    thumbnailIntroTl.kill();
+    thumbnailIntroTl = null;
+  }
+  isThumbnailIntroPlaying = false;
   if (rafId) {
     cancelAnimationFrame(rafId);
     rafId = null;
@@ -225,9 +356,10 @@ function initWork() {
   isMobile = window.innerWidth < 1000;
 
   createSlides();
-  createThumbnailItems();
+  createThumbnailItems({ atOrigin: true });
   initializeSlider();
   setupEventListeners();
+  playThumbnailWheelIntro();
   slideTitle.onclick = () => {
     const href = slideTitle.dataset.href;
     if (href) {
