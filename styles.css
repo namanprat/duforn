@@ -340,6 +340,7 @@ a, p {
   letter-spacing: 0.05em;
   filter: drop-shadow(0 0 2px #E2E2E2d3);
   text-shadow: 0 0 1px rgba(255, 255, 255, 0.5);
+  margin-top: var(--size-2-5rem);
 }
 /* Three.js Canvas */
 #background {
