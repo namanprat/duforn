@@ -29,7 +29,7 @@ function revealWords(element, { direction = "up", duration = 0.8, stagger = 0.03
   const yStart = direction === "down" ? 100 : -100;
   return gsap.fromTo(
     split.words,
-    { y: yStart, filter: "blur(5px)", opacity: 0 },
+    { y: yStart, filter: "blur(0px)", opacity: 0 },
     { y: 0, filter: "blur(0px)", opacity: 1, duration, stagger, ease }
   );
 }
@@ -76,7 +76,7 @@ function initScrollTextReveals() {
     if (!split) return;
     gsap.fromTo(
       split.words,
-      { y: -100, filter: "blur(5px)", opacity: 0 },
+      { y: -100, filter: "blur(0px)", opacity: 0 },
       {
         y: 0,
         filter: "blur(0px)",
@@ -95,7 +95,7 @@ function initScrollTextReveals() {
     if (!split) return;
     gsap.fromTo(
       split.words,
-      { y: 100, filter: "blur(5px)", opacity: 0 },
+      { y: 100, filter: "blur(0px)", opacity: 0 },
       {
         y: 0,
         filter: "blur(0px)",

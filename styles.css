@@ -1218,8 +1218,8 @@ flex-direction: column;
     flex-flow: column;
     justify-content: center;
     align-items: center;
-    width: auto;
-    max-width: none;
+    /* width: auto; */
+    /* max-width: none; */
     height: auto;
     display: flex;
     position: relative;
