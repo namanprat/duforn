@@ -7,8 +7,8 @@
 
   @font-face {
     font-family: secondary;
-    src: url(./public/InterVariable.woff2);
-    /* src: url(./public/XanhMono-Regular.ttf); */
+    /* src: url(./public/InterVariable.woff2); */
+    src: url(./public/XanhMono-Regular.ttf);
   }
 
 :root {
@@ -18,10 +18,14 @@
   --text-style-font-secondary: secondary, monospace;
 
   /* Colours */
-  --theme-accent: #ddbb7d;
-  --theme-primary:#a38855;
-  --swatch-light: #fefefe;
-  --swatch-dark: color-mix(in srgb, var(--theme-primary), black 88%);
+  /* --theme-accent: #ddbb7d;
+  --theme-primary:#a38855; */
+
+  --theme-accent: #E2E2E2;
+  --theme-primary:#E2E2E2;
+
+  --swatch-light: #E2E2E2;
+  --swatch-dark: color-mix(in srgb, var(--theme-primary), black 95%);
 
   --theme-background: var(--swatch-dark);
   --theme-background-2: var(--swatch-light);
@@ -62,8 +66,8 @@
 
   /* Typography sizes */
   --typography-font-size-text-small: clamp(0.875 * 1rem, ((0.875 - ((1 - 0.875) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((1 - 0.875) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 1 * 1rem);
-  /* --typography-font-size-text-main: clamp(1 * 1rem, ((1 - ((1.125 - 1) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((1.125 - 1) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 1.125 * 1rem); */
-  --typography-font-size-text-main: clamp(1 * 1rem, ((1 - ((1 - 1) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((1 - 1) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 1 * 1rem);
+  --typography-font-size-text-main: clamp(1 * 1rem, ((1 - ((1.125 - 1) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((1.125 - 1) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 1.125 * 1rem);
+  /* --typography-font-size-text-main: clamp(1 * 1rem, ((1 - ((1 - 1) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((1 - 1) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 1 * 1rem); */
   --typography-font-size-large: clamp(1.125 * 1rem, ((1.125 - ((1.25 - 1.125) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((1.25 - 1.125) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 1.25 * 1rem);
   --typography-font-size-h5: clamp(1.375 * 1rem, ((1.375 - ((1.5 - 1.375) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((1.5 - 1.375) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 1.5 * 1rem);
   --typography-font-size-h4: clamp(1.75 * 1rem, ((1.75 - ((2 - 1.75) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((2 - 1.75) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 2 * 1rem);
@@ -91,8 +95,7 @@
 
   /* Typography Letter Spacing */
     --typography-letter-spacing: -0.03em;
-    --typography-letter-spacing-default: 0em;
-
+    --typography-letter-spacing-default: 0.035em;
 
 
   /* Section spacing */
@@ -193,7 +196,6 @@ h1, h2, h3, h4, h5, h6, p, a {
   text-edge: cap;
   text-wrap: pretty;
   text-transform: uppercase;
-  letter-spacing: var(--typography-letter-spacing);
 }
 
 h1 {
@@ -201,12 +203,16 @@ h1 {
   font-weight: 500;
   color: var(--tone-500);
   line-height: var(--typography-line-height-1);
+  letter-spacing: var(--typography-letter-spacing);
+
 }
 
 h2 {
   font-size: var(--typography-font-size-h2);
   font-weight: 500;
   line-height: var(--typography-line-height-1);
+  letter-spacing: var(--typography-letter-spacing);
+
 }
 
 h3 {
@@ -214,6 +220,8 @@ h3 {
   font-size: var(--typography-font-size-h3);
   font-weight: 500;
   line-height: var(--typography-line-height-1);
+  letter-spacing: var(--typography-letter-spacing);
+
 }
 
 h4 {
@@ -229,6 +237,8 @@ h5 {
   font-size: var(--typography-font-size-h5);
   font-weight: 400;
   line-height: var(--typography-line-height-medium);
+  letter-spacing: var(--typography-letter-spacing);
+
 }
 
  a {
@@ -237,6 +247,7 @@ h5 {
 }
 
 a, p {
+  letter-spacing: var(--typography-letter-spacing-default);
   font-weight: 400;
   font-family: var(--text-style-font-secondary);
   font-style: normal;
@@ -311,7 +322,25 @@ a, p {
     width: fit-content;
 }
 
-
+.btn {
+  background-image: url("data:image/svg+xml,%3Csvg%20width='230'%20height='74'%20viewBox='0%200%20230%2074'%20fill='none'%20xmlns='http://www.w3.org/2000/svg'%3E%3Cpath%20d='M228.186%2058.9639V14.1431C220.927%2014.1431%20215.042%208.25872%20215.042%201H14.1431C14.1431%208.25872%208.25872%2014.1431%201%2014.1431V58.9639C8.25872%2058.9639%2014.1431%2064.8482%2014.1431%2072.1069H215.042C215.042%2064.8482%20220.927%2058.9639%20228.186%2058.9639Z'%20stroke='white'%20stroke-width='2'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  border: none;
+  height: var(--size-4rem);
+  aspect-ratio: 25/8;
+  font-family: var(--text-style-font-secondary);
+  font-size: var(--typography-font-size-main);
+  color: var(--theme-accent);
+  text-transform: uppercase;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  filter: drop-shadow(0 0 2px #E2E2E2d3);
+  text-shadow: 0 0 1px rgba(255, 255, 255, 0.5);
+}
 /* Three.js Canvas */
 #background {
   position: fixed;
@@ -445,6 +474,7 @@ a, p {
   inset: 0%;
 }
 section {
+  z-index: 1;
   width: 100%;
   background-color: var(--theme-background);
   flex-flow: column;
@@ -533,6 +563,8 @@ section {
 .u-cover { width: 100%; height: 100%; }
 .u-cover-absolute { width: 100%; height: 100%; position: absolute; inset: 0%; }
 .u-center-absolute { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);}
+.u-center-fixed { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);}
+
 
 .u-min-width-auto { min-width: auto; }
 .u-min-height-screen { min-height: 100svh; }
@@ -941,6 +973,8 @@ section {
   overflow: hidden;
 }
 .hero-contain {
+  z-index: -1;
+
   gap: var(--size-1-25rem);
 }
 .about-top  {

@@ -14,7 +14,7 @@ function initVariableFont() {
     );
     const MAX_DISTANCE = 300; // Adjust the maximum distance for
     const MAX_FONT_WEIGHT = 800; // Maximum font weight
-    const MIN_FONT_WEIGHT = 500; // Minimum font weight
+    const MIN_FONT_WEIGHT = 600; // Minimum font weight
 
     // Split up any text with the data attribute into individual
     fontweightItems.forEach((item) => {

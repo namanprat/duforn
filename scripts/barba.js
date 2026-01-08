@@ -3,7 +3,7 @@ import gsap from 'gsap';
 import { lenis } from './lenis-scroll.js';
 import { animateTransition, revealTransition, closeMenuIfOpen } from './transition.js';
 import { initMenu } from './menu.js';
-import { initSpotlight } from './spotlight.js';
+import { initIndex } from './index.js';
 import { initVariableFont } from './variable-font.js';
 import { initWork, destroyWork } from './work.js';
 import { initArchiveScene, destroyArchiveScene } from './archive-scene.js';
@@ -38,7 +38,7 @@ function initPageFeatures(namespace) {
   initMenu();
   initVariableFont();
   initScrollTextReveals();
-  initSpotlight();
+  initIndex();
 
   const ns = namespace || document.querySelector('[data-barba="container"]')?.dataset.barbaNamespace;
   if (ns === 'work') {
