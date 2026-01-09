@@ -1,3 +1,4 @@
+@import url("https://use.typekit.net/vvw5ncj.css");
 
 /* --- UTILITY CLASSES --- */
 @font-face {
@@ -247,13 +248,16 @@ h5 {
 }
 
 a, p {
+  font-family: "schoolbook", serif;
   font-size: var(--typography-font-size-text-small);
-  letter-spacing: var(--typography-letter-spacing-default);
-  font-weight: 400;
-  font-family: var(--text-style-font-secondary);
+  letter-spacing: var(--typography-letter-spacing-);
+  font-weight: 200;
+  /* font-family: var(--text-style-font-secondary); */
   font-style: normal;
   text-decoration: none;
   line-height: var(--typography-line-height-medium);
+
+  
 }
 .page-wrap {
     z-index: 1;
