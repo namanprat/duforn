@@ -1070,7 +1070,10 @@ section {
 .middle-img {
   background-image: url(./public/middle.gif);
   background-repeat: no-repeat;
-  object-fit: fill;
+  background-size: cover;
+  background-position: center;
+  width: 100%;
+  height: 100%;
 }
 .vignette-overlay {
   position: absolute;
