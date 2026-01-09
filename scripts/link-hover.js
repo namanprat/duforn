@@ -49,8 +49,27 @@ export function initLinkHover() {
     const italicSplit = new SplitText(italicSpan, { type: 'chars' });
     
     // Set initial state
-    gsap.set(originalSplit.chars, { yPercent: 0 });
-    gsap.set(italicSplit.chars, { yPercent: 100 });
+    // 3D setup
+    gsap.set(link, { perspective: 800 });
+    
+    // Using a moderate depth to keep text relatively in place (preserving position)
+    // while still achieving the 3D rolling effect.
+    // -20px is approximately half a typical line-height/font-size for these links.
+    const transformOrigin = "50% 50% -10px";
+
+    gsap.set(originalSplit.chars, { 
+      rotationX: 0, 
+      opacity: 1, 
+      transformOrigin: transformOrigin,
+      backfaceVisibility: 'hidden'
+    });
+    
+    gsap.set(italicSplit.chars, { 
+      rotationX: -90, 
+      opacity: 0, 
+      transformOrigin: transformOrigin, 
+      backfaceVisibility: 'hidden'
+    });
     
     // Store animation timeline
     let hoverTl = null;
@@ -61,17 +80,19 @@ export function initLinkHover() {
       
       hoverTl = gsap.timeline();
       
-      // Stagger original text up and out
+      // Stagger original text: rotate out to top (90)
       hoverTl.to(originalSplit.chars, {
-        yPercent: -100,
+        rotationX: 90,
+        opacity: 0,
         duration: 0.5,
         ease: 'power2.inOut',
         stagger: 0.02
       }, 0);
       
-      // Stagger italic text up into view
+      // Stagger italic text: rotate in from bottom (-90 -> 0)
       hoverTl.to(italicSplit.chars, {
-        yPercent: 0,
+        rotationX: 0,
+        opacity: 1,
         duration: 0.5,
         ease: 'power2.inOut',
         stagger: 0.02
@@ -84,17 +105,19 @@ export function initLinkHover() {
       
       hoverTl = gsap.timeline();
       
-      // Reverse: bring original text back down
+      // Reverse: bring original text back
       hoverTl.to(originalSplit.chars, {
-        yPercent: 0,
+        rotationX: 0,
+        opacity: 1,
         duration: 0.5,
         ease: 'power2.inOut',
         stagger: 0.02
       }, 0);
       
-      // Reverse: move italic text back down
+      // Reverse: move italic text away
       hoverTl.to(italicSplit.chars, {
-        yPercent: 100,
+        rotationX: -90,
+        opacity: 0,
         duration: 0.5,
         ease: 'power2.inOut',
         stagger: 0.02
