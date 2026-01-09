@@ -115,7 +115,7 @@
   --site--margin: clamp(1 * 1rem, ((1 - ((3 - 1) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((3 - 1) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 3 * 1rem);
   --site--gutter: clamp(1 * 1rem, ((1 - ((2 - 1) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((2 - 1) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 2 * 1rem);
   /* --site--column-count: calc(var(--site--viewport-max)* 1rem); */
-  
+
   --column-width: calc((min(var(--max-width--main), 100% - var(--site--margin) * 2) - (var(--site--gutter) * (var(--site--column-count) - 1))) / var(--site--column-count));
 
   --site--gutter-total: calc(var(--site--gutter) * (var(--site--column-count) - 1));
@@ -247,6 +247,7 @@ h5 {
 }
 
 a, p {
+  font-size: var(--typography-font-size-text-small);
   letter-spacing: var(--typography-letter-spacing-default);
   font-weight: 400;
   font-family: var(--text-style-font-secondary);
@@ -334,13 +335,17 @@ a, p {
   color: var(--theme-accent);
   text-transform: uppercase;
   display: flex;
-  justify-content: center;
+  justify-content: center !important;
   align-items: center;
   cursor: pointer;
   letter-spacing: 0.05em;
   filter: drop-shadow(0 0 2px #E2E2E2d3);
   text-shadow: 0 0 1px rgba(255, 255, 255, 0.5);
   margin-top: var(--size-2-5rem);
+  a{
+    height: var(--typography-font-size-main);
+    line-height: var(--typography-font-size-main);
+  }
 }
 /* Three.js Canvas */
 #background {
@@ -361,7 +366,7 @@ a, p {
   height: 200%;
   pointer-events: none;
   position: fixed;
-  background-image: url('/grain.png');
+  /* background-image: url('/grain.png'); */
   z-index: 5;
   background-repeat: repeat;
   background-size: 1000px;
@@ -411,14 +416,20 @@ a, p {
   display: flex;
 }
 .u-grid-autofit {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--site--gutter);
+  row-gap: var(--site--gutter);
+}
+
+/* .u-grid-autofit {
    display: grid;
     grid-auto-columns: minmax(0px, 1fr);
     column-gap: var(--site--gutter);
     row-gap: var(--site--gutter);
     grid-template-rows: auto;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
-
-}
+} */
 .u-content-wrapper {
   text-align: start;
   justify-content: start;
@@ -730,6 +741,7 @@ section {
 .u-text-style-h4 { font-size: var(--typography-font-size-h4); line-height: var(--typography-line-height-medium); font-weight: var(--typography-font-primary-regular); }
 .u-text-style-h5 { font-size: var(--typography-font-size-h5); line-height: var(--typography-line-height-medium); font-weight: var(--typography-font-primary-medium); }
 .u-text-style-h6 { font-size: var(--typography-font-size-h6); line-height: var(--typography-line-height-medium); font-weight: var(--typography-font-primary-medium); }
+.u-text-align-left { text-align: start !important; }
 .u-text-style-large { font-size: var(--typography-font-size-large); line-height: var(--typography-line-height-huge); }
 .u-text-style-main { font-size: var(--typography-font-size-text-main); line-height: var(--typography-line-height-1-3); }
 .u-text-style-small { font-size: var(--typography-font-size-text-small); line-height: var(--typography-line-height-1); }
@@ -764,9 +776,9 @@ section {
 }
 
 /* Theming & Color */
-.u-theme-light { /* Applies light theme variables */ }
+.u-theme-light { color: var(--swatch-dark);  background-color: var(--swatch-light);}
 .u-theme-dark { /* Applies dark theme variables */ }
-.u-theme-brand { /* Applies brand theme variables */ }
+.u-theme-brand { color: var(--swatch-dark);  background-color: var(--theme-accent);}
 .u-color-inherit { color: inherit; }
 .u-color-faded { color: color-mix(in srgb, currentColor 70%, transparent); }
 .u-background-1 { background-color: var(--theme-background); }
@@ -1052,8 +1064,7 @@ section {
 
 .section-3 {
   width: 100%;
-  height: 100svh;
-  background-color: transparent;
+  min-height: 100svh;
 }
 
 
@@ -1377,8 +1388,8 @@ img {
 .archive-header {
   width: 100%;
   text-align: center;
-  margin-top: 5rem; 
-  overflow: hidden; 
+  margin-top: 5rem;
+  overflow: hidden;
 }
 
 

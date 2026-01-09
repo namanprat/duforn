@@ -9,6 +9,7 @@ import { initWork, destroyWork } from './work.js';
 import { initArchiveScene, destroyArchiveScene } from './archive-scene.js';
 import { animateRevealEnter, initScrollTextReveals } from './text-reveal.js';
 import webgl, { destroyWebgl } from './three.js';
+import { initLinkHover, destroyLinkHover } from './link-hover.js';
 
 
 
@@ -38,6 +39,7 @@ function initPageFeatures(namespace) {
   initMenu();
   initVariableFont();
   initScrollTextReveals();
+  initLinkHover();
   initIndex();
 
   const ns = namespace || document.querySelector('[data-barba="container"]')?.dataset.barbaNamespace;
