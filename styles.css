@@ -1067,7 +1067,11 @@ section {
   min-height: 100svh;
 }
 
-
+.middle-img {
+  background-image: url(./public/middle.gif);
+  background-repeat: no-repeat;
+  object-fit: fill;
+}
 .vignette-overlay {
   position: absolute;
   top: 0;
