@@ -313,6 +313,7 @@ function onResize() {
   }
   createThumbnailItems();
   initializeSlider();
+  updateThumbnailItems();
 }
 
 function setupEventListeners() {
@@ -359,7 +360,10 @@ function initWork() {
   createThumbnailItems({ atOrigin: true });
   initializeSlider();
   setupEventListeners();
-  playThumbnailWheelIntro();
+  // Skip the intro animation — position thumbnails immediately
+  updateThumbnailItems();
+  const thumbs = thumbnailWheel.querySelectorAll('.thumbnail-item');
+  gsap.set(thumbs, { scale: 1, opacity: 1, rotation: 0, transformOrigin: 'center center' });
   slideTitle.onclick = () => {
     const href = slideTitle.dataset.href;
     if (href) {

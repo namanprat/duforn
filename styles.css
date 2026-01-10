@@ -7,8 +7,8 @@
 
   @font-face {
     font-family: secondary;
-    /* src: url(./public/InterVariable.woff2); */
-    src: url(./public/XanhMono-Regular.ttf);
+    src: url(./public/InterVariable.woff2);
+    /* src: url(./public/XanhMono-Regular.ttf); */
   }
 
 :root {
@@ -25,7 +25,7 @@
   --theme-primary:#E2E2E2;
 
   --swatch-light: #E2E2E2;
-  --swatch-dark: #0b0b0b;
+  --swatch-dark: #000;
 
   --theme-background: var(--swatch-dark);
   --theme-background-2: var(--swatch-light);
@@ -199,6 +199,7 @@ h1, h2, h3, h4, h5, h6, p, a {
 }
 
 h1 {
+  cursor: pointer;
   font-size: var(--typography-font-size-h1);
   font-weight: 500;
   color: var(--tone-500);
@@ -208,6 +209,7 @@ h1 {
 }
 
 h2 {
+  cursor: pointer;
   font-size: var(--typography-font-size-h2);
   font-weight: 500;
   line-height: var(--typography-line-height-1);
@@ -216,6 +218,7 @@ h2 {
 }
 
 h3 {
+  cursor: pointer;
   font-family: var(--text-style-font-primary);
   font-size: var(--typography-font-size-h3);
   font-weight: 500;
@@ -248,7 +251,7 @@ h5 {
 
 a, p {
   font-size: var(--typography-font-size-text-small);
-  letter-spacing: var(--typography-letter-spacing-default);
+  letter-spacing: var(--typography-letter-spacing);
   font-weight: 400;
   font-family: var(--text-style-font-secondary);
   font-style: normal;
@@ -339,7 +342,7 @@ a, p {
   justify-content: center !important;
   align-items: center;
   cursor: pointer;
-  letter-spacing: 0.05em;
+  /* letter-spacing: 0.05em; */
   /* filter: drop-shadow(0 0 2px #E2E2E2d3);
   text-shadow: 0 0 1px rgba(255, 255, 255, 0.5); */
   margin-top: var(--size-2-5rem);
@@ -792,6 +795,7 @@ section {
 /* Miscellaneous */
 .u-pointer-on { pointer-events: auto; }
 .u-pointer-off { pointer-events: none; }
+.u-pointer-cursor { cursor: pointer; }
 .u-radius-none { border-radius: 0; }
 .u-radius-inherit { border-radius: inherit; }
 .u-radius-small { border-radius: var(--radius-small); }
