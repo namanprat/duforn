@@ -6,32 +6,24 @@ gsap.registerPlugin(ScrollTrigger);
 
 // Initialize all index page features
 function initIndex() {
-  const container = document.querySelector('[data-barba="container"]');
-  const namespace = container?.dataset.barbaNamespace;
-  
-  // Only initialize middle carousel on home page
-  if (namespace === 'home') {
-    // Add small delay to ensure DOM is ready and element has dimensions
-    requestAnimationFrame(() => {
-      initMiddleCarousel();
-    });
-  }
+  // Initialize Middle Carousel
+  initMiddleCarousel();
 
-  // Hero Elements Fade Out on Scroll (only on home page)
-  if (namespace === 'home') {
-    const heroElements = document.querySelectorAll('.hero .hero-contain');
-    if (heroElements.length > 0) {
-      gsap.to(heroElements, {
-        autoAlpha: 0,
-        scrollTrigger: {
-          trigger: '.hero',
-          start: 'top top',
-          end: 'bottom 85%',
-          scrub: true,
-        }
-      });
-    }
-  }
+  // Hero Elements Fade Out on Scroll
+  const heroElements = document.querySelectorAll('.hero .hero-contain');
+    gsap.to(heroElements, {
+      autoAlpha: 0,
+      scrollTrigger: {
+        trigger: '.hero',
+        start: 'top top',
+        end: 'bottom 85%',
+        scrub: true,
+      }
+    });
 }
+
+document.addEventListener("DOMContentLoaded", () => {
+  initIndex();
+});
 
 export { initIndex };

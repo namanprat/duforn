@@ -330,6 +330,11 @@ export function destroyMiddleCarousel() {
   carousels.forEach(carousel => carousel.dispose());
   carousels = [];
 
+  if (composer) {
+    composer.dispose();
+    composer = null;
+  }
+
   if (renderer) {
     renderer.dispose();
     if (renderer.domElement && renderer.domElement.parentNode) {
