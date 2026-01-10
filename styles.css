@@ -562,11 +562,11 @@ section {
 .u-display-inline-grid { display: inline-grid; }
 .u-display-contents { display: contents; }
 .u-display-none { display: none; }
-.u-zindex-negative { z-index: -1; position: relative; }
-.u-zindex-0 { z-index: 0; position: relative; }
-.u-zindex-1 { z-index: 1; position: relative; }
-.u-zindex-2 { z-index: 2; position: relative; }
-.u-zindex-3 { z-index: 3; position: relative; }
+.u-zindex-negative { z-index: -1; }
+.u-zindex-0 { z-index: 0; }
+.u-zindex-1 { z-index: 1; }
+.u-zindex-2 { z-index: 2; }
+.u-zindex-3 { z-index: 3; }
 .u-position-static { position: static; }
 .u-position-relative { position: relative; }
 .u-position-absolute { position: absolute; }
@@ -991,11 +991,7 @@ section {
   justify-content: center;
   overflow: hidden;
 }
-.hero-contain {
-  z-index: -1;
 
-  gap: var(--size-1-25rem);
-}
 .about-top  {
   display: flex;
   flex-direction: column;

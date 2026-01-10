@@ -3,144 +3,166 @@ import SplitText from 'gsap/SplitText';
 
 gsap.registerPlugin(SplitText);
 
+// Shared animation config
+const ANIM_CONFIG = {
+  duration: 0.5,
+  ease: 'power2.inOut',
+  stagger: 0.02
+};
+
+const TRANSFORM_ORIGIN = "50% 50% -10px";
+
+// Store instances for cleanup
+const linkInstances = new WeakMap();
+
 export function initLinkHover() {
-  // Target all nav links
   const navLinks = document.querySelectorAll('.nav-wrap a, .bottom-nav-wrap a, .btn a');
   
   navLinks.forEach(link => {
-    if (link.id === 'time') return;
-    if (link.querySelector('[data-link-hover-original]')) return;
+    // Skip if already initialized or excluded
+    if (link.id === 'time' || linkInstances.has(link)) return;
 
-    // Store original text
     const originalText = (link.textContent || '').trim();
     if (!originalText) return;
     
-    // Create wrapper for stacking effect
-    const computedDisplay = window.getComputedStyle(link).display;
-    if (computedDisplay === 'inline') link.style.display = 'inline-block';
-    link.style.position = 'relative';
-    link.style.overflow = 'hidden';
+    // Setup link structure
+    const display = getComputedStyle(link).display;
+    if (display === 'inline') link.style.display = 'inline-block';
     
-    // Create original text element
-    const originalSpan = document.createElement('span');
-    originalSpan.dataset.linkHoverOriginal = 'true';
-    originalSpan.textContent = originalText;
-    originalSpan.style.display = 'block';
-    originalSpan.style.whiteSpace = 'nowrap';
+    gsap.set(link, { 
+      position: 'relative',
+      overflow: 'hidden',
+      perspective: 800
+    });
     
-    // Create italicized text element
-    const italicSpan = document.createElement('span');
-    italicSpan.textContent = originalText;
-    italicSpan.style.display = 'block';
-    italicSpan.style.position = 'absolute';
-    italicSpan.style.top = '0';
-    italicSpan.style.left = '0';
-    italicSpan.style.fontStyle = 'italic';
-    italicSpan.style.width = '100%';
-    italicSpan.style.whiteSpace = 'nowrap';
+    // Create dual text structure
+    const originalSpan = createTextSpan(originalText, false);
+    const italicSpan = createTextSpan(originalText, true);
     
-    // Clear and append new structure
     link.textContent = '';
     link.appendChild(originalSpan);
     link.appendChild(italicSpan);
     
-    // Split text into characters for both spans
+    // Split once and reuse
     const originalSplit = new SplitText(originalSpan, { type: 'chars' });
     const italicSplit = new SplitText(italicSpan, { type: 'chars' });
     
-    // Set initial state
-    // 3D setup
-    gsap.set(link, { perspective: 800 });
-    
-    // Using a moderate depth to keep text relatively in place (preserving position)
-    // while still achieving the 3D rolling effect.
-    // -20px is approximately half a typical line-height/font-size for these links.
-    const transformOrigin = "50% 50% -10px";
-
+    // Initial positions
     gsap.set(originalSplit.chars, { 
       rotationX: 0, 
       opacity: 1, 
-      transformOrigin: transformOrigin,
+      transformOrigin: TRANSFORM_ORIGIN,
       backfaceVisibility: 'hidden'
     });
     
     gsap.set(italicSplit.chars, { 
       rotationX: -90, 
       opacity: 0, 
-      transformOrigin: transformOrigin, 
+      transformOrigin: TRANSFORM_ORIGIN, 
       backfaceVisibility: 'hidden'
     });
     
-    // Store animation timeline
-    let hoverTl = null;
+    // Animation state
+    let tl = null;
     
-    // Hover in
-    link.addEventListener('mouseenter', () => {
-      if (hoverTl) hoverTl.kill();
-      
-      hoverTl = gsap.timeline();
-      
-      // Stagger original text: rotate out to top (90)
-      hoverTl.to(originalSplit.chars, {
-        rotationX: 90,
-        opacity: 0,
-        duration: 0.5,
-        ease: 'power2.inOut',
-        stagger: 0.02
-      }, 0);
-      
-      // Stagger italic text: rotate in from bottom (-90 -> 0)
-      hoverTl.to(italicSplit.chars, {
-        rotationX: 0,
-        opacity: 1,
-        duration: 0.5,
-        ease: 'power2.inOut',
-        stagger: 0.02
-      }, 0);
-    });
+    // Event handlers
+    const handleEnter = () => {
+      tl?.kill();
+      tl = animateChars(originalSplit.chars, italicSplit.chars, true);
+    };
     
-    // Hover out
-    link.addEventListener('mouseleave', () => {
-      if (hoverTl) hoverTl.kill();
-      
-      hoverTl = gsap.timeline();
-      
-      // Reverse: bring original text back
-      hoverTl.to(originalSplit.chars, {
-        rotationX: 0,
-        opacity: 1,
-        duration: 0.5,
-        ease: 'power2.inOut',
-        stagger: 0.02
-      }, 0);
-      
-      // Reverse: move italic text away
-      hoverTl.to(italicSplit.chars, {
-        rotationX: -90,
-        opacity: 0,
-        duration: 0.5,
-        ease: 'power2.inOut',
-        stagger: 0.02
-      }, 0);
+    const handleLeave = () => {
+      tl?.kill();
+      tl = animateChars(originalSplit.chars, italicSplit.chars, false);
+    };
+    
+    link.addEventListener('mouseenter', handleEnter);
+    link.addEventListener('mouseleave', handleLeave);
+    
+    // Store for cleanup
+    linkInstances.set(link, {
+      originalSplit,
+      italicSplit,
+      handleEnter,
+      handleLeave
     });
   });
+}
+
+function createTextSpan(text, isItalic) {
+  const span = document.createElement('span');
+  span.textContent = text;
+  
+  gsap.set(span, {
+    display: 'block',
+    whiteSpace: 'nowrap',
+    ...(isItalic && {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      fontStyle: 'normal',
+      width: '100%'
+    })
+  });
+  
+  return span;
+}
+
+function animateChars(originalChars, italicChars, isHover) {
+  const tl = gsap.timeline();
+  
+  if (isHover) {
+    tl.to(originalChars, {
+      rotationX: 90,
+      opacity: 0,
+      ...ANIM_CONFIG
+    }, 0)
+    .to(italicChars, {
+      rotationX: 0,
+      opacity: 1,
+      ...ANIM_CONFIG
+    }, 0);
+  } else {
+    tl.to(originalChars, {
+      rotationX: 0,
+      opacity: 1,
+      ...ANIM_CONFIG
+    }, 0)
+    .to(italicChars, {
+      rotationX: -90,
+      opacity: 0,
+      ...ANIM_CONFIG
+    }, 0);
+  }
+  
+  return tl;
 }
 
 export function destroyLinkHover() {
   const navLinks = document.querySelectorAll('.nav-wrap a, .bottom-nav-wrap a, .btn a');
   
   navLinks.forEach(link => {
-    // Remove event listeners by cloning and replacing
-    const newLink = link.cloneNode(true);
-    link.parentNode.replaceChild(newLink, link);
+    const instance = linkInstances.get(link);
     
-    // Restore original structure if needed
-    if (newLink.querySelector('span')) {
-      const originalText = newLink.querySelector('span').textContent;
-      newLink.textContent = originalText;
-      newLink.style.position = '';
-      newLink.style.display = '';
-      newLink.style.overflow = '';
+    if (instance) {
+      // Kill animations
+      instance.originalSplit.revert();
+      instance.italicSplit.revert();
+      
+      // Remove listeners
+      link.removeEventListener('mouseenter', instance.handleEnter);
+      link.removeEventListener('mouseleave', instance.handleLeave);
+      
+      // Clear WeakMap entry
+      linkInstances.delete(link);
+    }
+    
+    // Restore original text
+    const firstSpan = link.querySelector('span');
+    if (firstSpan) {
+      const text = firstSpan.textContent;
+      link.textContent = text;
+      gsap.set(link, { clearProps: 'all' });
     }
   });
 }
