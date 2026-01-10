@@ -12,7 +12,7 @@ export const workItems = [
   {
     title: "Red Mirage",
     image: "/work/work-3.jpg",
-    href: "/about.html",
+    href: "/contact.html",
   },
   {
     title: "Echoed Silhouette",
