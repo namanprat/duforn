@@ -245,18 +245,23 @@ function playThumbnailWheelIntro() {
   const cy = window.innerHeight / 2 - 25;
   const radius = getThumbnailRadius();
 
-  const origin = { x: cx, y: window.innerHeight };
-  const stickEnd = { x: cx, y: cy + radius };
-  const startAngle = Math.PI / 2; // 6 o'clock in this coordinate system
-
   const currentRotationDeg = getCurrentRotationAngleDeg();
   const currentRotationRad = (currentRotationDeg * Math.PI) / 180;
 
+  // Position all thumbnails at center before animation
+  gsap.set(thumbnails, {
+    x: cx,
+    y: cy,
+    rotation: 0,
+    scale: 0.8,
+    opacity: 0,
+  });
+
+  // Spiral intro timeline
   thumbnailIntroTl = gsap.timeline({
     delay: THUMBNAIL_INTRO_DELAY,
     defaults: { ease: THUMBNAIL_INTRO_EASE },
     onComplete: () => {
-      thumbnails.forEach((t) => gsap.set(t, { xPercent: 0, yPercent: 0 }));
       updateThumbnailItems();
       isThumbnailIntroPlaying = false;
     },
@@ -265,28 +270,23 @@ function playThumbnailWheelIntro() {
   thumbnails.forEach((thumbnail, index) => {
     const baseAngle = parseFloat(thumbnail.dataset.angle);
     const targetAngle = baseAngle + currentRotationRad;
-    const arcPoints = getArcPointsAntiClockwise({
-      cx,
-      cy,
-      radius,
-      fromAngle: startAngle,
-      toAngle: targetAngle,
-    });
 
-    const path = [origin, stickEnd, ...arcPoints];
-    const endPoint = arcPoints[arcPoints.length - 1] || stickEnd;
+    // Calculate final position on the wheel
+    const endX = radius * Math.cos(targetAngle) + cx;
+    const endY = radius * Math.sin(targetAngle) + cy;
+
+    // Spiral rotation: full rotation per item, creating a spiral effect
+    const spiralRotation = 360 * 1.5; // 1.5 full rotations for nice spiral
 
     thumbnailIntroTl.to(
       thumbnail,
       {
-        duration: 1.1,
-        x: endPoint.x,
-        y: endPoint.y,
-        yPercent: -50,
-        motionPath: {
-          path,
-          curviness: 1.2,
-        },
+        duration: 1.0,
+        x: endX,
+        y: endY,
+        rotation: spiralRotation,
+        scale: 1,
+        opacity: 1,
       },
       index * THUMBNAIL_INTRO_STAGGER
     );

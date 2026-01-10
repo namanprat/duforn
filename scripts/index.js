@@ -1,5 +1,6 @@
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { initMiddleCarousel } from "./middle-carousel.js";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -214,6 +215,9 @@ function initIndex() {
   galleries.forEach((gallery) => {
     new SpotlightGallery(gallery);
   });
+
+  // Initialize Middle Carousel
+  initMiddleCarousel();
 
   // Hero Elements Fade Out on Scroll
   const heroElements = document.querySelectorAll('.hero .hero-contain > *');

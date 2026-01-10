@@ -25,7 +25,7 @@
   --theme-primary:#E2E2E2;
 
   --swatch-light: #E2E2E2;
-  --swatch-dark: color-mix(in srgb, var(--theme-primary), black 95%);
+  --swatch-dark: #0b0b0b;
 
   --theme-background: var(--swatch-dark);
   --theme-background-2: var(--swatch-light);
@@ -320,6 +320,7 @@ a, p {
     justify-content: space-between;
 }
 #time {
+  pointer-events: none;
     width: fit-content;
 }
 
@@ -339,8 +340,8 @@ a, p {
   align-items: center;
   cursor: pointer;
   letter-spacing: 0.05em;
-  filter: drop-shadow(0 0 2px #E2E2E2d3);
-  text-shadow: 0 0 1px rgba(255, 255, 255, 0.5);
+  /* filter: drop-shadow(0 0 2px #E2E2E2d3);
+  text-shadow: 0 0 1px rgba(255, 255, 255, 0.5); */
   margin-top: var(--size-2-5rem);
   a{
     height: var(--typography-font-size-main);
@@ -366,13 +367,13 @@ a, p {
   height: 200%;
   pointer-events: none;
   position: fixed;
-  /* background-image: url('/grain.png'); */
+  background-image: url('/grain.png');
   z-index: 5;
   background-repeat: repeat;
   background-size: 1000px;
-  opacity: 0.5;
+  opacity: 0.3;
   mix-blend-mode: overlay;
-  animation: grain 0.7s steps(5) infinite;
+  /* animation: grain 0.7s steps(5) infinite; */
 }
 
 @keyframes grain {
@@ -759,6 +760,7 @@ section {
 .u-text-transform-capitalize { text-transform: capitalize !important; }
 .u-text-transform-lowercase { text-transform: lowercase !important; }
 .u-text-wrap-balance { text-wrap: balance; }
+.u-text-wrap-nowrap { text-wrap: nowrap; }
 .u-text-wrap-pretty { text-wrap: pretty; }
 .u-alignment-start { text-align: start !important; justify-content: start !important; align-items: start !important; }
 .u-alignment-center { text-align: center !important; justify-content: center !important; align-items: center !important; }
@@ -1068,13 +1070,29 @@ section {
 }
 
 .middle-img {
-  background-image: url(./public/middle.gif);
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: center;
+  position: relative;
   width: 100%;
   height: 100%;
 }
+.middle-img::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 50%,
+    rgba(0, 0, 0, 0.1) 70%,
+    rgba(0, 0, 0, 0.75) 90%,
+    rgba(0, 0, 0, 1) 100%
+  );
+}
+
+
 .vignette-overlay {
   position: absolute;
   top: 0;

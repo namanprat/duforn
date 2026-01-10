@@ -40,32 +40,27 @@ function fadeNodes(nodes, { duration = 0.55, stagger = 0.03, ease = "power2.out"
 }
 
 async function animateRevealEnter(container) {
-  const texts = container?.querySelectorAll("a,p,h2,h3,h4");
   const textReveal = container?.querySelector(".text-reveal");
   const textRevealReverse = container?.querySelector(".text-reveal-reverse");
 
-  if (texts?.length) {
-    gsap.set(texts, { opacity: 0, clearProps: "transform" });
+  // Reset any previous transforms
+  if (textReveal) {
+    gsap.set(textReveal, { clearProps: "all" });
+  }
+  if (textRevealReverse) {
+    gsap.set(textRevealReverse, { clearProps: "all" });
   }
 
   if (textReveal) {
-    const others = Array.from(texts || []).filter((t) => t !== textReveal);
-    const mainTween = revealWords(textReveal, { direction: "up" });
-    const othersTween = fadeNodes(others);
-    await Promise.all([tweenToPromise(mainTween), tweenToPromise(othersTween)]);
+    const mainTween = revealWords(textReveal, { direction: "up", duration: 0.8, stagger: 0.04 });
+    await tweenToPromise(mainTween);
     return;
   }
 
   if (textRevealReverse) {
-    const others = Array.from(texts || []).filter((t) => t !== textRevealReverse);
-    const mainTween = revealWords(textRevealReverse, { direction: "down" });
-    const othersTween = fadeNodes(others);
-    await Promise.all([tweenToPromise(mainTween), tweenToPromise(othersTween)]);
+    const mainTween = revealWords(textRevealReverse, { direction: "down", duration: 0.8, stagger: 0.04 });
+    await tweenToPromise(mainTween);
     return;
-  }
-
-  if (texts?.length) {
-    await tweenToPromise(fadeNodes(Array.from(texts)));
   }
 }
 
