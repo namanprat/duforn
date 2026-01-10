@@ -4,293 +4,165 @@ import { workItems } from "../data/work-items.js";
 
 gsap.registerPlugin(MotionPathPlugin);
 
-let slider;
-let slideTitle;
-let thumbnailWheel;
+// Constants
+const CONFIG = {
+  SLIDES_MULTIPLIER: 5,
+  EXTRA_SLIDES_MULTIPLIER: 3,
+  END_SCALE: 5,
+  SLIDE_WIDTH_RATIO: 0.45,
+  SCROLL_INTENSITY: 1,
+  LERP_FACTOR: 0.1,
+  SCROLL_TIMEOUT: 150,
+  MOBILE_BREAKPOINT: 1000,
+  // Oval/ellipse radii - horizontal and vertical
+  OVAL_RADIUS_X_MOBILE: 120,
+  OVAL_RADIUS_Y_MOBILE: 280,
+  OVAL_RADIUS_X_DESKTOP: 450,
+  OVAL_RADIUS_Y_DESKTOP: 280,
+  THUMBNAIL_OFFSET_Y: -25,
+  OUTER_DISTANCE_MULTIPLIER: 3,
+  INTRO_DELAY: 0.2,
+  INTRO_EASE: "power2.out",
+  INTRO_STAGGER: 0.05,
+  INTRO_DURATION: 1.0,
+  SPIRAL_ROTATION: 540, // 1.5 rotations
+  TAU: Math.PI * 2
+};
 
-const wheelListenerOpts = { passive: false };
-const totalImages = workItems.length;
-const totalSlides = totalImages * 5; // repeat for smooth loop
-const endScale = 5;
-let slideWidth = window.innerWidth * 0.45;
-let viewportCenter = window.innerWidth / 2;
-let isMobile = window.innerWidth < 1000;
-let rafId = null;
+// State
+const state = {
+  slider: null,
+  slideTitle: null,
+  thumbnailWheel: null,
+  totalImages: workItems.length,
+  totalSlides: 0,
+  slideWidth: 0,
+  viewportCenter: 0,
+  isMobile: false,
+  currentX: 0,
+  targetX: 0,
+  isScrolling: false,
+  scrollTimeout: null,
+  activeSlideIndex: 0,
+  isInitialized: false,
+  isThumbnailIntroPlaying: false,
+  thumbnailIntroTl: null,
+  rafId: null,
+  slides: null,
+  thumbnails: null
+};
 
-let currentX = 0;
-let targetX = 0;
-let isScrolling = false;
-let scrollTimeout;
-let activeSlideIndex = 0;
-let isInitialized = false;
+// Precompute values
+let totalWidth = 0;
+let outerDistance = 0;
+let halfSlideWidth = 0;
 
-let isThumbnailIntroPlaying = false;
-let thumbnailIntroTl = null;
+// Event listener options
+const wheelOpts = { passive: false };
 
-const THUMBNAIL_INTRO_DELAY = 0.2;
-const THUMBNAIL_INTRO_EASE = "power2.out";
-const THUMBNAIL_INTRO_STAGGER = 0.05;
-const TAU = Math.PI * 2;
+// Utility functions
+const normalize = (angle) => {
+  let a = angle % CONFIG.TAU;
+  return a < 0 ? a + CONFIG.TAU : a;
+};
 
-function getThumbnailRadius() {
-  return isMobile ? 150 : 350;
-}
+const getThumbnailRadii = () => 
+  state.isMobile 
+    ? { rx: CONFIG.OVAL_RADIUS_X_MOBILE, ry: CONFIG.OVAL_RADIUS_Y_MOBILE }
+    : { rx: CONFIG.OVAL_RADIUS_X_DESKTOP, ry: CONFIG.OVAL_RADIUS_Y_DESKTOP };
 
-function getCurrentRotationAngleDeg() {
-  const exactSlideProgress = Math.abs(currentX) / slideWidth;
-  return -(exactSlideProgress * (360 / totalSlides)) + 90;
-}
+const getCurrentRotationRad = () => {
+  const progress = Math.abs(state.currentX) / state.slideWidth;
+  return -(progress * CONFIG.TAU / state.totalSlides) + Math.PI / 2;
+};
 
-function getArcPointsAntiClockwise({ cx, cy, radius, fromAngle, toAngle, steps = 14 }) {
-  const normalize = (angle) => {
-    let a = angle;
-    while (a < 0) a += TAU;
-    while (a >= TAU) a -= TAU;
-    return a;
-  };
-
-  const start = normalize(fromAngle);
-  let end = normalize(toAngle);
-
-  // Screen coords use +sin(angle) for y, so decreasing angle moves anti-clockwise.
-  if (end > start) end -= TAU;
-
-  const points = [];
-  for (let i = 1; i <= steps; i++) {
-    const t = i / steps;
-    const angle = start + (end - start) * t;
-    points.push({
-      x: cx + radius * Math.cos(angle),
-      y: cy + radius * Math.sin(angle),
-    });
-  }
-  return points;
-}
-
+// DOM creation
 function createSlides() {
-  if (!slider) return;
-  for (let i = 0; i < totalSlides * 3; i++) {
+  if (!state.slider) return;
+  
+  const fragment = document.createDocumentFragment();
+  const totalSlidesToCreate = state.totalSlides * CONFIG.EXTRA_SLIDES_MULTIPLIER;
+  
+  for (let i = 0; i < totalSlidesToCreate; i++) {
     const slide = document.createElement("div");
     slide.className = "slide";
-
+    
     const img = document.createElement("img");
-    const item = workItems[i % totalImages];
-    img.src = item.image;
-
+    img.src = workItems[i % state.totalImages].image;
+    
     slide.appendChild(img);
-    slider.appendChild(slide);
+    fragment.appendChild(slide);
   }
+  
+  state.slider.appendChild(fragment);
+  state.slides = state.slider.querySelectorAll(".slide");
 }
 
-function createThumbnailItems({ atOrigin = false } = {}) {
-  if (!thumbnailWheel) return;
-  for (let i = 0; i < totalSlides; i++) {
-    const angle = (i / totalSlides) * Math.PI * 2;
-    const radius = getThumbnailRadius();
-
+function createThumbnailItems() {
+  if (!state.thumbnailWheel) return;
+  
+  const fragment = document.createDocumentFragment();
+  const { rx, ry } = getThumbnailRadii();
+  const cx = state.viewportCenter;
+  const cy = window.innerHeight * 0.5 + CONFIG.THUMBNAIL_OFFSET_Y;
+  
+  for (let i = 0; i < state.totalSlides; i++) {
+    const angle = (i / state.totalSlides) * CONFIG.TAU;
+    
     const thumbnail = document.createElement("div");
     thumbnail.className = "thumbnail-item";
-    thumbnail.dataset.index = i;
-    thumbnail.dataset.angle = angle;
-    thumbnail.dataset.radius = radius;
-
+    
     const img = document.createElement("img");
-    const item = workItems[i % totalImages];
-    img.src = item.image;
+    img.src = workItems[i % state.totalImages].image;
     thumbnail.appendChild(img);
-
-    if (atOrigin) {
-      gsap.set(thumbnail, {
-        x: window.innerWidth / 2,
-        y: window.innerHeight,
-        xPercent: -50,
-        yPercent: -100,
-        transformOrigin: "center center",
-      });
-    } else {
-      const x = radius * Math.cos(angle) + window.innerWidth / 2;
-      const y = radius * Math.sin(angle) + window.innerHeight / 2 - 25;
-      gsap.set(thumbnail, {
-        x,
-        y,
-        transformOrigin: "center center",
-      });
-    }
-
-    thumbnailWheel.appendChild(thumbnail);
+    
+    // Store angle and compute initial position on oval
+    thumbnail._angle = angle;
+    const x = rx * Math.cos(angle) + cx;
+    const y = ry * Math.sin(angle) + cy;
+    
+    gsap.set(thumbnail, {
+      x, y,
+      transformOrigin: "center center"
+    });
+    
+    fragment.appendChild(thumbnail);
   }
+  
+  state.thumbnailWheel.appendChild(fragment);
+  state.thumbnails = state.thumbnailWheel.querySelectorAll(".thumbnail-item");
 }
 
 function initializeSlider() {
-  const slides = document.querySelectorAll(".slide");
-
-  slides.forEach((slide, index) => {
-    const x = index * slideWidth - slideWidth;
-    gsap.set(slide, { x: x });
+  if (!state.slides) return;
+  
+  const positions = new Float32Array(state.slides.length);
+  
+  state.slides.forEach((slide, i) => {
+    positions[i] = i * state.slideWidth - state.slideWidth;
   });
-
-  const centerOffset = window.innerWidth / 2 - slideWidth / 2;
-  currentX = centerOffset;
-  targetX = centerOffset;
+  
+  // Batch set positions
+  gsap.set(state.slides, {
+    x: (i) => positions[i]
+  });
+  
+  const centerOffset = state.viewportCenter - halfSlideWidth;
+  state.currentX = centerOffset;
+  state.targetX = centerOffset;
 }
 
+// Event handlers
 function handleScroll(e) {
-  const scrollIntensity = e.deltaY || e.detail || e.wheelDelta * -1;
-  targetX -= scrollIntensity * 1;
-
-  isScrolling = true;
-  clearTimeout(scrollTimeout);
-
-  scrollTimeout = setTimeout(() => {
-    isScrolling = false;
-  }, 150);
-}
-
-function animate() {
-  currentX += (targetX - currentX) * 0.1;
-
-  const totalWidth = totalSlides * slideWidth;
-  if (currentX > 0) {
-    currentX -= totalWidth;
-    targetX -= totalWidth;
-  } else if (currentX < -totalWidth) {
-    currentX += totalWidth;
-    targetX += totalWidth;
-  }
-
-  let centerSlideIndex = 0;
-  let closestToCenter = Infinity;
-  const slides = document.querySelectorAll(".slide");
-
-  slides.forEach((slide, index) => {
-    const x = index * slideWidth + currentX;
-    gsap.set(slide, { x: x });
-
-    const slideCenterX = x + slideWidth / 2;
-    const distanceFromCenter = Math.abs(slideCenterX - viewportCenter);
-
-    const outerDistance = slideWidth * 3;
-    const progress = Math.min(distanceFromCenter / outerDistance, 1);
-
-    const easedProgress =
-      progress < 0.5
-        ? 2 * progress * progress
-        : 1 - Math.pow(-2 * progress + 2, 2) / 2;
-
-    const scale = 1 + easedProgress * (endScale - 1);
-
-    const img = slide.querySelector("img");
-    gsap.set(img, { scale: scale });
-
-    // Find the slide closest to the center
-    if (distanceFromCenter < closestToCenter) {
-      closestToCenter = distanceFromCenter;
-      centerSlideIndex = index % totalSlides;
-    }
-  });
-
-  const slideProgress = Math.abs(currentX) / slideWidth;
-  const newActiveSlideIndex = Math.floor(slideProgress) % totalSlides;
-
-  if (newActiveSlideIndex !== activeSlideIndex) {
-    activeSlideIndex = newActiveSlideIndex;
-  }
-
-  const currentTitleIndex = centerSlideIndex % workItems.length;
-  const currentItem = workItems[currentTitleIndex];
-  slideTitle.textContent = currentItem.title;
-  slideTitle.dataset.href = currentItem.href || "";
-
-  if (!isThumbnailIntroPlaying) updateThumbnailItems();
-
-  rafId = requestAnimationFrame(animate);
-}
-
-function updateThumbnailItems() {
-  const exactSlideProgress = Math.abs(currentX) / slideWidth;
-  const currentRotationAngle = -(exactSlideProgress * (360 / totalSlides)) + 90;
-
-  const thumbnails = document.querySelectorAll(".thumbnail-item");
-  thumbnails.forEach((thumbnail) => {
-    const baseAngle = parseFloat(thumbnail.dataset.angle);
-    const radius = getThumbnailRadius();
-    const currentAngle = baseAngle + (currentRotationAngle * Math.PI) / 180;
-
-    const x = radius * Math.cos(currentAngle) + window.innerWidth / 2;
-    const y = radius * Math.sin(currentAngle) + window.innerHeight / 2 - 25;
-
-    gsap.set(thumbnail, {
-      x: x,
-      y: y,
-      rotation: 0,
-      transformOrigin: "center center",
-    });
-  });
-}
-
-function playThumbnailWheelIntro() {
-  if (!thumbnailWheel) return;
-
-  const thumbnails = Array.from(thumbnailWheel.querySelectorAll(".thumbnail-item"));
-  if (thumbnails.length === 0) return;
-
-  if (thumbnailIntroTl) {
-    thumbnailIntroTl.kill();
-    thumbnailIntroTl = null;
-  }
-
-  isThumbnailIntroPlaying = true;
-
-  const cx = window.innerWidth / 2;
-  const cy = window.innerHeight / 2 - 25;
-  const radius = getThumbnailRadius();
-
-  const currentRotationDeg = getCurrentRotationAngleDeg();
-  const currentRotationRad = (currentRotationDeg * Math.PI) / 180;
-
-  // Position all thumbnails at center before animation
-  gsap.set(thumbnails, {
-    x: cx,
-    y: cy,
-    rotation: 0,
-    scale: 0.8,
-    opacity: 0,
-  });
-
-  // Spiral intro timeline
-  thumbnailIntroTl = gsap.timeline({
-    delay: THUMBNAIL_INTRO_DELAY,
-    defaults: { ease: THUMBNAIL_INTRO_EASE },
-    onComplete: () => {
-      updateThumbnailItems();
-      isThumbnailIntroPlaying = false;
-    },
-  });
-
-  thumbnails.forEach((thumbnail, index) => {
-    const baseAngle = parseFloat(thumbnail.dataset.angle);
-    const targetAngle = baseAngle + currentRotationRad;
-
-    // Calculate final position on the wheel
-    const endX = radius * Math.cos(targetAngle) + cx;
-    const endY = radius * Math.sin(targetAngle) + cy;
-
-    // Spiral rotation: full rotation per item, creating a spiral effect
-    const spiralRotation = 360 * 1.5; // 1.5 full rotations for nice spiral
-
-    thumbnailIntroTl.to(
-      thumbnail,
-      {
-        duration: 1.0,
-        x: endX,
-        y: endY,
-        rotation: spiralRotation,
-        scale: 1,
-        opacity: 1,
-      },
-      index * THUMBNAIL_INTRO_STAGGER
-    );
-  });
+  const delta = e.deltaY || e.detail || e.wheelDelta * -1;
+  state.targetX -= delta * CONFIG.SCROLL_INTENSITY;
+  
+  state.isScrolling = true;
+  clearTimeout(state.scrollTimeout);
+  
+  state.scrollTimeout = setTimeout(() => {
+    state.isScrolling = false;
+  }, CONFIG.SCROLL_TIMEOUT);
 }
 
 function preventScroll(e) {
@@ -299,79 +171,245 @@ function preventScroll(e) {
   }
 }
 
+// Animation loop
+function animate() {
+  state.currentX += (state.targetX - state.currentX) * CONFIG.LERP_FACTOR;
+  
+  // Infinite loop wrapping
+  if (state.currentX > 0) {
+    state.currentX -= totalWidth;
+    state.targetX -= totalWidth;
+  } else if (state.currentX < -totalWidth) {
+    state.currentX += totalWidth;
+    state.targetX += totalWidth;
+  }
+  
+  let centerSlideIndex = 0;
+  let closestToCenter = Infinity;
+  
+  // Single loop for all slide updates
+  state.slides.forEach((slide, index) => {
+    const x = index * state.slideWidth + state.currentX;
+    const slideCenterX = x + halfSlideWidth;
+    const distanceFromCenter = Math.abs(slideCenterX - state.viewportCenter);
+    
+    // Update position
+    slide.style.transform = `translate3d(${x}px, 0, 0)`;
+    
+    // Calculate and apply scale
+    const progress = Math.min(distanceFromCenter / outerDistance, 1);
+    const easedProgress = progress < 0.5
+      ? 2 * progress * progress
+      : 1 - Math.pow(-2 * progress + 2, 2) * 0.5;
+    
+    const scale = 1 + easedProgress * (CONFIG.END_SCALE - 1);
+    const img = slide.firstElementChild;
+    img.style.transform = `scale(${scale})`;
+    
+    // Track closest to center
+    if (distanceFromCenter < closestToCenter) {
+      closestToCenter = distanceFromCenter;
+      centerSlideIndex = index % state.totalSlides;
+    }
+  });
+  
+  // Update active slide
+  const slideProgress = Math.abs(state.currentX) / state.slideWidth;
+  const newActiveSlideIndex = Math.floor(slideProgress) % state.totalSlides;
+  
+  if (newActiveSlideIndex !== state.activeSlideIndex) {
+    state.activeSlideIndex = newActiveSlideIndex;
+  }
+  
+  // Update title
+  const currentTitleIndex = centerSlideIndex % state.totalImages;
+  const currentItem = workItems[currentTitleIndex];
+  state.slideTitle.textContent = currentItem.title;
+  state.slideTitle.dataset.href = currentItem.href || "";
+  
+  // Update thumbnails
+  if (!state.isThumbnailIntroPlaying) {
+    updateThumbnailItems();
+  }
+  
+  state.rafId = requestAnimationFrame(animate);
+}
+
+function updateThumbnailItems() {
+  if (!state.thumbnails) return;
+  
+  const currentRotation = getCurrentRotationRad();
+  const { rx, ry } = getThumbnailRadii();
+  const cx = state.viewportCenter;
+  const cy = window.innerHeight * 0.5 + CONFIG.THUMBNAIL_OFFSET_Y;
+  
+  state.thumbnails.forEach((thumbnail) => {
+    const angle = thumbnail._angle + currentRotation;
+    const x = rx * Math.cos(angle) + cx;
+    const y = ry * Math.sin(angle) + cy;
+    
+    thumbnail.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+  });
+}
+
+function playThumbnailWheelIntro() {
+  if (!state.thumbnailWheel || !state.thumbnails?.length) return;
+  
+  if (state.thumbnailIntroTl) {
+    state.thumbnailIntroTl.kill();
+  }
+  
+  state.isThumbnailIntroPlaying = true;
+  
+  const cx = state.viewportCenter;
+  const cy = window.innerHeight * 0.5 + CONFIG.THUMBNAIL_OFFSET_Y;
+  const { rx, ry } = getThumbnailRadii();
+  const currentRotation = getCurrentRotationRad();
+  
+  // Set initial state
+  gsap.set(state.thumbnails, {
+    x: cx,
+    y: cy,
+    rotation: 0,
+    scale: 0.8,
+    opacity: 0
+  });
+  
+  // Create timeline
+  state.thumbnailIntroTl = gsap.timeline({
+    delay: CONFIG.INTRO_DELAY,
+    defaults: { ease: CONFIG.INTRO_EASE },
+    onComplete: () => {
+      updateThumbnailItems();
+      state.isThumbnailIntroPlaying = false;
+    }
+  });
+  
+  state.thumbnails.forEach((thumbnail, i) => {
+    const targetAngle = thumbnail._angle + currentRotation;
+    const endX = rx * Math.cos(targetAngle) + cx;
+    const endY = ry * Math.sin(targetAngle) + cy;
+    
+    state.thumbnailIntroTl.to(
+      thumbnail,
+      {
+        duration: CONFIG.INTRO_DURATION,
+        x: endX,
+        y: endY,
+        rotation: CONFIG.SPIRAL_ROTATION,
+        scale: 1,
+        opacity: 1
+      },
+      i * CONFIG.INTRO_STAGGER
+    );
+  });
+}
+
+// Resize handler
 function onResize() {
-  if (thumbnailIntroTl) {
-    thumbnailIntroTl.kill();
-    thumbnailIntroTl = null;
+  if (state.thumbnailIntroTl) {
+    state.thumbnailIntroTl.kill();
+    state.thumbnailIntroTl = null;
   }
-  isThumbnailIntroPlaying = false;
-  isMobile = window.innerWidth < 1000;
-  slideWidth = window.innerWidth * 0.45;
-  viewportCenter = window.innerWidth / 2;
-  if (thumbnailWheel) {
-    thumbnailWheel.innerHTML = "";
+  
+  state.isThumbnailIntroPlaying = false;
+  state.isMobile = window.innerWidth < CONFIG.MOBILE_BREAKPOINT;
+  state.slideWidth = window.innerWidth * CONFIG.SLIDE_WIDTH_RATIO;
+  state.viewportCenter = window.innerWidth * 0.5;
+  
+  // Recalculate derived values
+  halfSlideWidth = state.slideWidth * 0.5;
+  totalWidth = state.totalSlides * state.slideWidth;
+  outerDistance = state.slideWidth * CONFIG.OUTER_DISTANCE_MULTIPLIER;
+  
+  if (state.thumbnailWheel) {
+    state.thumbnailWheel.innerHTML = "";
   }
+  
   createThumbnailItems();
   initializeSlider();
   updateThumbnailItems();
 }
 
+// Setup and cleanup
 function setupEventListeners() {
-  window.addEventListener("wheel", handleScroll, wheelListenerOpts);
-  window.addEventListener("DOMMouseScroll", handleScroll, wheelListenerOpts);
-  window.addEventListener("scroll", preventScroll, wheelListenerOpts);
+  window.addEventListener("wheel", handleScroll, wheelOpts);
+  window.addEventListener("DOMMouseScroll", handleScroll, wheelOpts);
+  window.addEventListener("scroll", preventScroll, wheelOpts);
   window.addEventListener("resize", onResize);
 }
 
 function cleanupWork() {
-  if (thumbnailIntroTl) {
-    thumbnailIntroTl.kill();
-    thumbnailIntroTl = null;
+  if (state.thumbnailIntroTl) {
+    state.thumbnailIntroTl.kill();
+    state.thumbnailIntroTl = null;
   }
-  isThumbnailIntroPlaying = false;
-  if (rafId) {
-    cancelAnimationFrame(rafId);
-    rafId = null;
+  
+  state.isThumbnailIntroPlaying = false;
+  
+  if (state.rafId) {
+    cancelAnimationFrame(state.rafId);
+    state.rafId = null;
   }
-  window.removeEventListener("wheel", handleScroll, wheelListenerOpts);
-  window.removeEventListener("DOMMouseScroll", handleScroll, wheelListenerOpts);
-  window.removeEventListener("scroll", preventScroll, wheelListenerOpts);
+  
+  window.removeEventListener("wheel", handleScroll, wheelOpts);
+  window.removeEventListener("DOMMouseScroll", handleScroll, wheelOpts);
+  window.removeEventListener("scroll", preventScroll, wheelOpts);
   window.removeEventListener("resize", onResize);
-  if (slideTitle) {
-    slideTitle.onclick = null;
+  
+  if (state.slideTitle) {
+    state.slideTitle.onclick = null;
   }
-  if (slider) slider.innerHTML = "";
-  if (thumbnailWheel) thumbnailWheel.innerHTML = "";
-  isInitialized = false;
+  
+  if (state.slider) state.slider.innerHTML = "";
+  if (state.thumbnailWheel) state.thumbnailWheel.innerHTML = "";
+  
+  // Clear cached references
+  state.slides = null;
+  state.thumbnails = null;
+  state.isInitialized = false;
 }
 
 function initWork() {
   cleanupWork();
-  slider = document.querySelector(".slider");
-  slideTitle = document.querySelector(".slide-title");
-  thumbnailWheel = document.querySelector(".thumbnail-wheel");
-  if (!slider || !slideTitle || !thumbnailWheel) return;
-
-  slideWidth = window.innerWidth * 0.45;
-  viewportCenter = window.innerWidth / 2;
-  isMobile = window.innerWidth < 1000;
-
+  
+  state.slider = document.querySelector(".slider");
+  state.slideTitle = document.querySelector(".slide-title");
+  state.thumbnailWheel = document.querySelector(".thumbnail-wheel");
+  
+  if (!state.slider || !state.slideTitle || !state.thumbnailWheel) return;
+  
+  // Initialize dimensions
+  state.isMobile = window.innerWidth < CONFIG.MOBILE_BREAKPOINT;
+  state.slideWidth = window.innerWidth * CONFIG.SLIDE_WIDTH_RATIO;
+  state.viewportCenter = window.innerWidth * 0.5;
+  state.totalSlides = state.totalImages * CONFIG.SLIDES_MULTIPLIER;
+  
+  // Precompute frequently used values
+  halfSlideWidth = state.slideWidth * 0.5;
+  totalWidth = state.totalSlides * state.slideWidth;
+  outerDistance = state.slideWidth * CONFIG.OUTER_DISTANCE_MULTIPLIER;
+  
   createSlides();
-  createThumbnailItems({ atOrigin: true });
+  createThumbnailItems();
   initializeSlider();
   setupEventListeners();
-  // Skip the intro animation — position thumbnails immediately
-  updateThumbnailItems();
-  const thumbs = thumbnailWheel.querySelectorAll('.thumbnail-item');
-  gsap.set(thumbs, { scale: 1, opacity: 1, rotation: 0, transformOrigin: 'center center' });
-  slideTitle.onclick = () => {
-    const href = slideTitle.dataset.href;
-    if (href) {
-      window.location.href = href;
-    }
+  
+  // Skip intro - set thumbnails to visible
+  gsap.set(state.thumbnails, { 
+    scale: 1, 
+    opacity: 1, 
+    rotation: 0,
+    transformOrigin: "center center" 
+  });
+  
+  state.slideTitle.onclick = () => {
+    const href = state.slideTitle.dataset.href;
+    if (href) window.location.href = href;
   };
+  
   animate();
-  isInitialized = true;
+  state.isInitialized = true;
 }
 
 export { initWork, cleanupWork as destroyWork };
