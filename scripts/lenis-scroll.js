@@ -4,11 +4,11 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 
 const lenis = new Lenis({
-  // Higher lerp for smoother interpolation; keep touch disabled
+  // Higher lerp for smoother interpolation
   lerp: 0.15,
   duration: 1.1,
   smoothWheel: true,
-  touchMultiplier: 0,
+  touchMultiplier: 1, // Enable touch scrolling with slight boost
 });
 
 lenis.on('scroll', ScrollTrigger.update);

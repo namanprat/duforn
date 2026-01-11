@@ -10,6 +10,21 @@
   /* src: url(./public/XanhMono-Regular.ttf); */
 }
 
+/* Mobile fix: prevent iOS rubber band effect */
+html, body {
+  width: 100%;
+  height: 100%;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent font scaling on mobile landscape */
+html {
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+}
+
 :root {
   /* Core Theme & Typography */
   --text-style-font-primary: "InterVariable", sans-serif;
@@ -40,6 +55,10 @@
   --swatch-brand-800: color-mix(in srgb, var(--theme-primary), black 60%);
   --swatch-brand-700: color-mix(in srgb, var(--theme-primary), black 40%);
   --swatch-brand-600: color-mix(in srgb, var(--theme-primary), black 20%);
+
+  /* Viewport sizes for responsive scaling (mobile to desktop) */
+  /* --site--viewport-min: 320px;
+  --site--viewport-max: 1440px; */
 
   /* Size Variables */
   --size-0rem: 0rem;
@@ -1710,6 +1729,8 @@ section {
 }
 .hero-contain {
   /* background-color: red; */
+  width: 100%;
+  max-width: 100%;
 }
 .about-top {
   display: flex;
