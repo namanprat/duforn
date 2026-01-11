@@ -111,6 +111,11 @@ const config = {
   cellSize: 0.65,
   distortion: 0.06,
   lerpFactor: 0.08,
+  // Parallax tilt config
+  tiltMaxX: 8, // Max rotation in degrees on X axis
+  tiltMaxY: 8, // Max rotation in degrees on Y axis
+  tiltLerpFactor: 0.06,
+  perspective: 1200,
 };
 
 // --- State ---
@@ -132,6 +137,16 @@ let previousMouse = { x: 0, y: 0 };
 let focusedIndex = -1;
 let focusState = { value: 0 };
 let currentFocusCell = { x: 0, y: 0 };
+
+// Parallax tilt state
+let tilt = { x: 0, y: 0 };
+let targetTilt = { x: 0, y: 0 };
+let mousePosition = { x: 0.5, y: 0.5 };
+
+// Drag zoom state
+let dragZoom = { value: 1 };
+let dragStartPos = { x: 0, y: 0 };
+let totalDragDistance = 0;
 
 // --- Helper Functions ---
 const createTextureAtlas = (textures) => {
@@ -359,7 +374,9 @@ const onPointerDown = (e) => {
   if (e.target.closest(".nav-wrap") ||
       e.target.closest(".nav-btn") ||
       e.target.closest(".menu-wrap") ||
-      e.target.closest(".bottom-nav-wrap")) {
+      e.target.closest(".menu-box") ||
+      e.target.closest(".bottom-nav-wrap") ||
+      e.target.closest(".archive-overlay")) {
     return;
   }
 
@@ -368,20 +385,45 @@ const onPointerDown = (e) => {
   clickStartTime = Date.now();
   previousMouse.x = e.clientX;
   previousMouse.y = e.clientY;
+  dragStartPos.x = e.clientX;
+  dragStartPos.y = e.clientY;
+  totalDragDistance = 0;
 };
 
 const onPointerMove = (e) => {
+  // Always update mouse position for parallax tilt
+  if (container) {
+    const rect = container.getBoundingClientRect();
+    mousePosition.x = (e.clientX - rect.left) / rect.width;
+    mousePosition.y = (e.clientY - rect.top) / rect.height;
+
+    // Update target tilt based on mouse position (centered at 0.5, 0.5)
+    targetTilt.x = (mousePosition.y - 0.5) * config.tiltMaxX * 2;
+    targetTilt.y = (mousePosition.x - 0.5) * -config.tiltMaxY * 2;
+  }
+
   if (!isDragging) return;
 
   const deltaX = e.clientX - previousMouse.x;
   const deltaY = e.clientY - previousMouse.y;
 
+  // Track total drag distance
+  totalDragDistance += Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
   if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
     isClick = false;
 
-    // Exit focus when dragging
+    // Zoom out effect when dragging in focus mode
     if (focusedIndex !== -1) {
-      exitFocusMode();
+      // Calculate zoom based on drag distance (zoom out as you drag more)
+      const maxDragDistance = 150;
+      const zoomProgress = Math.min(totalDragDistance / maxDragDistance, 1);
+      dragZoom.value = 1 - (zoomProgress * 0.15); // Zoom out to 85%
+
+      // Exit focus mode once dragged enough
+      if (totalDragDistance > 50) {
+        exitFocusMode();
+      }
     }
   }
 
@@ -396,26 +438,49 @@ const onPointerUp = (e) => {
   if (!isDragging) return;
   isDragging = false;
 
+  // Reset drag zoom with animation
+  if (dragZoom.value !== 1) {
+    gsap.to(dragZoom, {
+      value: 1,
+      duration: 0.3,
+      ease: "power2.out"
+    });
+  }
+
   if (isClick && Date.now() - clickStartTime < 250) {
     const result = getClickedCell(e.clientX, e.clientY);
-    if (!result) return;
+    if (!result) {
+      // Clicked outside valid area - exit focus mode if active
+      if (focusedIndex !== -1) {
+        exitFocusMode();
+      }
+      return;
+    }
 
     const { cellX, cellY, texIndex, isOnImage } = result;
 
     if (focusedIndex === -1) {
+      // Not in focus mode - only enter if clicking on image
       if (isOnImage) {
         enterFocusMode(texIndex, cellX, cellY);
       }
     } else {
+      // In focus mode
       if (!isOnImage) {
+        // Clicked on blank space - exit focus mode
         exitFocusMode();
       } else if (texIndex !== focusedIndex || cellX !== currentFocusCell.x || cellY !== currentFocusCell.y) {
+        // Clicked on different image - switch to it
         enterFocusMode(texIndex, cellX, cellY);
       } else {
+        // Clicked on same image - exit focus mode
         exitFocusMode();
       }
     }
   }
+
+  // Reset total drag distance
+  totalDragDistance = 0;
 };
 
 const onWheel = (e) => {
@@ -469,6 +534,16 @@ const animate = () => {
   offset.x += (targetOffset.x - offset.x) * config.lerpFactor;
   offset.y += (targetOffset.y - offset.y) * config.lerpFactor;
 
+  // Smooth parallax tilt
+  tilt.x += (targetTilt.x - tilt.x) * config.tiltLerpFactor;
+  tilt.y += (targetTilt.y - tilt.y) * config.tiltLerpFactor;
+
+  // Apply parallax tilt to canvas container
+  if (container) {
+    const scale = dragZoom.value;
+    container.style.transform = `perspective(${config.perspective}px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(${scale})`;
+  }
+
   if (plane?.material?.uniforms) {
     plane.material.uniforms.uOffset.value.set(offset.x, offset.y);
     plane.material.uniforms.uTime.value = performance.now() * 0.001;
@@ -481,6 +556,11 @@ const animate = () => {
 const init = async () => {
   container = document.getElementById("gallery");
   if (!container) return;
+
+  // Setup container for 3D transforms
+  container.style.transformStyle = "preserve-3d";
+  container.style.transformOrigin = "center center";
+  container.style.willChange = "transform";
 
   const width = container.offsetWidth;
   const height = container.offsetHeight;
@@ -523,14 +603,35 @@ const init = async () => {
   plane = new THREE.Mesh(geometry, material);
   scene.add(plane);
 
+  // Global mousemove for parallax (even when not dragging)
+  const onMouseMove = (e) => {
+    if (container) {
+      const rect = container.getBoundingClientRect();
+      mousePosition.x = (e.clientX - rect.left) / rect.width;
+      mousePosition.y = (e.clientY - rect.top) / rect.height;
+
+      // Clamp to reasonable bounds
+      mousePosition.x = Math.max(0, Math.min(1, mousePosition.x));
+      mousePosition.y = Math.max(0, Math.min(1, mousePosition.y));
+
+      // Update target tilt based on mouse position (centered at 0.5, 0.5)
+      targetTilt.x = (mousePosition.y - 0.5) * config.tiltMaxX * 2;
+      targetTilt.y = (mousePosition.x - 0.5) * -config.tiltMaxY * 2;
+    }
+  };
+
   // Event listeners (use canvas-level where possible)
   const canvas = renderer.domElement;
   canvas.addEventListener("pointerdown", onPointerDown);
   window.addEventListener("pointermove", onPointerMove);
   window.addEventListener("pointerup", onPointerUp);
+  window.addEventListener("mousemove", onMouseMove);
   canvas.addEventListener("wheel", onWheel, { passive: false });
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("resize", onResize);
+
+  // Store reference for cleanup
+  container._onMouseMove = onMouseMove;
 
   // UI Buttons
   const prevBtn = document.getElementById("archive-prev");
@@ -554,6 +655,11 @@ export function destroyArchiveScene() {
   if (animationId) {
     cancelAnimationFrame(animationId);
     animationId = null;
+  }
+
+  // Clean up mousemove listener
+  if (container?._onMouseMove) {
+    window.removeEventListener("mousemove", container._onMouseMove);
   }
 
   window.removeEventListener("pointermove", onPointerMove);
@@ -580,4 +686,8 @@ export function destroyArchiveScene() {
   focusState = { value: 0 };
   offset = { x: 0, y: 0 };
   targetOffset = { x: 0, y: 0 };
+  tilt = { x: 0, y: 0 };
+  targetTilt = { x: 0, y: 0 };
+  dragZoom = { value: 1 };
+  totalDragDistance = 0;
 }
