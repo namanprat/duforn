@@ -67,7 +67,7 @@ const fragmentShader = `
       vec2 atlasPos = vec2(mod(texIndex, atlasSize), floor(texIndex / atlasSize));
 
       // Chromatic Aberration
-      float caStrength = 0.015 * radius;
+      float caStrength = 0.005 * radius;
       vec2 caOffset = screenUV * caStrength;
 
       vec2 imageUVR = imageUV - caOffset;
@@ -147,6 +147,7 @@ let mousePosition = { x: 0.5, y: 0.5 };
 let dragZoom = { value: 1 };
 let dragStartPos = { x: 0, y: 0 };
 let totalDragDistance = 0;
+let holdZoomInterval = null;
 
 // --- Helper Functions ---
 const createTextureAtlas = (textures) => {
@@ -388,6 +389,14 @@ const onPointerDown = (e) => {
   dragStartPos.x = e.clientX;
   dragStartPos.y = e.clientY;
   totalDragDistance = 0;
+
+  // Start zoom-out effect when holding mouse down in focus mode
+  if (focusedIndex !== -1) {
+    if (holdZoomInterval) clearInterval(holdZoomInterval);
+    holdZoomInterval = setInterval(() => {
+      dragZoom.value = Math.max(0.85, dragZoom.value - 0.008);
+    }, 16);
+  }
 };
 
 const onPointerMove = (e) => {
@@ -412,19 +421,6 @@ const onPointerMove = (e) => {
 
   if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
     isClick = false;
-
-    // Zoom out effect when dragging in focus mode
-    if (focusedIndex !== -1) {
-      // Calculate zoom based on drag distance (zoom out as you drag more)
-      const maxDragDistance = 150;
-      const zoomProgress = Math.min(totalDragDistance / maxDragDistance, 1);
-      dragZoom.value = 1 - (zoomProgress * 0.15); // Zoom out to 85%
-
-      // Exit focus mode once dragged enough
-      if (totalDragDistance > 50) {
-        exitFocusMode();
-      }
-    }
   }
 
   targetOffset.x -= deltaX * 0.002;
@@ -438,6 +434,12 @@ const onPointerUp = (e) => {
   if (!isDragging) return;
   isDragging = false;
 
+  // Clear hold zoom interval
+  if (holdZoomInterval) {
+    clearInterval(holdZoomInterval);
+    holdZoomInterval = null;
+  }
+
   // Reset drag zoom with animation
   if (dragZoom.value !== 1) {
     gsap.to(dragZoom, {
@@ -449,33 +451,15 @@ const onPointerUp = (e) => {
 
   if (isClick && Date.now() - clickStartTime < 250) {
     const result = getClickedCell(e.clientX, e.clientY);
-    if (!result) {
-      // Clicked outside valid area - exit focus mode if active
-      if (focusedIndex !== -1) {
-        exitFocusMode();
-      }
-      return;
-    }
-
-    const { cellX, cellY, texIndex, isOnImage } = result;
 
     if (focusedIndex === -1) {
       // Not in focus mode - only enter if clicking on image
-      if (isOnImage) {
-        enterFocusMode(texIndex, cellX, cellY);
+      if (result && result.isOnImage) {
+        enterFocusMode(result.texIndex, result.cellX, result.cellY);
       }
     } else {
-      // In focus mode
-      if (!isOnImage) {
-        // Clicked on blank space - exit focus mode
-        exitFocusMode();
-      } else if (texIndex !== focusedIndex || cellX !== currentFocusCell.x || cellY !== currentFocusCell.y) {
-        // Clicked on different image - switch to it
-        enterFocusMode(texIndex, cellX, cellY);
-      } else {
-        // Clicked on same image - exit focus mode
-        exitFocusMode();
-      }
+      // In focus mode - any click exits (same as Escape)
+      exitFocusMode();
     }
   }
 
@@ -655,6 +639,12 @@ export function destroyArchiveScene() {
   if (animationId) {
     cancelAnimationFrame(animationId);
     animationId = null;
+  }
+
+  // Clean up hold zoom interval
+  if (holdZoomInterval) {
+    clearInterval(holdZoomInterval);
+    holdZoomInterval = null;
   }
 
   // Clean up mousemove listener
