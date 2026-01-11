@@ -512,7 +512,6 @@ p {
   inset: 0%;
 }
 section {
-  z-index: 1;
   width: 100%;
   background-color: var(--theme-background);
   flex-flow: column;
@@ -1703,6 +1702,7 @@ section {
 
 /* --- HOME STYLES --- */
 .hero {
+  position: relative;
   width: 100%;
   height: 100svh;
   display: flex;
@@ -1710,6 +1710,7 @@ section {
   justify-content: center;
   overflow: hidden;
 }
+
 
 .about-top {
   display: flex;
