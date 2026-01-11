@@ -1,6 +1,7 @@
 import gsap from "gsap";
 import { MotionPathPlugin } from "gsap/MotionPathPlugin";
 import { workItems } from "../data/work-items.js";
+import { getOrSplit } from "./text-reveal.js";
 
 gsap.registerPlugin(MotionPathPlugin);
 
@@ -264,27 +265,79 @@ function playThumbnailWheelIntro() {
   const cx = state.viewportCenter;
   const cy = window.innerHeight * 0.5 + CONFIG.THUMBNAIL_OFFSET_Y;
   const { rx, ry } = getThumbnailRadii();
-  const currentRotation = getCurrentRotationRad();
   
-  // Set initial state
+  // Disable pointer events during animation
+  if (state.thumbnailWheel) {
+    state.thumbnailWheel.style.pointerEvents = 'none';
+  }
+  if (state.slider) {
+    state.slider.style.pointerEvents = 'none';
+  }
+  
+  // Set initial state: all thumbnails stacked at center with bigger scale
   gsap.set(state.thumbnails, {
     x: cx,
     y: cy,
     rotation: 0,
-    scale: 0.8,
-    opacity: 0
+    scale: 0,
+    opacity: 0,
+    zIndex: (i) => 100 + (state.thumbnails.length - 1 - i) // Last thumbnail on top
   });
   
-  // Create timeline
+  // Create timeline for stacked intro
   state.thumbnailIntroTl = gsap.timeline({
-    delay: CONFIG.INTRO_DELAY,
-    defaults: { ease: CONFIG.INTRO_EASE },
     onComplete: () => {
-      updateThumbnailItems();
       state.isThumbnailIntroPlaying = false;
+      
+      // Re-enable pointer events
+      if (state.thumbnailWheel) {
+        state.thumbnailWheel.style.pointerEvents = 'auto';
+      }
+      if (state.slider) {
+        state.slider.style.pointerEvents = 'auto';
+      }
+      
+      // Trigger text reveal for slide title
+      const slideTitle = document.querySelector('.slide-title');
+      if (slideTitle) {
+        const split = getOrSplit(slideTitle);
+        if (split?.words) {
+          gsap.fromTo(
+            split.words,
+            { y: -100, opacity: 0 },
+            {
+              y: 0,
+              opacity: 1,
+              duration: 0.8,
+              stagger: 0.04,
+              ease: "power2.out"
+            }
+          );
+        }
+      }
     }
   });
   
+  // Phase 1: Thumbnails appear stacked (last one first, first one last) - starting bigger
+  state.thumbnails.forEach((thumbnail, i) => {
+    const delay = (state.thumbnails.length - 1 - i) * 0.08;
+    state.thumbnailIntroTl.to(
+      thumbnail,
+      {
+        opacity: 1,
+        scale: 1.3, // Start bigger
+        duration: 0.5,
+        ease: "power2.out"
+      },
+      delay
+    );
+  });
+  
+  // Phase 2: Short pause
+  state.thumbnailIntroTl.to({}, { duration: 0.3 });
+  
+  // Phase 3: Spread to circle positions and scale down to normal
+  const currentRotation = getCurrentRotationRad();
   state.thumbnails.forEach((thumbnail, i) => {
     const targetAngle = thumbnail._angle + currentRotation;
     const endX = rx * Math.cos(targetAngle) + cx;
@@ -293,14 +346,13 @@ function playThumbnailWheelIntro() {
     state.thumbnailIntroTl.to(
       thumbnail,
       {
-        duration: CONFIG.INTRO_DURATION,
         x: endX,
         y: endY,
-        rotation: CONFIG.SPIRAL_ROTATION,
-        scale: 1,
-        opacity: 1
+        scale: 1, // Scale down to normal size
+        duration: 1.2,
+        ease: "power2.inOut"
       },
-      i * CONFIG.INTRO_STAGGER
+      "-=1.2" // Start all at the same time (overlap with previous section)
     );
   });
 }
@@ -395,13 +447,13 @@ function initWork() {
   initializeSlider();
   setupEventListeners();
   
-  // Skip intro - set thumbnails to visible
-  gsap.set(state.thumbnails, { 
-    scale: 1, 
-    opacity: 1, 
-    rotation: 0,
-    transformOrigin: "center center" 
-  });
+  // Hide slide title initially
+  if (state.slideTitle) {
+    gsap.set(state.slideTitle, { opacity: 0 });
+  }
+  
+  // Play circle intro animation
+  playThumbnailWheelIntro();
   
   state.slideTitle.onclick = () => {
     const href = state.slideTitle.dataset.href;
