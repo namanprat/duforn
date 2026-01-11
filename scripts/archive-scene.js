@@ -21,16 +21,27 @@ const fragmentShader = `
   uniform float uCellSize;
   uniform float uFocusIndex;
   uniform float uFocusState;
+  uniform vec2 uParallax;      // Mouse-based parallax offset (-1 to 1)
+  uniform float uDragZoom;     // Zoom level (1.0 = normal, <1 = zoomed out)
 
   varying vec2 vUv;
 
   void main() {
     vec2 screenUV = (vUv - 0.5) * 2.0;
 
-    // Fisheye distortion
-    float radius = length(screenUV);
-    float distortion = 1.0 - uDistortion * radius * radius;
-    vec2 distortedUV = screenUV * distortion;
+    // Apply zoom (zooming out means scaling UV outward from center)
+    vec2 zoomedUV = screenUV / uDragZoom;
+
+    // Apply parallax offset in screen space (subtle depth shift)
+    float parallaxStrength = 0.03;
+    vec2 parallaxOffset = uParallax * parallaxStrength;
+    vec2 parallaxedUV = zoomedUV - parallaxOffset;
+
+    // Fisheye distortion (reduced when zoomed out / dragging)
+    float radius = length(parallaxedUV);
+    float effectiveDistortion = uDistortion * uDragZoom; // Flatten when zoomed out
+    float distortion = 1.0 - effectiveDistortion * radius * radius;
+    vec2 distortedUV = parallaxedUV * distortion;
 
     vec2 aspectRatio = vec2(uResolution.x / uResolution.y, 1.0);
     vec2 worldCoord = distortedUV * aspectRatio + uOffset;
@@ -66,9 +77,19 @@ const fragmentShader = `
       float atlasSize = ceil(sqrt(uTextureCount));
       vec2 atlasPos = vec2(mod(texIndex, atlasSize), floor(texIndex / atlasSize));
 
-      // Chromatic Aberration
-      float caStrength = 0.015 * radius;
-      vec2 caOffset = screenUV * caStrength;
+      // Chromatic Aberration - enhanced by parallax direction
+      // Base CA from distance to center
+      float baseCA = 0.015 * radius;
+
+      // Parallax-reactive CA: stronger on the side opposite to mouse movement
+      // This creates a 3D depth illusion where edges separate more
+      float parallaxCA = length(uParallax) * 0.02;
+      float caStrength = baseCA + parallaxCA;
+
+      // Direction combines radial (from center) and parallax influence
+      vec2 caDirection = normalize(screenUV + 0.001) * radius;
+      caDirection += uParallax * 0.5; // Add parallax bias to CA direction
+      vec2 caOffset = caDirection * caStrength / (radius + 0.001);
 
       vec2 imageUVR = imageUV - caOffset;
       vec2 atlasUVR = (atlasPos + clamp(imageUVR, 0.0, 1.0)) / atlasSize;
@@ -98,8 +119,9 @@ const fragmentShader = `
       outAlpha = imageAlpha * a;
     }
 
-    // Vignette fade at edges
-    float fade = 1.0 - smoothstep(1.0, 1.6, radius);
+    // Vignette fade at edges (adjusted for zoom)
+    float vignetteRadius = length(zoomedUV);
+    float fade = 1.0 - smoothstep(1.0, 1.6, vignetteRadius);
     outAlpha *= fade;
 
     gl_FragColor = vec4(color * fade, outAlpha);
@@ -111,11 +133,8 @@ const config = {
   cellSize: 0.65,
   distortion: 0.06,
   lerpFactor: 0.08,
-  // Parallax tilt config
-  tiltMaxX: 8, // Max rotation in degrees on X axis
-  tiltMaxY: 8, // Max rotation in degrees on Y axis
-  tiltLerpFactor: 0.06,
-  perspective: 1200,
+  parallaxLerpFactor: 0.06,
+  dragZoomMin: 0.82, // How much to zoom out when dragging (0.82 = 82%)
 };
 
 // --- State ---
@@ -138,9 +157,9 @@ let focusedIndex = -1;
 let focusState = { value: 0 };
 let currentFocusCell = { x: 0, y: 0 };
 
-// Parallax tilt state
-let tilt = { x: 0, y: 0 };
-let targetTilt = { x: 0, y: 0 };
+// Parallax state (for shader, -1 to 1 range)
+let parallax = { x: 0, y: 0 };
+let targetParallax = { x: 0, y: 0 };
 let mousePosition = { x: 0.5, y: 0.5 };
 
 // Drag zoom state
@@ -391,15 +410,20 @@ const onPointerDown = (e) => {
 };
 
 const onPointerMove = (e) => {
-  // Always update mouse position for parallax tilt
+  // Always update mouse position for parallax
   if (container) {
     const rect = container.getBoundingClientRect();
     mousePosition.x = (e.clientX - rect.left) / rect.width;
     mousePosition.y = (e.clientY - rect.top) / rect.height;
 
-    // Update target tilt based on mouse position (centered at 0.5, 0.5)
-    targetTilt.x = (mousePosition.y - 0.5) * config.tiltMaxX * 2;
-    targetTilt.y = (mousePosition.x - 0.5) * -config.tiltMaxY * 2;
+    // Clamp to reasonable bounds
+    mousePosition.x = Math.max(0, Math.min(1, mousePosition.x));
+    mousePosition.y = Math.max(0, Math.min(1, mousePosition.y));
+
+    // Update target parallax based on mouse position (centered at 0.5, 0.5)
+    // Range: -1 to 1
+    targetParallax.x = (mousePosition.x - 0.5) * 2;
+    targetParallax.y = (mousePosition.y - 0.5) * -2; // Invert Y for natural feel
   }
 
   if (!isDragging) return;
@@ -413,17 +437,15 @@ const onPointerMove = (e) => {
   if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
     isClick = false;
 
-    // Zoom out effect when dragging in focus mode
-    if (focusedIndex !== -1) {
-      // Calculate zoom based on drag distance (zoom out as you drag more)
-      const maxDragDistance = 150;
-      const zoomProgress = Math.min(totalDragDistance / maxDragDistance, 1);
-      dragZoom.value = 1 - (zoomProgress * 0.15); // Zoom out to 85%
+    // Zoom out effect when dragging (always, but more pronounced in focus mode)
+    const maxDragDistance = 200;
+    const zoomProgress = Math.min(totalDragDistance / maxDragDistance, 1);
+    const zoomAmount = focusedIndex !== -1 ? (1 - config.dragZoomMin) : (1 - config.dragZoomMin) * 0.5;
+    dragZoom.value = 1 - (zoomProgress * zoomAmount);
 
-      // Exit focus mode once dragged enough
-      if (totalDragDistance > 50) {
-        exitFocusMode();
-      }
+    // Exit focus mode once dragged enough
+    if (focusedIndex !== -1 && totalDragDistance > 50) {
+      exitFocusMode();
     }
   }
 
@@ -466,14 +488,18 @@ const onPointerUp = (e) => {
       }
     } else {
       // In focus mode
-      if (!isOnImage) {
-        // Clicked on blank space - exit focus mode
+      // Check if clicked on the currently focused image
+      const clickedOnFocusedImage = isOnImage &&
+        texIndex === focusedIndex &&
+        cellX === currentFocusCell.x &&
+        cellY === currentFocusCell.y;
+
+      if (clickedOnFocusedImage) {
+        // Clicked on the focused image itself - could open project or exit
+        // For now, just exit focus mode
         exitFocusMode();
-      } else if (texIndex !== focusedIndex || cellX !== currentFocusCell.x || cellY !== currentFocusCell.y) {
-        // Clicked on different image - switch to it
-        enterFocusMode(texIndex, cellX, cellY);
       } else {
-        // Clicked on same image - exit focus mode
+        // Clicked anywhere else (dim area, other images, blank space) - exit focus mode
         exitFocusMode();
       }
     }
@@ -534,19 +560,15 @@ const animate = () => {
   offset.x += (targetOffset.x - offset.x) * config.lerpFactor;
   offset.y += (targetOffset.y - offset.y) * config.lerpFactor;
 
-  // Smooth parallax tilt
-  tilt.x += (targetTilt.x - tilt.x) * config.tiltLerpFactor;
-  tilt.y += (targetTilt.y - tilt.y) * config.tiltLerpFactor;
-
-  // Apply parallax tilt to canvas container
-  if (container) {
-    const scale = dragZoom.value;
-    container.style.transform = `perspective(${config.perspective}px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(${scale})`;
-  }
+  // Smooth parallax (for shader)
+  parallax.x += (targetParallax.x - parallax.x) * config.parallaxLerpFactor;
+  parallax.y += (targetParallax.y - parallax.y) * config.parallaxLerpFactor;
 
   if (plane?.material?.uniforms) {
     plane.material.uniforms.uOffset.value.set(offset.x, offset.y);
     plane.material.uniforms.uTime.value = performance.now() * 0.001;
+    plane.material.uniforms.uParallax.value.set(parallax.x, parallax.y);
+    plane.material.uniforms.uDragZoom.value = dragZoom.value;
   }
 
   renderer.render(scene, camera);
@@ -556,11 +578,6 @@ const animate = () => {
 const init = async () => {
   container = document.getElementById("gallery");
   if (!container) return;
-
-  // Setup container for 3D transforms
-  container.style.transformStyle = "preserve-3d";
-  container.style.transformOrigin = "center center";
-  container.style.willChange = "transform";
 
   const width = container.offsetWidth;
   const height = container.offsetHeight;
@@ -596,6 +613,8 @@ const init = async () => {
       uCellSize: { value: config.cellSize },
       uFocusIndex: { value: -1 },
       uFocusState: { value: 0 },
+      uParallax: { value: new THREE.Vector2(0, 0) },
+      uDragZoom: { value: 1.0 },
     },
     transparent: true,
   });
@@ -603,35 +622,14 @@ const init = async () => {
   plane = new THREE.Mesh(geometry, material);
   scene.add(plane);
 
-  // Global mousemove for parallax (even when not dragging)
-  const onMouseMove = (e) => {
-    if (container) {
-      const rect = container.getBoundingClientRect();
-      mousePosition.x = (e.clientX - rect.left) / rect.width;
-      mousePosition.y = (e.clientY - rect.top) / rect.height;
-
-      // Clamp to reasonable bounds
-      mousePosition.x = Math.max(0, Math.min(1, mousePosition.x));
-      mousePosition.y = Math.max(0, Math.min(1, mousePosition.y));
-
-      // Update target tilt based on mouse position (centered at 0.5, 0.5)
-      targetTilt.x = (mousePosition.y - 0.5) * config.tiltMaxX * 2;
-      targetTilt.y = (mousePosition.x - 0.5) * -config.tiltMaxY * 2;
-    }
-  };
-
   // Event listeners (use canvas-level where possible)
   const canvas = renderer.domElement;
   canvas.addEventListener("pointerdown", onPointerDown);
   window.addEventListener("pointermove", onPointerMove);
   window.addEventListener("pointerup", onPointerUp);
-  window.addEventListener("mousemove", onMouseMove);
   canvas.addEventListener("wheel", onWheel, { passive: false });
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("resize", onResize);
-
-  // Store reference for cleanup
-  container._onMouseMove = onMouseMove;
 
   // UI Buttons
   const prevBtn = document.getElementById("archive-prev");
@@ -655,11 +653,6 @@ export function destroyArchiveScene() {
   if (animationId) {
     cancelAnimationFrame(animationId);
     animationId = null;
-  }
-
-  // Clean up mousemove listener
-  if (container?._onMouseMove) {
-    window.removeEventListener("mousemove", container._onMouseMove);
   }
 
   window.removeEventListener("pointermove", onPointerMove);
@@ -686,8 +679,8 @@ export function destroyArchiveScene() {
   focusState = { value: 0 };
   offset = { x: 0, y: 0 };
   targetOffset = { x: 0, y: 0 };
-  tilt = { x: 0, y: 0 };
-  targetTilt = { x: 0, y: 0 };
+  parallax = { x: 0, y: 0 };
+  targetParallax = { x: 0, y: 0 };
   dragZoom = { value: 1 };
   totalDragDistance = 0;
 }
