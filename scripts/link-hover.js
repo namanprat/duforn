@@ -16,7 +16,8 @@ const TRANSFORM_ORIGIN = "50% 50% -10px";
 const linkInstances = new WeakMap();
 
 export function initLinkHover() {
-  const navLinks = document.querySelectorAll('.nav-wrap a, .bottom-nav-wrap a, .btn a');
+  // Include .btn itself because buttons are anchors now
+  const navLinks = document.querySelectorAll('.nav-wrap a, .bottom-nav-wrap a, .btn, .btn a');
   
   navLinks.forEach(link => {
     // Skip if already initialized or excluded
@@ -29,15 +30,20 @@ export function initLinkHover() {
     const display = getComputedStyle(link).display;
     if (display === 'inline') link.style.display = 'inline-block';
     
+    const isButton = link.classList.contains('btn');
+    const baseLayout = isButton
+      ? { display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }
+      : {};
     gsap.set(link, { 
       position: 'relative',
       overflow: 'hidden',
-      perspective: 800
+      perspective: 800,
+      ...baseLayout
     });
     
     // Create dual text structure
-    const originalSpan = createTextSpan(originalText, false);
-    const italicSpan = createTextSpan(originalText, true);
+    const originalSpan = createTextSpan(originalText, false, isButton);
+    const italicSpan = createTextSpan(originalText, true, isButton);
     
     link.textContent = '';
     link.appendChild(originalSpan);
@@ -46,6 +52,17 @@ export function initLinkHover() {
     // Split once and reuse
     const originalSplit = new SplitText(originalSpan, { type: 'chars' });
     const italicSplit = new SplitText(italicSpan, { type: 'chars' });
+
+    // Fix spaces for buttons where flexbox collapses them
+    if (isButton) {
+      [originalSplit.chars, italicSplit.chars].forEach(chars => {
+        chars.forEach(char => {
+          if (char.textContent === ' ') {
+             gsap.set(char, { whiteSpace: 'pre', display: 'inline-block' });
+          }
+        });
+      });
+    }
     
     // Initial positions
     gsap.set(originalSplit.chars, { 
@@ -89,13 +106,18 @@ export function initLinkHover() {
   });
 }
 
-function createTextSpan(text, isItalic) {
+function createTextSpan(text, isItalic, isButton) {
   const span = document.createElement('span');
   span.textContent = text;
   
   gsap.set(span, {
-    display: 'block',
+    display: isButton ? 'flex' : 'block',
+    alignItems: isButton ? 'center' : 'initial',
+    justifyContent: isButton ? 'center' : 'initial',
     whiteSpace: 'nowrap',
+    width: '100%',
+    height: '100%',
+    textAlign: 'center',
     ...(isItalic && {
       position: 'absolute',
       top: 0,
@@ -139,7 +161,7 @@ function animateChars(originalChars, italicChars, isHover) {
 }
 
 export function destroyLinkHover() {
-  const navLinks = document.querySelectorAll('.nav-wrap a, .bottom-nav-wrap a, .btn a');
+  const navLinks = document.querySelectorAll('.nav-wrap a, .bottom-nav-wrap a, .btn, .btn a');
   
   navLinks.forEach(link => {
     const instance = linkInstances.get(link);
