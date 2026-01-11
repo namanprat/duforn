@@ -191,6 +191,21 @@ body {
   color: var(--theme-primary);
 }
 
+button {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  margin: 0;
+  padding: 0;
+  text-transform: inherit;
+}
+
 span {
   color: var(--theme-accent);
 }
@@ -351,6 +366,7 @@ p {
 }
 
 .btn {
+  
   background-image: url("data:image/svg+xml,%3Csvg%20width='230'%20height='74'%20viewBox='0%200%20230%2074'%20fill='none'%20xmlns='http://www.w3.org/2000/svg'%3E%3Cpath%20d='M228.186%2058.9639V14.1431C220.927%2014.1431%20215.042%208.25872%20215.042%201H14.1431C14.1431%208.25872%208.25872%2014.1431%201%2014.1431V58.9639C8.25872%2058.9639%2014.1431%2064.8482%2014.1431%2072.1069H215.042C215.042%2064.8482%20220.927%2058.9639%20228.186%2058.9639Z'%20stroke='white'%20stroke-width='2'/%3E%3C/svg%3E");
   background-size: contain;
   background-repeat: no-repeat;
