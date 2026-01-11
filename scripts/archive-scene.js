@@ -1,66 +1,147 @@
 import * as THREE from "three";
-import { GLTFLoader } from "three-stdlib";
-import { EffectComposer, RenderPass, EffectPass } from "postprocessing";
-import { ASCIIEffect } from "./ascii-effect.js";
 import { projects } from "./data.js";
-import { vertexShader, fragmentShader } from "./shaders.js";
 import gsap from "gsap";
+
+// --- Shaders ---
+const vertexShader = `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const fragmentShader = `
+  uniform vec2 uResolution;
+  uniform float uDistortion;
+  uniform float uTime;
+  uniform sampler2D uImageAtlas;
+  uniform float uTextureCount;
+  uniform vec2 uOffset;
+  uniform float uCellSize;
+  uniform float uFocusIndex;
+  uniform float uFocusState;
+
+  varying vec2 vUv;
+
+  void main() {
+    vec2 screenUV = (vUv - 0.5) * 2.0;
+
+    // Fisheye distortion
+    float radius = length(screenUV);
+    float distortion = 1.0 - uDistortion * radius * radius;
+    vec2 distortedUV = screenUV * distortion;
+
+    vec2 aspectRatio = vec2(uResolution.x / uResolution.y, 1.0);
+    vec2 worldCoord = distortedUV * aspectRatio + uOffset;
+
+    vec2 cellPos = worldCoord / uCellSize;
+    vec2 cellId = floor(cellPos);
+    vec2 cellUV = fract(cellPos);
+
+    float texIndex = mod(cellId.x + cellId.y * 3.0, uTextureCount);
+    if (texIndex < 0.0) texIndex += uTextureCount;
+    texIndex = floor(texIndex);
+
+    bool isFocused = abs(texIndex - uFocusIndex) < 0.1;
+
+    vec3 color = vec3(0.0);
+    float outAlpha = 0.0;
+
+    float baseImageSize = 0.7;
+    float targetImageSize = isFocused ? 0.92 : 0.5;
+    float imageSize = mix(baseImageSize, targetImageSize, uFocusState);
+
+    float imageBorder = (1.0 - imageSize) * 0.5;
+    vec2 imageUV = (cellUV - imageBorder) / imageSize;
+
+    float edgeSmooth = 0.02;
+    vec2 imageMask = smoothstep(-edgeSmooth, edgeSmooth, imageUV) *
+                    smoothstep(-edgeSmooth, edgeSmooth, 1.0 - imageUV);
+    float imageAlpha = imageMask.x * imageMask.y;
+
+    bool inImageArea = imageUV.x >= 0.0 && imageUV.x <= 1.0 && imageUV.y >= 0.0 && imageUV.y <= 1.0;
+
+    if (inImageArea && imageAlpha > 0.0) {
+      float atlasSize = ceil(sqrt(uTextureCount));
+      vec2 atlasPos = vec2(mod(texIndex, atlasSize), floor(texIndex / atlasSize));
+
+      // Chromatic Aberration
+      float caStrength = 0.015 * radius;
+      vec2 caOffset = screenUV * caStrength;
+
+      vec2 imageUVR = imageUV - caOffset;
+      vec2 atlasUVR = (atlasPos + clamp(imageUVR, 0.0, 1.0)) / atlasSize;
+      atlasUVR.y = 1.0 - atlasUVR.y;
+
+      vec2 imageUVG = imageUV;
+      vec2 atlasUVG = (atlasPos + imageUVG) / atlasSize;
+      atlasUVG.y = 1.0 - atlasUVG.y;
+
+      vec2 imageUVB = imageUV + caOffset;
+      vec2 atlasUVB = (atlasPos + clamp(imageUVB, 0.0, 1.0)) / atlasSize;
+      atlasUVB.y = 1.0 - atlasUVB.y;
+
+      float r = texture2D(uImageAtlas, atlasUVR).r;
+      float g = texture2D(uImageAtlas, atlasUVG).g;
+      float b = texture2D(uImageAtlas, atlasUVB).b;
+      float a = texture2D(uImageAtlas, atlasUVG).a;
+
+      vec3 finalImageColor = vec3(r, g, b);
+
+      // Darken non-focused images during focus
+      if (!isFocused) {
+        finalImageColor *= mix(1.0, 0.15, uFocusState);
+      }
+
+      color = finalImageColor;
+      outAlpha = imageAlpha * a;
+    }
+
+    // Vignette fade at edges
+    float fade = 1.0 - smoothstep(1.0, 1.6, radius);
+    outAlpha *= fade;
+
+    gl_FragColor = vec4(color * fade, outAlpha);
+  }
+`;
 
 // --- Configuration ---
 const config = {
-  cellSize: 0.75,
-  zoomLevel: 1.25,
-  lerpFactor: 0.05, // Slowed down by ~30%
-  borderColor: "rgba(255, 255, 255, 0.15)",
-  backgroundColor: "rgba(0, 0, 0, 0)",
-  textColor: "rgba(128, 128, 128, 1)",
-  hoverColor: "rgba(255, 255, 255, 0)",
+  cellSize: 0.65,
+  distortion: 0.06,
+  lerpFactor: 0.08,
 };
 
-// --- State Variables ---
-let renderer, composer;
+// --- State ---
 let isRunning = false;
+let container = null;
+let renderer = null;
+let scene = null;
+let camera = null;
+let plane = null;
 let animationId = null;
-let listeners = [];
-let disposables = [];
 
-// Background Scene (3D Model + ASCII)
-let sceneBackground, cameraBackground, model, asciiEffect;
-let mousePos = { x: 0, y: 0 };
-let cameraTarget = { angle: Math.PI / 2, y: 0 };
-let cameraCurrent = { angle: Math.PI / 2, y: 0 };
-const BASE_CAMERA_RADIUS = Math.sqrt(50) / 2.5;
-
-// Grid Scene (Infinite Grid)
-let sceneGrid, cameraGrid, plane;
-let isDragging = false, isClick = true, clickStartTime = 0;
+let offset = { x: 0, y: 0 };
+let targetOffset = { x: 0, y: 0 };
+let isDragging = false;
+let isClick = true;
+let clickStartTime = 0;
 let previousMouse = { x: 0, y: 0 };
-let offset = { x: 0, y: 0 }, targetOffset = { x: 0, y: 0 };
-let parallaxOffset = { x: 0, y: 0 }, targetParallaxOffset = { x: 0, y: 0 };
-let gridMousePosition = { x: -1, y: -1 };
-let zoomLevel = 1.0, targetZoom = 1.0;
-let distortionStrength = 0.08, targetDistortion = 0.08;
 
-// Focus Mode State
 let focusedIndex = -1;
 let focusState = { value: 0 };
-let asciiOpacity = { value: 1 };
-let currentFocusCell = { x: 0, y: 0 }; // Track the specific cell we focused on
+let currentFocusCell = { x: 0, y: 0 };
 
 // --- Helper Functions ---
-const rgbaToArray = (rgba) => {
-  const match = rgba.match(/rgba?\(([^)]+)\)/);
-  if (!match) return [1, 1, 1, 1];
-  return match[1].split(",").map((v, i) => i < 3 ? parseFloat(v.trim()) / 255 : parseFloat(v.trim() || 1));
-};
-
 const createTextureAtlas = (textures) => {
   const atlasSize = Math.ceil(Math.sqrt(textures.length));
   const textureSize = 512;
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = atlasSize * textureSize;
   const ctx = canvas.getContext("2d");
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   textures.forEach((texture, index) => {
     const x = (index % atlasSize) * textureSize;
@@ -81,13 +162,11 @@ const createTextureAtlas = (textures) => {
   });
 
   const atlasTexture = new THREE.CanvasTexture(canvas);
-  Object.assign(atlasTexture, {
-    wrapS: THREE.ClampToEdgeWrapping,
-    wrapT: THREE.ClampToEdgeWrapping,
-    minFilter: THREE.LinearFilter,
-    magFilter: THREE.LinearFilter,
-    flipY: false,
-  });
+  atlasTexture.wrapS = THREE.ClampToEdgeWrapping;
+  atlasTexture.wrapT = THREE.ClampToEdgeWrapping;
+  atlasTexture.minFilter = THREE.LinearFilter;
+  atlasTexture.magFilter = THREE.LinearFilter;
+  atlasTexture.flipY = false;
   return atlasTexture;
 };
 
@@ -100,34 +179,28 @@ const loadTextures = () => {
       const texture = textureLoader.load(project.image, () => {
         if (++loadedCount === projects.length) resolve(imageTextures);
       });
-      Object.assign(texture, {
-        wrapS: THREE.ClampToEdgeWrapping,
-        wrapT: THREE.ClampToEdgeWrapping,
-        minFilter: THREE.LinearFilter,
-        magFilter: THREE.LinearFilter,
-      });
+      texture.wrapS = THREE.ClampToEdgeWrapping;
+      texture.wrapT = THREE.ClampToEdgeWrapping;
+      texture.minFilter = THREE.LinearFilter;
+      texture.magFilter = THREE.LinearFilter;
       imageTextures.push(texture);
-      disposables.push(texture);
     });
   });
 };
 
-// Find the nearest cell to (centerX, centerY) that maps to targetIndex
 const findNearestCellForIndex = (targetIndex, centerX, centerY) => {
   let bestCell = { x: 0, y: 0 };
   let minDist = Infinity;
-  const radius = 20; // Increased search radius
+  const radius = 15;
 
   const cx = Math.round(centerX);
   const cy = Math.round(centerY);
 
   for (let x = cx - radius; x <= cx + radius; x++) {
     for (let y = cy - radius; y <= cy + radius; y++) {
-      // Calculate index for this cell
-      // Formula from shader: mod(cellId.x + cellId.y * 3.0, uTextureCount)
       let idx = (x + y * 3) % projects.length;
       if (idx < 0) idx += projects.length;
-      
+
       if (idx === targetIndex) {
         const dist = (x - centerX) ** 2 + (y - centerY) ** 2;
         if (dist < minDist) {
@@ -137,146 +210,99 @@ const findNearestCellForIndex = (targetIndex, centerX, centerY) => {
       }
     }
   }
-  
-  if (minDist === Infinity) {
-      console.warn("Could not find nearest cell for index", targetIndex);
-      return { x: cx, y: cy }; // Fallback
-  }
-  
   return bestCell;
 };
 
-const wrapChars = (text) => text.split('').map(c => `<span style="display:inline-block; will-change: transform;">${c === ' ' ? '&nbsp;' : c}</span>`).join('');
+// --- Title Animation ---
+const wrapChars = (text) =>
+  text.split("").map((c) =>
+    `<span style="display:inline-block; will-change: transform;">${c === " " ? "&nbsp;" : c}</span>`
+  ).join("");
 
 const animateTitle = (element, newText) => {
-    // If current text is not wrapped, wrap it
-    if (!element.querySelector('span')) {
-        element.innerHTML = wrapChars(element.textContent);
-    }
-    
-    const oldChars = element.querySelectorAll('span');
-    
-    gsap.to(oldChars, {
-        y: "100%",
-        opacity: 0,
-        stagger: 0.02,
-        duration: 0.4,
-        ease: "power2.in",
-        onComplete: () => {
-            element.innerHTML = wrapChars(newText);
-            const newChars = element.querySelectorAll('span');
-            gsap.fromTo(newChars, 
-                { y: "100%", opacity: 0 },
-                { y: "0%", opacity: 1, stagger: 0.02, duration: 0.4, ease: "power2.out" }
-            );
-        }
-    });
+  if (!element.querySelector("span")) {
+    element.innerHTML = wrapChars(element.textContent);
+  }
+  const oldChars = element.querySelectorAll("span");
+  gsap.to(oldChars, {
+    y: "100%",
+    opacity: 0,
+    stagger: 0.015,
+    duration: 0.25,
+    ease: "power2.in",
+    onComplete: () => {
+      element.innerHTML = wrapChars(newText);
+      const newChars = element.querySelectorAll("span");
+      gsap.fromTo(newChars,
+        { y: "100%", opacity: 0 },
+        { y: "0%", opacity: 1, stagger: 0.015, duration: 0.25, ease: "power2.out" }
+      );
+    },
+  });
 };
 
-// --- Focus Mode Logic ---
+// --- Focus Mode ---
 const updateDOMOverlay = (index) => {
   const overlay = document.getElementById("archive-overlay");
   const title = document.getElementById("archive-title");
-  const year = document.getElementById("archive-year");
-  
+
   if (index !== -1) {
     const newTitleText = projects[index].title;
-    const newYearText = projects[index].year;
-
     if (title) {
-        // Check if overlay is already visible (navigation mode)
-        if (overlay.style.opacity === "1" && title.textContent.replace(/\u00a0/g, ' ') !== newTitleText) {
-             animateTitle(title, newTitleText);
-        } else {
-             // Initial open or same title
-             title.innerHTML = wrapChars(newTitleText);
-             gsap.set(title.querySelectorAll('span'), { y: "0%", opacity: 1 });
-        }
+      if (overlay.classList.contains("active") && title.textContent.replace(/\u00a0/g, " ") !== newTitleText) {
+        animateTitle(title, newTitleText);
+      } else {
+        title.innerHTML = wrapChars(newTitleText);
+        gsap.set(title.querySelectorAll("span"), { y: "0%", opacity: 1 });
+      }
     }
-    
-    if (year) year.textContent = newYearText;
-    
-    if (overlay) {
-      overlay.style.opacity = "1";
-      overlay.style.pointerEvents = "auto";
-    }
+    overlay.classList.add("active");
   } else {
-    if (overlay) {
-      overlay.style.opacity = "0";
-      overlay.style.pointerEvents = "none";
-    }
+    overlay.classList.remove("active");
   }
 };
 
 const enterFocusMode = (index, cellX, cellY) => {
   if (focusedIndex === index && currentFocusCell.x === cellX && currentFocusCell.y === cellY) return;
-  
+
   focusedIndex = index;
   currentFocusCell = { x: cellX, y: cellY };
-  
-  // Update Shader Uniforms
+
   if (plane?.material?.uniforms) {
     plane.material.uniforms.uFocusIndex.value = index;
   }
 
-  // Animate Values
   gsap.to(focusState, {
     value: 1,
-    duration: 0.8,
-    ease: "power3.out",
+    duration: 0.5,
+    ease: "power2.out",
     onUpdate: () => {
       if (plane?.material?.uniforms) {
         plane.material.uniforms.uFocusState.value = focusState.value;
       }
-    }
+    },
   });
 
-  gsap.to(asciiOpacity, {
-    value: 0.05,
-    duration: 0.8,
-    ease: "power3.out",
-    onUpdate: () => {
-      if (asciiEffect?.uniforms.get('uOpacity')) {
-        asciiEffect.uniforms.get('uOpacity').value = asciiOpacity.value;
-      }
-    }
-  });
-
-  // Center Camera on Cell
-  const targetX = (cellX + 0.5) * config.cellSize;
-  const targetY = (cellY + 0.5) * config.cellSize;
-  
-  targetOffset.x = targetX;
-  targetOffset.y = targetY;
+  // Center on the cell
+  targetOffset.x = (cellX + 0.5) * config.cellSize;
+  targetOffset.y = (cellY + 0.5) * config.cellSize;
 
   updateDOMOverlay(index);
 };
 
 const exitFocusMode = () => {
   if (focusedIndex === -1) return;
-  
   focusedIndex = -1;
-  
+
   gsap.to(focusState, {
     value: 0,
-    duration: 0.6,
-    ease: "power3.out",
+    duration: 0.4,
+    ease: "power2.out",
     onUpdate: () => {
       if (plane?.material?.uniforms) {
         plane.material.uniforms.uFocusState.value = focusState.value;
       }
-    }
-  });
-
-  gsap.to(asciiOpacity, {
-    value: 1,
-    duration: 0.6,
-    ease: "power3.out",
-    onUpdate: () => {
-      if (asciiEffect?.uniforms.get('uOpacity')) {
-        asciiEffect.uniforms.get('uOpacity').value = asciiOpacity.value;
-      }
-    }
+    },
   });
 
   updateDOMOverlay(-1);
@@ -284,372 +310,234 @@ const exitFocusMode = () => {
 
 const navigateProject = (direction) => {
   if (focusedIndex === -1) return;
-  
+
   let nextIndex = focusedIndex + direction;
   if (nextIndex >= projects.length) nextIndex = 0;
   if (nextIndex < 0) nextIndex = projects.length - 1;
-  
-  // Find nearest cell for this index relative to current focus
-  const currentCX = currentFocusCell.x;
-  const currentCY = currentFocusCell.y;
-  
-  const nextCell = findNearestCellForIndex(nextIndex, currentCX, currentCY);
+
+  const nextCell = findNearestCellForIndex(nextIndex, currentFocusCell.x, currentFocusCell.y);
   enterFocusMode(nextIndex, nextCell.x, nextCell.y);
 };
 
-// --- Event Handlers ---
-const onWindowResize = () => {
-  const container = document.getElementById("gallery");
-  if (!container || !renderer) return;
+// --- Click Detection ---
+const getClickedCell = (clientX, clientY) => {
+  if (!renderer) return null;
 
-  const width = Math.max(1, container.offsetWidth || window.innerWidth || 1);
-  const height = Math.max(1, container.offsetHeight || window.innerHeight || 1);
-
-  if (cameraBackground) {
-    cameraBackground.aspect = width / height;
-    cameraBackground.updateProjectionMatrix();
-  }
-
-  renderer.setSize(width, height);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  if (composer) composer.setSize(width, height);
-  
-  if (plane?.material?.uniforms) {
-    plane.material.uniforms.uResolution.value.set(width, height);
-  }
-};
-
-const onMouseMove = (event) => {
-  // 1. Background Camera Logic
-  mousePos.x = (event.clientX / window.innerWidth) * 2 - 1;
-  mousePos.y = -(event.clientY / window.innerHeight) * 2 + 1;
-  cameraTarget.angle = Math.PI / 2 - mousePos.x * 0.1;
-  cameraTarget.y = mousePos.y * 0.4;
-
-  // 2. Grid Logic
-  if (!renderer) return;
   const rect = renderer.domElement.getBoundingClientRect();
-  gridMousePosition.x = event.clientX - rect.left;
-  gridMousePosition.y = event.clientY - rect.top;
-  
-  if (plane?.material?.uniforms) {
-    plane.material.uniforms.uMousePos.value.set(gridMousePosition.x, gridMousePosition.y);
-  }
+  const screenX = ((clientX - rect.left) / rect.width) * 2 - 1;
+  const screenY = -(((clientY - rect.top) / rect.height) * 2 - 1);
 
-  // Parallax for grid (disable if focused)
-  const ndcX = (gridMousePosition.x / rect.width) * 2 - 1;
-  const ndcY = -(gridMousePosition.y / rect.height) * 2 + 1;
-  const parallaxStrength = focusedIndex !== -1 ? 0.0 : 0.05; // Disabled when focused
-  targetParallaxOffset.x = ndcX * parallaxStrength;
-  targetParallaxOffset.y = ndcY * parallaxStrength;
+  // Apply same distortion as shader
+  const radius = Math.sqrt(screenX * screenX + screenY * screenY);
+  const distortion = 1.0 - config.distortion * radius * radius;
 
-  // Drag Logic
-  if (isDragging) {
-    const deltaX = event.clientX - previousMouse.x;
-    const deltaY = event.clientY - previousMouse.y;
+  const aspectRatio = rect.width / rect.height;
+  let worldX = screenX * distortion * aspectRatio + offset.x;
+  let worldY = screenY * distortion + offset.y;
 
-    if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
-      isClick = false;
-      if (targetZoom === 1.0) targetZoom = config.zoomLevel;
-      
-      // If dragging while focused, exit focus mode
-      if (focusedIndex !== -1) {
-        exitFocusMode();
-      }
-    }
+  const cellX = Math.floor(worldX / config.cellSize);
+  const cellY = Math.floor(worldY / config.cellSize);
 
-    targetOffset.x -= deltaX * 0.003;
-    targetOffset.y += deltaY * 0.003;
+  // Check if click is on image (images occupy ~70% of cell, centered)
+  const cellUVX = worldX / config.cellSize - cellX;
+  const cellUVY = worldY / config.cellSize - cellY;
 
-    previousMouse.x = event.clientX;
-    previousMouse.y = event.clientY;
-  }
+  const imageSize = focusedIndex === -1 ? 0.7 : (focusState.value > 0.5 ? 0.92 : 0.7);
+  const border = (1 - imageSize) / 2;
+  const isOnImage = cellUVX > border && cellUVX < (1 - border) &&
+                    cellUVY > border && cellUVY < (1 - border);
+
+  let texIndex = (cellX + cellY * 3) % projects.length;
+  if (texIndex < 0) texIndex += projects.length;
+
+  return { cellX, cellY, texIndex, isOnImage };
 };
 
-const startDrag = (x, y) => {
+// --- Event Handlers ---
+const onPointerDown = (e) => {
+  // Allow navbar and UI buttons to work
+  if (e.target.closest(".nav-wrap") ||
+      e.target.closest(".nav-btn") ||
+      e.target.closest(".menu-wrap") ||
+      e.target.closest(".bottom-nav-wrap")) {
+    return;
+  }
+
   isDragging = true;
   isClick = true;
   clickStartTime = Date.now();
-  document.body.classList.add("dragging");
-  previousMouse.x = x;
-  previousMouse.y = y;
-  targetDistortion = 0.0;
+  previousMouse.x = e.clientX;
+  previousMouse.y = e.clientY;
 };
 
-const onPointerDown = (e) => {
-  // Ignore clicks on UI buttons
-  if (e.target.closest('.nav-btn') || e.target.closest('#archive-close')) return;
-  startDrag(e.clientX, e.clientY);
-  // Immediately zoom out on mousedown (same as dragging)
-  if (targetZoom === 1.0) targetZoom = config.zoomLevel;
+const onPointerMove = (e) => {
+  if (!isDragging) return;
+
+  const deltaX = e.clientX - previousMouse.x;
+  const deltaY = e.clientY - previousMouse.y;
+
+  if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+    isClick = false;
+
+    // Exit focus when dragging
+    if (focusedIndex !== -1) {
+      exitFocusMode();
+    }
+  }
+
+  targetOffset.x -= deltaX * 0.002;
+  targetOffset.y += deltaY * 0.002;
+
+  previousMouse.x = e.clientX;
+  previousMouse.y = e.clientY;
 };
 
-const onTouchStart = (e) => {
-  if (e.target.closest('.nav-btn') || e.target.closest('#archive-close')) return;
-  e.preventDefault();
-  startDrag(e.touches[0].clientX, e.touches[0].clientY);
-  // Immediately zoom out on touch down (same as dragging)
-  if (targetZoom === 1.0) targetZoom = config.zoomLevel;
-};
-
-const onPointerUp = (event) => {
+const onPointerUp = (e) => {
+  if (!isDragging) return;
   isDragging = false;
-  document.body.classList.remove("dragging");
-  targetZoom = 1.0;
-  targetDistortion = 0.08;
 
-  if (isClick && Date.now() - clickStartTime < 200) {
-    const endX = event.clientX || event.changedTouches?.[0]?.clientX;
-    const endY = event.clientY || event.changedTouches?.[0]?.clientY;
+  if (isClick && Date.now() - clickStartTime < 250) {
+    const result = getClickedCell(e.clientX, e.clientY);
+    if (!result) return;
 
-    if (endX !== undefined && endY !== undefined && renderer) {
-      const rect = renderer.domElement.getBoundingClientRect();
-      const screenX = ((endX - rect.left) / rect.width) * 2 - 1;
-      const screenY = -(((endY - rect.top) / rect.height) * 2 - 1);
+    const { cellX, cellY, texIndex, isOnImage } = result;
 
-      const radius = Math.sqrt(screenX * screenX + screenY * screenY);
-      const distortion = 1.0 - 0.08 * radius * radius;
-
-      let worldX = screenX * distortion * (rect.width / rect.height) * zoomLevel + offset.x;
-      let worldY = screenY * distortion * zoomLevel + offset.y;
-
-      const cellX = Math.floor(worldX / config.cellSize);
-      const cellY = Math.floor(worldY / config.cellSize);
-      
-      // Calculate UV within the cell to detect "whitespace" (gaps between images)
-      const cellUVX = worldX / config.cellSize - cellX;
-      const cellUVY = worldY / config.cellSize - cellY;
-      
-      // Shader uses approx 0.6 image size centered. 
-      // So image is from 0.2 to 0.8.
-      // Let's be slightly generous with the hit area, say 0.15 to 0.85.
-      const isClickOnImage = cellUVX > 0.15 && cellUVX < 0.85 && cellUVY > 0.15 && cellUVY < 0.85;
-
-      const texIndex = Math.floor((cellX + cellY * 3.0) % projects.length);
-      const actualIndex = texIndex < 0 ? projects.length + texIndex : texIndex;
-
-      // Click Logic
-      if (focusedIndex === -1) {
-        // Enter Focus if clicked on an image
-        if (isClickOnImage) {
-            enterFocusMode(actualIndex, cellX, cellY);
-        }
+    if (focusedIndex === -1) {
+      if (isOnImage) {
+        enterFocusMode(texIndex, cellX, cellY);
+      }
+    } else {
+      if (!isOnImage) {
+        exitFocusMode();
+      } else if (texIndex !== focusedIndex || cellX !== currentFocusCell.x || cellY !== currentFocusCell.y) {
+        enterFocusMode(texIndex, cellX, cellY);
       } else {
-        // If already focused
-        if (!isClickOnImage) {
-            // Clicked on whitespace -> Exit
-            exitFocusMode();
-        } else {
-            // Clicked on an image
-            if (actualIndex !== focusedIndex || cellX !== currentFocusCell.x || cellY !== currentFocusCell.y) {
-               enterFocusMode(actualIndex, cellX, cellY);
-            }
-        }
+        exitFocusMode();
       }
     }
+  }
+};
+
+const onWheel = (e) => {
+  // Only handle wheel on canvas
+  if (!e.target.closest("#gallery")) return;
+
+  e.preventDefault();
+  targetOffset.x += e.deltaX * 0.001;
+  targetOffset.y -= e.deltaY * 0.001;
+
+  if (focusedIndex !== -1 && (Math.abs(e.deltaX) > 10 || Math.abs(e.deltaY) > 10)) {
+    exitFocusMode();
   }
 };
 
 const onKeyDown = (e) => {
   if (focusedIndex === -1) return;
-  
-  if (e.key === "ArrowRight") navigateProject(1);
-  if (e.key === "ArrowLeft") navigateProject(-1);
-  if (e.key === "Escape") exitFocusMode();
-};
 
-const addListener = (target, type, handler, opts) => {
-  target.addEventListener(type, handler, opts);
-  listeners.push({ target, type, handler, opts });
-};
-
-const setupEventListeners = () => {
-  addListener(document, "mousedown", onPointerDown);
-  addListener(document, "mousemove", onMouseMove);
-  addListener(document, "mouseup", onPointerUp);
-  addListener(document, "mouseleave", onPointerUp);
-
-  const passiveOpts = { passive: false };
-  addListener(document, "touchstart", onTouchStart, passiveOpts);
-  addListener(document, "touchmove", (e) => {
+  if (e.key === "ArrowRight") {
     e.preventDefault();
-    if (isDragging) {
-        const touch = e.touches[0];
-        const deltaX = touch.clientX - previousMouse.x;
-        const deltaY = touch.clientY - previousMouse.y;
-        
-        if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
-            isClick = false;
-            if (targetZoom === 1.0) targetZoom = config.zoomLevel;
-            if (focusedIndex !== -1) exitFocusMode();
-        }
-        
-        targetOffset.x -= deltaX * 0.003;
-        targetOffset.y += deltaY * 0.003;
-        
-        previousMouse.x = touch.clientX;
-        previousMouse.y = touch.clientY;
-    }
-  }, passiveOpts);
-  addListener(document, "touchend", onPointerUp, passiveOpts);
-
-  addListener(window, "resize", onWindowResize);
-  addListener(document, "contextmenu", (e) => e.preventDefault());
-  addListener(window, "keydown", onKeyDown);
-
-  addListener(window, "wheel", (e) => {
+    navigateProject(1);
+  } else if (e.key === "ArrowLeft") {
     e.preventDefault();
-    const sensitivity = 0.002;
-    targetOffset.x += e.deltaX * sensitivity;
-    targetOffset.y -= e.deltaY * sensitivity;
-    
-    // Exit focus on scroll?
-    if (focusedIndex !== -1 && (Math.abs(e.deltaX) > 5 || Math.abs(e.deltaY) > 5)) {
-        exitFocusMode();
-    }
-  }, { passive: false });
-
-  // UI Buttons
-  const closeBtn = document.getElementById("archive-close");
-  const prevBtn = document.getElementById("archive-prev");
-  const nextBtn = document.getElementById("archive-next");
-
-  if (closeBtn) addListener(closeBtn, "click", (e) => { e.stopPropagation(); exitFocusMode(); });
-  if (prevBtn) addListener(prevBtn, "click", (e) => { e.stopPropagation(); navigateProject(-1); });
-  if (nextBtn) addListener(nextBtn, "click", (e) => { e.stopPropagation(); navigateProject(1); });
+    navigateProject(-1);
+  } else if (e.key === "Escape") {
+    e.preventDefault();
+    exitFocusMode();
+  }
 };
 
-// --- Animation Loop ---
+const onResize = () => {
+  if (!container || !renderer) return;
+
+  const width = container.offsetWidth;
+  const height = container.offsetHeight;
+
+  renderer.setSize(width, height);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+  if (plane?.material?.uniforms) {
+    plane.material.uniforms.uResolution.value.set(width, height);
+  }
+};
+
+// --- Animation ---
 const animate = () => {
   if (!isRunning) return;
   animationId = requestAnimationFrame(animate);
 
-  // 1. Update Background Camera (Perspective)
-  cameraCurrent.angle += (cameraTarget.angle - cameraCurrent.angle) * 0.025;
-  cameraCurrent.y += (cameraTarget.y - cameraCurrent.y) * 0.025;
-
-  const scrollY = window.scrollY;
-  const zoomSpeed = 0.001;
-  const currentRadius = Math.max(0.5, BASE_CAMERA_RADIUS - (scrollY * zoomSpeed));
-
-  if (cameraBackground) {
-    cameraBackground.position.x = Math.cos(cameraCurrent.angle) * currentRadius;
-    cameraBackground.position.z = Math.sin(cameraCurrent.angle) * currentRadius;
-    cameraBackground.position.y = cameraCurrent.y + 1;
-    cameraBackground.lookAt(0, 0, 0);
-  }
-
-  // 2. Update Grid State
+  // Smooth offset
   offset.x += (targetOffset.x - offset.x) * config.lerpFactor;
   offset.y += (targetOffset.y - offset.y) * config.lerpFactor;
-  parallaxOffset.x += (targetParallaxOffset.x - parallaxOffset.x) * 0.05;
-  parallaxOffset.y += (targetParallaxOffset.y - parallaxOffset.y) * 0.05;
-  zoomLevel += (targetZoom - zoomLevel) * 0.15;
-  distortionStrength += (targetDistortion - distortionStrength) * config.lerpFactor;
 
   if (plane?.material?.uniforms) {
-    plane.material.uniforms.uOffset.value.set(offset.x + parallaxOffset.x, offset.y + parallaxOffset.y);
-    plane.material.uniforms.uZoom.value = zoomLevel;
-    plane.material.uniforms.uDistortion.value = distortionStrength;
+    plane.material.uniforms.uOffset.value.set(offset.x, offset.y);
     plane.material.uniforms.uTime.value = performance.now() * 0.001;
   }
 
-  // 3. Render
-  if (composer) {
-    composer.render();
-  }
-
-  if (renderer && sceneGrid && cameraGrid) {
-    renderer.autoClear = false;
-    renderer.clearDepth();
-    renderer.render(sceneGrid, cameraGrid);
-    renderer.autoClear = true;
-  }
+  renderer.render(scene, camera);
 };
 
-// --- Initialization ---
+// --- Initialize ---
 const init = async () => {
-  const container = document.getElementById("gallery");
+  container = document.getElementById("gallery");
   if (!container) return;
 
-  const width = Math.max(1, container.offsetWidth || window.innerWidth || 1);
-  const height = Math.max(1, container.offsetHeight || window.innerHeight || 1);
+  const width = container.offsetWidth;
+  const height = container.offsetHeight;
 
-  // 1. Setup Renderer
+  // Renderer
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setSize(width, height);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setClearColor(0x000000, 0);
   container.appendChild(renderer.domElement);
 
-  // 2. Setup Background Scene
-  sceneBackground = new THREE.Scene();
-  cameraBackground = new THREE.PerspectiveCamera(100, width / height, 0.1, 1000);
-  
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-  sceneBackground.add(ambientLight);
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-  directionalLight.position.set(5, 5, 5);
-  sceneBackground.add(directionalLight);
+  // Scene & Camera
+  scene = new THREE.Scene();
+  camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
+  camera.position.z = 1;
 
-  const gltfLoader = new GLTFLoader();
-  gltfLoader.load('/home/scene.glb', (gltf) => {
-    model = gltf.scene;
-    sceneBackground.add(model);
-  }, undefined, (err) => console.error('Failed to load scene.glb', err));
-
-  composer = new EffectComposer(renderer);
-  const renderPass = new RenderPass(sceneBackground, cameraBackground);
-  composer.addPass(renderPass);
-  asciiEffect = new ASCIIEffect({
-    fontSize: 54,
-    cellSize: 16,
-    color: "#ffffff",
-    fontFamily: 'secondary'
-  });
-  const effectPass = new EffectPass(cameraBackground, asciiEffect);
-  composer.addPass(effectPass);
-
-  // 3. Setup Grid Scene
-  sceneGrid = new THREE.Scene();
-  cameraGrid = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
-  cameraGrid.position.z = 1;
-
+  // Load textures
   const imageTextures = await loadTextures();
   const imageAtlas = createTextureAtlas(imageTextures);
-  disposables.push(imageAtlas);
 
-  const uniforms = {
-    uOffset: { value: new THREE.Vector2(0, 0) },
-    uResolution: { value: new THREE.Vector2(width, height) },
-    uBorderColor: { value: new THREE.Vector4(...rgbaToArray(config.borderColor)) },
-    uHoverColor: { value: new THREE.Vector4(...rgbaToArray(config.hoverColor)) },
-    uMousePos: { value: new THREE.Vector2(-1, -1) },
-    uZoom: { value: 1.0 },
-    uDistortion: { value: 0.08 },
-    uTime: { value: 0 },
-    uCellSize: { value: config.cellSize },
-    uTextureCount: { value: projects.length },
-    uImageAtlas: { value: imageAtlas },
-    uFocusIndex: { value: -1 },
-    uFocusState: { value: 0.0 },
-  };
-
+  // Shader plane
   const geometry = new THREE.PlaneGeometry(2, 2);
   const material = new THREE.ShaderMaterial({
     vertexShader,
     fragmentShader,
-    uniforms,
+    uniforms: {
+      uResolution: { value: new THREE.Vector2(width, height) },
+      uDistortion: { value: config.distortion },
+      uTime: { value: 0 },
+      uImageAtlas: { value: imageAtlas },
+      uTextureCount: { value: projects.length },
+      uOffset: { value: new THREE.Vector2(0, 0) },
+      uCellSize: { value: config.cellSize },
+      uFocusIndex: { value: -1 },
+      uFocusState: { value: 0 },
+    },
     transparent: true,
   });
 
   plane = new THREE.Mesh(geometry, material);
-  sceneGrid.add(plane);
+  scene.add(plane);
 
-  // 4. Start
-  setupEventListeners();
+  // Event listeners (use canvas-level where possible)
+  const canvas = renderer.domElement;
+  canvas.addEventListener("pointerdown", onPointerDown);
+  window.addEventListener("pointermove", onPointerMove);
+  window.addEventListener("pointerup", onPointerUp);
+  canvas.addEventListener("wheel", onWheel, { passive: false });
+  window.addEventListener("keydown", onKeyDown);
+  window.addEventListener("resize", onResize);
+
+  // UI Buttons
+  const prevBtn = document.getElementById("archive-prev");
+  const nextBtn = document.getElementById("archive-next");
+  if (prevBtn) prevBtn.addEventListener("click", (e) => { e.stopPropagation(); navigateProject(-1); });
+  if (nextBtn) nextBtn.addEventListener("click", (e) => { e.stopPropagation(); navigateProject(1); });
+
   isRunning = true;
   animate();
 };
@@ -662,13 +550,16 @@ export async function initArchiveScene() {
 export function destroyArchiveScene() {
   if (!isRunning) return;
   isRunning = false;
+
   if (animationId) {
     cancelAnimationFrame(animationId);
     animationId = null;
   }
 
-  listeners.forEach(({ target, type, handler, opts }) => target.removeEventListener(type, handler, opts));
-  listeners = [];
+  window.removeEventListener("pointermove", onPointerMove);
+  window.removeEventListener("pointerup", onPointerUp);
+  window.removeEventListener("keydown", onKeyDown);
+  window.removeEventListener("resize", onResize);
 
   if (renderer) {
     renderer.dispose();
@@ -676,19 +567,17 @@ export function destroyArchiveScene() {
       renderer.domElement.parentNode.removeChild(renderer.domElement);
     }
   }
-  if (composer) composer.dispose();
-  
+
   if (plane?.material) plane.material.dispose();
   if (plane?.geometry) plane.geometry.dispose();
-  
-  disposables.forEach((tex) => tex?.dispose?.());
-  disposables = [];
 
-  sceneBackground = null;
-  cameraBackground = null;
-  sceneGrid = null;
-  cameraGrid = null;
-  model = null;
+  container = null;
+  renderer = null;
+  scene = null;
+  camera = null;
   plane = null;
-  asciiEffect = null;
+  focusedIndex = -1;
+  focusState = { value: 0 };
+  offset = { x: 0, y: 0 };
+  targetOffset = { x: 0, y: 0 };
 }
