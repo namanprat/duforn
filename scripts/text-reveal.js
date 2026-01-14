@@ -3,6 +3,7 @@ import { SplitText } from "gsap/SplitText";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 const splits = new WeakMap();
+const splitTracking = []; // Track splits so we can revert them
 const scrollTriggers = [];
 
 gsap.registerPlugin(SplitText, ScrollTrigger);
@@ -11,21 +12,48 @@ function tweenToPromise(tween) {
   return tween ? new Promise((resolve) => tween.eventCallback("onComplete", resolve)) : Promise.resolve();
 }
 
-function getOrSplit(element) {
+function getOrSplit(element, options = { type: "lines, words, chars" }) {
   if (!element) return null;
+  // If we already split it with the exact same options, return cached
+  // But for body-text-reveal we might need different options (e.g. lines only, mask lines)
+  // For simplicity here, we'll just check if it's already split.
+  // Warning: mixed usage on same element might overlap.
   if (splits.has(element)) return splits.get(element);
   
-  const split = new SplitText(element, { type: "lines, words, chars" });
+  const split = new SplitText(element, options);
   
-  // Batch overflow style updates
+  // Batch overflow style updates and handle indentation if "lines" are present
   if (split.lines?.length) {
-    const fragment = document.createDocumentFragment();
-    for (let i = 0; i < split.lines.length; i++) {
-      split.lines[i].style.overflow = "hidden";
+    const computedStyle = window.getComputedStyle(element);
+    const textIndent = computedStyle.textIndent;
+    
+    // Check if there's indentation to preserve on the first line
+    if (textIndent && textIndent !== "0px" && split.lines.length > 0) {
+       split.lines[0].style.paddingLeft = textIndent;
+       element.style.textIndent = "0";
     }
+
+    // Wrap each line in a parent div with u-overflow-hidden to create the mask
+    split.lines.forEach(line => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "u-overflow-hidden"; // Added user requested class
+      wrapper.style.display = "block";
+      wrapper.style.width = "100%"; // Ensure full width
+      
+      // Insert wrapper before line, then move line into wrapper
+      line.parentNode.insertBefore(wrapper, line);
+      wrapper.appendChild(line);
+      
+      // Ensure line display is block for transform consistency
+      line.style.display = "block";
+      line.style.width = "100%";
+      // Reset any default overflow if needed
+      line.style.overflow = "visible"; 
+    });
   }
   
   splits.set(element, split);
+  splitTracking.push(split); // Track for cleanup
   return split;
 }
 
@@ -91,6 +119,7 @@ function initScrollTextReveals() {
   const regular = document.querySelectorAll(".text-reveal:not(.hero .text-reveal)");
   const reverse = document.querySelectorAll(".text-reveal-reverse:not(.hero .text-reveal-reverse)");
   const headers = document.querySelectorAll(".text-reveal-header:not(.hero .text-reveal-header)");
+  const bodyReveals = document.querySelectorAll(".body-text-reveal");
   
   // Process regular reveals
   for (let i = 0; i < regular.length; i++) {
@@ -181,6 +210,37 @@ function initScrollTextReveals() {
       scrollTriggers.push(tween.scrollTrigger);
     }
   }
+
+  // Process body text reveals (lines)
+  for (let i = 0; i < bodyReveals.length; i++) {
+    const el = bodyReveals[i];
+    // Use specific config for body text: just lines, mask logic handled in getOrSplit
+    const split = getOrSplit(el, { type: "lines", linesClass: "line++" });
+    if (!split?.lines?.length) continue;
+    
+    // Set initial state: y: 100% (slide up from bottom of line height)
+    gsap.set(split.lines, { y: "100%" });
+
+    const tween = gsap.to(
+      split.lines,
+      {
+        y: "0%",
+        duration: 1,
+        stagger: 0.1,
+        ease: "power4.out",
+        scrollTrigger: {
+          trigger: el,
+          start: "top 80%", // enter 20% into viewport (80% from top)
+          // Play on enter, none on leave, play on enter back, none on leave back
+          toggleActions: "play none play none" 
+        },
+      }
+    );
+    
+    if (tween.scrollTrigger) {
+      scrollTriggers.push(tween.scrollTrigger);
+    }
+  }
 }
 
 // Cleanup function for ScrollTriggers
@@ -191,4 +251,16 @@ function cleanupScrollTriggers() {
   }
 }
 
-export { getOrSplit, animateRevealEnter, initScrollTextReveals, cleanupScrollTriggers };
+// Cleanup function to revert all splits and clear cache
+function cleanupSplits() {
+  // Revert all tracked splits to restore original text
+  for (let i = splitTracking.length - 1; i >= 0; i--) {
+    const split = splitTracking[i];
+    if (split && typeof split.revert === 'function') {
+      split.revert();
+    }
+  }
+  splitTracking.length = 0; // Clear the tracking array
+}
+
+export { getOrSplit, animateRevealEnter, initScrollTextReveals, cleanupScrollTriggers, cleanupSplits };

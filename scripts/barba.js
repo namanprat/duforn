@@ -7,7 +7,7 @@ import { initIndex, destroyIndex } from './index.js';
 import { initVariableFont } from './variable-font.js';
 import { initWork, destroyWork } from './work.js';
 import { initArchiveScene, destroyArchiveScene } from './archive-scene.js';
-import { animateRevealEnter, initScrollTextReveals, getOrSplit, cleanupScrollTriggers } from './text-reveal.js';
+import { animateRevealEnter, initScrollTextReveals, getOrSplit, cleanupScrollTriggers, cleanupSplits } from './text-reveal.js';
 import webgl, { destroyWebgl } from './three.js';
 import { initLinkHover, destroyLinkHover } from './link-hover.js';
 
@@ -81,6 +81,8 @@ barba.init({
       to: { namespace: ['home', 'contact'] },
       async leave(data) {
         closeMenuIfOpen();
+        cleanupScrollTriggers(); // Clean up old ScrollTriggers first
+        cleanupSplits(); // Also revert splits to restore original text
         const container = data?.current?.container;
         if (!container) return;
 
@@ -168,6 +170,7 @@ barba.init({
           destroyArchiveScene();
         }
         cleanupScrollTriggers(); // Clean up ScrollTriggers before transition
+        cleanupSplits(); // Revert splits
         closeMenuIfOpen();
         await animateTransition();
       },

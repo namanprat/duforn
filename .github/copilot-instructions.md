@@ -23,7 +23,7 @@ Each page is a separate HTML entry in `vite.config.js`:
 
 | File | Namespace | Features |
 |------|-----------|----------|
-| `index.html` | `home` | Hero, WebGL background, spotlight gallery |
+| `index.html` | `home` | Hero, WebGL background, WebGL gallery |
 | `work.html` | `work` | Infinite slider, thumbnail wheel |
 | `archive.html` | `archive` | 3D archive visualization |
 | `film.html` | `film` | Film showcase |
@@ -51,9 +51,6 @@ scripts/
 ```
 data/
 ├── work-items.js   # Project data for work page
-├── services.js     # Services list
-├── directors.js    # Directors info
-└── slides.js       # Slider configuration
 ```
 
 ---
@@ -250,7 +247,6 @@ All assets in `public/` are served at root:
 ```
 public/
 ├── home/          # 3D models, textures
-├── spotlight/     # Project thumbnails
 ├── work/          # Work page images
 ├── canvas/        # Canvas assets
 └── sample-film/   # Video content

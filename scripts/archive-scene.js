@@ -21,19 +21,27 @@ const fragmentShader = `
   uniform float uCellSize;
   uniform float uFocusIndex;
   uniform float uFocusState;
+  uniform float uMousePressed;
+  uniform float uZoom;
+  uniform float uIntroProgress;
 
   varying vec2 vUv;
 
   void main() {
     vec2 screenUV = (vUv - 0.5) * 2.0;
 
-    // Fisheye distortion
+    // Apply zoom
+    screenUV /= uZoom;
+
+    // Fisheye distortion - flattens when mouse is pressed
     float radius = length(screenUV);
-    float distortion = 1.0 - uDistortion * radius * radius;
+    float effectiveDistortion = mix(uDistortion, 0.0, uMousePressed);
+    float distortion = 1.0 - effectiveDistortion * radius * radius;
     vec2 distortedUV = screenUV * distortion;
 
     vec2 aspectRatio = vec2(uResolution.x / uResolution.y, 1.0);
-    vec2 worldCoord = distortedUV * aspectRatio + uOffset;
+    // Expand from center based on intro progress
+    vec2 worldCoord = (distortedUV * aspectRatio) * uIntroProgress + uOffset;
 
     vec2 cellPos = worldCoord / uCellSize;
     vec2 cellId = floor(cellPos);
@@ -51,6 +59,9 @@ const fragmentShader = `
     float baseImageSize = 0.7;
     float targetImageSize = isFocused ? 0.92 : 0.5;
     float imageSize = mix(baseImageSize, targetImageSize, uFocusState);
+    
+    // Scale image from center during intro
+    imageSize *= smoothstep(0.0, 0.5, uIntroProgress);
 
     float imageBorder = (1.0 - imageSize) * 0.5;
     vec2 imageUV = (cellUV - imageBorder) / imageSize;
@@ -66,8 +77,8 @@ const fragmentShader = `
       float atlasSize = ceil(sqrt(uTextureCount));
       vec2 atlasPos = vec2(mod(texIndex, atlasSize), floor(texIndex / atlasSize));
 
-      // Chromatic Aberration
-      float caStrength = 0.005 * radius;
+      // Chromatic Aberration - increases at edges of viewport
+      float caStrength = 0.012 * pow(radius, 2.0);
       vec2 caOffset = screenUV * caStrength;
 
       vec2 imageUVR = imageUV - caOffset;
@@ -100,16 +111,19 @@ const fragmentShader = `
 
     // Vignette fade at edges
     float fade = 1.0 - smoothstep(1.0, 1.6, radius);
-    outAlpha *= fade;
+    
+    // Fade in based on intro progress
+    float introAlpha = smoothstep(0.0, 0.25, uIntroProgress);
+    outAlpha *= (fade * introAlpha);
 
-    gl_FragColor = vec4(color * fade, outAlpha);
+    gl_FragColor = vec4(color * fade * introAlpha, outAlpha);
   }
 `;
 
 // --- Configuration ---
 const config = {
   cellSize: 0.65,
-  distortion: 0.06,
+  distortion: 0.08,
   lerpFactor: 0.08,
 };
 
@@ -137,6 +151,9 @@ let currentFocusCell = { x: 0, y: 0 };
 let dragZoom = { value: 1 };
 let dragStartPos = { x: 0, y: 0 };
 let totalDragDistance = 0;
+
+// Mouse pressed state for fisheye flattening
+let mousePressed = { value: 0 };
 
 // --- Helper Functions ---
 const createTextureAtlas = (textures) => {
@@ -360,13 +377,15 @@ const getClickedCell = (clientX, clientY) => {
 
 // --- Event Handlers ---
 const onPointerDown = (e) => {
+  // Block interaction during intro
+  if (plane?.material?.uniforms?.uIntroProgress?.value < 0.9) return;
+
   // Allow navbar and UI buttons to work
   if (e.target.closest(".nav-wrap") ||
       e.target.closest(".nav-btn") ||
       e.target.closest(".menu-wrap") ||
       e.target.closest(".menu-box") ||
-      e.target.closest(".bottom-nav-wrap") ||
-      e.target.closest(".archive-overlay")) {
+      e.target.closest(".bottom-nav-wrap")) {
     return;
   }
 
@@ -378,6 +397,13 @@ const onPointerDown = (e) => {
   dragStartPos.x = e.clientX;
   dragStartPos.y = e.clientY;
   totalDragDistance = 0;
+
+  // Animate fisheye flattening
+  gsap.to(mousePressed, {
+    value: 1,
+    duration: 0.3,
+    ease: "power2.out"
+  });
 };
 
 const onPointerMove = (e) => {
@@ -393,17 +419,14 @@ const onPointerMove = (e) => {
   if (totalDragDistance > 10) {
     isClick = false;
 
-    // Zoom out effect when dragging in focus mode
-    if (focusedIndex !== -1) {
-      // Calculate zoom based on drag distance (zoom out as you drag more)
-      const maxDragDistance = 150;
-      const zoomProgress = Math.min(totalDragDistance / maxDragDistance, 1);
-      dragZoom.value = 1 - (zoomProgress * 0.15); // Zoom out to 85%
+    // Zoom out effect when dragging
+    const maxDragDistance = 200;
+    const zoomProgress = Math.min(totalDragDistance / maxDragDistance, 1);
+    dragZoom.value = 1 - (zoomProgress * 0.2); // Zoom out to 80%
 
-      // Exit focus mode once dragged enough
-      if (totalDragDistance > 50) {
-        exitFocusMode();
-      }
+    // Exit focus mode once dragged enough
+    if (focusedIndex !== -1 && totalDragDistance > 50) {
+      exitFocusMode();
     }
   }
 
@@ -417,6 +440,13 @@ const onPointerMove = (e) => {
 const onPointerUp = (e) => {
   if (!isDragging) return;
   isDragging = false;
+
+  // Reset fisheye flattening
+  gsap.to(mousePressed, {
+    value: 0,
+    duration: 0.4,
+    ease: "power2.out"
+  });
 
   // Reset drag zoom with animation
   if (dragZoom.value !== 1) {
@@ -468,6 +498,9 @@ const onPointerUp = (e) => {
 };
 
 const onWheel = (e) => {
+  // Block interaction during intro
+  if (plane?.material?.uniforms?.uIntroProgress?.value < 0.9) return;
+
   // Only handle wheel on canvas
   if (!e.target.closest("#gallery")) return;
 
@@ -518,16 +551,11 @@ const animate = () => {
   offset.x += (targetOffset.x - offset.x) * config.lerpFactor;
   offset.y += (targetOffset.y - offset.y) * config.lerpFactor;
 
-  // Apply drag zoom to canvas container
-  if (container && dragZoom.value !== 1) {
-    container.style.transform = `scale(${dragZoom.value})`;
-  } else if (container) {
-    container.style.transform = '';
-  }
-
   if (plane?.material?.uniforms) {
     plane.material.uniforms.uOffset.value.set(offset.x, offset.y);
     plane.material.uniforms.uTime.value = performance.now() * 0.001;
+    plane.material.uniforms.uMousePressed.value = mousePressed.value;
+    plane.material.uniforms.uZoom.value = dragZoom.value;
   }
 
   renderer.render(scene, camera);
@@ -572,12 +600,26 @@ const init = async () => {
       uCellSize: { value: config.cellSize },
       uFocusIndex: { value: -1 },
       uFocusState: { value: 0 },
+      uMousePressed: { value: 0 },
+      uZoom: { value: 1 },
+      uIntroProgress: { value: 0 },
     },
     transparent: true,
   });
 
   plane = new THREE.Mesh(geometry, material);
   scene.add(plane);
+
+  // Intro Animation
+  gsap.fromTo(material.uniforms.uIntroProgress, 
+    { value: 0 }, 
+    { 
+      value: 1, 
+      duration: 1.8, 
+      ease: "power3.out", 
+      delay: 0.2 
+    }
+  );
 
   // Event listeners (use canvas-level where possible)
   const canvas = renderer.domElement;
@@ -593,6 +635,18 @@ const init = async () => {
   const nextBtn = document.getElementById("archive-next");
   if (prevBtn) prevBtn.addEventListener("click", (e) => { e.stopPropagation(); navigateProject(-1); });
   if (nextBtn) nextBtn.addEventListener("click", (e) => { e.stopPropagation(); navigateProject(1); });
+
+  // Overlay background click
+  const overlay = document.getElementById("archive-overlay");
+  if (overlay) {
+    overlay.addEventListener("click", (e) => {
+      // Close if clicking the background (not the header or nav buttons)
+      // Check if the click target is the overlay itself or an element that isn't interactive
+      if (!e.target.closest('.archive-header') && !e.target.closest('.archive-nav-wrap') && !e.target.closest('.nav-btn')) {
+        exitFocusMode();
+      }
+    });
+  }
 
   isRunning = true;
   animate();
@@ -638,4 +692,5 @@ export function destroyArchiveScene() {
   targetOffset = { x: 0, y: 0 };
   dragZoom = { value: 1 };
   totalDragDistance = 0;
+  mousePressed = { value: 0 };
 }

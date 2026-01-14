@@ -9,24 +9,23 @@ let heroScrollTrigger = null;
 function initIndex() {
   initMiddleCarousel();
 
-  // const heroElements = document.querySelectorAll('.hero .hero-contain');
-  // if (heroElements.length) {
-  //   heroScrollTrigger = ScrollTrigger.create({
-  //     trigger: '.hero',
-  //     start: 'top top',
-  //     end: 'bottom 85%',
-  //     scrub: true,
-  //     onUpdate: (self) => {
-  //       gsap.set(heroElements, { autoAlpha: 1 - self.progress });
-  //     }
-  //   });
-  // }
+   const heroElements = document.querySelectorAll('.hero .hero-contain');
+   if (heroElements.length) {
+     heroScrollTrigger = ScrollTrigger.create({
+       trigger: '.hero',
+       start: 'top top',
+       end: 'bottom 85%',
+       scrub: true,
+  --typography-letter-spacing     onUpdate: (self) => {
+         gsap.set(heroElements, { autoAlpha: 1 - self.progress });
+       }
+     });
+   }
 }
 
 function destroyIndex() {
   destroyMiddleCarousel();
   
-  // Kill hero ScrollTrigger
   if (heroScrollTrigger) {
     heroScrollTrigger.kill();
     heroScrollTrigger = null;

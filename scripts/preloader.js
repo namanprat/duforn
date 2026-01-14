@@ -114,7 +114,7 @@ const projectsData = [
 // image sources for rotation
 const allImageSources = Array.from(
   { length: 20 },
-  (_, i) => `/spotlight/spotlight-${i + 1}.jpg`
+  (_, i) => `/middle-carousel/spotlight-${i + 1}.jpg`
 );
 
 // utility functions

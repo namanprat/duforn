@@ -55,7 +55,7 @@ void main() {
 }
 `;
 
-const IMAGE_LIST = Array.from({ length: 20 }, (_, i) => `/spotlight/spotlight-${i + 1}.jpg`);
+const IMAGE_LIST = Array.from({ length: 20 }, (_, i) => `/middle-carousel/spotlight-${i + 1}.jpg`);
 
 let renderer = null;
 let scene = null;

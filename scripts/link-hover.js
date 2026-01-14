@@ -57,7 +57,7 @@ export function initLinkHover() {
     if (isButton) {
       [originalSplit.chars, italicSplit.chars].forEach(chars => {
         chars.forEach(char => {
-          if (char.textContent === ' ') {
+          if (char.textContent === ' ' || char.textContent === '⠀') {
              gsap.set(char, { whiteSpace: 'pre', display: 'inline-block' });
           }
         });

@@ -108,7 +108,7 @@ html {
   --typography-font-primary-bold: 700;
 
   /* Typography Letter Spacing */
-  --typography-letter-spacing: -0.03em;
+  --typography-letter-spacing: -0.04em;
   --typography-letter-spacing-default: 0.035em;
 
   /* Section spacing */
@@ -391,8 +391,10 @@ p {
   font-size: var(--typography-font-size-text-small) !important;
   height: var(--typography-font-size-text-small);
   line-height: var(--typography-font-size-text-small);
-  display: inline-block;
+  display: inline-block; /* Fallback */
   white-space: nowrap;
+  pointer-events: none; /* Ensure clicks pass through to button */
+  letter-spacing: var(--typography-letter-spacing);
 }
 /* Three.js Canvas */
 #background {
@@ -1041,6 +1043,9 @@ section {
 .u-gap-row-8 {
   grid-row-gap: var(--spacing-space-8);
 }
+.u-margin-auto {
+  margin: auto;
+}
 .u-margin-top-0 {
   margin-top: 0;
 }
@@ -1200,25 +1205,25 @@ section {
   font-size: var(--typography-font-size-display);
   line-height: var(--typography-line-height-small);
   font-weight: var(--typography-font-primary-medium);
-  letter-spacing: var(--typography-letter-spacing-tight);
+  letter-spacing: var(--typography-letter-spacing);
 }
 .u-text-style-h1 {
   font-size: var(--typography-font-size-h1);
   line-height: var(--typography-line-height-small);
   font-weight: var(--typography-font-primary-medium);
-  letter-spacing: var(--typography-letter-spacing-tight);
+  letter-spacing: var(--typography-letter-spacing);
 }
 .u-text-style-h2 {
   font-size: var(--typography-font-size-h2);
   line-height: var(--typography-line-height-small);
   font-weight: var(--typography-font-primary-medium);
-  letter-spacing: var(--typography-letter-spacing-tight);
+  letter-spacing: var(--typography-letter-spacing);
 }
 .u-text-style-h3 {
   font-size: var(--typography-font-size-h3);
   line-height: var(--typography-line-height-medium);
   font-weight: var(--typography-font-primary-medium);
-  letter-spacing: var(--typography-letter-spacing-tight);
+  letter-spacing: var(--typography-letter-spacing);
 }
 .u-text-style-h4 {
   font-size: var(--typography-font-size-h4);
@@ -1237,6 +1242,9 @@ section {
 }
 .u-text-align-left {
   text-align: start !important;
+}
+.u-text-align-center {
+  text-align: center !important;
 }
 .u-text-style-large {
   font-size: var(--typography-font-size-large);
@@ -1789,6 +1797,9 @@ section {
 }
 
 .section-3 {
+  /* flex-direction: column; */
+  height: 110svh;
+  /* justify-content: space-between; */
   width: 100%;
   min-height: 100svh;
 }
@@ -2004,13 +2015,13 @@ section {
 
 /* --- CONTACT STYLES --- */
 .contact-contain {
+  width: 100%;
+  max-width: 100%;
   gap: var(--size-1rem);
   flex-flow: column;
   justify-content: center;
   align-items: center;
-  /* width: auto; */
-  /* max-width: none; */
-  height: auto;
+  height: 100%;
   display: flex;
   position: relative;
   inset: 0%;
@@ -2078,7 +2089,7 @@ img {
 }
 .thumbnail-item {
   position: absolute;
-  width: 3.5rem;
+  width: 4rem;
   aspect-ratio: 1/1;
   overflow: hidden;
   img {
