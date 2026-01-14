@@ -16,7 +16,7 @@ function initIndex() {
        start: 'top top',
        end: 'bottom 85%',
        scrub: true,
-  --typography-letter-spacing     onUpdate: (self) => {
+  onUpdate: (self) => {
          gsap.set(heroElements, { autoAlpha: 1 - self.progress });
        }
      });
