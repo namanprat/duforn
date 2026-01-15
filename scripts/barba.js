@@ -93,7 +93,13 @@ barba.init({
         
         const animations = [];
 
-        // Animate headers out
+        // Fade out paragraph and button first
+        const fadeTargets = [heroP, heroBtn].filter(Boolean);
+        if (fadeTargets.length) {
+          animations.push(gsap.to(fadeTargets, { opacity: 0, duration: 0.25, ease: 'power2.out' }));
+        }
+
+        // Animate headers out simultaneously
         for (let i = 0; i < textRevealHeaders.length; i++) {
           const header = textRevealHeaders[i];
           const split = getOrSplit(header);
@@ -102,7 +108,7 @@ barba.init({
             const isReverse = header.classList.contains('text-reveal-reverse');
             animations.push(
               gsap.to(split.words, {
-                y: isReverse ? 100 : -100,
+                y: isReverse ? -100 : 100,
                 opacity: 0,
                 duration: 0.35,
                 stagger: 0.02,
@@ -112,15 +118,9 @@ barba.init({
           }
         }
 
-        // Wait for header animations to complete first
+        // Wait for all animations to complete
         if (animations.length) {
           await Promise.all(animations.map(anim => new Promise(resolve => anim.eventCallback('onComplete', resolve))));
-        }
-
-        // Fade out paragraph and button
-        const fadeTargets = [heroP, heroBtn].filter(Boolean);
-        if (fadeTargets.length) {
-          await gsap.to(fadeTargets, { opacity: 0, duration: 0.25, ease: 'power2.out' });
         }
       },
       async enter(data) {

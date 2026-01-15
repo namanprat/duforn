@@ -140,7 +140,7 @@ function initScrollTextReveals() {
         scrollTrigger: {
           trigger: el,
           start: "top 80%",
-          once: true // Optimize: only trigger once
+          toggleActions: "play reverse play reverse"
         },
       }
     );
@@ -169,7 +169,7 @@ function initScrollTextReveals() {
         scrollTrigger: {
           trigger: el,
           start: "top 80%",
-          once: true // Optimize: only trigger once
+          toggleActions: "play reverse play reverse"
         },
       }
     );
@@ -201,7 +201,7 @@ function initScrollTextReveals() {
         scrollTrigger: {
           trigger: el,
           start: "top 80%",
-          once: true
+          toggleActions: "play reverse play reverse"
         },
       }
     );
@@ -231,8 +231,8 @@ function initScrollTextReveals() {
         scrollTrigger: {
           trigger: el,
           start: "top 80%", // enter 20% into viewport (80% from top)
-          // Play on enter, none on leave, play on enter back, none on leave back
-          toggleActions: "play none play none" 
+          // Play on enter, reverse on leave, play on enter back, reverse on leave back
+          toggleActions: "play reverse play reverse" 
         },
       }
     );
