@@ -1,12 +1,12 @@
 import gsap from "gsap";
-import { SplitText } from "gsap/SplitText";
+import SplitType from "split-type";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 const splits = new WeakMap();
 const splitTracking = []; // Track splits so we can revert them
 const scrollTriggers = [];
 
-gsap.registerPlugin(SplitText, ScrollTrigger);
+gsap.registerPlugin(ScrollTrigger);
 
 function tweenToPromise(tween) {
   return tween ? new Promise((resolve) => tween.eventCallback("onComplete", resolve)) : Promise.resolve();
@@ -20,7 +20,12 @@ function getOrSplit(element, options = { type: "lines, words, chars" }) {
   // Warning: mixed usage on same element might overlap.
   if (splits.has(element)) return splits.get(element);
   
-  const split = new SplitText(element, options);
+  // Map GSAP SplitText 'type' to SplitType 'types'
+  const types = options.type || options.types || "lines, words, chars";
+  const splitOptions = { ...options, types };
+  delete splitOptions.type;
+
+  const split = new SplitType(element, splitOptions);
   
   // Batch overflow style updates and handle indentation if "lines" are present
   if (split.lines?.length) {
@@ -215,22 +220,23 @@ function initScrollTextReveals() {
   for (let i = 0; i < bodyReveals.length; i++) {
     const el = bodyReveals[i];
     // Use specific config for body text: just lines, mask logic handled in getOrSplit
-    const split = getOrSplit(el, { type: "lines", linesClass: "line++" });
+    const split = getOrSplit(el, { type: "lines" });
     if (!split?.lines?.length) continue;
     
     // Set initial state: y: 100% (slide up from bottom of line height)
-    gsap.set(split.lines, { y: "100%" });
+    gsap.set(split.lines, { yPercent: 100, opacity: 0 });
 
     const tween = gsap.to(
       split.lines,
       {
-        y: "0%",
+        yPercent: 0,
+        opacity: 1,
         duration: 1,
         stagger: 0.1,
         ease: "power4.out",
         scrollTrigger: {
           trigger: el,
-          start: "top 80%", // enter 20% into viewport (80% from top)
+          start: "top 90%", // enter 10% into viewport (90% from top)
           // Play on enter, reverse on leave, play on enter back, reverse on leave back
           toggleActions: "play reverse play reverse" 
         },

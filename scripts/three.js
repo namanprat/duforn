@@ -3,6 +3,11 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+gsap.registerPlugin(ScrollTrigger);
 
 let renderer = null;
 let composer = null;
@@ -13,6 +18,99 @@ let mouseHandler = null;
 let rafId = null;
 let containerEl = null;
 let isRunning = false;
+let dissolvePass = null;
+let heroScrollTrigger = null;
+
+const DissolveShader = {
+  uniforms: {
+    tDiffuse: { value: null },
+    uProgress: { value: 0 },
+    uColor: { value: new THREE.Color(0x000000) },
+    uSpread: { value: 0.2 },
+    uAberration: { value: 1.0 },
+    uResolution: { value: new THREE.Vector2() }
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float uProgress;
+    uniform vec2 uResolution;
+    uniform vec3 uColor;
+    uniform float uSpread;
+    uniform float uAberration;
+    varying vec2 vUv;
+    
+    // Simple noise
+    float Hash(vec2 p) {
+      vec3 p2 = vec3(p.xy, 1.0);
+      return fract(sin(dot(p2, vec3(37.1, 61.7, 12.4))) * 3758.5453123);
+    }
+    
+    float noise(in vec2 p) {
+      vec2 i = floor(p);
+      vec2 f = fract(p);
+      f *= f * (3.0 - 2.0 * f);
+      return mix(
+        mix(Hash(i + vec2(0.0, 0.0)), Hash(i + vec2(1.0, 0.0)), f.x),
+        mix(Hash(i + vec2(0.0, 1.0)), Hash(i + vec2(1.0, 1.0)), f.x),
+        f.y
+      );
+    }
+    
+    float fbm(vec2 p) {
+      float v = 0.0;
+      v += noise(p * 1.0) * 0.5;
+      v += noise(p * 2.0) * 0.25;
+      v += noise(p * 4.0) * 0.125;
+      return v;
+    }
+
+    void main() {
+      vec2 uv = vUv;
+      float aspect = uResolution.x / uResolution.y;
+      vec2 centeredUv = (uv - 0.5) * vec2(aspect, 1.0);
+      
+      float noiseValue = fbm(centeredUv * 10.0);
+      
+      float dissolveBase  = (uv.y - uProgress * 1.2) + noiseValue * uSpread;
+      
+      float smoothFactor = 0.01;
+      
+      // Calculate independent dissolve states for RGB channels
+      // "Glassy" look: offset dissolve timing for each channel
+      float maskAb = uAberration * 0.01;
+      
+      float dR = dissolveBase + maskAb;
+      float dG = dissolveBase;
+      float dB = dissolveBase - maskAb;
+      
+      float aR = 1.0 - smoothstep(-smoothFactor, smoothFactor, dR);
+      float aG = 1.0 - smoothstep(-smoothFactor, smoothFactor, dG);
+      float aB = 1.0 - smoothstep(-smoothFactor, smoothFactor, dB);
+      
+      // Chromatic aberration on the TEXTURE (refraction effect)
+      // Only distort near the edge
+      float edgeZone = 1.0 - smoothstep(0.0, 0.2, abs(dissolveBase));
+      float texAb = uAberration * 0.02 * edgeZone;
+      
+      vec4 texR = texture2D(tDiffuse, vUv - vec2(texAb, 0.0));
+      vec4 texG = texture2D(tDiffuse, vUv);
+      vec4 texB = texture2D(tDiffuse, vUv + vec2(texAb, 0.0));
+      
+      float r = mix(texR.r, uColor.r, aR);
+      float g = mix(texG.g, uColor.g, aG);
+      float b = mix(texB.b, uColor.b, aB);
+      
+      gl_FragColor = vec4(r, g, b, 1.0);
+    }
+  `
+};
 
 export function webgl() {
   if (isRunning) return;
@@ -69,8 +167,29 @@ export function webgl() {
   composer = new EffectComposer(renderer);
   const renderPass = new RenderPass(scene, camera);
   composer.addPass(renderPass);
+
+  dissolvePass = new ShaderPass(DissolveShader);
+  dissolvePass.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
+  composer.addPass(dissolvePass);
+
   const outputPass = new OutputPass();
   composer.addPass(outputPass);
+  
+  // Setup ScrollTrigger
+  const hero = document.querySelector('.hero');
+  if (hero) {
+    heroScrollTrigger = ScrollTrigger.create({
+      trigger: hero,
+      start: "top top",
+      end: "bottom top", 
+      scrub: true,
+      onUpdate: (self) => {
+        if (dissolvePass) {
+          dissolvePass.uniforms.uProgress.value = self.progress;
+        }
+      }
+    });
+  }
 
   let mousePos = { x: 0, y: 0 };
   let cameraTarget = { angle: Math.PI / 2, y: 0 };
@@ -123,6 +242,16 @@ export function destroyWebgl() {
   if (mouseHandler) {
     document.removeEventListener('mousemove', mouseHandler);
     mouseHandler = null;
+  }
+
+  if (heroScrollTrigger) {
+    heroScrollTrigger.kill();
+    heroScrollTrigger = null;
+  }
+  
+  if (dissolvePass) {
+      if (dissolvePass.material) dissolvePass.material.dispose();
+      dissolvePass = null;
   }
 
   if (composer) {
