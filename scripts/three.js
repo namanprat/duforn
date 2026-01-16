@@ -64,10 +64,8 @@ const DissolveShader = {
     }
     
     float fbm(vec2 p) {
-      float v = 0.0;
-      v += noise(p * 1.0) * 0.5;
-      v += noise(p * 2.0) * 0.25;
-      v += noise(p * 4.0) * 0.125;
+      // Simplified FBM with fewer octaves for better performance
+      float v = noise(p) * 0.5 + noise(p * 2.0) * 0.25;
       return v;
     }
 
@@ -119,13 +117,14 @@ export function webgl() {
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(100, window.innerWidth / window.innerHeight, 0.1, 1000);
 
-  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, powerPreference: 'high-performance' });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  // Cap pixel ratio at 1.5 to reduce GPU work on high-DPI screens
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1;
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  // Disable shadow maps since they're not used
+  renderer.shadowMap.enabled = false;
 
   containerEl = document.querySelector('#background');
   if (!containerEl) {
@@ -155,12 +154,22 @@ export function webgl() {
     (err) => console.error('GLTF load error:', err)
   );
 
+  let resizeTimeout = null;
   resizeHandler = () => {
-    if (!camera || !renderer || !composer) return;
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    composer.setSize(window.innerWidth, window.innerHeight);
+    // Debounce resize to avoid excessive recalculations
+    if (resizeTimeout) clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+      if (!camera || !renderer || !composer) return;
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+      composer.setSize(width, height);
+      if (dissolvePass) {
+        dissolvePass.uniforms.uResolution.value.set(width, height);
+      }
+    }, 100);
   };
   window.addEventListener('resize', resizeHandler);
 
@@ -195,14 +204,20 @@ export function webgl() {
   let cameraTarget = { angle: Math.PI / 2, y: 0 };
   let cameraCurrent = { angle: Math.PI / 2, y: 0 };
   const BASE_CAMERA_RADIUS = Math.sqrt(50) / 2.5;
+  let lastMouseTime = 0;
 
   mouseHandler = (event) => {
+    // Throttle mouse updates to ~30fps for smoother performance
+    const now = performance.now();
+    if (now - lastMouseTime < 33) return;
+    lastMouseTime = now;
+
     mousePos.x = (event.clientX / window.innerWidth) * 2 - 1;
     mousePos.y = -(event.clientY / window.innerHeight) * 2 + 1;
     cameraTarget.angle = Math.PI / 2 - mousePos.x * 0.1;
     cameraTarget.y = mousePos.y * 0.4;
   };
-  document.addEventListener('mousemove', mouseHandler);
+  document.addEventListener('mousemove', mouseHandler, { passive: true });
 
   const render = () => {
     cameraCurrent.angle += (cameraTarget.angle - cameraCurrent.angle) * 0.025;

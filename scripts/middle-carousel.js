@@ -1,6 +1,12 @@
 import * as THREE from 'three';
 import { lenis } from './lenis-scroll.js';
 
+// Shared resources for performance
+let sharedGeometry = null;
+const textureCache = new Map();
+let lastScrollTime = 0;
+const SCROLL_THROTTLE_MS = 16; // ~60fps throttle for scroll updates
+
 const vertexShader = `
 uniform float uScrollSpeed;
 uniform float uCurveStrength;
@@ -91,13 +97,23 @@ class Carousel {
   }
 
   createImages() {
-    const geometry = new THREE.PlaneGeometry(1, 1, 16, 16);
+    // Reuse shared geometry across all meshes (8x8 segments is sufficient)
+    if (!sharedGeometry) {
+      sharedGeometry = new THREE.PlaneGeometry(1, 1, 8, 8);
+    }
     const loader = new THREE.TextureLoader();
 
     IMAGE_LIST.forEach((url, index) => {
-      const texture = loader.load(url);
-      texture.colorSpace = THREE.SRGBColorSpace;
-      
+      // Cache textures to avoid reloading the same image across carousels
+      let texture;
+      if (textureCache.has(url)) {
+        texture = textureCache.get(url);
+      } else {
+        texture = loader.load(url);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        textureCache.set(url, texture);
+      }
+
       const uniforms = {
         uTexture: { value: texture },
         uScrollSpeed: { value: 0.0 },
@@ -113,7 +129,7 @@ class Carousel {
         fragmentShader
       });
 
-      const mesh = new THREE.Mesh(geometry, material);
+      const mesh = new THREE.Mesh(sharedGeometry, material);
       mesh.scale.set(this.imageSize[0], this.imageSize[1], 1);
       mesh.position.set(0, index * (this.imageSize[1] + this.gap), 0);
 
@@ -128,16 +144,26 @@ class Carousel {
   }
 
   update() {
-    this.meshes.forEach((mesh) => {
-      mesh.position.y = mod(mesh.position.y + this.totalHeight / 2, this.totalHeight) - this.totalHeight / 2;
-    });
+    const meshes = this.meshes;
+    const len = meshes.length;
+    const halfHeight = this.totalHeight / 2;
+    const totalHeight = this.totalHeight;
+    for (let i = 0; i < len; i++) {
+      const mesh = meshes[i];
+      mesh.position.y = mod(mesh.position.y + halfHeight, totalHeight) - halfHeight;
+    }
   }
 
   onScroll(velocity) {
-    this.meshes.forEach((mesh) => {
-      mesh.position.y -= velocity * 0.005 * this.wheelFactor * this.wheelDirection;
-      mesh.material.uniforms.uScrollSpeed.value = velocity * 0.005 * this.wheelFactor * this.wheelDirection;
-    });
+    // Pre-calculate scroll delta to avoid redundant math in loop
+    const scrollDelta = velocity * 0.005 * this.wheelFactor * this.wheelDirection;
+    const meshes = this.meshes;
+    const len = meshes.length;
+    for (let i = 0; i < len; i++) {
+      const mesh = meshes[i];
+      mesh.position.y -= scrollDelta;
+      mesh.material.uniforms.uScrollSpeed.value = scrollDelta;
+    }
   }
 
   addToScene(scene) {
@@ -146,8 +172,7 @@ class Carousel {
 
   dispose() {
     this.meshes.forEach((mesh) => {
-      mesh.geometry.dispose();
-      mesh.material.uniforms.uTexture.value?.dispose();
+      // Don't dispose shared geometry - handled in destroyMiddleCarousel
       mesh.material.dispose();
     });
     this.meshes = [];
@@ -241,7 +266,10 @@ function createCarousels() {
 function animate() {
   if (!isRunning) return;
 
-  carousels.forEach(carousel => carousel.update());
+  const len = carousels.length;
+  for (let i = 0; i < len; i++) {
+    carousels[i].update();
+  }
 
   if (renderer && scene && camera) {
     renderer.render(scene, camera);
@@ -267,10 +295,11 @@ export function initMiddleCarousel() {
   camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
   camera.position.set(0, 0, 3);
 
-  // Create renderer
-  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  // Create renderer with optimized settings
+  renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, powerPreference: 'high-performance' });
   renderer.setSize(width, height);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  // Cap pixel ratio at 1.5 to reduce GPU work on high-DPI screens
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
   renderer.setClearColor(0x000000, 0);
 
   // Style the canvas
@@ -297,10 +326,18 @@ export function initMiddleCarousel() {
   };
   window.addEventListener('resize', resizeHandler);
 
-  // Connect to Lenis scroll
+  // Connect to Lenis scroll with throttling
   if (lenis) {
     lenisUnsubscribe = lenis.on('scroll', ({ velocity }) => {
-      carousels.forEach(carousel => carousel.onScroll(velocity));
+      const now = performance.now();
+      // Throttle scroll updates to prevent excessive GPU work
+      if (now - lastScrollTime < SCROLL_THROTTLE_MS) return;
+      lastScrollTime = now;
+
+      // Batch update all carousels
+      for (let i = 0; i < carousels.length; i++) {
+        carousels[i].onScroll(velocity);
+      }
     });
   }
 
@@ -329,6 +366,16 @@ export function destroyMiddleCarousel() {
 
   carousels.forEach(carousel => carousel.dispose());
   carousels = [];
+
+  // Clean up shared geometry
+  if (sharedGeometry) {
+    sharedGeometry.dispose();
+    sharedGeometry = null;
+  }
+
+  // Clean up texture cache
+  textureCache.forEach(texture => texture.dispose());
+  textureCache.clear();
 
   if (renderer) {
     renderer.dispose();

@@ -15,50 +15,52 @@ function tweenToPromise(tween) {
 function getOrSplit(element, options = { type: "lines, words, chars" }) {
   if (!element) return null;
   // If we already split it with the exact same options, return cached
-  // But for body-text-reveal we might need different options (e.g. lines only, mask lines)
-  // For simplicity here, we'll just check if it's already split.
-  // Warning: mixed usage on same element might overlap.
   if (splits.has(element)) return splits.get(element);
-  
+
   // Map GSAP SplitText 'type' to SplitType 'types'
   const types = options.type || options.types || "lines, words, chars";
   const splitOptions = { ...options, types };
   delete splitOptions.type;
 
   const split = new SplitType(element, splitOptions);
-  
+
   // Batch overflow style updates and handle indentation if "lines" are present
   if (split.lines?.length) {
+    const lines = split.lines;
+    const len = lines.length;
+
+    // Read computed style once (avoid layout thrashing)
     const computedStyle = window.getComputedStyle(element);
     const textIndent = computedStyle.textIndent;
-    
-    // Check if there's indentation to preserve on the first line
-    if (textIndent && textIndent !== "0px" && split.lines.length > 0) {
-       split.lines[0].style.paddingLeft = textIndent;
-       element.style.textIndent = "0";
+    const hasIndent = textIndent && textIndent !== "0px";
+
+    // Batch all DOM writes together after reads
+    if (hasIndent) {
+      lines[0].style.paddingLeft = textIndent;
+      element.style.textIndent = "0";
     }
 
-    // Wrap each line in a parent div with u-overflow-hidden to create the mask
-    split.lines.forEach(line => {
+    // Create all wrappers first, then batch DOM operations
+    const wrappers = new Array(len);
+    for (let i = 0; i < len; i++) {
       const wrapper = document.createElement("div");
-      wrapper.className = "u-overflow-hidden"; // Added user requested class
-      wrapper.style.display = "block";
-      wrapper.style.width = "100%"; // Ensure full width
-      
-      // Insert wrapper before line, then move line into wrapper
+      wrapper.className = "u-overflow-hidden";
+      wrapper.style.cssText = "display:block;width:100%";
+      wrappers[i] = wrapper;
+    }
+
+    // Batch DOM insertions
+    for (let i = 0; i < len; i++) {
+      const line = lines[i];
+      const wrapper = wrappers[i];
       line.parentNode.insertBefore(wrapper, line);
       wrapper.appendChild(line);
-      
-      // Ensure line display is block for transform consistency
-      line.style.display = "block";
-      line.style.width = "100%";
-      // Reset any default overflow if needed
-      line.style.overflow = "visible"; 
-    });
+      line.style.cssText = "display:block;width:100%;overflow:visible";
+    }
   }
-  
+
   splits.set(element, split);
-  splitTracking.push(split); // Track for cleanup
+  splitTracking.push(split);
   return split;
 }
 
@@ -68,8 +70,8 @@ function revealWords(element, { direction = "up", duration = 0.8, stagger = 0.03
   const yStart = direction === "down" ? 100 : -100;
   return gsap.fromTo(
     split.words,
-    { y: yStart, filter: "blur(0px)", opacity: 0 },
-    { y: 0, filter: "blur(0px)", opacity: 1, duration, stagger, ease }
+    { y: yStart, opacity: 0 },
+    { y: 0, opacity: 1, duration, stagger, ease }
   );
 }
 
@@ -131,13 +133,12 @@ function initScrollTextReveals() {
     const el = regular[i];
     const split = getOrSplit(el);
     if (!split?.words?.length) continue;
-    
+
     const tween = gsap.fromTo(
       split.words,
-      { y: -100, filter: "blur(0px)", opacity: 0 },
+      { y: -100, opacity: 0 },
       {
         y: 0,
-        filter: "blur(0px)",
         opacity: 1,
         duration: 1,
         stagger: 0.05,
@@ -149,7 +150,7 @@ function initScrollTextReveals() {
         },
       }
     );
-    
+
     if (tween.scrollTrigger) {
       scrollTriggers.push(tween.scrollTrigger);
     }
@@ -160,13 +161,12 @@ function initScrollTextReveals() {
     const el = reverse[i];
     const split = getOrSplit(el);
     if (!split?.words?.length) continue;
-    
+
     const tween = gsap.fromTo(
       split.words,
-      { y: 100, filter: "blur(0px)", opacity: 0 },
+      { y: 100, opacity: 0 },
       {
         y: 0,
-        filter: "blur(0px)",
         opacity: 1,
         duration: 1,
         stagger: 0.05,
@@ -178,27 +178,26 @@ function initScrollTextReveals() {
         },
       }
     );
-    
+
     if (tween.scrollTrigger) {
       scrollTriggers.push(tween.scrollTrigger);
     }
   }
-  
+
   // Process header reveals (check for direction class)
   for (let i = 0; i < headers.length; i++) {
     const el = headers[i];
     const split = getOrSplit(el);
     if (!split?.words?.length) continue;
-    
+
     const isReverse = el.classList.contains('text-reveal-reverse');
     const yStart = isReverse ? 100 : -100;
-    
+
     const tween = gsap.fromTo(
       split.words,
-      { y: yStart, filter: "blur(0px)", opacity: 0 },
+      { y: yStart, opacity: 0 },
       {
         y: 0,
-        filter: "blur(0px)",
         opacity: 1,
         duration: 1,
         stagger: 0.05,
@@ -210,7 +209,7 @@ function initScrollTextReveals() {
         },
       }
     );
-    
+
     if (tween.scrollTrigger) {
       scrollTriggers.push(tween.scrollTrigger);
     }
