@@ -21,6 +21,27 @@ let isRunning = false;
 let dissolvePass = null;
 let heroScrollTrigger = null;
 
+// Camera descent animation state
+let cameraDescentProgress = 0;
+let targetDescentProgress = 0;
+
+// Camera configuration for descent effect
+const CAMERA_CONFIG = {
+  // Initial camera position (hero view)
+  initialPitch: 0,           // Looking straight ahead
+  initialY: 1,               // Starting Y position
+  initialRadius: Math.sqrt(50) / 2.5,
+
+  // Final camera position (underground descent)
+  finalPitch: -0.6,          // Tilted downward (radians) - looking underground
+  finalY: -0.5,              // Descended lower
+  finalRadius: Math.sqrt(50) / 3.5, // Slightly closer
+
+  // Easing and smoothing
+  lerpFactor: 0.08,          // Smooth interpolation for camera movement
+  descentLerpFactor: 0.06    // Slightly slower lerp for descent for smoothness
+};
+
 const DissolveShader = {
   uniforms: {
     tDiffuse: { value: null },
@@ -119,8 +140,8 @@ export function webgl() {
 
   renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, powerPreference: 'high-performance' });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  // Cap pixel ratio at 1.5 to reduce GPU work on high-DPI screens
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  // Cap pixel ratio at 2 for better quality while maintaining performance
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1;
   // Disable shadow maps since they're not used
@@ -184,18 +205,21 @@ export function webgl() {
   const outputPass = new OutputPass();
   composer.addPass(outputPass);
   
-  // Setup ScrollTrigger
+  // Setup ScrollTrigger for unified dissolve + camera descent
   const hero = document.querySelector('.hero');
   if (hero) {
     heroScrollTrigger = ScrollTrigger.create({
       trigger: hero,
       start: "top top",
-      end: "bottom top", 
+      end: "bottom top",
       scrub: true,
       onUpdate: (self) => {
+        // Update dissolve shader progress
         if (dissolvePass) {
           dissolvePass.uniforms.uProgress.value = self.progress;
         }
+        // Update camera descent target (smooth lerp applied in render loop)
+        targetDescentProgress = self.progress;
       }
     });
   }
@@ -203,8 +227,11 @@ export function webgl() {
   let mousePos = { x: 0, y: 0 };
   let cameraTarget = { angle: Math.PI / 2, y: 0 };
   let cameraCurrent = { angle: Math.PI / 2, y: 0 };
-  const BASE_CAMERA_RADIUS = Math.sqrt(50) / 2.5;
   let lastMouseTime = 0;
+
+  // Reset descent state on init
+  cameraDescentProgress = 0;
+  targetDescentProgress = 0;
 
   mouseHandler = (event) => {
     // Throttle mouse updates to ~30fps for smoother performance
@@ -220,18 +247,50 @@ export function webgl() {
   document.addEventListener('mousemove', mouseHandler, { passive: true });
 
   const render = () => {
-    cameraCurrent.angle += (cameraTarget.angle - cameraCurrent.angle) * 0.025;
-    cameraCurrent.y += (cameraTarget.y - cameraCurrent.y) * 0.025;
+    // Smooth lerp for mouse-based camera movement
+    cameraCurrent.angle += (cameraTarget.angle - cameraCurrent.angle) * CAMERA_CONFIG.lerpFactor;
+    cameraCurrent.y += (cameraTarget.y - cameraCurrent.y) * CAMERA_CONFIG.lerpFactor;
 
-    const scrollY = window.scrollY;
-    const zoomSpeed = 0.001;
-    const currentRadius = Math.max(0.5, BASE_CAMERA_RADIUS - (scrollY * zoomSpeed));
+    // Smooth lerp for camera descent progress
+    cameraDescentProgress += (targetDescentProgress - cameraDescentProgress) * CAMERA_CONFIG.descentLerpFactor;
 
+    // Custom easing for more natural descent feel (ease-in-out cubic)
+    const easedProgress = cameraDescentProgress < 0.5
+      ? 4 * cameraDescentProgress * cameraDescentProgress * cameraDescentProgress
+      : 1 - Math.pow(-2 * cameraDescentProgress + 2, 3) / 2;
+
+    // Interpolate camera parameters based on descent progress
+    const currentRadius = THREE.MathUtils.lerp(
+      CAMERA_CONFIG.initialRadius,
+      CAMERA_CONFIG.finalRadius,
+      easedProgress
+    );
+
+    const currentPitch = THREE.MathUtils.lerp(
+      CAMERA_CONFIG.initialPitch,
+      CAMERA_CONFIG.finalPitch,
+      easedProgress
+    );
+
+    const baseY = THREE.MathUtils.lerp(
+      CAMERA_CONFIG.initialY,
+      CAMERA_CONFIG.finalY,
+      easedProgress
+    );
+
+    // Apply mouse-based orbit with descent-adjusted parameters
     camera.position.x = Math.cos(cameraCurrent.angle) * currentRadius;
     camera.position.z = Math.sin(cameraCurrent.angle) * currentRadius;
-    camera.position.y += (cameraCurrent.y + 1 - camera.position.y);
 
-    camera.lookAt(0, 0, 0);
+    // Mouse Y offset diminishes as we descend (focus shifts to the descent)
+    const mouseYInfluence = 1 - easedProgress * 0.7;
+    camera.position.y = baseY + (cameraCurrent.y * 0.4 * mouseYInfluence);
+
+    // Calculate look-at target with downward tilt
+    // As we descend, the camera looks progressively lower
+    const lookAtY = currentPitch * 2; // Convert pitch to look-at offset
+    camera.lookAt(0, lookAtY, 0);
+
     composer.render();
     rafId = requestAnimationFrame(render);
   };
@@ -263,23 +322,32 @@ export function destroyWebgl() {
     heroScrollTrigger.kill();
     heroScrollTrigger = null;
   }
-  
+
   if (dissolvePass) {
       if (dissolvePass.material) dissolvePass.material.dispose();
       dissolvePass = null;
   }
 
   if (composer) {
+    // Dispose render targets to free GPU memory
+    if (composer.readBuffer) composer.readBuffer.dispose();
+    if (composer.writeBuffer) composer.writeBuffer.dispose();
     composer.dispose();
     composer = null;
   }
   if (renderer) {
     renderer.dispose();
+    renderer.forceContextLoss();
     if (renderer.domElement && renderer.domElement.parentNode) {
       renderer.domElement.parentNode.removeChild(renderer.domElement);
     }
     renderer = null;
   }
+
+  // Reset camera descent state
+  cameraDescentProgress = 0;
+  targetDescentProgress = 0;
+
   scene = null;
   camera = null;
   containerEl = null;

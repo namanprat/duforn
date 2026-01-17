@@ -298,8 +298,8 @@ export function initMiddleCarousel() {
   // Create renderer with optimized settings
   renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, powerPreference: 'high-performance' });
   renderer.setSize(width, height);
-  // Cap pixel ratio at 1.5 to reduce GPU work on high-DPI screens
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  // Cap pixel ratio at 2 for better quality while maintaining performance
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setClearColor(0x000000, 0);
 
   // Style the canvas
