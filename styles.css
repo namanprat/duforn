@@ -396,16 +396,6 @@ p {
   pointer-events: none; /* Ensure clicks pass through to button */
   letter-spacing: var(--typography-letter-spacing);
 }
-/* Three.js Canvas */
-#background {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100vh;
-  z-index: -10;
-  overflow: hidden;
-}
 
 .page-wrap::after {
   content: "";

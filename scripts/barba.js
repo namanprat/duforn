@@ -8,7 +8,6 @@ import { initVariableFont } from './variable-font.js';
 import { initWork, destroyWork } from './work.js';
 import { initArchiveScene, destroyArchiveScene } from './archive-scene.js';
 import { animateRevealEnter, initScrollTextReveals, getOrSplit, cleanupScrollTriggers, cleanupSplits } from './text-reveal.js';
-import webgl, { destroyWebgl } from './three.js';
 import { initLinkHover, destroyLinkHover } from './link-hover.js';
 
 
@@ -49,17 +48,14 @@ function initPageFeatures(namespace) {
   if (ns === 'work') {
     destroyIndex();
     initWork();
-    destroyWebgl();
     destroyArchiveScene();
   } else if (ns === 'archive') {
     destroyIndex();
     destroyWork();
-    destroyWebgl();
     initArchiveScene();
   } else if (ns === 'home' || ns === 'contact') {
     destroyWork();
     destroyArchiveScene();
-    webgl();
     if (ns === 'home') {
       initIndex();
     } else {
@@ -69,7 +65,6 @@ function initPageFeatures(namespace) {
     destroyIndex();
     destroyWork();
     destroyArchiveScene();
-    destroyWebgl();
   }
 }
 

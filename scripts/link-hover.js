@@ -57,8 +57,10 @@ export function initLinkHover() {
     if (isButton) {
       [originalSplit.chars, italicSplit.chars].forEach(chars => {
         chars.forEach(char => {
-          if (char.textContent === ' ' || char.textContent === '⠀') {
-             gsap.set(char, { whiteSpace: 'pre', display: 'inline-block' });
+          const content = char.textContent;
+          // Check for regular space, non-breaking space, or other whitespace
+          if (content === ' ' || content === '\u00A0' || content === '⠀' || /^\s+$/.test(content)) {
+             gsap.set(char, { whiteSpace: 'pre', display: 'inline-block', minWidth: '0.25em' });
           }
         });
       });
@@ -108,7 +110,8 @@ export function initLinkHover() {
 
 function createTextSpan(text, isItalic, isButton) {
   const span = document.createElement('span');
-  span.textContent = text;
+  // Replace spaces with non-breaking spaces for buttons to prevent collapse in flexbox
+  span.textContent = isButton ? text.replace(/ /g, '\u00A0') : text;
   
   gsap.set(span, {
     display: isButton ? 'flex' : 'block',
