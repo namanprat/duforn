@@ -29,21 +29,25 @@ export function initLinkHover() {
     // Setup link structure
     const display = getComputedStyle(link).display;
     if (display === 'inline') link.style.display = 'inline-block';
-    
+
     const isButton = link.classList.contains('btn');
     const baseLayout = isButton
       ? { display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }
       : {};
-    gsap.set(link, { 
+    gsap.set(link, {
       position: 'relative',
       overflow: 'hidden',
       perspective: 800,
       ...baseLayout
     });
-    
+
+    // Normalize spaces: replace regular spaces and braille spaces with non-breaking spaces
+    // This ensures spaces are preserved during SplitText and don't collapse in flexbox
+    const normalizedText = originalText.replace(/[\s\u2800]/g, '\u00A0');
+
     // Create dual text structure
-    const originalSpan = createTextSpan(originalText, false, isButton);
-    const italicSpan = createTextSpan(originalText, true, isButton);
+    const originalSpan = createTextSpan(normalizedText, false, isButton);
+    const italicSpan = createTextSpan(normalizedText, true, isButton);
     
     link.textContent = '';
     link.appendChild(originalSpan);
@@ -57,8 +61,15 @@ export function initLinkHover() {
     if (isButton) {
       [originalSplit.chars, italicSplit.chars].forEach(chars => {
         chars.forEach(char => {
-          if (char.textContent === ' ' || char.textContent === '⠀') {
-             gsap.set(char, { whiteSpace: 'pre', display: 'inline-block' });
+          // Check for any type of space character (regular, non-breaking, braille, or whitespace)
+          const text = char.textContent || '';
+          const isSpace = text === ' ' || text === '\u00A0' || text === '⠀' || text.trim() === '';
+          if (isSpace && text.length > 0) {
+            gsap.set(char, {
+              whiteSpace: 'pre',
+              display: 'inline-block',
+              minWidth: '0.3em' // Ensure space has visible width
+            });
           }
         });
       });
