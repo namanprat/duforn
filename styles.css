@@ -1776,6 +1776,10 @@ section {
   gap: 1rem;
 }
 
+.spotlight {
+  background-color: transparent;
+}
+
 .spotlight-contain {
   height: 105vh;
   display: flex;

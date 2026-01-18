@@ -183,14 +183,14 @@ export function webgl() {
 
   const outputPass = new OutputPass();
   composer.addPass(outputPass);
-  
-  // Setup ScrollTrigger
+
+  // Setup ScrollTrigger for dissolve effect
   const hero = document.querySelector('.hero');
   if (hero) {
     heroScrollTrigger = ScrollTrigger.create({
       trigger: hero,
       start: "top top",
-      end: "bottom top", 
+      end: "bottom top",
       scrub: true,
       onUpdate: (self) => {
         if (dissolvePass) {
@@ -263,7 +263,7 @@ export function destroyWebgl() {
     heroScrollTrigger.kill();
     heroScrollTrigger = null;
   }
-  
+
   if (dissolvePass) {
       if (dissolvePass.material) dissolvePass.material.dispose();
       dissolvePass = null;
