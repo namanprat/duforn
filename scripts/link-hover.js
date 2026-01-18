@@ -61,15 +61,9 @@ export function initLinkHover() {
     if (isButton) {
       [originalSplit.chars, italicSplit.chars].forEach(chars => {
         chars.forEach(char => {
-          // Check for any type of space character (regular, non-breaking, braille, or whitespace)
-          const text = char.textContent || '';
-          const isSpace = text === ' ' || text === '\u00A0' || text === '⠀' || text.trim() === '';
-          if (isSpace && text.length > 0) {
-            gsap.set(char, {
-              whiteSpace: 'pre',
-              display: 'inline-block',
-              minWidth: '0.3em' // Ensure space has visible width
-            });
+          // Check for regular space, non-breaking space, and braille blank
+          if (char.textContent === ' ' || char.textContent === '\u00A0' || char.textContent === '⠀') {
+             gsap.set(char, { whiteSpace: 'pre', display: 'inline-block', minWidth: '0.3em' });
           }
         });
       });
@@ -119,8 +113,9 @@ export function initLinkHover() {
 
 function createTextSpan(text, isItalic, isButton) {
   const span = document.createElement('span');
-  span.textContent = text;
-  
+  // Replace regular spaces with non-breaking spaces to prevent collapse in flex containers
+  span.textContent = isButton ? text.replace(/ /g, '\u00A0') : text;
+
   gsap.set(span, {
     display: isButton ? 'flex' : 'block',
     alignItems: isButton ? 'center' : 'initial',
