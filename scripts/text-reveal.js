@@ -75,6 +75,20 @@ function revealWords(element, { direction = "up", duration = 0.8, stagger = 0.03
   );
 }
 
+// Animate text OUT - words slide away and fade out
+function hideWords(element, { direction = "up", duration = 0.5, stagger = 0.02, ease = "power2.in" } = {}) {
+  const split = getOrSplit(element);
+  if (!split?.words?.length) return null;
+  const yEnd = direction === "up" ? -100 : 100;
+  return gsap.to(split.words, {
+    y: yEnd,
+    opacity: 0,
+    duration,
+    stagger,
+    ease
+  });
+}
+
 function fadeNodes(nodes, { duration = 0.55, stagger = 0.03, ease = "power2.out" } = {}) {
   if (!nodes || !nodes.length) return null;
   return gsap.fromTo(nodes, { opacity: 0 }, { opacity: 1, duration, stagger, ease });
@@ -82,7 +96,7 @@ function fadeNodes(nodes, { duration = 0.55, stagger = 0.03, ease = "power2.out"
 
 async function animateRevealEnter(container) {
   if (!container) return;
-  
+
   const textRevealHeaders = container.querySelectorAll(".text-reveal-header");
 
   // Early return if no elements found
@@ -100,19 +114,79 @@ async function animateRevealEnter(container) {
     const header = textRevealHeaders[i];
     const isReverse = header.classList.contains('text-reveal-reverse');
     const direction = isReverse ? 'down' : 'up';
-    
-    const tween = revealWords(header, { 
-      direction, 
-      duration: 0.8, 
-      stagger: 0.04 
+
+    const tween = revealWords(header, {
+      direction,
+      duration: 0.8,
+      stagger: 0.04
     });
-    
+
     if (tween) {
       animations.push(tweenToPromise(tween));
     }
   }
 
   // Wait for all animations to complete
+  if (animations.length) {
+    await Promise.all(animations);
+  }
+}
+
+// Animate text headers OUT with specified direction
+// direction: "up" = text slides up and out, "down" = text slides down and out
+async function animateRevealLeave(container, direction = "up") {
+  if (!container) return;
+
+  const textRevealHeaders = container.querySelectorAll(".text-reveal-header");
+  if (!textRevealHeaders.length) return;
+
+  const animations = [];
+  for (let i = 0; i < textRevealHeaders.length; i++) {
+    const header = textRevealHeaders[i];
+    const tween = hideWords(header, {
+      direction,
+      duration: 0.5,
+      stagger: 0.02
+    });
+
+    if (tween) {
+      animations.push(tweenToPromise(tween));
+    }
+  }
+
+  if (animations.length) {
+    await Promise.all(animations);
+  }
+}
+
+// Animate text headers IN with specified direction
+// direction: "up" = text slides up from below, "down" = text slides down from above
+async function animateRevealEnterDirectional(container, direction = "up") {
+  if (!container) return;
+
+  const textRevealHeaders = container.querySelectorAll(".text-reveal-header");
+  if (!textRevealHeaders.length) return;
+
+  // Clear any existing transforms
+  const toClear = Array.from(textRevealHeaders);
+  if (toClear.length) {
+    gsap.set(toClear, { clearProps: "all" });
+  }
+
+  const animations = [];
+  for (let i = 0; i < textRevealHeaders.length; i++) {
+    const header = textRevealHeaders[i];
+    const tween = revealWords(header, {
+      direction,
+      duration: 0.8,
+      stagger: 0.04
+    });
+
+    if (tween) {
+      animations.push(tweenToPromise(tween));
+    }
+  }
+
   if (animations.length) {
     await Promise.all(animations);
   }
@@ -268,4 +342,4 @@ function cleanupSplits() {
   splitTracking.length = 0; // Clear the tracking array
 }
 
-export { getOrSplit, animateRevealEnter, initScrollTextReveals, cleanupScrollTriggers, cleanupSplits };
+export { getOrSplit, animateRevealEnter, animateRevealLeave, animateRevealEnterDirectional, initScrollTextReveals, cleanupScrollTriggers, cleanupSplits };

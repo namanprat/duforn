@@ -7,7 +7,7 @@ import { initIndex, destroyIndex } from './index.js';
 import { initVariableFont } from './variable-font.js';
 import { initWork, destroyWork } from './work.js';
 import { initArchiveScene, destroyArchiveScene } from './archive-scene.js';
-import { animateRevealEnter, initScrollTextReveals, getOrSplit, cleanupScrollTriggers, cleanupSplits } from './text-reveal.js';
+import { animateRevealEnter, animateRevealLeave, animateRevealEnterDirectional, initScrollTextReveals, cleanupScrollTriggers, cleanupSplits } from './text-reveal.js';
 import webgl, { destroyWebgl } from './three.js';
 import { initLinkHover, destroyLinkHover } from './link-hover.js';
 
@@ -81,58 +81,43 @@ barba.init({
       to: { namespace: ['home', 'contact'] },
       async leave(data) {
         closeMenuIfOpen();
-        cleanupScrollTriggers(); // Clean up old ScrollTriggers first
-        cleanupSplits(); // Also revert splits to restore original text
+        cleanupScrollTriggers();
+
         const container = data?.current?.container;
         if (!container) return;
 
-        // Batch all DOM queries together
-        const textRevealHeaders = container.querySelectorAll('.text-reveal-header');
+        const fromPage = data?.current?.namespace;
+        const toPage = data?.next?.namespace;
+
+        // Determine exit direction based on navigation:
+        // Home → Contact: text exits UP
+        // Contact → Home: text exits DOWN
+        const exitDirection = (fromPage === 'home' && toPage === 'contact') ? 'up' : 'down';
+
+        // Fade out supporting elements
         const heroP = container.querySelector('.hero .hero-contain p');
         const heroBtn = container.querySelector('.hero .btn, .hero .btn a');
-        
-        const animations = [];
-
-        // Fade out paragraph and button first
         const fadeTargets = [heroP, heroBtn].filter(Boolean);
+
         if (fadeTargets.length) {
-          animations.push(gsap.to(fadeTargets, { opacity: 0, duration: 0.25, ease: 'power2.out' }));
+          gsap.to(fadeTargets, { opacity: 0, duration: 0.3, ease: 'power2.out' });
         }
 
-        // Animate headers out simultaneously
-        for (let i = 0; i < textRevealHeaders.length; i++) {
-          const header = textRevealHeaders[i];
-          const split = getOrSplit(header);
-          if (split?.words?.length) {
-            // Determine direction based on class
-            const isReverse = header.classList.contains('text-reveal-reverse');
-            animations.push(
-              gsap.to(split.words, {
-                y: isReverse ? -100 : 100,
-                opacity: 0,
-                duration: 0.35,
-                stagger: 0.02,
-                ease: 'power2.in'
-              })
-            );
-          }
-        }
+        // Animate text headers out with direction
+        await animateRevealLeave(container, exitDirection);
 
-        // Wait for all animations to complete
-        if (animations.length) {
-          await Promise.all(animations.map(anim => new Promise(resolve => anim.eventCallback('onComplete', resolve))));
-        }
+        // Clean up splits after animation
+        cleanupSplits();
       },
       async enter(data) {
         const container = data?.next?.container;
         if (!container) return;
-        
-        // Batch DOM queries
+
+        // Hide supporting elements initially
         const heroP = container.querySelector('.hero .hero-contain p');
         const heroBtn = container.querySelector('.hero .btn, .hero .btn a');
-        
-        // Hide paragraph and button (will fade in)
         const fadeElements = [heroP, heroBtn].filter(Boolean);
+
         if (fadeElements.length) {
           gsap.set(fadeElements, { opacity: 0 });
         }
@@ -140,20 +125,28 @@ barba.init({
       async after(data) {
         const container = data?.next?.container;
         if (!container) return;
-        
-        // Initialize features first
-        initPageFeatures(data?.next?.namespace);
-        
-        // Animate headers in
-        await animateRevealEnter(container);
-        
-        // Then fade in paragraph and button
+
+        const fromPage = data?.current?.namespace;
+        const toPage = data?.next?.namespace;
+
+        // Initialize page features
+        initPageFeatures(toPage);
+
+        // Determine enter direction (opposite of exit):
+        // Home → Contact: new text enters from DOWN (slides down into view)
+        // Contact → Home: new text enters from UP (slides up into view)
+        const enterDirection = (fromPage === 'home' && toPage === 'contact') ? 'down' : 'up';
+
+        // Animate text headers in with direction
+        await animateRevealEnterDirectional(container, enterDirection);
+
+        // Fade in supporting elements
         const heroP = container.querySelector('.hero .hero-contain p');
         const heroBtn = container.querySelector('.hero .btn, .hero .btn a');
         const fadeTargets = [heroP, heroBtn].filter(Boolean);
-        
+
         if (fadeTargets.length) {
-          await gsap.to(fadeTargets, { opacity: 1, duration: 0.35, ease: 'power2.out', delay: 0.2 });
+          await gsap.to(fadeTargets, { opacity: 1, duration: 0.35, ease: 'power2.out', delay: 0.15 });
         }
       }
     },
