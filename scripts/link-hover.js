@@ -48,63 +48,63 @@ export function initLinkHover() {
     // Create dual text structure
     const originalSpan = createTextSpan(normalizedText, false, isButton);
     const italicSpan = createTextSpan(normalizedText, true, isButton);
-    
+
     link.textContent = '';
     link.appendChild(originalSpan);
     link.appendChild(italicSpan);
-    
-    // Split once and reuse
-    const originalSplit = new SplitText(originalSpan, { type: 'chars' });
-    const italicSplit = new SplitText(italicSpan, { type: 'chars' });
 
-    // Fix spaces for buttons where flexbox collapses them
+    let originalChars, italicChars;
+    let originalSplit = null, italicSplit = null;
+
     if (isButton) {
-      [originalSplit.chars, italicSplit.chars].forEach(chars => {
-        chars.forEach(char => {
-          // Check for regular space, non-breaking space, and braille blank
-          if (char.textContent === ' ' || char.textContent === '\u00A0' || char.textContent === '⠀') {
-             gsap.set(char, { whiteSpace: 'pre', display: 'inline-block', minWidth: '0.3em' });
-          }
-        });
-      });
+      // For buttons, use manually created char spans (spaces are already handled)
+      originalChars = Array.from(originalSpan.querySelectorAll('span'));
+      italicChars = Array.from(italicSpan.querySelectorAll('span'));
+    } else {
+      // For non-buttons, use SplitText
+      originalSplit = new SplitText(originalSpan, { type: 'chars' });
+      italicSplit = new SplitText(italicSpan, { type: 'chars' });
+      originalChars = originalSplit.chars;
+      italicChars = italicSplit.chars;
     }
-    
+
     // Initial positions
-    gsap.set(originalSplit.chars, { 
-      rotationX: 0, 
-      opacity: 1, 
+    gsap.set(originalChars, {
+      rotationX: 0,
+      opacity: 1,
       transformOrigin: TRANSFORM_ORIGIN,
       backfaceVisibility: 'hidden'
     });
-    
-    gsap.set(italicSplit.chars, { 
-      rotationX: -90, 
-      opacity: 0, 
-      transformOrigin: TRANSFORM_ORIGIN, 
+
+    gsap.set(italicChars, {
+      rotationX: -90,
+      opacity: 0,
+      transformOrigin: TRANSFORM_ORIGIN,
       backfaceVisibility: 'hidden'
     });
     
     // Animation state
     let tl = null;
-    
+
     // Event handlers
     const handleEnter = () => {
       tl?.kill();
-      tl = animateChars(originalSplit.chars, italicSplit.chars, true);
+      tl = animateChars(originalChars, italicChars, true);
     };
-    
+
     const handleLeave = () => {
       tl?.kill();
-      tl = animateChars(originalSplit.chars, italicSplit.chars, false);
+      tl = animateChars(originalChars, italicChars, false);
     };
-    
+
     link.addEventListener('mouseenter', handleEnter);
     link.addEventListener('mouseleave', handleLeave);
-    
+
     // Store for cleanup
     linkInstances.set(link, {
       originalSplit,
       italicSplit,
+      isButton,
       handleEnter,
       handleLeave
     });
@@ -113,8 +113,20 @@ export function initLinkHover() {
 
 function createTextSpan(text, isItalic, isButton) {
   const span = document.createElement('span');
-  // Replace regular spaces with non-breaking spaces to prevent collapse in flex containers
-  span.textContent = isButton ? text.replace(/ /g, '\u00A0') : text;
+
+  if (isButton) {
+    // For buttons, we need to manually create character spans to preserve spaces
+    // SplitText doesn't reliably create elements for whitespace
+    span.innerHTML = text.split('').map(char => {
+      if (char === ' ' || char === '\u00A0' || char === '\u2800') {
+        // Create a visible space element that won't collapse
+        return `<span class="char-space" style="display:inline-block;white-space:pre;min-width:0.3em">\u00A0</span>`;
+      }
+      return `<span class="char-letter">${char}</span>`;
+    }).join('');
+  } else {
+    span.textContent = text;
+  }
 
   gsap.set(span, {
     display: isButton ? 'flex' : 'block',
@@ -132,7 +144,7 @@ function createTextSpan(text, isItalic, isButton) {
       width: '100%'
     })
   });
-  
+
   return span;
 }
 
@@ -168,23 +180,23 @@ function animateChars(originalChars, italicChars, isHover) {
 
 export function destroyLinkHover() {
   const navLinks = document.querySelectorAll('.nav-wrap a, .bottom-nav-wrap a, .btn, .btn a');
-  
+
   navLinks.forEach(link => {
     const instance = linkInstances.get(link);
-    
+
     if (instance) {
-      // Kill animations
-      instance.originalSplit.revert();
-      instance.italicSplit.revert();
-      
+      // Kill animations - only revert SplitText if it was used
+      if (instance.originalSplit) instance.originalSplit.revert();
+      if (instance.italicSplit) instance.italicSplit.revert();
+
       // Remove listeners
       link.removeEventListener('mouseenter', instance.handleEnter);
       link.removeEventListener('mouseleave', instance.handleLeave);
-      
+
       // Clear WeakMap entry
       linkInstances.delete(link);
     }
-    
+
     // Restore original text
     const firstSpan = link.querySelector('span');
     if (firstSpan) {
