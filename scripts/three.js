@@ -19,6 +19,7 @@ let rafId = null;
 let containerEl = null;
 let isRunning = false;
 let dissolvePass = null;
+let heroScrollTrigger = null;
 
 const DissolveShader = {
   uniforms: {
@@ -183,6 +184,22 @@ export function webgl() {
   const outputPass = new OutputPass();
   composer.addPass(outputPass);
 
+  // Setup ScrollTrigger for dissolve effect
+  const hero = document.querySelector('.hero');
+  if (hero) {
+    heroScrollTrigger = ScrollTrigger.create({
+      trigger: hero,
+      start: "top top",
+      end: "bottom top",
+      scrub: true,
+      onUpdate: (self) => {
+        if (dissolvePass) {
+          dissolvePass.uniforms.uProgress.value = self.progress;
+        }
+      }
+    });
+  }
+
   let mousePos = { x: 0, y: 0 };
   let cameraTarget = { angle: Math.PI / 2, y: 0 };
   let cameraCurrent = { angle: Math.PI / 2, y: 0 };
@@ -240,6 +257,11 @@ export function destroyWebgl() {
   if (mouseHandler) {
     document.removeEventListener('mousemove', mouseHandler);
     mouseHandler = null;
+  }
+
+  if (heroScrollTrigger) {
+    heroScrollTrigger.kill();
+    heroScrollTrigger = null;
   }
 
   if (dissolvePass) {
