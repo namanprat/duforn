@@ -29,21 +29,25 @@ export function initLinkHover() {
     // Setup link structure
     const display = getComputedStyle(link).display;
     if (display === 'inline') link.style.display = 'inline-block';
-    
+
     const isButton = link.classList.contains('btn');
     const baseLayout = isButton
       ? { display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }
       : {};
-    gsap.set(link, { 
+    gsap.set(link, {
       position: 'relative',
       overflow: 'hidden',
       perspective: 800,
       ...baseLayout
     });
-    
+
+    // Normalize spaces: replace regular spaces and braille spaces with non-breaking spaces
+    // This ensures spaces are preserved during SplitText and don't collapse in flexbox
+    const normalizedText = originalText.replace(/[\s\u2800]/g, '\u00A0');
+
     // Create dual text structure
-    const originalSpan = createTextSpan(originalText, false, isButton);
-    const italicSpan = createTextSpan(originalText, true, isButton);
+    const originalSpan = createTextSpan(normalizedText, false, isButton);
+    const italicSpan = createTextSpan(normalizedText, true, isButton);
     
     link.textContent = '';
     link.appendChild(originalSpan);
