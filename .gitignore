@@ -1,0 +1,5 @@
+# Platform-specific binaries
+node_modules/@esbuild/linux-x64/
+node_modules/@rollup/rollup-linux-x64-gnu/
+node_modules/@esbuild/darwin-arm64/
+node_modules/@rollup/rollup-darwin-arm64/
