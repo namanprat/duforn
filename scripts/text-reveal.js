@@ -8,6 +8,47 @@ const scrollTriggers = [];
 
 gsap.registerPlugin(ScrollTrigger);
 
+// ============================================================================
+// BIDIRECTIONAL PAGE TRANSITION SYSTEM
+// ============================================================================
+// This system handles smooth text animations when navigating between pages.
+//
+// FORWARD NAVIGATION (Home → Contact):
+//   - Text on leaving page "falls" downward and fades out
+//   - Text on entering page "rises" upward from below
+//   - Creates a sense of moving forward/deeper into the site
+//
+// BACKWARD NAVIGATION (Contact → Home):
+//   - Text on leaving page "rises" upward and fades out (un-reveal)
+//   - Text on entering page "falls" downward from above
+//   - Creates a sense of returning/going back
+//
+// The direction is automatically detected by comparing page namespaces.
+// ============================================================================
+
+/**
+ * Page hierarchy for determining navigation direction.
+ * Lower index = closer to "home", higher index = deeper in site.
+ * Customize this array based on your site's information architecture.
+ */
+const PAGE_HIERARCHY = ['home', 'contact', 'work', 'archive', 'film'];
+
+/**
+ * Determines if navigation is "forward" (going deeper) or "backward" (returning).
+ * @param {string} fromNamespace - The namespace of the page we're leaving
+ * @param {string} toNamespace - The namespace of the page we're entering
+ * @returns {'forward' | 'backward'} - The navigation direction
+ */
+function getNavigationDirection(fromNamespace, toNamespace) {
+  const fromIndex = PAGE_HIERARCHY.indexOf(fromNamespace);
+  const toIndex = PAGE_HIERARCHY.indexOf(toNamespace);
+
+  // If either page isn't in hierarchy, default to forward
+  if (fromIndex === -1 || toIndex === -1) return 'forward';
+
+  return toIndex > fromIndex ? 'forward' : 'backward';
+}
+
 function tweenToPromise(tween) {
   return tween ? new Promise((resolve) => tween.eventCallback("onComplete", resolve)) : Promise.resolve();
 }
@@ -73,6 +114,142 @@ function revealWords(element, { direction = "up", duration = 0.8, stagger = 0.03
     { y: yStart, opacity: 0 },
     { y: 0, opacity: 1, duration, stagger, ease }
   );
+}
+
+/**
+ * EXIT ANIMATION: Animates words OUT of view (un-reveal effect).
+ * Used when leaving a page during transitions.
+ *
+ * @param {HTMLElement} element - The element containing text to animate out
+ * @param {Object} options - Animation configuration
+ * @param {'up' | 'down'} options.direction - Direction words exit to ('up' = rise out, 'down' = fall out)
+ * @param {number} options.duration - Animation duration in seconds
+ * @param {number} options.stagger - Delay between each word animation
+ * @param {string} options.ease - GSAP easing function
+ * @returns {gsap.core.Tween | null} - The GSAP tween or null if element invalid
+ */
+function exitWords(element, { direction = "up", duration = 0.4, stagger = 0.02, ease = "power2.in" } = {}) {
+  const split = getOrSplit(element);
+  if (!split?.words?.length) return null;
+
+  // Exit direction: 'up' means words rise and disappear, 'down' means they fall
+  const yEnd = direction === "up" ? -100 : 100;
+
+  return gsap.to(split.words, {
+    y: yEnd,
+    opacity: 0,
+    duration,
+    stagger,
+    ease
+  });
+}
+
+/**
+ * BIDIRECTIONAL EXIT: Animates text OUT based on navigation direction.
+ * Automatically determines exit direction based on whether user is
+ * navigating forward or backward through the site.
+ *
+ * @param {HTMLElement} container - The page container with text elements
+ * @param {'forward' | 'backward'} navDirection - Navigation direction
+ * @returns {Promise<void>} - Resolves when all exit animations complete
+ *
+ * Forward exit: Text falls down (user moving deeper into site)
+ * Backward exit: Text rises up (user returning to earlier page)
+ */
+async function animateExitLeave(container, navDirection = 'forward') {
+  if (!container) return;
+
+  const textRevealHeaders = container.querySelectorAll('.text-reveal-header');
+  if (!textRevealHeaders.length) return;
+
+  const animations = [];
+
+  for (let i = 0; i < textRevealHeaders.length; i++) {
+    const header = textRevealHeaders[i];
+    const isReverse = header.classList.contains('text-reveal-reverse');
+
+    // Determine exit direction based on navigation and element's reveal class
+    // Forward navigation: elements exit downward (opposite of how they entered)
+    // Backward navigation: elements exit upward (reversing their entrance)
+    let exitDir;
+    if (navDirection === 'forward') {
+      // Forward: exit opposite to reveal direction
+      exitDir = isReverse ? 'up' : 'down';
+    } else {
+      // Backward: exit same as reveal direction (true reverse)
+      exitDir = isReverse ? 'down' : 'up';
+    }
+
+    const tween = exitWords(header, {
+      direction: exitDir,
+      duration: 0.35,
+      stagger: navDirection === 'backward' ? -0.02 : 0.02, // Reverse stagger for backward nav
+      ease: 'power2.in'
+    });
+
+    if (tween) {
+      animations.push(tweenToPromise(tween));
+    }
+  }
+
+  if (animations.length) {
+    await Promise.all(animations);
+  }
+}
+
+/**
+ * BIDIRECTIONAL ENTER: Animates text IN based on navigation direction.
+ * The enter direction mirrors the exit direction for visual continuity.
+ *
+ * @param {HTMLElement} container - The page container with text elements
+ * @param {'forward' | 'backward'} navDirection - Navigation direction
+ * @returns {Promise<void>} - Resolves when all enter animations complete
+ *
+ * Forward enter: Text rises up from below
+ * Backward enter: Text falls down from above
+ */
+async function animateBidirectionalEnter(container, navDirection = 'forward') {
+  if (!container) return;
+
+  const textRevealHeaders = container.querySelectorAll('.text-reveal-header');
+  if (!textRevealHeaders.length) return;
+
+  // Clear any inline styles from previous animations
+  gsap.set(Array.from(textRevealHeaders), { clearProps: 'all' });
+
+  const animations = [];
+
+  for (let i = 0; i < textRevealHeaders.length; i++) {
+    const header = textRevealHeaders[i];
+    const isReverse = header.classList.contains('text-reveal-reverse');
+
+    // Determine enter direction based on navigation
+    // Forward: elements enter from below (rising up)
+    // Backward: elements enter from above (falling down)
+    let enterDir;
+    if (navDirection === 'forward') {
+      // Forward: normal reveal direction
+      enterDir = isReverse ? 'down' : 'up';
+    } else {
+      // Backward: opposite of normal (coming from where they exited)
+      enterDir = isReverse ? 'up' : 'down';
+    }
+
+    const tween = revealWords(header, {
+      direction: enterDir,
+      duration: 0.8,
+      stagger: navDirection === 'backward' ? -0.04 : 0.04, // Reverse stagger for backward
+      ease: 'power2.out'
+    });
+
+    if (tween) {
+      animations.push(tweenToPromise(tween));
+    }
+  }
+
+  if (animations.length) {
+    await Promise.all(animations);
+  }
 }
 
 function fadeNodes(nodes, { duration = 0.55, stagger = 0.03, ease = "power2.out" } = {}) {
@@ -268,4 +445,15 @@ function cleanupSplits() {
   splitTracking.length = 0; // Clear the tracking array
 }
 
-export { getOrSplit, animateRevealEnter, initScrollTextReveals, cleanupScrollTriggers, cleanupSplits };
+export {
+  getOrSplit,
+  animateRevealEnter,
+  initScrollTextReveals,
+  cleanupScrollTriggers,
+  cleanupSplits,
+  // Bidirectional transition exports
+  getNavigationDirection,
+  exitWords,
+  animateExitLeave,
+  animateBidirectionalEnter
+};
