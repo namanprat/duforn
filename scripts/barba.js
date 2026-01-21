@@ -81,44 +81,42 @@ barba.init({
       to: { namespace: ['home', 'contact'] },
       async leave(data) {
         closeMenuIfOpen();
-        cleanupScrollTriggers(); // Clean up old ScrollTriggers first
-        cleanupSplits(); // Also revert splits to restore original text
+        cleanupScrollTriggers();
+        cleanupSplits();
         const container = data?.current?.container;
         if (!container) return;
 
-        // Batch all DOM queries together
         const textRevealHeaders = container.querySelectorAll('.text-reveal-header');
         const heroP = container.querySelector('.hero .hero-contain p');
         const heroBtn = container.querySelector('.hero .btn, .hero .btn a');
         
         const animations = [];
 
-        // Fade out paragraph and button first
+        // Fade out paragraph and button
         const fadeTargets = [heroP, heroBtn].filter(Boolean);
         if (fadeTargets.length) {
           animations.push(gsap.to(fadeTargets, { opacity: 0, duration: 0.25, ease: 'power2.out' }));
         }
 
-        // Animate headers out simultaneously
+        // Reverse reveal on text headers as they leave
         for (let i = 0; i < textRevealHeaders.length; i++) {
           const header = textRevealHeaders[i];
           const split = getOrSplit(header);
           if (split?.words?.length) {
-            // Determine direction based on class
             const isReverse = header.classList.contains('text-reveal-reverse');
+            // When leaving: reverse goes down (-100), normal goes up (100)
             animations.push(
               gsap.to(split.words, {
                 y: isReverse ? -100 : 100,
                 opacity: 0,
-                duration: 0.35,
-                stagger: 0.02,
+                duration: 0.4,
+                stagger: 0.03,
                 ease: 'power2.in'
               })
             );
           }
         }
 
-        // Wait for all animations to complete
         if (animations.length) {
           await Promise.all(animations.map(anim => new Promise(resolve => anim.eventCallback('onComplete', resolve))));
         }
@@ -127,25 +125,57 @@ barba.init({
         const container = data?.next?.container;
         if (!container) return;
         
-        // Batch DOM queries
         const heroP = container.querySelector('.hero .hero-contain p');
         const heroBtn = container.querySelector('.hero .btn, .hero .btn a');
-        
-        // Hide paragraph and button (will fade in)
         const fadeElements = [heroP, heroBtn].filter(Boolean);
         if (fadeElements.length) {
           gsap.set(fadeElements, { opacity: 0 });
+        }
+
+        // Reset text headers to pre-reveal state before animating in
+        const textRevealHeaders = container.querySelectorAll('.text-reveal-header');
+        for (let i = 0; i < textRevealHeaders.length; i++) {
+          const header = textRevealHeaders[i];
+          const split = getOrSplit(header);
+          if (split?.words?.length) {
+            const isReverse = header.classList.contains('text-reveal-reverse');
+            // Set initial state: reverse comes from top (-100), normal from bottom (100)
+            gsap.set(split.words, {
+              y: isReverse ? -100 : 100,
+              opacity: 0
+            });
+          }
         }
       },
       async after(data) {
         const container = data?.next?.container;
         if (!container) return;
         
-        // Initialize features first
         initPageFeatures(data?.next?.namespace);
         
-        // Animate headers in
-        await animateRevealEnter(container);
+        // Reveal headers in - animate from their starting positions to 0
+        const textRevealHeaders = container.querySelectorAll('.text-reveal-header');
+        const animations = [];
+        
+        for (let i = 0; i < textRevealHeaders.length; i++) {
+          const header = textRevealHeaders[i];
+          const split = getOrSplit(header);
+          if (split?.words?.length) {
+            animations.push(
+              gsap.to(split.words, {
+                y: 0,
+                opacity: 1,
+                duration: 0.5,
+                stagger: 0.03,
+                ease: 'power2.out'
+              })
+            );
+          }
+        }
+
+        if (animations.length) {
+          await Promise.all(animations.map(anim => new Promise(resolve => anim.eventCallback('onComplete', resolve))));
+        }
         
         // Then fade in paragraph and button
         const heroP = container.querySelector('.hero .hero-contain p');
@@ -153,7 +183,7 @@ barba.init({
         const fadeTargets = [heroP, heroBtn].filter(Boolean);
         
         if (fadeTargets.length) {
-          await gsap.to(fadeTargets, { opacity: 1, duration: 0.35, ease: 'power2.out', delay: 0.2 });
+          await gsap.to(fadeTargets, { opacity: 1, duration: 0.35, ease: 'power2.out', delay: 0.1 });
         }
       }
     },

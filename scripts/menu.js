@@ -28,12 +28,16 @@ function getOrSplit(element) {
 
 // menu functions
 function openMenu() {
-  const menuBox = document.querySelector(".menu-box");
+  const menuBoxes = document.querySelectorAll(".menu-box");
   const menuToggleBtn = document.querySelector(".menu-toggle-btn");
   const menuItems = document.querySelectorAll(".menu-item");
 
   isAnimating = true;
-  if (menuBox) menuBox.style.pointerEvents = "all";
+
+  menuBoxes.forEach(box => {
+    box.style.pointerEvents = "all";
+  });
+  
   if (menuParent) menuParent.style.pointerEvents = "all";
   gsap.to(menuParent, { autoAlpha: 1, duration: 0.3 });
   if (menuToggleBtn) menuToggleBtn.classList.add("menu-open");
@@ -43,14 +47,16 @@ function openMenu() {
     lenis.stop();
   }
 
-  if (menuBox) {
-    gsap.to(menuBox, {
+  if (menuBoxes.length) {
+    gsap.to(menuBoxes, {
       clipPath: "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)",
       duration: 0.3,
       onComplete: () => {
         isAnimating = false;
       },
     });
+  } else {
+    isAnimating = false;
   }
 
   // animate menu items (simple fade in)
@@ -87,12 +93,16 @@ function openMenu() {
 }
 
 function closeMenu() {
-  const menuBox = document.querySelector(".menu-box");
+  const menuBoxes = document.querySelectorAll(".menu-box");
   const menuToggleBtn = document.querySelector(".menu-toggle-btn");
   const menuItems = document.querySelectorAll(".menu-item");
 
   isAnimating = true;
-  if (menuBox) menuBox.style.pointerEvents = "none";
+  
+  menuBoxes.forEach(box => {
+    box.style.pointerEvents = "none";
+  });
+
   if (menuParent) menuParent.style.pointerEvents = "none";
   if (menuToggleBtn) menuToggleBtn.classList.remove("menu-open");
 
@@ -101,8 +111,8 @@ function closeMenu() {
     lenis.start();
   }
 
-  if (menuBox) {
-    gsap.to(menuBox, {
+  if (menuBoxes.length) {
+    gsap.to(menuBoxes, {
       clipPath: "polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%)",
       duration: 0.3,
       onComplete: () => {
@@ -120,6 +130,8 @@ function closeMenu() {
         }
       },
     });
+  } else {
+    isAnimating = false;
   }
 
   isMenuOpen = false;
@@ -130,7 +142,7 @@ function initMenu() {
   if (menuInitialized) return;
   menuInitialized = true;
   const menuToggleBtn = document.querySelector(".menu-toggle-btn");
-  const menuBox = document.querySelector(".menu-box");
+  const menuBoxes = document.querySelectorAll(".menu-box");
   const menuItems = document.querySelectorAll(".menu-item");
 
   // reference menu-parent and initialize its state
@@ -150,7 +162,7 @@ function initMenu() {
     menuToggleBtn.addEventListener("click", (e) => {
       e.preventDefault(); // Prevent navigation if it's a link
       if (isAnimating) {
-        gsap.killTweensOf([menuBox, menuItems]);
+        gsap.killTweensOf([...menuBoxes, ...menuItems]);
         isAnimating = false;
       }
 

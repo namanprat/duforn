@@ -384,6 +384,7 @@ p {
   /* filter: drop-shadow(0 0 2px #E2E2E2d3);
   text-shadow: 0 0 1px rgba(255, 255, 255, 0.5); */
   margin-top: var(--size-2-5rem);
+  white-space: pre-wrap;
 }
 
 /* Button inner text */
@@ -1776,12 +1777,9 @@ section {
   gap: 1rem;
 }
 
-.spotlight {
-  background-color: transparent;
-}
-
 .spotlight-contain {
-  height: 105vh;
+  height: fit-content;
+  min-height: 105vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1800,18 +1798,10 @@ section {
   margin: 2rem 0;
 }
 
-.section-3 {
-  /* flex-direction: column; */
-  height: 110svh;
-  /* justify-content: space-between; */
-  width: 100%;
-  min-height: 100svh;
-}
 
 .middle-img {
   aspect-ratio: 5/3;
   position: relative;
-  width: 100%;
   height: 100%;
 }
 .middle-img::after {
@@ -1872,16 +1862,19 @@ section {
 }
 .menu-box {
   position: relative;
+  display: flex;
+
   flex-direction: column;
   align-self: flex-start;
+    padding: var(--size-0-5rem);
   margin-left: auto;
   width: 100%;
   height: fit-content;
-  display: flex;
   max-width: var(--container--full);
   background-color: var(--theme-accent);
   clip-path: polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%);
   transform-origin: top center;
+
   will-change: clip-path;
   overflow: hidden;
   pointer-events: none;
@@ -1908,20 +1901,21 @@ section {
 }
 
 .menu-wrap {
-  width: 100%;
-  top: 0;
-  left: 0;
-  padding-top: var(--spacing-space-3);
-  background-color: rgba(0, 0, 0, 0.105);
-  align-items: center;
-  display: block;
-  display: flex;
-  position: fixed;
-  top: 0px;
-  left: 0px;
-  height: 100lvh;
-  backdrop-filter: blur(5px);
   z-index: 300;
+  position: fixed;
+  width: 100%;
+  right: 0;
+  left: 0;
+  bottom: 0;
+  max-width: var(--container--main);
+  height: 100%;
+  margin: auto;
+  padding-top: var(--spacing-space-4);
+  pointer-events: none;
+
+
+  background-color: rgba(0, 0, 0, 0.105);
+  backdrop-filter: blur(15px);
 }
 .menu-content {
   padding-left: var(--site--margin);
@@ -1930,21 +1924,7 @@ section {
   position: static;
   margin-top: var(--size-0-5rem);
 }
-.menu-box {
-  flex-direction: column;
-  align-items: flex-start;
-  padding: 1rem 0;
-  gap: 0.3rem;
-}
-.menu-items {
-  padding-left: var(--size-0-5rem);
 
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--size-0-25rem);
-}
 .menu-box h3,
 .menu-box a {
   width: 100%;
@@ -1953,11 +1933,6 @@ section {
 }
 .menu-box h3 {
   font-weight: 700;
-}
-.menu-box line {
-  width: 100%;
-  height: 1px;
-  background-color: var(--theme-text);
 }
 
 .menu-item {
