@@ -8,6 +8,19 @@ let camera = null;
 let mesh = null;
 let uniforms = null;
 let rafId = null;
+let containerEl = null;
+let resizeHandler = null;
+let running = false;
+let startTime = null;
+let prevTexture = null;
+
+const vertexShader = `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
 const fragmentShader = `
   precision highp float;
 
