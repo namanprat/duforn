@@ -7,17 +7,7 @@ import { initIndex, destroyIndex } from './index.js';
 import { initVariableFont } from './variable-font.js';
 import { initWork, destroyWork } from './work.js';
 import { initArchiveScene, destroyArchiveScene } from './archive-scene.js';
-import {
-  animateRevealEnter,
-  initScrollTextReveals,
-  getOrSplit,
-  cleanupScrollTriggers,
-  cleanupSplits,
-  // Bidirectional transition imports
-  getNavigationDirection,
-  animateExitLeave,
-  animateBidirectionalEnter
-} from './text-reveal.js';
+import { initScrollTextReveals, cleanupScrollTriggers, cleanupSplits } from './text-reveal.js';
 import webgl, { destroyWebgl } from './three.js';
 import { initLinkHover, destroyLinkHover } from './link-hover.js';
 
@@ -85,116 +75,6 @@ function initPageFeatures(namespace) {
 
 barba.init({
   transitions: [
-    // ========================================================================
-    // BIDIRECTIONAL PAGE TRANSITION: Home ↔ Contact
-    // ========================================================================
-    // This transition creates a seamless bidirectional animation flow:
-    //
-    // FORWARD (Home → Contact):
-    //   Leave: Text on Home page falls/exits downward
-    //   Enter: Text on Contact page rises from below
-    //
-    // BACKWARD (Contact → Home):
-    //   Leave: Text on Contact page rises/exits upward (un-reveal)
-    //   Enter: Text on Home page falls from above
-    //
-    // The direction is automatically detected based on page hierarchy.
-    // ========================================================================
-    {
-      name: 'home-contact-reverse',
-      from: { namespace: ['home', 'contact'] },
-      to: { namespace: ['home', 'contact'] },
-
-      async leave(data) {
-        closeMenuIfOpen();
-        cleanupScrollTriggers();
-        cleanupSplits();
-
-        const container = data?.current?.container;
-        if (!container) return;
-
-        // Determine navigation direction for bidirectional animation
-        const fromNs = data?.current?.namespace;
-        const toNs = data?.next?.namespace;
-        const navDirection = getNavigationDirection(fromNs, toNs);
-
-        // Batch DOM queries
-        const heroP = container.querySelector('.hero .hero-contain p');
-        const heroBtn = container.querySelector('.hero .btn, .hero .btn a');
-        const fadeTargets = [heroP, heroBtn].filter(Boolean);
-
-        // Start fading out supporting elements
-        if (fadeTargets.length) {
-          gsap.to(fadeTargets, { opacity: 0, duration: 0.25, ease: 'power2.out' });
-        }
-
-        // Animate headers out with direction-aware exit animation
-        // Forward: text exits downward | Backward: text exits upward (un-reveal)
-        await animateExitLeave(container, navDirection);
-      },
-
-      enter(data) {
-        const container = data?.next?.container;
-        if (!container) return;
-
-        // Hide supporting elements (they'll fade in after text reveals)
-        const heroP = container.querySelector('.hero .hero-contain p');
-        const heroBtn = container.querySelector('.hero .btn, .hero .btn a');
-        const fadeElements = [heroP, heroBtn].filter(Boolean);
-
-        if (fadeElements.length) {
-          gsap.set(fadeElements, { opacity: 0 });
-        }
-
-        // Reset text headers to pre-reveal state before animating in
-        const textRevealHeaders = container.querySelectorAll('.text-reveal-header');
-        for (let i = 0; i < textRevealHeaders.length; i++) {
-          const header = textRevealHeaders[i];
-          const split = getOrSplit(header);
-          if (split?.words?.length) {
-            const isReverse = header.classList.contains('text-reveal-reverse');
-            // Set initial state: reverse comes from top (-100), normal from bottom (100)
-            gsap.set(split.words, {
-              y: isReverse ? -100 : 100,
-              opacity: 0
-            });
-          }
-        }
-      },
-
-      async after(data) {
-        const container = data?.next?.container;
-        if (!container) return;
-
-
-        // Determine navigation direction for enter animation
-        const fromNs = data?.current?.namespace;
-        const toNs = data?.next?.namespace;
-        const navDirection = getNavigationDirection(fromNs, toNs);
-
-        // Initialize page features first
-        initPageFeatures(toNs);
-
-        // Animate headers in with direction-aware enter animation
-        // Forward: text enters from below | Backward: text enters from above
-        await animateBidirectionalEnter(container, navDirection);
-
-        // Then fade in supporting elements
-        const heroP = container.querySelector('.hero .hero-contain p');
-        const heroBtn = container.querySelector('.hero .btn, .hero .btn a');
-        const fadeTargets = [heroP, heroBtn].filter(Boolean);
-
-        if (fadeTargets.length) {
-
-          await gsap.to(fadeTargets, {
-            opacity: 1,
-            duration: 0.35,
-            ease: 'power2.out',
-            delay: 0.2
-          });
-        }
-      }
-    },
     {
       name: 'default',
       async leave(data) {
@@ -216,41 +96,11 @@ barba.init({
         await revealTransition();
       },
       async once(data) {
-        // Initialize features first
         initPageFeatures(data?.next?.namespace);
-        
         await revealTransition();
-        
-        // Animate text reveals on first load for home/contact pages
-        const ns = data?.next?.namespace;
-        if (ns === 'home' || ns === 'contact') {
-          const container = data?.next?.container;
-          if (container) {
-            // Set initial state for paragraph and button
-            const heroP = container.querySelector('.hero .hero-contain p');
-            const heroBtn = container.querySelector('.hero .btn, .hero .btn a');
-            const fadeTargets = [heroP, heroBtn].filter(Boolean);
-            
-            if (fadeTargets.length) {
-              gsap.set(fadeTargets, { opacity: 0 });
-            }
-            
-            // Animate headers
-            await animateRevealEnter(container);
-            
-            // Then fade in paragraph and button
-            if (fadeTargets.length) {
-              await gsap.to(fadeTargets, { opacity: 1, duration: 0.35, ease: 'power2.out', delay: 0.2 });
-            }
-          }
-        }
       },
       async after(data) {
-        // Only init if not already initialized in once()
-        const ns = data?.next?.namespace;
-        if (ns !== 'home' && ns !== 'contact') {
-          initPageFeatures(ns);
-        }
+        initPageFeatures(data?.next?.namespace);
       }
     }
   ]
