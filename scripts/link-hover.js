@@ -16,8 +16,8 @@ const TRANSFORM_ORIGIN = "50% 50% -10px";
 const linkInstances = new WeakMap();
 
 export function initLinkHover() {
-  // Include .btn itself because buttons are anchors now
-  const navLinks = document.querySelectorAll('.nav-wrap a, .bottom-nav-wrap a, .btn, .btn a');
+  // Note: .btn is excluded - it uses custom animation in btn-hover.js
+  const navLinks = document.querySelectorAll('.nav-wrap a, .bottom-nav-wrap a');
   
   navLinks.forEach(link => {
     // Skip if already initialized or excluded
@@ -30,15 +30,10 @@ export function initLinkHover() {
     const display = getComputedStyle(link).display;
     if (display === 'inline') link.style.display = 'inline-block';
 
-    const isButton = link.classList.contains('btn');
-    const baseLayout = isButton
-      ? { display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }
-      : {};
     gsap.set(link, {
       position: 'relative',
       overflow: 'hidden',
-      perspective: 800,
-      ...baseLayout
+      perspective: 800
     });
 
     // Normalize spaces: replace regular spaces and braille spaces with non-breaking spaces
@@ -46,29 +41,17 @@ export function initLinkHover() {
     const normalizedText = originalText.replace(/[\s\u2800]/g, '\u00A0');
 
     // Create dual text structure
-    const originalSpan = createTextSpan(normalizedText, false, isButton);
-    const italicSpan = createTextSpan(normalizedText, true, isButton);
-    
+    const originalSpan = createTextSpan(normalizedText, false);
+    const italicSpan = createTextSpan(normalizedText, true);
+
     link.textContent = '';
     link.appendChild(originalSpan);
     link.appendChild(italicSpan);
-    
+
     // Split once and reuse
     const originalSplit = new SplitText(originalSpan, { type: 'chars' });
     const italicSplit = new SplitText(italicSpan, { type: 'chars' });
 
-    // Fix spaces for buttons where flexbox collapses them
-    if (isButton) {
-      [originalSplit.chars, italicSplit.chars].forEach(chars => {
-        chars.forEach(char => {
-          // Check for regular space, non-breaking space, and braille blank
-          if (char.textContent === ' ' || char.textContent === '\u00A0' || char.textContent === '⠀') {
-             gsap.set(char, { whiteSpace: 'pre', display: 'inline-block', minWidth: '0.3em' });
-          }
-        });
-      });
-    }
-    
     // Initial positions
     gsap.set(originalSplit.chars, { 
       rotationX: 0, 
@@ -111,15 +94,12 @@ export function initLinkHover() {
   });
 }
 
-function createTextSpan(text, isItalic, isButton) {
+function createTextSpan(text, isItalic) {
   const span = document.createElement('span');
-  // Replace regular spaces with non-breaking spaces to prevent collapse in flex containers
-  span.textContent = isButton ? text.replace(/ /g, '\u00A0') : text;
+  span.textContent = text;
 
   gsap.set(span, {
-    display: isButton ? 'flex' : 'block',
-    alignItems: isButton ? 'center' : 'initial',
-    justifyContent: isButton ? 'center' : 'initial',
+    display: 'block',
     whiteSpace: 'nowrap',
     width: '100%',
     height: '100%',
@@ -132,7 +112,7 @@ function createTextSpan(text, isItalic, isButton) {
       width: '100%'
     })
   });
-  
+
   return span;
 }
 
@@ -167,7 +147,7 @@ function animateChars(originalChars, italicChars, isHover) {
 }
 
 export function destroyLinkHover() {
-  const navLinks = document.querySelectorAll('.nav-wrap a, .bottom-nav-wrap a, .btn, .btn a');
+  const navLinks = document.querySelectorAll('.nav-wrap a, .bottom-nav-wrap a');
   
   navLinks.forEach(link => {
     const instance = linkInstances.get(link);

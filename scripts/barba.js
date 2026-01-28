@@ -10,6 +10,7 @@ import { initArchiveScene, destroyArchiveScene } from './archive-scene.js';
 import { initScrollTextReveals, cleanupScrollTriggers, cleanupSplits } from './text-reveal.js';
 import webgl, { destroyWebgl } from './three.js';
 import { initLinkHover, destroyLinkHover } from './link-hover.js';
+import { initBtnHover, destroyBtnHover } from './btn-hover.js';
 
 
 
@@ -44,6 +45,7 @@ function initPageFeatures(namespace) {
   initVariableFont();
   initScrollTextReveals();
   initLinkHover();
+  initBtnHover();
 
   const ns = namespace || document.querySelector('[data-barba="container"]')?.dataset.barbaNamespace;
   if (ns === 'work') {
@@ -89,6 +91,7 @@ barba.init({
         }
         cleanupScrollTriggers(); // Clean up ScrollTriggers before transition
         cleanupSplits(); // Revert splits
+        destroyBtnHover(); // Clean up button hover animations
         closeMenuIfOpen();
         await animateTransition();
       },

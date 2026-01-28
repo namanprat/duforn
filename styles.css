@@ -366,36 +366,81 @@ p {
 }
 
 .btn {
-  
-  background-image: url("data:image/svg+xml,%3Csvg%20width='230'%20height='74'%20viewBox='0%200%20230%2074'%20fill='none'%20xmlns='http://www.w3.org/2000/svg'%3E%3Cpath%20d='M228.186%2058.9639V14.1431C220.927%2014.1431%20215.042%208.25872%20215.042%201H14.1431C14.1431%208.25872%208.25872%2014.1431%201%2014.1431V58.9639C8.25872%2058.9639%2014.1431%2064.8482%2014.1431%2072.1069H215.042C215.042%2064.8482%20220.927%2058.9639%20228.186%2058.9639Z'%20stroke='white'%20stroke-width='2'/%3E%3C/svg%3E");
-  background-size: contain;
-  background-repeat: no-repeat;
-  border: none;
-  height: var(--typography-font-size-h2);
-  aspect-ratio: 25/8;
-  font-family: var(--text-style-font-secondary);
-  color: var(--theme-accent);
-  text-transform: uppercase;
-  display: flex;
-  justify-content: center !important;
+  /* Wrapper for the entire button component */
+  display: inline-flex;
   align-items: center;
+  gap: 0; /* No gap - spacing handled by GSAP transforms */
   cursor: pointer;
-  /* letter-spacing: 0.05em; */
-  /* filter: drop-shadow(0 0 2px #E2E2E2d3);
-  text-shadow: 0 0 1px rgba(255, 255, 255, 0.5); */
   margin-top: var(--size-2-5rem);
-  white-space: pre-wrap;
+  text-decoration: none;
+  position: relative;
 }
 
-/* Button inner text */
-.btn span {
-  font-size: var(--typography-font-size-text-small) !important;
-  height: var(--typography-font-size-text-small);
-  line-height: var(--typography-font-size-text-small);
-  display: inline-block; /* Fallback */
-  white-space: nowrap;
-  pointer-events: none; /* Ensure clicks pass through to button */
+/* Main pill/rectangle container */
+.btn-container {
+  background-color: var(--swatch-light);
+  border-radius: 50px; /* Pill shape - animated by GSAP */
+  height: 72px;
+  padding: 0 var(--size-2-5rem);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  /* GPU acceleration */
+  will-change: border-radius, transform;
+}
+
+/* Button text */
+.btn-text {
+  font-family: var(--text-style-font-secondary);
+  font-size: var(--typography-font-size-text-main);
+  font-weight: var(--typography-font-primary-medium);
   letter-spacing: var(--typography-letter-spacing);
+  line-height: var(--typography-line-height-1);
+  color: var(--swatch-dark);
+  white-space: nowrap;
+  pointer-events: none;
+  position: relative;
+  z-index: 1;
+}
+
+/* Shared icon base styles */
+.btn-icon-circle,
+.btn-icon-square {
+  width: 72px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--swatch-light);
+  pointer-events: none;
+  /* GPU acceleration for smooth transforms */
+  will-change: transform, opacity;
+}
+
+/* Circular icon - sibling on right, visible by default */
+.btn-icon-circle {
+  background-color: var(--swatch-dark);
+  border-radius: 50%;
+  position: relative;
+  margin-left: var(--size-0-5rem);
+}
+
+/* Square icon - sibling on left, flush with container on hover */
+.btn-icon-square {
+  background-color: var(--swatch-dark);
+  border-radius: 0;
+  position: relative;
+  /* No margin - flush with container */
+}
+
+/* Icon SVG styling - diagonal arrow */
+.btn-icon-circle svg,
+.btn-icon-square svg {
+  width: 28px;
+  height: 28px;
+  stroke-width: 2;
 }
 /* Three.js Canvas */
 #background {
