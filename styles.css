@@ -381,6 +381,7 @@ p {
   align-items: stretch;
   gap: 0;
   width: fit-content;
+  height: fit-content;
   overflow: hidden;
   cursor: pointer;
   text-decoration: none;
@@ -395,8 +396,9 @@ p {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: fit-content;
+  height: 100%;
   will-change: transform, border-radius;
+  transition: border-radius 0.4s cubic-bezier(0.65, 0, 0.35, 1);
 }
 
 /* Button text */
@@ -409,22 +411,28 @@ p {
 /* Shared icon base styles */
 .btn-icon-circle,
 .btn-icon-square {
-  width: var(--btn-icon-size);
-  height: var(--btn-icon-size);
+    border-radius: var(--radius-round);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    will-change: transform, border-radius;
+
+    border-radius: 100px;
+  width: auto;
+  height: 3.25rem;
   aspect-ratio: 1 / 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   flex-shrink: 0;
   background-color: var(--swatch-dark);
   color: var(--swatch-light);
   pointer-events: none;
-  will-change: transform;
+  /* will-change: transform; */
 }
 
 /* Square icon - Frame 77 (left, clipped by overflow) */
 .btn-icon-square {
-  border-radius: 0;
+  position: absolute;
+  /* border-radius: 0; */
 }
 
 /* Circular icon - Frame 76 (right, visible) */
@@ -439,6 +447,7 @@ p {
   height: 28px;
   stroke-width: 2;
 }
+
 /* Three.js Canvas */
 #background {
   position: fixed;

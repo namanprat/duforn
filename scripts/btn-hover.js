@@ -89,12 +89,18 @@ export function initBtnHover() {
  * Sets initial GSAP states
  */
 function setInitialState(elements) {
-  const { container, circleIcon, squareIcon } = elements;
+  const { container, circleIcon, squareIcon, wrapper } = elements;
 
-  // Container: pill shape, no transform
+  // Get actual dimensions
+  const containerRect = container.getBoundingClientRect();
+  const iconHeight = containerRect.height;
+
+  // Store dimensions on elements for later use
+  elements.iconSize = iconHeight;
+
+  // Container: no transform, pill shape via CSS
   gsap.set(container, {
-    x: 0,
-    borderRadius: '100vw'
+    x: 0
   });
 
   // Circle icon: visible on right with gap spacing
@@ -102,7 +108,7 @@ function setInitialState(elements) {
     x: CONFIG.GAP
   });
 
-  // Square icon: clipped on left (-100% X)
+  // Square icon: clipped on left (-100% of its own width)
   gsap.set(squareIcon, {
     x: '-100%'
   });
@@ -115,11 +121,14 @@ function createHoverTimeline(elements, isHover) {
   const { container, circleIcon, squareIcon } = elements;
   const tl = gsap.timeline();
 
+  // Get the actual icon size (height = width due to aspect-ratio)
+  const iconSize = elements.iconSize || CONFIG.ICON_SIZE;
+
   if (isHover) {
     // HOVER IN: All animations synchronized
     // - Square: slides in from -100% to 0
-    // - Container: shifts right + becomes square
-    // - Circle: pushes out to the right
+    // - Container: shifts right by icon size + gap, CSS handles border-radius
+    // - Circle: pushes completely off-screen to the right
     tl
       .to(squareIcon, {
         x: 0,
@@ -127,21 +136,23 @@ function createHoverTimeline(elements, isHover) {
         ease: CONFIG.EASE
       }, 0)
       .to(container, {
-        x: CONFIG.ICON_SIZE + CONFIG.GAP,
-        borderRadius: 0,
+        x: iconSize + CONFIG.GAP,
         duration: CONFIG.DURATION,
         ease: CONFIG.EASE
       }, 0)
       .to(circleIcon, {
-        x: '100%',
+        x: iconSize + CONFIG.GAP,
         duration: CONFIG.DURATION,
         ease: CONFIG.EASE
       }, 0);
 
+    // Trigger border-radius change via class or direct style
+    container.style.borderRadius = '0';
+
   } else {
     // HOVER OUT: Reverse all animations
     // - Square: slides out to -100%
-    // - Container: returns to origin + becomes pill
+    // - Container: returns to origin, CSS handles border-radius
     // - Circle: returns to gap position
     tl
       .to(squareIcon, {
@@ -151,7 +162,6 @@ function createHoverTimeline(elements, isHover) {
       }, 0)
       .to(container, {
         x: 0,
-        borderRadius: '100vw',
         duration: CONFIG.DURATION,
         ease: CONFIG.EASE
       }, 0)
@@ -160,6 +170,9 @@ function createHoverTimeline(elements, isHover) {
         duration: CONFIG.DURATION,
         ease: CONFIG.EASE
       }, 0);
+
+    // Trigger border-radius change via class or direct style
+    container.style.borderRadius = '100vw';
   }
 
   return tl;
@@ -180,6 +193,7 @@ export function destroyBtnHover() {
       btn.removeEventListener('mouseleave', instance.handleLeave);
 
       if (instance.elements.container) {
+        instance.elements.container.style.borderRadius = '';
         gsap.set(instance.elements.container, { clearProps: 'all' });
       }
       if (instance.elements.squareIcon) {
