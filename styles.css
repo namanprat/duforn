@@ -369,19 +369,20 @@ p {
   /* Wrapper for the entire button component */
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--size-0-75rem);
   cursor: pointer;
   margin-top: var(--size-2-5rem);
   text-decoration: none;
   position: relative;
+  overflow-x: clip;
 }
 
 /* Main pill/rectangle container */
 .btn-container {
-  background-color: #ffffff;
+  background-color: var(--swatch-light);
   border-radius: 50px; /* Pill shape - animated by GSAP */
   height: 72px;
-  padding: 0 40px;
+  padding: 0 var(--size-2-5rem);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -394,11 +395,11 @@ p {
 /* Button text */
 .btn-text {
   font-family: var(--text-style-font-secondary);
-  font-size: 18px;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  line-height: 1;
-  color: #1a1a1a;
+  font-size: var(--typography-font-size-text-main);
+  font-weight: var(--typography-font-primary-medium);
+  letter-spacing: var(--typography-letter-spacing);
+  line-height: var(--typography-line-height-1);
+  color: var(--swatch-dark);
   white-space: nowrap;
   pointer-events: none;
   position: relative;
@@ -414,7 +415,7 @@ p {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: #1a1a1a;
+  color: var(--swatch-light);
   pointer-events: none;
   /* GPU acceleration for smooth transforms */
   will-change: transform, opacity;
@@ -422,7 +423,7 @@ p {
 
 /* Circular icon - OUTSIDE container on right, visible by default */
 .btn-icon-circle {
-  background-color: #ff8c42;
+  background-color: var(--swatch-dark);
   border-radius: 50%;
   position: relative;
   flex-shrink: 0;
@@ -430,7 +431,7 @@ p {
 
 /* Square icon - enters from left on hover, becomes part of container */
 .btn-icon-square {
-  background-color: #ff8c42;
+  background-color: var(--swatch-dark);
   border-radius: 0;
   position: absolute;
   left: 0;
