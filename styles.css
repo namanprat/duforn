@@ -2010,7 +2010,7 @@ section {
 }
 
 /* --- TRANSITION STYLES --- */
-/* page transition */
+/* Page transition - Demo3 style (scale + slide) */
 .transition {
   position: fixed;
   top: 0;
@@ -2036,6 +2036,22 @@ section {
   width: 100%;
   height: 100%;
   display: block;
+}
+
+/* Main container transition support */
+main[data-barba="container"] {
+  transform-origin: center center;
+  will-change: transform, opacity;
+  background-color: var(--theme-background);
+}
+
+/* Ensure sections handle overflow during scale transitions */
+main[data-barba="container"] section,
+main[data-barba="container"] .hero,
+main[data-barba="container"] .slider,
+main[data-barba="container"] .contact-contain {
+  transform-origin: center center;
+  will-change: transform;
 }
 
 /* --- CONTACT STYLES --- */
