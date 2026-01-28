@@ -93,17 +93,22 @@ barba.init({
         cleanupSplits(); // Revert splits
         destroyBtnHover(); // Clean up button hover animations
         closeMenuIfOpen();
-        await animateTransition();
+        await animateTransition(data.current.container);
       },
-      async enter() {
-        await revealTransition();
+      async enter(data) {
+        await revealTransition(data.next.container);
       },
       async once(data) {
         initPageFeatures(data?.next?.namespace);
-        await revealTransition();
       },
       async after(data) {
         initPageFeatures(data?.next?.namespace);
+        // Scroll to top after transition
+        if (lenis) {
+          lenis.scrollTo(0, { immediate: true });
+        } else {
+          window.scrollTo(0, 0);
+        }
       }
     }
   ]
