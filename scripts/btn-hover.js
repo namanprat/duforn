@@ -3,9 +3,9 @@ import gsap from 'gsap';
 /**
  * Button Hover Animation Module
  *
- * Transforms a pill-shaped button into a square on hover with a coordinated
- * swipe animation: orange circle exits right, orange square enters left,
- * while the container morphs from rounded to sharp corners.
+ * Transforms a pill-shaped button into a square layout on hover:
+ * - Initial: [Pill Container + Text] [Circle Icon on right]
+ * - Hover: [Square Icon on left] [Rectangle Container + Text]
  *
  * CONFIGURATION:
  * - SWIPE_DISTANCE: How far icons travel during swipe (in pixels)
@@ -22,29 +22,24 @@ import gsap from 'gsap';
 
 const CONFIG = {
   // Swipe distance for icon elements (pixels)
-  // Circle exits right, square enters from left
-  SWIPE_DISTANCE: 100,
+  SWIPE_DISTANCE: 80,
+
+  // Container shift distance on hover (pixels)
+  // This shifts the white box to the right to make room for square icon
+  CONTAINER_SHIFT: 84,
 
   // Animation timing (seconds)
-  // Recommended range: 0.4 - 0.6 for premium feel
   DURATION: 0.5,
 
   // Easing curve - smooth, confident motion
-  // Options: 'power2.inOut', 'power3.inOut', 'expo.inOut'
   EASE: 'power2.inOut',
 
   // Border radius values for container
-  // PILL: Initial rounded state (high value for pill shape)
-  // SQUARE: Final sharp state (0 for perfect square)
   BORDER_RADIUS_PILL: '50px',
   BORDER_RADIUS_SQUARE: '0px',
 
   // Icon size (matches CSS)
-  ICON_SIZE: 72,
-
-  // Padding adjustment for hover state
-  PADDING_INITIAL: '0 40px',
-  PADDING_HOVER: '0 40px 0 92px' // Extra left padding to accommodate square icon
+  ICON_SIZE: 72
 };
 
 // Store instances for cleanup
@@ -52,19 +47,15 @@ const btnInstances = new WeakMap();
 
 /**
  * Initializes the button hover animation
- * Call this on page load and after page transitions
  */
 export function initBtnHover() {
   const buttons = document.querySelectorAll('.btn');
 
   buttons.forEach(btn => {
-    // Skip if already initialized
     if (btnInstances.has(btn)) return;
 
-    // Setup button structure if not already set up
     setupButtonStructure(btn);
 
-    // Get child elements
     const elements = {
       wrapper: btn,
       container: btn.querySelector('.btn-container'),
@@ -73,19 +64,15 @@ export function initBtnHover() {
       squareIcon: btn.querySelector('.btn-icon-square')
     };
 
-    // Validate structure
     if (!elements.container || !elements.circleIcon || !elements.squareIcon) {
       console.warn('Button missing required elements:', btn);
       return;
     }
 
-    // Set initial states
     setInitialState(elements);
 
-    // Animation timeline reference
     let tl = null;
 
-    // Event handlers
     const handleEnter = () => {
       tl?.kill();
       tl = createHoverTimeline(elements, true);
@@ -96,11 +83,9 @@ export function initBtnHover() {
       tl = createHoverTimeline(elements, false);
     };
 
-    // Attach listeners
     btn.addEventListener('mouseenter', handleEnter);
     btn.addEventListener('mouseleave', handleLeave);
 
-    // Store for cleanup
     btnInstances.set(btn, {
       elements,
       handleEnter,
@@ -111,29 +96,16 @@ export function initBtnHover() {
 }
 
 /**
- * Sets up the button's internal structure for animation
- * Wraps existing content and adds icon elements
+ * Sets up the button's internal structure:
+ * [Square Icon (hidden)] [Container with Text] [Circle Icon]
  */
 function setupButtonStructure(btn) {
-  // Check if already structured
   if (btn.querySelector('.btn-container')) return;
 
-  // Store original content
   const originalContent = btn.textContent.trim();
-
-  // Clear button
   btn.innerHTML = '';
 
-  // Create main container (the pill/rectangle)
-  const container = document.createElement('span');
-  container.className = 'btn-container';
-
-  // Create text wrapper
-  const textSpan = document.createElement('span');
-  textSpan.className = 'btn-text';
-  textSpan.textContent = originalContent;
-
-  // Create square icon (hidden initially, enters from left on hover)
+  // Create square icon (sibling, on the LEFT, hidden initially)
   const squareIcon = document.createElement('span');
   squareIcon.className = 'btn-icon-square';
   squareIcon.innerHTML = `
@@ -142,11 +114,17 @@ function setupButtonStructure(btn) {
     </svg>
   `;
 
-  // Assemble container
-  container.appendChild(squareIcon);
+  // Create main container (the pill/rectangle with text)
+  const container = document.createElement('span');
+  container.className = 'btn-container';
+
+  const textSpan = document.createElement('span');
+  textSpan.className = 'btn-text';
+  textSpan.textContent = originalContent;
+
   container.appendChild(textSpan);
 
-  // Create circle icon (positioned OUTSIDE container on right, visible initially)
+  // Create circle icon (sibling, on the RIGHT, visible initially)
   const circleIcon = document.createElement('span');
   circleIcon.className = 'btn-icon-circle';
   circleIcon.innerHTML = `
@@ -155,31 +133,32 @@ function setupButtonStructure(btn) {
     </svg>
   `;
 
-  // Assemble button
+  // Order: [Square] [Container] [Circle]
+  btn.appendChild(squareIcon);
   btn.appendChild(container);
   btn.appendChild(circleIcon);
 }
 
 /**
- * Sets initial GSAP states for all animated elements
+ * Sets initial GSAP states
  */
 function setInitialState(elements) {
   const { container, circleIcon, squareIcon } = elements;
 
-  // Container: pill shape
+  // Container: pill shape, centered position
   gsap.set(container, {
     borderRadius: CONFIG.BORDER_RADIUS_PILL,
-    padding: CONFIG.PADDING_INITIAL
+    x: 0
   });
 
-  // Circle icon: visible, positioned to the right of container
+  // Circle icon: visible
   gsap.set(circleIcon, {
     x: 0,
     opacity: 1,
     scale: 1
   });
 
-  // Square icon: hidden, positioned off to the left
+  // Square icon: hidden, shifted left
   gsap.set(squareIcon, {
     x: -CONFIG.SWIPE_DISTANCE,
     opacity: 0,
@@ -189,9 +168,6 @@ function setInitialState(elements) {
 
 /**
  * Creates the hover animation timeline
- * @param {Object} elements - Button child elements
- * @param {boolean} isHover - true for hover-in, false for hover-out
- * @returns {gsap.core.Timeline}
  */
 function createHoverTimeline(elements, isHover) {
   const { container, circleIcon, squareIcon } = elements;
@@ -199,19 +175,16 @@ function createHoverTimeline(elements, isHover) {
 
   if (isHover) {
     // HOVER IN:
-    // - Circle exits to the right
+    // - Circle exits right
     // - Square enters from left
-    // - Container morphs from pill to square with left padding for icon
+    // - Container morphs to rectangle and shifts right
     tl
-      // Morph container from pill to square
       .to(container, {
         borderRadius: CONFIG.BORDER_RADIUS_SQUARE,
-        padding: CONFIG.PADDING_HOVER,
+        x: CONFIG.CONTAINER_SHIFT / 2, // Shift right to balance with square icon
         duration: CONFIG.DURATION,
         ease: CONFIG.EASE
       }, 0)
-
-      // Circle icon exits to the right
       .to(circleIcon, {
         x: CONFIG.SWIPE_DISTANCE,
         opacity: 0,
@@ -219,8 +192,6 @@ function createHoverTimeline(elements, isHover) {
         duration: CONFIG.DURATION,
         ease: CONFIG.EASE
       }, 0)
-
-      // Square icon enters from the left
       .to(squareIcon, {
         x: 0,
         opacity: 1,
@@ -230,20 +201,14 @@ function createHoverTimeline(elements, isHover) {
       }, 0);
 
   } else {
-    // HOVER OUT:
-    // - Square exits to the left
-    // - Circle enters from right
-    // - Container morphs back to pill
+    // HOVER OUT: Reverse
     tl
-      // Morph container back to pill
       .to(container, {
         borderRadius: CONFIG.BORDER_RADIUS_PILL,
-        padding: CONFIG.PADDING_INITIAL,
+        x: 0,
         duration: CONFIG.DURATION,
         ease: CONFIG.EASE
       }, 0)
-
-      // Square icon exits to the left
       .to(squareIcon, {
         x: -CONFIG.SWIPE_DISTANCE,
         opacity: 0,
@@ -251,8 +216,6 @@ function createHoverTimeline(elements, isHover) {
         duration: CONFIG.DURATION,
         ease: CONFIG.EASE
       }, 0)
-
-      // Circle icon enters from the right
       .to(circleIcon, {
         x: 0,
         opacity: 1,
@@ -267,7 +230,6 @@ function createHoverTimeline(elements, isHover) {
 
 /**
  * Cleans up button hover animations
- * Call before page transitions to prevent memory leaks
  */
 export function destroyBtnHover() {
   const buttons = document.querySelectorAll('.btn');
@@ -276,19 +238,20 @@ export function destroyBtnHover() {
     const instance = btnInstances.get(btn);
 
     if (instance) {
-      // Kill any running timeline
       instance.timeline()?.kill();
-
-      // Remove event listeners
       btn.removeEventListener('mouseenter', instance.handleEnter);
       btn.removeEventListener('mouseleave', instance.handleLeave);
 
-      // Reset GSAP properties
       if (instance.elements.container) {
-        gsap.set(instance.elements.container, { clearProps: 'borderRadius,padding' });
+        gsap.set(instance.elements.container, { clearProps: 'borderRadius,x' });
+      }
+      if (instance.elements.squareIcon) {
+        gsap.set(instance.elements.squareIcon, { clearProps: 'x,opacity,scale' });
+      }
+      if (instance.elements.circleIcon) {
+        gsap.set(instance.elements.circleIcon, { clearProps: 'x,opacity,scale' });
       }
 
-      // Clear from WeakMap
       btnInstances.delete(btn);
     }
   });
