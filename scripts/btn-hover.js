@@ -21,28 +21,17 @@ import gsap from 'gsap';
 // ============================================
 
 const CONFIG = {
-  // Swipe distance for icon elements (pixels)
-  SWIPE_DISTANCE: 72,
+  // Icon size (2.75rem = 44px at default rem)
+  ICON_SIZE: 44,
 
-  // Container shift on hover to keep centered (pixels)
-  // Should be ~half of icon size to balance the layout
-  CONTAINER_SHIFT: 36,
-
-  // Gap between pill and circle in initial state (pixels)
-  INITIAL_GAP: 8,
+  // Gap between elements (5px)
+  GAP: 5,
 
   // Animation timing (seconds)
-  DURATION: 0.5,
+  DURATION: 0.4,
 
-  // Easing curve - smooth, confident motion
-  EASE: 'power2.inOut',
-
-  // Border radius values for container
-  BORDER_RADIUS_PILL: '50px',
-  BORDER_RADIUS_SQUARE: '0px',
-
-  // Icon size (matches CSS)
-  ICON_SIZE: 72
+  // Easing curve - smooth, responsive (no elastic or bounce)
+  EASE: 'power2.inOut'
 };
 
 // Store instances for cleanup
@@ -56,8 +45,6 @@ export function initBtnHover() {
 
   buttons.forEach(btn => {
     if (btnInstances.has(btn)) return;
-
-    setupButtonStructure(btn);
 
     const elements = {
       wrapper: btn,
@@ -99,71 +86,25 @@ export function initBtnHover() {
 }
 
 /**
- * Sets up the button's internal structure:
- * [Square Icon (hidden)] [Container with Text] [Circle Icon]
- */
-function setupButtonStructure(btn) {
-  if (btn.querySelector('.btn-container')) return;
-
-  const originalContent = btn.textContent.trim();
-  btn.innerHTML = '';
-
-  // Create square icon (sibling, on the LEFT, hidden initially)
-  const squareIcon = document.createElement('span');
-  squareIcon.className = 'btn-icon-square';
-  squareIcon.innerHTML = `
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M7 17L17 7M17 7H8M17 7V16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-  `;
-
-  // Create main container (the pill/rectangle with text)
-  const container = document.createElement('span');
-  container.className = 'btn-container';
-
-  const textSpan = document.createElement('span');
-  textSpan.className = 'btn-text';
-  textSpan.textContent = originalContent;
-
-  container.appendChild(textSpan);
-
-  // Create circle icon (sibling, on the RIGHT, visible initially)
-  const circleIcon = document.createElement('span');
-  circleIcon.className = 'btn-icon-circle';
-  circleIcon.innerHTML = `
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M7 17L17 7M17 7H8M17 7V16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-  `;
-
-  // Order: [Square] [Container] [Circle]
-  btn.appendChild(squareIcon);
-  btn.appendChild(container);
-  btn.appendChild(circleIcon);
-}
-
-/**
  * Sets initial GSAP states
  */
 function setInitialState(elements) {
   const { container, circleIcon, squareIcon } = elements;
 
-  // Container: pill shape, centered position
+  // Container: pill shape, no transform
   gsap.set(container, {
-    borderRadius: CONFIG.BORDER_RADIUS_PILL,
-    x: 0
-  });
-
-  // Circle icon: visible
-  gsap.set(circleIcon, {
     x: 0,
-    opacity: 1
+    borderRadius: '100vw'
   });
 
-  // Square icon: hidden, shifted left (flush position when visible)
+  // Circle icon: visible on right with gap spacing
+  gsap.set(circleIcon, {
+    x: CONFIG.GAP
+  });
+
+  // Square icon: clipped on left (-100% X)
   gsap.set(squareIcon, {
-    x: -CONFIG.SWIPE_DISTANCE,
-    opacity: 0
+    x: '-100%'
   });
 }
 
@@ -175,48 +116,47 @@ function createHoverTimeline(elements, isHover) {
   const tl = gsap.timeline();
 
   if (isHover) {
-    // HOVER IN:
-    // - Circle exits right
-    // - Square enters from left (flush with container)
-    // - Container morphs to rectangle and shifts right to stay centered
+    // HOVER IN: All animations synchronized
+    // - Square: slides in from -100% to 0
+    // - Container: shifts right + becomes square
+    // - Circle: pushes out to the right
     tl
+      .to(squareIcon, {
+        x: 0,
+        duration: CONFIG.DURATION,
+        ease: CONFIG.EASE
+      }, 0)
       .to(container, {
-        borderRadius: CONFIG.BORDER_RADIUS_SQUARE,
-        x: CONFIG.CONTAINER_SHIFT,
+        x: CONFIG.ICON_SIZE + CONFIG.GAP,
+        borderRadius: 0,
         duration: CONFIG.DURATION,
         ease: CONFIG.EASE
       }, 0)
       .to(circleIcon, {
-        x: CONFIG.SWIPE_DISTANCE,
-        opacity: 0,
-        duration: CONFIG.DURATION,
-        ease: CONFIG.EASE
-      }, 0)
-      .to(squareIcon, {
-        x: 0,
-        opacity: 1,
+        x: '100%',
         duration: CONFIG.DURATION,
         ease: CONFIG.EASE
       }, 0);
 
   } else {
-    // HOVER OUT: Reverse
+    // HOVER OUT: Reverse all animations
+    // - Square: slides out to -100%
+    // - Container: returns to origin + becomes pill
+    // - Circle: returns to gap position
     tl
-      .to(container, {
-        borderRadius: CONFIG.BORDER_RADIUS_PILL,
-        x: 0,
+      .to(squareIcon, {
+        x: '-100%',
         duration: CONFIG.DURATION,
         ease: CONFIG.EASE
       }, 0)
-      .to(squareIcon, {
-        x: -CONFIG.SWIPE_DISTANCE,
-        opacity: 0,
+      .to(container, {
+        x: 0,
+        borderRadius: '100vw',
         duration: CONFIG.DURATION,
         ease: CONFIG.EASE
       }, 0)
       .to(circleIcon, {
-        x: 0,
-        opacity: 1,
+        x: CONFIG.GAP,
         duration: CONFIG.DURATION,
         ease: CONFIG.EASE
       }, 0);
@@ -240,13 +180,13 @@ export function destroyBtnHover() {
       btn.removeEventListener('mouseleave', instance.handleLeave);
 
       if (instance.elements.container) {
-        gsap.set(instance.elements.container, { clearProps: 'borderRadius,x' });
+        gsap.set(instance.elements.container, { clearProps: 'all' });
       }
       if (instance.elements.squareIcon) {
-        gsap.set(instance.elements.squareIcon, { clearProps: 'x,opacity,scale' });
+        gsap.set(instance.elements.squareIcon, { clearProps: 'all' });
       }
       if (instance.elements.circleIcon) {
-        gsap.set(instance.elements.circleIcon, { clearProps: 'x,opacity,scale' });
+        gsap.set(instance.elements.circleIcon, { clearProps: 'all' });
       }
 
       btnInstances.delete(btn);
