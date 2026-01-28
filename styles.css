@@ -2027,15 +2027,10 @@ section {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: #00000000;
+  background-color: var(--swatch-dark);
   pointer-events: none;
   overflow: hidden;
-}
-
-.transition-overlay canvas {
-  width: 100%;
-  height: 100%;
-  display: block;
+  visibility: hidden;
 }
 
 /* --- CONTACT STYLES --- */

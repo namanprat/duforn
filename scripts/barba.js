@@ -1,7 +1,7 @@
 import barba from '@barba/core';
 import gsap from 'gsap';
 import { lenis } from './lenis-scroll.js';
-import { animateTransition, revealTransition, closeMenuIfOpen } from './transition.js';
+import { animateTransition, revealTransition, initialReveal, closeMenuIfOpen } from './transition.js';
 import { initMenu } from './menu.js';
 import { initIndex, destroyIndex } from './index.js';
 import { initVariableFont } from './variable-font.js';
@@ -100,7 +100,7 @@ barba.init({
       },
       async once(data) {
         initPageFeatures(data?.next?.namespace);
-        await revealTransition();
+        await initialReveal();
       },
       async after(data) {
         initPageFeatures(data?.next?.namespace);
