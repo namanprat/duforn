@@ -366,36 +366,76 @@ p {
 }
 
 .btn {
-  
-  background-image: url("data:image/svg+xml,%3Csvg%20width='230'%20height='74'%20viewBox='0%200%20230%2074'%20fill='none'%20xmlns='http://www.w3.org/2000/svg'%3E%3Cpath%20d='M228.186%2058.9639V14.1431C220.927%2014.1431%20215.042%208.25872%20215.042%201H14.1431C14.1431%208.25872%208.25872%2014.1431%201%2014.1431V58.9639C8.25872%2058.9639%2014.1431%2064.8482%2014.1431%2072.1069H215.042C215.042%2064.8482%20220.927%2058.9639%20228.186%2058.9639Z'%20stroke='white'%20stroke-width='2'/%3E%3C/svg%3E");
-  background-size: contain;
-  background-repeat: no-repeat;
+  /* Base button container - pill shape that morphs to square on hover */
+  background-color: #ffffff;
   border: none;
-  height: var(--typography-font-size-h2);
-  aspect-ratio: 25/8;
+  border-radius: 50px; /* Pill shape - animated by GSAP */
+  height: 56px;
+  padding: 0 16px 0 28px;
   font-family: var(--text-style-font-secondary);
-  color: var(--theme-accent);
-  text-transform: uppercase;
-  display: flex;
-  justify-content: center !important;
+  color: #1a1a1a;
+  text-transform: none;
+  display: inline-flex;
   align-items: center;
+  gap: 16px;
   cursor: pointer;
-  /* letter-spacing: 0.05em; */
-  /* filter: drop-shadow(0 0 2px #E2E2E2d3);
-  text-shadow: 0 0 1px rgba(255, 255, 255, 0.5); */
   margin-top: var(--size-2-5rem);
-  white-space: pre-wrap;
+  white-space: nowrap;
+  text-decoration: none;
+  position: relative;
+  overflow: hidden; /* Required for swipe animation */
 }
 
-/* Button inner text */
-.btn span {
-  font-size: var(--typography-font-size-text-small) !important;
-  height: var(--typography-font-size-text-small);
-  line-height: var(--typography-font-size-text-small);
-  display: inline-block; /* Fallback */
-  white-space: nowrap;
-  pointer-events: none; /* Ensure clicks pass through to button */
-  letter-spacing: var(--typography-letter-spacing);
+/* Button text wrapper */
+.btn-text {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  pointer-events: none;
+  position: relative;
+  z-index: 1;
+}
+
+/* Shared icon base styles */
+.btn-icon-circle,
+.btn-icon-square {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #ffffff;
+  pointer-events: none;
+  /* GPU acceleration for smooth transforms */
+  will-change: transform, opacity;
+}
+
+/* Circular icon - visible by default, exits right on hover */
+.btn-icon-circle {
+  background-color: #ff6b35;
+  border-radius: 50%;
+  position: relative;
+  z-index: 2;
+}
+
+/* Square icon - hidden by default, enters from left on hover */
+.btn-icon-square {
+  background-color: #ff6b35;
+  border-radius: 4px;
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+}
+
+/* Icon SVG styling */
+.btn-icon-circle svg,
+.btn-icon-square svg {
+  width: 18px;
+  height: 18px;
 }
 /* Three.js Canvas */
 #background {
