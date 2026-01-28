@@ -22,11 +22,14 @@ import gsap from 'gsap';
 
 const CONFIG = {
   // Swipe distance for icon elements (pixels)
-  SWIPE_DISTANCE: 80,
+  SWIPE_DISTANCE: 72,
 
-  // Container shift distance on hover (pixels)
-  // This shifts the white box to the right to make room for square icon
-  CONTAINER_SHIFT: 84,
+  // Container shift on hover to keep centered (pixels)
+  // Should be ~half of icon size to balance the layout
+  CONTAINER_SHIFT: 36,
+
+  // Gap between pill and circle in initial state (pixels)
+  INITIAL_GAP: 8,
 
   // Animation timing (seconds)
   DURATION: 0.5,
@@ -154,15 +157,13 @@ function setInitialState(elements) {
   // Circle icon: visible
   gsap.set(circleIcon, {
     x: 0,
-    opacity: 1,
-    scale: 1
+    opacity: 1
   });
 
-  // Square icon: hidden, shifted left
+  // Square icon: hidden, shifted left (flush position when visible)
   gsap.set(squareIcon, {
     x: -CONFIG.SWIPE_DISTANCE,
-    opacity: 0,
-    scale: 0.9
+    opacity: 0
   });
 }
 
@@ -176,26 +177,24 @@ function createHoverTimeline(elements, isHover) {
   if (isHover) {
     // HOVER IN:
     // - Circle exits right
-    // - Square enters from left
-    // - Container morphs to rectangle and shifts right
+    // - Square enters from left (flush with container)
+    // - Container morphs to rectangle and shifts right to stay centered
     tl
       .to(container, {
         borderRadius: CONFIG.BORDER_RADIUS_SQUARE,
-        x: CONFIG.CONTAINER_SHIFT / 2, // Shift right to balance with square icon
+        x: CONFIG.CONTAINER_SHIFT,
         duration: CONFIG.DURATION,
         ease: CONFIG.EASE
       }, 0)
       .to(circleIcon, {
         x: CONFIG.SWIPE_DISTANCE,
         opacity: 0,
-        scale: 0.9,
         duration: CONFIG.DURATION,
         ease: CONFIG.EASE
       }, 0)
       .to(squareIcon, {
         x: 0,
         opacity: 1,
-        scale: 1,
         duration: CONFIG.DURATION,
         ease: CONFIG.EASE
       }, 0);
@@ -212,14 +211,12 @@ function createHoverTimeline(elements, isHover) {
       .to(squareIcon, {
         x: -CONFIG.SWIPE_DISTANCE,
         opacity: 0,
-        scale: 0.9,
         duration: CONFIG.DURATION,
         ease: CONFIG.EASE
       }, 0)
       .to(circleIcon, {
         x: 0,
         opacity: 1,
-        scale: 1,
         duration: CONFIG.DURATION,
         ease: CONFIG.EASE
       }, 0);

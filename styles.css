@@ -424,15 +424,15 @@ p {
   background-color: var(--swatch-dark);
   border-radius: 50%;
   position: relative;
-  margin-left: var(--size-0-75rem);
+  margin-left: var(--size-0-5rem);
 }
 
-/* Square icon - sibling on left, hidden initially, appears on hover */
+/* Square icon - sibling on left, flush with container on hover */
 .btn-icon-square {
   background-color: var(--swatch-dark);
   border-radius: 0;
   position: relative;
-  margin-right: var(--size-0-75rem);
+  /* No margin - flush with container */
 }
 
 /* Icon SVG styling - diagonal arrow */
