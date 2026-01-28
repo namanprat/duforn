@@ -1,7 +1,7 @@
 import barba from '@barba/core';
 import gsap from 'gsap';
 import { lenis } from './lenis-scroll.js';
-import { animateTransition, revealTransition, closeMenuIfOpen } from './transition.js';
+import { closeMenuIfOpen } from './transition.js';
 import { initMenu } from './menu.js';
 import { initIndex, destroyIndex } from './index.js';
 import { initVariableFont } from './variable-font.js';
@@ -79,7 +79,13 @@ barba.init({
   transitions: [
     {
       name: 'default',
-      async leave(data) {
+      sync: true,
+
+      leave(data) {
+        const done = this.async();
+        const currentContainer = data?.current?.container;
+
+        // Cleanup old page
         if (data?.current?.namespace === 'home') {
           destroyIndex();
         }
@@ -89,20 +95,86 @@ barba.init({
         if (data?.current?.namespace === 'archive') {
           destroyArchiveScene();
         }
-        cleanupScrollTriggers(); // Clean up ScrollTriggers before transition
-        cleanupSplits(); // Revert splits
-        destroyBtnHover(); // Clean up button hover animations
+        cleanupScrollTriggers();
+        cleanupSplits();
+        destroyBtnHover();
         closeMenuIfOpen();
-        await animateTransition();
+
+        // Disable interactions during transition
+        const transition = document.querySelector('.transition');
+        if (transition) {
+          gsap.set(transition, { pointerEvents: 'auto' });
+        }
+
+        // Animate current page out: scale down and fade out
+        const tl = gsap.timeline({ onComplete: done });
+
+        if (currentContainer) {
+          tl.to(currentContainer, {
+            scale: 0.95,
+            opacity: 0,
+            duration: 0.8,
+            ease: 'power2.inOut'
+          }, 0);
+        }
+
+        return tl;
       },
-      async enter() {
-        await revealTransition();
+
+      enter(data) {
+        const done = this.async();
+        const nextContainer = data?.next?.container;
+        const overlay = document.querySelector('.transition-overlay');
+
+        // Prepare new page to slide in from bottom
+        if (nextContainer) {
+          gsap.set(nextContainer, {
+            opacity: 1,
+            y: '100vh',
+            scale: 1
+          });
+        }
+
+        const tl = gsap.timeline({ onComplete: done });
+
+        // Slide new page in from bottom (y: 0)
+        if (nextContainer) {
+          tl.to(nextContainer, {
+            y: 0,
+            duration: 1.0,
+            ease: 'power2.out'
+          }, 0);
+        }
+
+        // Fade out overlay to reveal new page
+        if (overlay) {
+          tl.to(overlay, {
+            opacity: 0,
+            duration: 0.6,
+            ease: 'power2.out'
+          }, 0.3);
+        }
+
+        // Re-enable interactions at end
+        const transition = document.querySelector('.transition');
+        if (transition) {
+          tl.set(transition, { pointerEvents: 'none' });
+        }
+
+        return tl;
       },
-      async once(data) {
+
+      once(data) {
         initPageFeatures(data?.next?.namespace);
-        await revealTransition();
+        
+        // Set overlay to visible for first load
+        const overlay = document.querySelector('.transition-overlay');
+        if (overlay) {
+          gsap.set(overlay, { opacity: 0 });
+        }
       },
-      async after(data) {
+
+      after(data) {
         initPageFeatures(data?.next?.namespace);
       }
     }
