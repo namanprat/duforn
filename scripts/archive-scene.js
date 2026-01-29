@@ -4,24 +4,20 @@ import gsap from "gsap";
 
 // --- Configuration ---
 const CONFIG = {
-  // Layout - structured chaos with more spacing, no rotation
-  gridCols: 5,
-  gridRows: 4,
-  baseSpacing: 2.8,
-  scatterAmount: 0.6,
-  sizeVariation: { min: 0.7, max: 1.2 },
-  rotationRange: 0, // no tilting
+  // Layout - organic scattered like reference, tighter grouping
+  gridCols: 6,
+  gridRows: 5,
+  baseSpacing: 1.3,
+  scatterAmount: 0.55,
+  sizeVariation: { min: 0.35, max: 1.6 }, // wide range like reference
   depthLayers: 3,
-
-  // Infinite tiling
-  tileRepeat: 3, // How many times to repeat the grid in each direction
 
   // Interaction
   parallaxStrength: 0.12,
   dragSpeed: 0.004,
   lerpSpeed: 0.08,
   clickThreshold: 12,
-  focusAnimationDuration: 0.7, // slower focus animation
+  focusAnimationDuration: 0.7,
 
   // Performance
   textureSize: 256,
@@ -310,37 +306,52 @@ function generateImageLayout() {
   const count = projects.length;
   imageData = [];
 
-  // Calculate grid dimensions
   const cols = CONFIG.gridCols;
   const rows = Math.ceil(count / cols);
+  const goldenAngle = 2.39996; // golden angle in radians
 
   for (let i = 0; i < count; i++) {
-    // Grid position as base
+    // Loose grid as anchor
     const gridX = (i % cols) - (cols - 1) / 2;
     const gridY = Math.floor(i / cols) - (rows - 1) / 2;
 
-    // Base position with spacing
+    // Start from grid position
     let x = gridX * CONFIG.baseSpacing;
     let y = gridY * CONFIG.baseSpacing;
 
-    // Structured scatter - offset alternating rows/columns for visual interest
-    const rowOffset = (Math.floor(i / cols) % 2) * 0.4;
-    x += rowOffset;
+    // Offset odd rows for organic stagger
+    if (Math.floor(i / cols) % 2 === 1) {
+      x += CONFIG.baseSpacing * 0.35;
+    }
 
-    // Add controlled scatter noise
-    const scatterX = (seededRandom(i * 17) - 0.5) * CONFIG.scatterAmount;
-    const scatterY = (seededRandom(i * 31) - 0.5) * CONFIG.scatterAmount;
-    x += scatterX;
-    y += scatterY;
+    // Organic scatter using golden angle spiral offset
+    const spiralAngle = i * goldenAngle;
+    const spiralRadius = seededRandom(i * 53) * CONFIG.scatterAmount;
+    x += Math.cos(spiralAngle) * spiralRadius;
+    y += Math.sin(spiralAngle) * spiralRadius;
 
-    // Assign depth layer (0, 1, 2) - distribute evenly
-    const depth = i % CONFIG.depthLayers;
+    // Additional jitter
+    x += (seededRandom(i * 17) - 0.5) * CONFIG.scatterAmount * 0.6;
+    y += (seededRandom(i * 31) - 0.5) * CONFIG.scatterAmount * 0.6;
 
-    // Size variation based on depth (closer = slightly larger)
-    const baseSize = CONFIG.sizeVariation.min +
-      seededRandom(i * 73) * (CONFIG.sizeVariation.max - CONFIG.sizeVariation.min);
-    const depthSizeBonus = (CONFIG.depthLayers - 1 - depth) * 0.1;
-    const size = baseSize + depthSizeBonus;
+    // Depth layer
+    const depth = Math.floor(seededRandom(i * 47) * CONFIG.depthLayers);
+
+    // Size: wide variation like reference (some tiny, some large)
+    // Use a weighted distribution: more medium, fewer extremes
+    const sizeRand = seededRandom(i * 73);
+    let sizeT;
+    if (sizeRand < 0.25) {
+      // Small images (25% chance)
+      sizeT = seededRandom(i * 79) * 0.25;
+    } else if (sizeRand < 0.75) {
+      // Medium images (50% chance)
+      sizeT = 0.3 + seededRandom(i * 83) * 0.35;
+    } else {
+      // Large images (25% chance)
+      sizeT = 0.7 + seededRandom(i * 89) * 0.3;
+    }
+    const size = CONFIG.sizeVariation.min + sizeT * (CONFIG.sizeVariation.max - CONFIG.sizeVariation.min);
 
     imageData.push({
       index: i,
@@ -349,12 +360,11 @@ function generateImageLayout() {
     });
   }
 
-  // Calculate world size for tiling (with padding)
-  const padding = CONFIG.baseSpacing;
-  worldSize.x = cols * CONFIG.baseSpacing + padding;
-  worldSize.y = rows * CONFIG.baseSpacing + padding;
+  // World size for tiling
+  worldSize.x = cols * CONFIG.baseSpacing + CONFIG.baseSpacing * 0.5;
+  worldSize.y = rows * CONFIG.baseSpacing + CONFIG.baseSpacing * 0.5;
 
-  // Sort by depth (back to front for proper rendering)
+  // Sort by depth (back to front)
   imageData.sort((a, b) => b.depth - a.depth);
 }
 
@@ -1070,6 +1080,18 @@ async function init() {
     e.stopPropagation();
     navigateProject(1);
   });
+
+  // Overlay click - exit focus when clicking empty area
+  const overlay = document.getElementById("archive-overlay");
+  if (overlay) {
+    overlay.addEventListener("click", (e) => {
+      // Only exit if clicking the overlay background itself, not its children
+      if (e.target === overlay || (!e.target.closest(".archive-header") &&
+          !e.target.closest(".archive-nav-wrap") && !e.target.closest(".nav-btn"))) {
+        exitFocusMode();
+      }
+    });
+  }
 
   isRunning = true;
   animate();

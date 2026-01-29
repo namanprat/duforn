@@ -2181,6 +2181,12 @@ img {
   pointer-events: auto;
 }
 
+.archive-overlay.active .archive-header,
+.archive-overlay.active .archive-nav-wrap,
+.archive-overlay.active .nav-btn {
+  pointer-events: auto;
+}
+
 .archive-header {
   width: 100%;
   text-align: center;
