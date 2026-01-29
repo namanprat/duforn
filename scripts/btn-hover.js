@@ -3,51 +3,39 @@ import gsap from 'gsap';
 /**
  * Button Hover Animation Module
  *
- * Transforms a pill-shaped button into a square layout on hover:
- * - Initial: [Pill Container + Text] [Circle Icon on right]
- * - Hover: [Square Icon on left] [Rectangle Container + Text]
- *
- * CONFIGURATION:
- * - SWIPE_DISTANCE: How far icons travel during swipe (in pixels)
- * - DURATION: Total animation duration (in seconds)
- * - EASE: GSAP easing function for smooth motion
- * - BORDER_RADIUS_PILL: Initial rounded border-radius
- * - BORDER_RADIUS_SQUARE: Final sharp border-radius
+ * All elements move: square slides in, container shifts, circle slides out
+ * Border-radius morphs with proper easing
  */
 
-// ============================================
-// ANIMATION CONFIGURATION
-// Adjust these values to tweak the animation
-// ============================================
-
-const CONFIG = {
-  // Icon size (2.75rem = 44px at default rem)
-  ICON_SIZE: 44,
-
-  // Gap between elements (5px)
-  GAP: 5,
-
-  // Animation timing (seconds)
-  DURATION: 0.4,
-
-  // Easing curve - smooth, responsive (no elastic or bounce)
-  EASE: 'power2.inOut'
-};
-
-// Store instances for cleanup
 const btnInstances = new WeakMap();
 
-/**
- * Initializes the button hover animation
- */
+const isTouchDevice = () => {
+  return (('ontouchstart' in window) ||
+     (navigator.maxTouchPoints > 0) ||
+     (navigator.msMaxTouchPoints > 0));
+};
+
+function getConfig() {
+  const rootStyles = getComputedStyle(document.documentElement);
+  return {
+    ICON_SIZE: parseFloat(rootStyles.getPropertyValue('--btn-icon-size')) || 44,
+    GAP: parseFloat(rootStyles.getPropertyValue('--btn-gap')) || 10,
+  };
+}
+
 export function initBtnHover() {
+  if (isTouchDevice()) {
+    console.log('Touch device detected - skipping button hover animations');
+    return;
+  }
+
   const buttons = document.querySelectorAll('.btn');
 
   buttons.forEach(btn => {
     if (btnInstances.has(btn)) return;
 
     const elements = {
-      wrapper: btn,
+      btn: btn,
       container: btn.querySelector('.btn-container'),
       text: btn.querySelector('.btn-text'),
       circleIcon: btn.querySelector('.btn-icon-circle'),
@@ -59,18 +47,21 @@ export function initBtnHover() {
       return;
     }
 
+    const config = getConfig();
+    elements.config = config;
+
     setInitialState(elements);
 
     let tl = null;
 
     const handleEnter = () => {
-      tl?.kill();
-      tl = createHoverTimeline(elements, true);
+      if (tl) tl.kill();
+      tl = animateHover(elements, true);
     };
 
     const handleLeave = () => {
-      tl?.kill();
-      tl = createHoverTimeline(elements, false);
+      if (tl) tl.kill();
+      tl = animateHover(elements, false);
     };
 
     btn.addEventListener('mouseenter', handleEnter);
@@ -85,102 +76,98 @@ export function initBtnHover() {
   });
 }
 
-/**
- * Sets initial GSAP states
- */
 function setInitialState(elements) {
-  const { container, circleIcon, squareIcon, wrapper } = elements;
+  const { container, circleIcon, squareIcon, config } = elements;
 
-  // Get actual dimensions
-  const containerRect = container.getBoundingClientRect();
-  const iconHeight = containerRect.height;
+  const iconSize = squareIcon.getBoundingClientRect().height || config.ICON_SIZE;
+  elements.iconSize = iconSize;
 
-  // Store dimensions on elements for later use
-  elements.iconSize = iconHeight;
+  // Calculate border radius in pixels for smoother animation
+  const pillRadius = iconSize / 2;
+  const squareRadius = iconSize * 0.05; // 5% of icon size
 
-  // Container: no transform, pill shape via CSS
+  elements.pillRadius = pillRadius;
+  elements.squareRadius = squareRadius;
+
+  // Container: pill shape, no offset
   gsap.set(container, {
-    x: 0
+    x: 0,
+    borderRadius: `${pillRadius}px`
   });
 
-  // Circle icon: visible on right with gap spacing
+  // Circle icon: visible on right with gap
   gsap.set(circleIcon, {
-    x: CONFIG.GAP
+    x: config.GAP,
+    opacity: 1,
+    borderRadius: '50%'
   });
 
-  // Square icon: clipped on left (-100% of its own width)
+  // Square icon: hidden off-screen on left
   gsap.set(squareIcon, {
-    x: '-100%'
+    x: '-100%',
+    opacity: 0,
+    borderRadius: '50%'
   });
 }
 
-/**
- * Creates the hover animation timeline
- */
-function createHoverTimeline(elements, isHover) {
-  const { container, circleIcon, squareIcon } = elements;
-  const tl = gsap.timeline();
+function animateHover(elements, isHover) {
+  const { container, circleIcon, squareIcon, config } = elements;
+  const iconSize = elements.iconSize || config.ICON_SIZE;
+  const gap = config.GAP;
+  const totalOffset = iconSize + gap;
+  const pillRadius = elements.pillRadius;
+  const squareRadius = elements.squareRadius;
 
-  // Get the actual icon size (height = width due to aspect-ratio)
-  const iconSize = elements.iconSize || CONFIG.ICON_SIZE;
+  const tl = gsap.timeline({
+    defaults: {
+      duration: 0.4,
+      ease: 'power4.inOut'
+    }
+  });
 
   if (isHover) {
-    // HOVER IN: All animations synchronized
-    // - Square: slides in from -100% to 0
-    // - Container: shifts right by icon size + gap, CSS handles border-radius
-    // - Circle: pushes completely off-screen to the right
+    // HOVER IN: All elements move
     tl
+      // Square icon slides in from left and morphs to square
       .to(squareIcon, {
         x: 0,
-        duration: CONFIG.DURATION,
-        ease: CONFIG.EASE
+        opacity: 1,
+        borderRadius: `${squareRadius}px`
       }, 0)
+      // Container shifts right and morphs to rectangle
       .to(container, {
-        x: iconSize + CONFIG.GAP,
-        duration: CONFIG.DURATION,
-        ease: CONFIG.EASE
+        x: totalOffset,
+        borderRadius: `${squareRadius}px`
       }, 0)
+      // Circle icon moves right and fades out
       .to(circleIcon, {
-        x: iconSize + CONFIG.GAP,
-        duration: CONFIG.DURATION,
-        ease: CONFIG.EASE
+        x: totalOffset * 0.5,
+        opacity: 0
       }, 0);
-
-    // Trigger border-radius change via class or direct style
-    container.style.borderRadius = '0';
-
   } else {
-    // HOVER OUT: Reverse all animations
-    // - Square: slides out to -100%
-    // - Container: returns to origin, CSS handles border-radius
-    // - Circle: returns to gap position
+    // HOVER OUT: All elements return
     tl
+      // Square icon slides out to left and morphs to circle
       .to(squareIcon, {
         x: '-100%',
-        duration: CONFIG.DURATION,
-        ease: CONFIG.EASE
+        opacity: 0,
+        borderRadius: '50%'
       }, 0)
+      // Container returns and morphs to pill
       .to(container, {
         x: 0,
-        duration: CONFIG.DURATION,
-        ease: CONFIG.EASE
+        borderRadius: `${pillRadius}px`
       }, 0)
+      // Circle icon returns with gap and fades in
       .to(circleIcon, {
-        x: CONFIG.GAP,
-        duration: CONFIG.DURATION,
-        ease: CONFIG.EASE
+        x: gap,
+        opacity: 1
       }, 0);
-
-    // Trigger border-radius change via class or direct style
-    container.style.borderRadius = '100vw';
   }
 
   return tl;
 }
 
-/**
- * Cleans up button hover animations
- */
 export function destroyBtnHover() {
   const buttons = document.querySelectorAll('.btn');
 
@@ -193,7 +180,6 @@ export function destroyBtnHover() {
       btn.removeEventListener('mouseleave', instance.handleLeave);
 
       if (instance.elements.container) {
-        instance.elements.container.style.borderRadius = '';
         gsap.set(instance.elements.container, { clearProps: 'all' });
       }
       if (instance.elements.squareIcon) {

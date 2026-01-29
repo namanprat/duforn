@@ -90,10 +90,10 @@ barba.init({
         const textRevealHeaders = container.querySelectorAll('.text-reveal-header');
         const heroP = container.querySelector('.hero .hero-contain p');
         const heroBtn = container.querySelector('.hero .btn, .hero .btn a');
-        
+
         const animations = [];
 
-        // Animate headers out
+        // Animate headers out in parallel with fade out
         for (let i = 0; i < textRevealHeaders.length; i++) {
           const header = textRevealHeaders[i];
           const split = getOrSplit(header);
@@ -104,23 +104,23 @@ barba.init({
               gsap.to(split.words, {
                 y: isReverse ? 100 : -100,
                 opacity: 0,
-                duration: 0.35,
-                stagger: 0.02,
+                duration: 0.25,
+                stagger: 0.015,
                 ease: 'power2.in'
               })
             );
           }
         }
 
-        // Wait for header animations to complete first
-        if (animations.length) {
-          await Promise.all(animations.map(anim => new Promise(resolve => anim.eventCallback('onComplete', resolve))));
-        }
-
-        // Fade out paragraph and button
+        // Fade out paragraph and button simultaneously
         const fadeTargets = [heroP, heroBtn].filter(Boolean);
         if (fadeTargets.length) {
-          await gsap.to(fadeTargets, { opacity: 0, duration: 0.25, ease: 'power2.out' });
+          animations.push(gsap.to(fadeTargets, { opacity: 0, duration: 0.2, ease: 'power2.out' }));
+        }
+
+        // Wait for all animations to complete in parallel
+        if (animations.length) {
+          await Promise.all(animations.map(anim => new Promise(resolve => anim.eventCallback('onComplete', resolve))));
         }
       },
       async enter(data) {
@@ -140,20 +140,20 @@ barba.init({
       async after(data) {
         const container = data?.next?.container;
         if (!container) return;
-        
+
         // Initialize features first
         initPageFeatures(data?.next?.namespace);
-        
+
         // Animate headers in
         await animateRevealEnter(container);
-        
-        // Then fade in paragraph and button
+
+        // Then fade in paragraph and button with reduced delay
         const heroP = container.querySelector('.hero .hero-contain p');
         const heroBtn = container.querySelector('.hero .btn, .hero .btn a');
         const fadeTargets = [heroP, heroBtn].filter(Boolean);
-        
+
         if (fadeTargets.length) {
-          await gsap.to(fadeTargets, { opacity: 1, duration: 0.35, ease: 'power2.out', delay: 0.2 });
+          await gsap.to(fadeTargets, { opacity: 1, duration: 0.25, ease: 'power2.out', delay: 0.1 });
         }
       }
     },
