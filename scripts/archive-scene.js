@@ -4,12 +4,9 @@ import gsap from "gsap";
 
 // --- Configuration ---
 const CONFIG = {
-  // Layout - organic scattered like reference, tighter grouping
-  gridCols: 6,
-  gridRows: 5,
-  baseSpacing: 0.9,
-  scatterAmount: 0.55,
-  sizeVariation: { min: 0.35, max: 1.6 }, // wide range like reference
+  // Layout - clean grid with varied sizes and depths
+  gridCols: 5,
+  cellSpacing: 0.58,
   depthLayers: 3,
 
   // Interaction
@@ -317,50 +314,35 @@ function generateImageLayout() {
 
   const cols = CONFIG.gridCols;
   const rows = Math.ceil(count / cols);
-  const goldenAngle = 2.39996; // golden angle in radians
+  const sp = CONFIG.cellSpacing;
+
+  // Deterministic size pattern: L=large, M=medium, S=small
+  // Creates a varied but structured grid with visual rhythm
+  const sizeClasses = [
+    0.90, 0.50, 0.72, 0.50, 0.90,
+    0.50, 0.72, 0.90, 0.72, 0.50,
+    0.72, 0.90, 0.50, 0.90, 0.72,
+    0.50, 0.72, 0.90, 0.72, 0.50,
+    0.90, 0.50, 0.72, 0.50, 0.90,
+  ];
+
+  // Depth pattern: larger images closer (depth 0), smaller farther (depth 2)
+  function depthFromSize(s) {
+    if (s >= 0.85) return 0;
+    if (s >= 0.65) return 1;
+    return 2;
+  }
 
   for (let i = 0; i < count; i++) {
-    // Loose grid as anchor
-    const gridX = (i % cols) - (cols - 1) / 2;
-    const gridY = Math.floor(i / cols) - (rows - 1) / 2;
+    const col = i % cols;
+    const row = Math.floor(i / cols);
 
-    // Start from grid position
-    let x = gridX * CONFIG.baseSpacing;
-    let y = gridY * CONFIG.baseSpacing;
+    // Clean grid positions centered at origin
+    const x = (col - (cols - 1) / 2) * sp;
+    const y = (row - (rows - 1) / 2) * sp;
 
-    // Offset odd rows for organic stagger
-    if (Math.floor(i / cols) % 2 === 1) {
-      x += CONFIG.baseSpacing * 0.35;
-    }
-
-    // Organic scatter using golden angle spiral offset
-    const spiralAngle = i * goldenAngle;
-    const spiralRadius = seededRandom(i * 53) * CONFIG.scatterAmount;
-    x += Math.cos(spiralAngle) * spiralRadius;
-    y += Math.sin(spiralAngle) * spiralRadius;
-
-    // Additional jitter
-    x += (seededRandom(i * 17) - 0.5) * CONFIG.scatterAmount * 0.6;
-    y += (seededRandom(i * 31) - 0.5) * CONFIG.scatterAmount * 0.6;
-
-    // Depth layer
-    const depth = Math.floor(seededRandom(i * 47) * CONFIG.depthLayers);
-
-    // Size: wide variation like reference (some tiny, some large)
-    // Use a weighted distribution: more medium, fewer extremes
-    const sizeRand = seededRandom(i * 73);
-    let sizeT;
-    if (sizeRand < 0.25) {
-      // Small images (25% chance)
-      sizeT = seededRandom(i * 79) * 0.25;
-    } else if (sizeRand < 0.75) {
-      // Medium images (50% chance)
-      sizeT = 0.3 + seededRandom(i * 83) * 0.35;
-    } else {
-      // Large images (25% chance)
-      sizeT = 0.7 + seededRandom(i * 89) * 0.3;
-    }
-    const size = CONFIG.sizeVariation.min + sizeT * (CONFIG.sizeVariation.max - CONFIG.sizeVariation.min);
+    const size = sizeClasses[i % sizeClasses.length];
+    const depth = depthFromSize(size);
 
     imageData.push({
       index: i,
@@ -369,9 +351,9 @@ function generateImageLayout() {
     });
   }
 
-  // World size for tiling
-  worldSize.x = cols * CONFIG.baseSpacing + CONFIG.baseSpacing * 0.5;
-  worldSize.y = rows * CONFIG.baseSpacing + CONFIG.baseSpacing * 0.5;
+  // World size for infinite tiling
+  worldSize.x = cols * sp;
+  worldSize.y = rows * sp;
 
   // Sort by depth (back to front)
   imageData.sort((a, b) => b.depth - a.depth);
@@ -529,34 +511,37 @@ function getClickedImage(clientX, clientY) {
   const rect = container.getBoundingClientRect();
   const aspect = rect.width / rect.height;
 
-  // Convert to world coordinates (account for zoom)
+  // Convert screen click to NDC [-1, 1]
   const ndcX = ((clientX - rect.left) / rect.width) * 2 - 1;
   const ndcY = -((clientY - rect.top) / rect.height) * 2 + 1;
 
+  // Convert NDC to world coordinates (undo zoom + aspect from shader)
   const worldX = ndcX * aspect / dragZoom.value + viewOffset.x;
   const worldY = ndcY / dragZoom.value + viewOffset.y;
 
-  // Parallax is disabled when focused
+  // Use the LERPED parallax (matches what the shader actually renders)
   const parallaxActive = focusedIndex === -1 ? 1 : 0;
 
-  // Find closest image (accounting for tiling)
   let closest = null;
   let minDist = Infinity;
 
   for (const data of imageData) {
-    const depthParallax = (1 + data.depth / (CONFIG.depthLayers - 1) * 0.8) * CONFIG.parallaxStrength * parallaxActive;
+    const normalizedDepth = data.depth / (CONFIG.depthLayers - 1);
+    const depthMult = (1 + normalizedDepth * 0.8) * CONFIG.parallaxStrength * parallaxActive;
 
-    // Calculate wrapped position (same as shader)
-    let imgX = data.x - viewOffset.x + targetParallax.x * depthParallax;
-    let imgY = data.y - viewOffset.y + targetParallax.y * depthParallax;
+    // Use `parallax` (lerped) not `targetParallax` to match the rendered position
+    let imgX = data.x - viewOffset.x + parallax.x * depthMult;
+    let imgY = data.y - viewOffset.y + parallax.y * depthMult;
     imgX = wrapCoord(imgX, worldSize.x);
     imgY = wrapCoord(imgY, worldSize.y);
 
-    // Convert back to world space for comparison
+    // Back to world space
     imgX += viewOffset.x;
     imgY += viewOffset.y;
 
-    const halfSize = data.size * 0.28;
+    // Half-extent of image in world space (PlaneGeometry is 0.5x0.5, scaled by size)
+    // Use 0.27 (slightly generous vs exact 0.25) for comfortable click targets
+    const halfSize = data.size * 0.27;
 
     const dx = Math.abs(worldX - imgX);
     const dy = Math.abs(worldY - imgY);
