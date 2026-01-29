@@ -7,13 +7,13 @@ const CONFIG = {
   // Layout - organic scattered like reference, tighter grouping
   gridCols: 6,
   gridRows: 5,
-  baseSpacing: 1.3,
+  baseSpacing: 0.9,
   scatterAmount: 0.55,
   sizeVariation: { min: 0.35, max: 1.6 }, // wide range like reference
   depthLayers: 3,
 
   // Interaction
-  parallaxStrength: 0.12,
+  parallaxStrength: 0.06,
   dragSpeed: 0.004,
   lerpSpeed: 0.08,
   clickThreshold: 12,
@@ -54,6 +54,7 @@ const imageVertexShader = `
   uniform float uFocusState;
   uniform float uAspect;
   uniform vec2 uWorldSize; // Total world size for tiling
+  uniform float uZoom;     // Drag zoom
 
   varying vec2 vUv;
   varying vec2 vAtlasUV;
@@ -87,6 +88,9 @@ const imageVertexShader = `
       position.xy * finalSize + basePos,
       depth * 0.1
     );
+
+    // Apply drag zoom
+    pos.xy *= uZoom;
 
     // Adjust for aspect ratio
     pos.x /= uAspect;
@@ -296,6 +300,11 @@ let focusedIndex = -1;
 let focusState = { value: 0 };
 let animationId = null;
 
+// Drag zoom state (zoom out while dragging)
+let dragZoom = { value: 1 };
+let totalDragDistance = 0;
+let mousePressed = { value: 0 };
+
 // Tweak panel reference
 let tweakPanel = null;
 
@@ -466,7 +475,8 @@ function createImagesMesh(atlasSize) {
       uFocusIndex: { value: -1 },
       uFocusState: { value: 0 },
       uAspect: { value: 1 },
-      uWorldSize: { value: new THREE.Vector2(worldSize.x, worldSize.y) }
+      uWorldSize: { value: new THREE.Vector2(worldSize.x, worldSize.y) },
+      uZoom: { value: 1 }
     },
     transparent: true,
     depthTest: true,
@@ -519,19 +529,22 @@ function getClickedImage(clientX, clientY) {
   const rect = container.getBoundingClientRect();
   const aspect = rect.width / rect.height;
 
-  // Convert to world coordinates
+  // Convert to world coordinates (account for zoom)
   const ndcX = ((clientX - rect.left) / rect.width) * 2 - 1;
   const ndcY = -((clientY - rect.top) / rect.height) * 2 + 1;
 
-  const worldX = ndcX * aspect * 2 + viewOffset.x;
-  const worldY = ndcY * 2 + viewOffset.y;
+  const worldX = ndcX * aspect / dragZoom.value + viewOffset.x;
+  const worldY = ndcY / dragZoom.value + viewOffset.y;
+
+  // Parallax is disabled when focused
+  const parallaxActive = focusedIndex === -1 ? 1 : 0;
 
   // Find closest image (accounting for tiling)
   let closest = null;
   let minDist = Infinity;
 
   for (const data of imageData) {
-    const depthParallax = (1 + data.depth / (CONFIG.depthLayers - 1) * 0.8) * CONFIG.parallaxStrength;
+    const depthParallax = (1 + data.depth / (CONFIG.depthLayers - 1) * 0.8) * CONFIG.parallaxStrength * parallaxActive;
 
     // Calculate wrapped position (same as shader)
     let imgX = data.x - viewOffset.x + targetParallax.x * depthParallax;
@@ -679,7 +692,11 @@ function onPointerDown(e) {
   dragStart.x = e.clientX;
   dragStart.y = e.clientY;
   dragDistance = 0;
+  totalDragDistance = 0;
   clickStartTime = Date.now();
+
+  // Start drag press state
+  gsap.to(mousePressed, { value: 1, duration: 0.3, ease: "power2.out" });
 }
 
 function onPointerMove(e) {
@@ -697,10 +714,18 @@ function onPointerMove(e) {
   dragDistance = Math.sqrt(dx * dx + dy * dy);
 
   if (dragDistance > CONFIG.clickThreshold) {
-    targetOffset.x -= (e.clientX - dragStart.x) * CONFIG.dragSpeed;
-    targetOffset.y += (e.clientY - dragStart.y) * CONFIG.dragSpeed;
+    const moveX = e.clientX - dragStart.x;
+    const moveY = e.clientY - dragStart.y;
+    targetOffset.x -= moveX * CONFIG.dragSpeed;
+    targetOffset.y += moveY * CONFIG.dragSpeed;
     dragStart.x = e.clientX;
     dragStart.y = e.clientY;
+
+    // Track total drag distance for zoom-out effect
+    totalDragDistance += Math.sqrt(moveX * moveX + moveY * moveY);
+    const zoomProgress = Math.min(totalDragDistance / 400, 1);
+    const targetZoom = 1 - (zoomProgress * 0.2); // Zoom out to 80%
+    dragZoom.value += (targetZoom - dragZoom.value) * 0.15;
 
     if (focusedIndex !== -1 && dragDistance > 30) {
       exitFocusMode();
@@ -711,6 +736,11 @@ function onPointerMove(e) {
 function onPointerUp(e) {
   if (!isDragging) return;
   isDragging = false;
+
+  // Snap zoom back to 1 and release press state
+  gsap.to(mousePressed, { value: 0, duration: 0.4, ease: "power2.out" });
+  gsap.to(dragZoom, { value: 1, duration: 0.3, ease: "power2.out" });
+  totalDragDistance = 0;
 
   const wasQuickClick = Date.now() - clickStartTime < 250;
   const wasSmallDrag = dragDistance < CONFIG.clickThreshold;
@@ -793,13 +823,17 @@ function animate() {
   parallax.x += (targetParallax.x - parallax.x) * 0.08;
   parallax.y += (targetParallax.y - parallax.y) * 0.08;
 
+  // Disable parallax when in focus mode
+  const parallaxActive = focusedIndex === -1 ? 1 : 0;
+
   // Update uniforms
   if (imagesMesh?.material?.uniforms) {
     imagesMesh.material.uniforms.uViewOffset.value.set(viewOffset.x, viewOffset.y);
     imagesMesh.material.uniforms.uParallax.value.set(
-      parallax.x * CONFIG.parallaxStrength,
-      parallax.y * CONFIG.parallaxStrength
+      parallax.x * CONFIG.parallaxStrength * parallaxActive,
+      parallax.y * CONFIG.parallaxStrength * parallaxActive
     );
+    imagesMesh.material.uniforms.uZoom.value = dragZoom.value;
   }
 
   // Render to target
@@ -1151,6 +1185,9 @@ export function destroyArchiveScene() {
   worldSize = { x: 0, y: 0 };
   focusedIndex = -1;
   focusState = { value: 0 };
+  dragZoom = { value: 1 };
+  totalDragDistance = 0;
+  mousePressed = { value: 0 };
   viewOffset = { x: 0, y: 0 };
   targetOffset = { x: 0, y: 0 };
   parallax = { x: 0, y: 0 };
