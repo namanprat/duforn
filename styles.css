@@ -477,6 +477,7 @@ p {
 }
 
 .page-wrap::after {
+  display: none;
   content: "";
   top: -50%;
   left: -50%;

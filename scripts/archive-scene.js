@@ -1,8 +1,10 @@
 import * as THREE from "three";
 import { projects } from "./data.js";
+import { CRTShader } from "./CRTShader.js";
+import { CRTTweakPanel } from "./CRTTweakPanel.js";
 import gsap from "gsap";
 
-// --- Shaders ---
+// --- Archive Shaders ---
 const vertexShader = `
   varying vec2 vUv;
   void main() {
@@ -23,9 +25,14 @@ const fragmentShader = `
   uniform float uFocusState;
   uniform float uMousePressed;
   uniform float uZoom;
-  uniform float uIntroProgress;
+  uniform vec2 uMouseParallax;
 
   varying vec2 vUv;
+
+  // Random function for pseudo-random placement
+  float random(vec2 st) {
+    return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
+  }
 
   void main() {
     vec2 screenUV = (vUv - 0.5) * 2.0;
@@ -40,12 +47,22 @@ const fragmentShader = `
     vec2 distortedUV = screenUV * distortion;
 
     vec2 aspectRatio = vec2(uResolution.x / uResolution.y, 1.0);
-    // Expand from center based on intro progress
-    vec2 worldCoord = (distortedUV * aspectRatio) * uIntroProgress + uOffset;
+    vec2 worldCoord = (distortedUV * aspectRatio) + uOffset + uMouseParallax;
 
-    vec2 cellPos = worldCoord / uCellSize;
+    // Use larger grid cells for looser spacing
+    float gridCellSize = uCellSize * 1.5;
+    vec2 cellPos = worldCoord / gridCellSize;
     vec2 cellId = floor(cellPos);
     vec2 cellUV = fract(cellPos);
+    
+    // Add random offset to each cell for scattered placement
+    vec2 randomOffset = vec2(
+      random(cellId) * 0.6 - 0.3,
+      random(cellId + vec2(100.0, 0.0)) * 0.6 - 0.3
+    );
+    
+    // Apply random offset to cell UV
+    cellUV -= randomOffset;
 
     float texIndex = mod(cellId.x + cellId.y * 3.0, uTextureCount);
     if (texIndex < 0.0) texIndex += uTextureCount;
@@ -56,13 +73,20 @@ const fragmentShader = `
     vec3 color = vec3(0.0);
     float outAlpha = 0.0;
 
-    float baseImageSize = 0.7;
-    float targetImageSize = isFocused ? 0.92 : 0.5;
+    // Vary image sizes randomly - more varied like reference
+    float randomSize = random(cellId + vec2(200.0, 0.0));
+    float sizeCategory = random(cellId + vec2(300.0, 0.0));
+    float baseImageSize;
+    if (sizeCategory < 0.3) {
+      baseImageSize = 0.3 + randomSize * 0.15; // Small: 0.30 to 0.45
+    } else if (sizeCategory < 0.7) {
+      baseImageSize = 0.45 + randomSize * 0.2; // Medium: 0.45 to 0.65
+    } else {
+      baseImageSize = 0.65 + randomSize * 0.25; // Large: 0.65 to 0.90
+    }
+    float targetImageSize = isFocused ? 0.90 : baseImageSize;
     float imageSize = mix(baseImageSize, targetImageSize, uFocusState);
     
-    // Scale image from center during intro
-    imageSize *= smoothstep(0.0, 0.5, uIntroProgress);
-
     float imageBorder = (1.0 - imageSize) * 0.5;
     vec2 imageUV = (cellUV - imageBorder) / imageSize;
 
@@ -112,17 +136,15 @@ const fragmentShader = `
     // Vignette fade at edges
     float fade = 1.0 - smoothstep(1.0, 1.6, radius);
     
-    // Fade in based on intro progress
-    float introAlpha = smoothstep(0.0, 0.25, uIntroProgress);
-    outAlpha *= (fade * introAlpha);
+    outAlpha *= fade;
 
-    gl_FragColor = vec4(color * fade * introAlpha, outAlpha);
+    gl_FragColor = vec4(color * fade, outAlpha);
   }
 `;
 
 // --- Configuration ---
 const config = {
-  cellSize: 0.65,
+  cellSize: 0.85,
   distortion: 0.08,
   lerpFactor: 0.08,
 };
@@ -132,9 +154,13 @@ let isRunning = false;
 let container = null;
 let renderer = null;
 let scene = null;
+let crtScene = null;
 let camera = null;
 let plane = null;
 let animationId = null;
+let renderTarget = null;
+let crtPass = null;
+let crtTweakPanel = null;
 
 let offset = { x: 0, y: 0 };
 let targetOffset = { x: 0, y: 0 };
@@ -154,6 +180,10 @@ let totalDragDistance = 0;
 
 // Mouse pressed state for fisheye flattening
 let mousePressed = { value: 0 };
+
+// Mouse parallax state
+let mouse = { x: 0, y: 0 };
+let mouseParallax = { x: 0, y: 0 };
 
 // --- Helper Functions ---
 const createTextureAtlas = (textures) => {
@@ -305,9 +335,13 @@ const enterFocusMode = (index, cellX, cellY) => {
     },
   });
 
-  // Center on the cell
-  targetOffset.x = (cellX + 0.5) * config.cellSize;
-  targetOffset.y = (cellY + 0.5) * config.cellSize;
+  // Center on the cell (accounting for random offset)
+  const randomOffsetX = (Math.sin(cellX * 12.9898 + cellY * 78.233) % 1) * 0.6 - 0.3;
+  const randomOffsetY = (Math.sin((cellX + 100) * 12.9898 + cellY * 78.233) % 1) * 0.6 - 0.3;
+  const gridCellSize = config.cellSize * 1.5;
+  
+  targetOffset.x = (cellX + 0.5 + randomOffsetX) * gridCellSize;
+  targetOffset.y = (cellY + 0.5 + randomOffsetY) * gridCellSize;
 
   updateDOMOverlay(index);
 };
@@ -357,14 +391,31 @@ const getClickedCell = (clientX, clientY) => {
   let worldX = screenX * distortion * aspectRatio + offset.x;
   let worldY = screenY * distortion + offset.y;
 
-  const cellX = Math.floor(worldX / config.cellSize);
-  const cellY = Math.floor(worldY / config.cellSize);
+  // Match shader's grid calculation
+  const gridCellSize = config.cellSize * 1.5;
+  const cellX = Math.floor(worldX / gridCellSize);
+  const cellY = Math.floor(worldY / gridCellSize);
+  
+  // Apply same random offset as shader
+  const randomOffsetX = (Math.sin(cellX * 12.9898 + cellY * 78.233) % 1) * 0.6 - 0.3;
+  const randomOffsetY = (Math.sin((cellX + 100) * 12.9898 + cellY * 78.233) % 1) * 0.6 - 0.3;
 
-  // Check if click is on image (images occupy ~70% of cell, centered)
-  const cellUVX = worldX / config.cellSize - cellX;
-  const cellUVY = worldY / config.cellSize - cellY;
+  // Check if click is on image
+  const cellUVX = (worldX / gridCellSize - cellX) - randomOffsetX;
+  const cellUVY = (worldY / gridCellSize - cellY) - randomOffsetY;
 
-  const imageSize = focusedIndex === -1 ? 0.7 : (focusState.value > 0.5 ? 0.92 : 0.7);
+  // Random size matching shader
+  const randomSize = Math.abs(Math.sin((cellX + 200) * 12.9898 + cellY * 78.233) % 1);
+  const sizeCategory = Math.abs(Math.sin((cellX + 300) * 12.9898 + cellY * 78.233) % 1);
+  let baseImageSize;
+  if (sizeCategory < 0.3) {
+    baseImageSize = 0.3 + randomSize * 0.15;
+  } else if (sizeCategory < 0.7) {
+    baseImageSize = 0.45 + randomSize * 0.2;
+  } else {
+    baseImageSize = 0.65 + randomSize * 0.25;
+  }
+  const imageSize = focusedIndex === -1 ? baseImageSize : (focusState.value > 0.5 ? 0.90 : baseImageSize);
   const border = (1 - imageSize) / 2;
   const isOnImage = cellUVX > border && cellUVX < (1 - border) &&
                     cellUVY > border && cellUVY < (1 - border);
@@ -377,9 +428,6 @@ const getClickedCell = (clientX, clientY) => {
 
 // --- Event Handlers ---
 const onPointerDown = (e) => {
-  // Block interaction during intro
-  if (plane?.material?.uniforms?.uIntroProgress?.value < 0.9) return;
-
   // Allow navbar and UI buttons to work
   if (e.target.closest(".nav-wrap") ||
       e.target.closest(".nav-btn") ||
@@ -407,6 +455,16 @@ const onPointerDown = (e) => {
 };
 
 const onPointerMove = (e) => {
+  // Update mouse position for parallax (only when not dragging)
+  if (!isDragging && renderer) {
+    const rect = renderer.domElement.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    // Subtle parallax effect
+    mouse.x = -x * 0.02;
+    mouse.y = y * 0.02;
+  }
+
   if (!isDragging) return;
 
   const deltaX = e.clientX - previousMouse.x;
@@ -498,9 +556,6 @@ const onPointerUp = (e) => {
 };
 
 const onWheel = (e) => {
-  // Block interaction during intro
-  if (plane?.material?.uniforms?.uIntroProgress?.value < 0.9) return;
-
   // Only handle wheel on canvas
   if (!e.target.closest("#gallery")) return;
 
@@ -540,6 +595,17 @@ const onResize = () => {
   if (plane?.material?.uniforms) {
     plane.material.uniforms.uResolution.value.set(width, height);
   }
+  
+  // Update render target
+  if (renderTarget) {
+    const pixelRatio = Math.min(window.devicePixelRatio, 2);
+    renderTarget.setSize(width * pixelRatio, height * pixelRatio);
+  }
+  
+  // Update CRT shader resolution
+  if (crtPass?.material?.uniforms) {
+    crtPass.material.uniforms.uResolution = { value: new THREE.Vector2(width, height) };
+  }
 };
 
 // --- Animation ---
@@ -551,14 +617,32 @@ const animate = () => {
   offset.x += (targetOffset.x - offset.x) * config.lerpFactor;
   offset.y += (targetOffset.y - offset.y) * config.lerpFactor;
 
+  // Smooth parallax lerp
+  mouseParallax.x += (mouse.x - mouseParallax.x) * 0.05;
+  mouseParallax.y += (mouse.y - mouseParallax.y) * 0.05;
+
   if (plane?.material?.uniforms) {
     plane.material.uniforms.uOffset.value.set(offset.x, offset.y);
     plane.material.uniforms.uTime.value = performance.now() * 0.001;
     plane.material.uniforms.uMousePressed.value = mousePressed.value;
     plane.material.uniforms.uZoom.value = dragZoom.value;
+    plane.material.uniforms.uMouseParallax.value.set(mouseParallax.x, mouseParallax.y);
   }
 
+  // Render archive scene to render target
+  renderer.setRenderTarget(renderTarget);
+  renderer.clear();
   renderer.render(scene, camera);
+  
+  // Render CRT post-processing to screen
+  renderer.setRenderTarget(null);
+  renderer.clear();
+  
+  if (crtPass?.material?.uniforms?.time) {
+    crtPass.material.uniforms.time.value = performance.now() * 0.001;
+  }
+  
+  renderer.render(crtScene, camera);
 };
 
 // --- Initialize ---
@@ -578,6 +662,7 @@ const init = async () => {
 
   // Scene & Camera
   scene = new THREE.Scene();
+  crtScene = new THREE.Scene();
   camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
   camera.position.z = 1;
 
@@ -602,7 +687,7 @@ const init = async () => {
       uFocusState: { value: 0 },
       uMousePressed: { value: 0 },
       uZoom: { value: 1 },
-      uIntroProgress: { value: 0 },
+      uMouseParallax: { value: new THREE.Vector2(0, 0) },
     },
     transparent: true,
   });
@@ -610,16 +695,78 @@ const init = async () => {
   plane = new THREE.Mesh(geometry, material);
   scene.add(plane);
 
-  // Intro Animation
-  gsap.fromTo(material.uniforms.uIntroProgress, 
-    { value: 0 }, 
-    { 
-      value: 1, 
-      duration: 1.8, 
-      ease: "power3.out", 
-      delay: 0.2 
+  // Setup render target for post-processing
+  const pixelRatio = Math.min(window.devicePixelRatio, 2);
+  renderTarget = new THREE.WebGLRenderTarget(width * pixelRatio, height * pixelRatio, {
+    format: THREE.RGBAFormat,
+    type: THREE.UnsignedByteType,
+    minFilter: THREE.LinearFilter,
+    magFilter: THREE.LinearFilter
+  });
+  
+  // Create CRT post-processing material with properly initialized uniforms
+  const crtUniforms = {
+    tDiffuse: { value: renderTarget.texture },
+    scanlineIntensity: { value: 0.46 },
+    scanlineCount: { value: 663.0 },
+    time: { value: 0.0 },
+    yOffset: { value: 0.0 },
+    brightness: { value: 1.32 },
+    contrast: { value: 1.06 },
+    saturation: { value: 1.20 },
+    bloomIntensity: { value: 0.23 },
+    bloomThreshold: { value: 0.35 },
+    rgbShift: { value: 0.0 },
+    adaptiveIntensity: { value: 1.0 },
+    vignetteStrength: { value: 0.0 },
+    curvature: { value: 0.5 },
+    flickerStrength: { value: 0.0 }
+  };
+  
+  const crtMaterial = new THREE.ShaderMaterial({
+    vertexShader: CRTShader.vertexShader,
+    fragmentShader: CRTShader.fragmentShader,
+    uniforms: crtUniforms,
+    transparent: false,
+    depthWrite: false,
+    depthTest: false
+  });
+  
+  // CRT Pass plane
+  const crtGeometry = new THREE.PlaneGeometry(2, 2);
+  crtPass = new THREE.Mesh(crtGeometry, crtMaterial);
+  crtScene.add(crtPass);
+  
+  // Setup CRT Tweak Panel
+  const crtController = {
+    getEnabled: () => true,
+    setEnabled: (val) => {},
+    get: (key) => crtMaterial.uniforms[key]?.value ?? 0,
+    set: (key, val) => {
+      if (crtMaterial.uniforms[key]) {
+        crtMaterial.uniforms[key].value = val;
+      }
     }
-  );
+  };
+  
+  crtTweakPanel = new CRTTweakPanel({
+    target: crtController,
+    defaults: {
+      enabled: true,
+      scanlineIntensity: 0.46,
+      scanlineCount: 663,
+      adaptiveIntensity: 1.0,
+      brightness: 1.32,
+      contrast: 1.06,
+      saturation: 1.20,
+      bloomIntensity: 0.23,
+      bloomThreshold: 0.35,
+      rgbShift: 0.0,
+      vignetteStrength: 0.0,
+      curvature: 0.5,
+      flickerStrength: 0.0
+    }
+  });
 
   // Event listeners (use canvas-level where possible)
   const canvas = renderer.domElement;
@@ -680,12 +827,23 @@ export function destroyArchiveScene() {
 
   if (plane?.material) plane.material.dispose();
   if (plane?.geometry) plane.geometry.dispose();
+  
+  if (crtPass?.material) crtPass.material.dispose();
+  if (crtPass?.geometry) crtPass.geometry.dispose();
+  
+  if (renderTarget) {
+    renderTarget.dispose();
+  }
 
   container = null;
   renderer = null;
   scene = null;
+  crtScene = null;
   camera = null;
   plane = null;
+  crtPass = null;
+  renderTarget = null;
+  crtTweakPanel = null;
   focusedIndex = -1;
   focusState = { value: 0 };
   offset = { x: 0, y: 0 };
@@ -693,4 +851,6 @@ export function destroyArchiveScene() {
   dragZoom = { value: 1 };
   totalDragDistance = 0;
   mousePressed = { value: 0 };
+  mouse = { x: 0, y: 0 };
+  mouseParallax = { x: 0, y: 0 };
 }
