@@ -4,20 +4,24 @@ import gsap from "gsap";
 
 // --- Configuration ---
 const CONFIG = {
-  // Layout
-  gridCols: 7,
-  gridRows: 5,
-  baseSpacing: 1.8,
-  scatterAmount: 0.4,
-  sizeVariation: { min: 0.6, max: 1.4 },
-  rotationRange: 8, // degrees
+  // Layout - structured chaos with more spacing, no rotation
+  gridCols: 5,
+  gridRows: 4,
+  baseSpacing: 2.8,
+  scatterAmount: 0.6,
+  sizeVariation: { min: 0.7, max: 1.2 },
+  rotationRange: 0, // no tilting
   depthLayers: 3,
 
+  // Infinite tiling
+  tileRepeat: 3, // How many times to repeat the grid in each direction
+
   // Interaction
-  parallaxStrength: 0.08,
-  dragSpeed: 0.003,
-  lerpSpeed: 0.1,
+  parallaxStrength: 0.12,
+  dragSpeed: 0.004,
+  lerpSpeed: 0.08,
   clickThreshold: 12,
+  focusAnimationDuration: 0.7, // slower focus animation
 
   // Performance
   textureSize: 256,
@@ -46,7 +50,6 @@ const imageVertexShader = `
   attribute vec3 offset;
   attribute vec2 atlasUV;
   attribute float size;
-  attribute float rotation;
   attribute float depth;
 
   uniform vec2 uViewOffset;
@@ -54,6 +57,7 @@ const imageVertexShader = `
   uniform float uFocusIndex;
   uniform float uFocusState;
   uniform float uAspect;
+  uniform vec2 uWorldSize; // Total world size for tiling
 
   varying vec2 vUv;
   varying vec2 vAtlasUV;
@@ -68,31 +72,23 @@ const imageVertexShader = `
     float idx = offset.z;
     vIsFocused = step(abs(idx - uFocusIndex), 0.5);
 
-    // Depth-based parallax
-    float parallaxMult = 1.0 + depth * 0.5;
+    // Depth-based parallax (more pronounced)
+    float parallaxMult = 1.0 + depth * 0.8;
     vec2 parallaxOffset = uParallax * parallaxMult;
 
     // Size adjustment for focus
-    float focusScale = mix(1.0, 1.3, vIsFocused * uFocusState);
+    float focusScale = mix(1.0, 1.25, vIsFocused * uFocusState);
     float finalSize = size * focusScale;
 
-    // Rotation
-    float rad = rotation * 0.0174533; // degrees to radians
-    float cosR = cos(rad);
-    float sinR = sin(rad);
+    // Calculate position with infinite tiling
+    vec2 basePos = offset.xy - uViewOffset + parallaxOffset;
 
-    // Remove rotation when focused
-    float activeRot = mix(1.0, 0.0, vIsFocused * uFocusState);
-    cosR = mix(1.0, cosR, activeRot);
-    sinR = mix(0.0, sinR, activeRot);
-
-    vec2 rotatedPos = vec2(
-      position.x * cosR - position.y * sinR,
-      position.x * sinR + position.y * cosR
-    );
+    // Wrap position for infinite scrolling
+    basePos.x = mod(basePos.x + uWorldSize.x * 0.5, uWorldSize.x) - uWorldSize.x * 0.5;
+    basePos.y = mod(basePos.y + uWorldSize.y * 0.5, uWorldSize.y) - uWorldSize.y * 0.5;
 
     vec3 pos = vec3(
-      rotatedPos * finalSize + offset.xy - uViewOffset + parallaxOffset,
+      position.xy * finalSize + basePos,
       depth * 0.1
     );
 
@@ -307,54 +303,56 @@ let animationId = null;
 // Tweak panel reference
 let tweakPanel = null;
 
-// --- Golden angle distribution for organic scatter ---
-const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+// --- World size for infinite tiling ---
+let worldSize = { x: 0, y: 0 };
 
 function generateImageLayout() {
   const count = projects.length;
   imageData = [];
 
-  // Use spiral-based distribution with grid influence
-  const spiralScale = 2.5;
+  // Calculate grid dimensions
+  const cols = CONFIG.gridCols;
+  const rows = Math.ceil(count / cols);
 
   for (let i = 0; i < count; i++) {
-    // Golden angle spiral as base
-    const angle = i * goldenAngle;
-    const radius = Math.sqrt(i + 0.5) * spiralScale * 0.3;
+    // Grid position as base
+    const gridX = (i % cols) - (cols - 1) / 2;
+    const gridY = Math.floor(i / cols) - (rows - 1) / 2;
 
-    // Add structured grid influence
-    const gridX = (i % CONFIG.gridCols) - CONFIG.gridCols / 2;
-    const gridY = Math.floor(i / CONFIG.gridCols) - CONFIG.gridRows / 2;
+    // Base position with spacing
+    let x = gridX * CONFIG.baseSpacing;
+    let y = gridY * CONFIG.baseSpacing;
 
-    // Blend spiral and grid (hybrid approach)
-    const blendFactor = 0.6;
-    let x = radius * Math.cos(angle) * blendFactor + gridX * CONFIG.baseSpacing * (1 - blendFactor);
-    let y = radius * Math.sin(angle) * blendFactor + gridY * CONFIG.baseSpacing * (1 - blendFactor);
+    // Structured scatter - offset alternating rows/columns for visual interest
+    const rowOffset = (Math.floor(i / cols) % 2) * 0.4;
+    x += rowOffset;
 
-    // Add scatter noise
-    const scatterX = (seededRandom(i * 17) - 0.5) * CONFIG.scatterAmount * 2;
-    const scatterY = (seededRandom(i * 31) - 0.5) * CONFIG.scatterAmount * 2;
+    // Add controlled scatter noise
+    const scatterX = (seededRandom(i * 17) - 0.5) * CONFIG.scatterAmount;
+    const scatterY = (seededRandom(i * 31) - 0.5) * CONFIG.scatterAmount;
     x += scatterX;
     y += scatterY;
 
-    // Assign depth layer (0, 1, 2)
-    const depth = Math.floor(seededRandom(i * 47) * CONFIG.depthLayers);
+    // Assign depth layer (0, 1, 2) - distribute evenly
+    const depth = i % CONFIG.depthLayers;
 
-    // Size based on depth (closer = larger)
+    // Size variation based on depth (closer = slightly larger)
     const baseSize = CONFIG.sizeVariation.min +
       seededRandom(i * 73) * (CONFIG.sizeVariation.max - CONFIG.sizeVariation.min);
-    const depthSizeBonus = (CONFIG.depthLayers - 1 - depth) * 0.15;
+    const depthSizeBonus = (CONFIG.depthLayers - 1 - depth) * 0.1;
     const size = baseSize + depthSizeBonus;
-
-    // Random rotation
-    const rotation = (seededRandom(i * 97) - 0.5) * CONFIG.rotationRange * 2;
 
     imageData.push({
       index: i,
-      x, y, depth, size, rotation,
+      x, y, depth, size,
       project: projects[i]
     });
   }
+
+  // Calculate world size for tiling (with padding)
+  const padding = CONFIG.baseSpacing;
+  worldSize.x = cols * CONFIG.baseSpacing + padding;
+  worldSize.y = rows * CONFIG.baseSpacing + padding;
 
   // Sort by depth (back to front for proper rendering)
   imageData.sort((a, b) => b.depth - a.depth);
@@ -426,7 +424,6 @@ function createImagesMesh(atlasSize) {
   const offsets = new Float32Array(count * 3);
   const atlasUVs = new Float32Array(count * 2);
   const sizes = new Float32Array(count);
-  const rotations = new Float32Array(count);
   const depths = new Float32Array(count);
 
   imageData.forEach((data, i) => {
@@ -440,14 +437,12 @@ function createImagesMesh(atlasSize) {
     atlasUVs[i * 2 + 1] = 1 - atlasY - (1 / atlasSize); // Flip Y
 
     sizes[i] = data.size;
-    rotations[i] = data.rotation;
     depths[i] = data.depth / (CONFIG.depthLayers - 1);
   });
 
   geometry.setAttribute("offset", new THREE.InstancedBufferAttribute(offsets, 3));
   geometry.setAttribute("atlasUV", new THREE.InstancedBufferAttribute(atlasUVs, 2));
   geometry.setAttribute("size", new THREE.InstancedBufferAttribute(sizes, 1));
-  geometry.setAttribute("rotation", new THREE.InstancedBufferAttribute(rotations, 1));
   geometry.setAttribute("depth", new THREE.InstancedBufferAttribute(depths, 1));
 
   const material = new THREE.ShaderMaterial({
@@ -460,7 +455,8 @@ function createImagesMesh(atlasSize) {
       uParallax: { value: new THREE.Vector2(0, 0) },
       uFocusIndex: { value: -1 },
       uFocusState: { value: 0 },
-      uAspect: { value: 1 }
+      uAspect: { value: 1 },
+      uWorldSize: { value: new THREE.Vector2(worldSize.x, worldSize.y) }
     },
     transparent: true,
     depthTest: true,
@@ -501,6 +497,11 @@ function createCRTPass(width, height) {
   return new THREE.Mesh(geometry, material);
 }
 
+// --- Helper to wrap coordinate for infinite tiling ---
+function wrapCoord(val, size) {
+  return ((val % size) + size) % size - size / 2;
+}
+
 // --- Hit Testing ---
 function getClickedImage(clientX, clientY) {
   if (!renderer || !container) return null;
@@ -512,21 +513,28 @@ function getClickedImage(clientX, clientY) {
   const ndcX = ((clientX - rect.left) / rect.width) * 2 - 1;
   const ndcY = -((clientY - rect.top) / rect.height) * 2 + 1;
 
-  const worldX = ndcX * aspect * 2 + viewOffset.x - parallax.x;
-  const worldY = ndcY * 2 + viewOffset.y - parallax.y;
+  const worldX = ndcX * aspect * 2 + viewOffset.x;
+  const worldY = ndcY * 2 + viewOffset.y;
 
-  // Find closest image
+  // Find closest image (accounting for tiling)
   let closest = null;
   let minDist = Infinity;
 
   for (const data of imageData) {
-    const depthParallax = (1 + data.depth / (CONFIG.depthLayers - 1) * 0.5) * CONFIG.parallaxStrength;
-    const imgX = data.x + targetParallax.x * depthParallax;
-    const imgY = data.y + targetParallax.y * depthParallax;
+    const depthParallax = (1 + data.depth / (CONFIG.depthLayers - 1) * 0.8) * CONFIG.parallaxStrength;
 
-    const halfSize = data.size * 0.25;
+    // Calculate wrapped position (same as shader)
+    let imgX = data.x - viewOffset.x + targetParallax.x * depthParallax;
+    let imgY = data.y - viewOffset.y + targetParallax.y * depthParallax;
+    imgX = wrapCoord(imgX, worldSize.x);
+    imgY = wrapCoord(imgY, worldSize.y);
 
-    // Check if within bounds (accounting for rotation roughly)
+    // Convert back to world space for comparison
+    imgX += viewOffset.x;
+    imgY += viewOffset.y;
+
+    const halfSize = data.size * 0.28;
+
     const dx = Math.abs(worldX - imgX);
     const dy = Math.abs(worldY - imgY);
 
@@ -548,18 +556,30 @@ function enterFocusMode(data) {
 
   focusedIndex = data.index;
 
-  // Center on image
-  targetOffset.x = data.x;
-  targetOffset.y = data.y;
+  // Center on image (account for current view offset to find nearest tile)
+  let targetX = data.x;
+  let targetY = data.y;
+
+  // Find the nearest tiled instance of this image
+  const offsetX = viewOffset.x - data.x;
+  const offsetY = viewOffset.y - data.y;
+  const tilesX = Math.round(offsetX / worldSize.x);
+  const tilesY = Math.round(offsetY / worldSize.y);
+  targetX += tilesX * worldSize.x;
+  targetY += tilesY * worldSize.y;
+
+  targetOffset.x = targetX;
+  targetOffset.y = targetY;
 
   if (imagesMesh?.material?.uniforms) {
     imagesMesh.material.uniforms.uFocusIndex.value = data.index;
   }
 
+  // Slower, smoother animation
   gsap.to(focusState, {
     value: 1,
-    duration: 0.4,
-    ease: "power2.out",
+    duration: CONFIG.focusAnimationDuration,
+    ease: "power3.out",
     onUpdate: updateFocusUniform
   });
 
@@ -572,8 +592,8 @@ function exitFocusMode() {
 
   gsap.to(focusState, {
     value: 0,
-    duration: 0.3,
-    ease: "power2.out",
+    duration: CONFIG.focusAnimationDuration * 0.6,
+    ease: "power2.inOut",
     onUpdate: updateFocusUniform
   });
 
@@ -1106,6 +1126,7 @@ export function destroyArchiveScene() {
   renderTarget = null;
   atlasTexture = null;
   imageData = [];
+  worldSize = { x: 0, y: 0 };
   focusedIndex = -1;
   focusState = { value: 0 };
   viewOffset = { x: 0, y: 0 };
