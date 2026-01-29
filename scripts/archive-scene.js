@@ -1,11 +1,145 @@
 import * as THREE from "three";
 import { projects } from "./data.js";
-import { CRTShader } from "./CRTShader.js";
-import { CRTTweakPanel } from "./CRTTweakPanel.js";
 import gsap from "gsap";
 
-// --- Archive Shaders ---
-const vertexShader = `
+// --- Configuration ---
+const CONFIG = {
+  // Layout
+  gridCols: 7,
+  gridRows: 5,
+  baseSpacing: 1.8,
+  scatterAmount: 0.4,
+  sizeVariation: { min: 0.6, max: 1.4 },
+  rotationRange: 8, // degrees
+  depthLayers: 3,
+
+  // Interaction
+  parallaxStrength: 0.08,
+  dragSpeed: 0.003,
+  lerpSpeed: 0.1,
+  clickThreshold: 12,
+
+  // Performance
+  textureSize: 256,
+  maxPixelRatio: 1.5,
+
+  // CRT defaults
+  crt: {
+    scanlineIntensity: 0.35,
+    scanlineCount: 480,
+    phosphorIntensity: 0.4,
+    bloomIntensity: 0.25,
+    bloomThreshold: 0.4,
+    curvature: 0.03,
+    vignetteStrength: 0.3,
+    noiseIntensity: 0.04,
+    brightness: 1.15,
+    contrast: 1.1,
+    saturation: 1.15,
+    rgbShift: 0.3,
+    flickerStrength: 0.015
+  }
+};
+
+// --- Shaders ---
+const imageVertexShader = `
+  attribute vec3 offset;
+  attribute vec2 atlasUV;
+  attribute float size;
+  attribute float rotation;
+  attribute float depth;
+
+  uniform vec2 uViewOffset;
+  uniform vec2 uParallax;
+  uniform float uFocusIndex;
+  uniform float uFocusState;
+  uniform float uAspect;
+
+  varying vec2 vUv;
+  varying vec2 vAtlasUV;
+  varying float vDepth;
+  varying float vIsFocused;
+
+  void main() {
+    vUv = uv;
+    vAtlasUV = atlasUV;
+    vDepth = depth;
+
+    float idx = offset.z;
+    vIsFocused = step(abs(idx - uFocusIndex), 0.5);
+
+    // Depth-based parallax
+    float parallaxMult = 1.0 + depth * 0.5;
+    vec2 parallaxOffset = uParallax * parallaxMult;
+
+    // Size adjustment for focus
+    float focusScale = mix(1.0, 1.3, vIsFocused * uFocusState);
+    float finalSize = size * focusScale;
+
+    // Rotation
+    float rad = rotation * 0.0174533; // degrees to radians
+    float cosR = cos(rad);
+    float sinR = sin(rad);
+
+    // Remove rotation when focused
+    float activeRot = mix(1.0, 0.0, vIsFocused * uFocusState);
+    cosR = mix(1.0, cosR, activeRot);
+    sinR = mix(0.0, sinR, activeRot);
+
+    vec2 rotatedPos = vec2(
+      position.x * cosR - position.y * sinR,
+      position.x * sinR + position.y * cosR
+    );
+
+    vec3 pos = vec3(
+      rotatedPos * finalSize + offset.xy - uViewOffset + parallaxOffset,
+      depth * 0.1
+    );
+
+    // Adjust for aspect ratio
+    pos.x /= uAspect;
+
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+  }
+`;
+
+const imageFragmentShader = `
+  precision highp float;
+
+  uniform sampler2D uAtlas;
+  uniform float uAtlasSize;
+  uniform float uFocusState;
+  uniform float uFocusIndex;
+
+  varying vec2 vUv;
+  varying vec2 vAtlasUV;
+  varying float vDepth;
+  varying float vIsFocused;
+
+  void main() {
+    vec2 tileSize = vec2(1.0 / uAtlasSize);
+    vec2 atlasCoord = vAtlasUV + vUv * tileSize;
+
+    vec4 texColor = texture2D(uAtlas, atlasCoord);
+
+    // Depth-based subtle darkening for unfocused distant images
+    float depthDim = 1.0 - vDepth * 0.15;
+
+    // Dim non-focused images when in focus mode
+    float focusDim = mix(1.0, 0.2, uFocusState * (1.0 - vIsFocused));
+
+    // Soft edge
+    vec2 edgeDist = min(vUv, 1.0 - vUv);
+    float edge = smoothstep(0.0, 0.02, min(edgeDist.x, edgeDist.y));
+
+    vec3 finalColor = texColor.rgb * depthDim * focusDim;
+    float finalAlpha = texColor.a * edge;
+
+    gl_FragColor = vec4(finalColor, finalAlpha);
+  }
+`;
+
+const crtVertexShader = `
   varying vec2 vUv;
   void main() {
     vUv = uv;
@@ -13,141 +147,135 @@ const vertexShader = `
   }
 `;
 
-const fragmentShader = `
+const crtFragmentShader = `
+  precision highp float;
+
+  uniform sampler2D tDiffuse;
   uniform vec2 uResolution;
-  uniform float uDistortion;
   uniform float uTime;
-  uniform sampler2D uImageAtlas;
-  uniform float uTextureCount;
-  uniform vec2 uOffset;
-  uniform float uCellSize;
-  uniform float uFocusIndex;
-  uniform float uFocusState;
-  uniform float uMousePressed;
-  uniform float uZoom;
-  uniform vec2 uMouseParallax;
+
+  uniform float uScanlineIntensity;
+  uniform float uScanlineCount;
+  uniform float uPhosphorIntensity;
+  uniform float uBloomIntensity;
+  uniform float uBloomThreshold;
+  uniform float uCurvature;
+  uniform float uVignetteStrength;
+  uniform float uNoiseIntensity;
+  uniform float uBrightness;
+  uniform float uContrast;
+  uniform float uSaturation;
+  uniform float uRgbShift;
+  uniform float uFlickerStrength;
 
   varying vec2 vUv;
 
-  // Random function for pseudo-random placement
-  float random(vec2 st) {
-    return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
+  const vec3 LUMA = vec3(0.299, 0.587, 0.114);
+
+  // Fast hash for noise
+  float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+  }
+
+  // Barrel distortion for arcade monitor curve
+  vec2 curveUV(vec2 uv) {
+    vec2 curved = uv * 2.0 - 1.0;
+    float dist = dot(curved, curved);
+    curved *= 1.0 + dist * uCurvature;
+    return curved * 0.5 + 0.5;
   }
 
   void main() {
-    vec2 screenUV = (vUv - 0.5) * 2.0;
+    vec2 uv = vUv;
 
-    // Apply zoom
-    screenUV /= uZoom;
-
-    // Fisheye distortion - flattens when mouse is pressed
-    float radius = length(screenUV);
-    float effectiveDistortion = mix(uDistortion, 0.0, uMousePressed);
-    float distortion = 1.0 - effectiveDistortion * radius * radius;
-    vec2 distortedUV = screenUV * distortion;
-
-    vec2 aspectRatio = vec2(uResolution.x / uResolution.y, 1.0);
-    vec2 worldCoord = (distortedUV * aspectRatio) + uOffset + uMouseParallax;
-
-    // Use larger grid cells for looser spacing
-    float gridCellSize = uCellSize * 1.5;
-    vec2 cellPos = worldCoord / gridCellSize;
-    vec2 cellId = floor(cellPos);
-    vec2 cellUV = fract(cellPos);
-    
-    // Add random offset to each cell for scattered placement
-    vec2 randomOffset = vec2(
-      random(cellId) * 0.6 - 0.3,
-      random(cellId + vec2(100.0, 0.0)) * 0.6 - 0.3
-    );
-    
-    // Apply random offset to cell UV
-    cellUV -= randomOffset;
-
-    float texIndex = mod(cellId.x + cellId.y * 3.0, uTextureCount);
-    if (texIndex < 0.0) texIndex += uTextureCount;
-    texIndex = floor(texIndex);
-
-    bool isFocused = abs(texIndex - uFocusIndex) < 0.1;
-
-    vec3 color = vec3(0.0);
-    float outAlpha = 0.0;
-
-    // Vary image sizes randomly - more varied like reference
-    float randomSize = random(cellId + vec2(200.0, 0.0));
-    float sizeCategory = random(cellId + vec2(300.0, 0.0));
-    float baseImageSize;
-    if (sizeCategory < 0.3) {
-      baseImageSize = 0.3 + randomSize * 0.15; // Small: 0.30 to 0.45
-    } else if (sizeCategory < 0.7) {
-      baseImageSize = 0.45 + randomSize * 0.2; // Medium: 0.45 to 0.65
-    } else {
-      baseImageSize = 0.65 + randomSize * 0.25; // Large: 0.65 to 0.90
-    }
-    float targetImageSize = isFocused ? 0.90 : baseImageSize;
-    float imageSize = mix(baseImageSize, targetImageSize, uFocusState);
-    
-    float imageBorder = (1.0 - imageSize) * 0.5;
-    vec2 imageUV = (cellUV - imageBorder) / imageSize;
-
-    float edgeSmooth = 0.02;
-    vec2 imageMask = smoothstep(-edgeSmooth, edgeSmooth, imageUV) *
-                    smoothstep(-edgeSmooth, edgeSmooth, 1.0 - imageUV);
-    float imageAlpha = imageMask.x * imageMask.y;
-
-    bool inImageArea = imageUV.x >= 0.0 && imageUV.x <= 1.0 && imageUV.y >= 0.0 && imageUV.y <= 1.0;
-
-    if (inImageArea && imageAlpha > 0.0) {
-      float atlasSize = ceil(sqrt(uTextureCount));
-      vec2 atlasPos = vec2(mod(texIndex, atlasSize), floor(texIndex / atlasSize));
-
-      // Chromatic Aberration - increases at edges of viewport
-      float caStrength = 0.012 * pow(radius, 2.0);
-      vec2 caOffset = screenUV * caStrength;
-
-      vec2 imageUVR = imageUV - caOffset;
-      vec2 atlasUVR = (atlasPos + clamp(imageUVR, 0.0, 1.0)) / atlasSize;
-      atlasUVR.y = 1.0 - atlasUVR.y;
-
-      vec2 imageUVG = imageUV;
-      vec2 atlasUVG = (atlasPos + imageUVG) / atlasSize;
-      atlasUVG.y = 1.0 - atlasUVG.y;
-
-      vec2 imageUVB = imageUV + caOffset;
-      vec2 atlasUVB = (atlasPos + clamp(imageUVB, 0.0, 1.0)) / atlasSize;
-      atlasUVB.y = 1.0 - atlasUVB.y;
-
-      float r = texture2D(uImageAtlas, atlasUVR).r;
-      float g = texture2D(uImageAtlas, atlasUVG).g;
-      float b = texture2D(uImageAtlas, atlasUVB).b;
-      float a = texture2D(uImageAtlas, atlasUVG).a;
-
-      vec3 finalImageColor = vec3(r, g, b);
-
-      // Darken non-focused images during focus
-      if (!isFocused) {
-        finalImageColor *= mix(1.0, 0.15, uFocusState);
+    // Apply curvature
+    if (uCurvature > 0.001) {
+      uv = curveUV(uv);
+      if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
+        gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+        return;
       }
-
-      color = finalImageColor;
-      outAlpha = imageAlpha * a;
     }
 
-    // Vignette fade at edges
-    float fade = 1.0 - smoothstep(1.0, 1.6, radius);
-    
-    outAlpha *= fade;
+    // RGB shift (chromatic aberration)
+    float shift = uRgbShift * 0.003;
+    vec2 rUV = uv + vec2(shift, 0.0);
+    vec2 gUV = uv;
+    vec2 bUV = uv - vec2(shift, 0.0);
 
-    gl_FragColor = vec4(color * fade, outAlpha);
+    float r = texture2D(tDiffuse, rUV).r;
+    float g = texture2D(tDiffuse, gUV).g;
+    float b = texture2D(tDiffuse, bUV).b;
+    vec3 color = vec3(r, g, b);
+
+    // Phosphor dot pattern (arcade RGB subpixels)
+    if (uPhosphorIntensity > 0.001) {
+      vec2 pixelCoord = uv * uResolution;
+      float phosphorX = mod(pixelCoord.x, 3.0);
+      vec3 phosphorMask = vec3(
+        smoothstep(0.0, 1.0, 1.0 - abs(phosphorX - 0.5)),
+        smoothstep(0.0, 1.0, 1.0 - abs(phosphorX - 1.5)),
+        smoothstep(0.0, 1.0, 1.0 - abs(phosphorX - 2.5))
+      );
+      phosphorMask = mix(vec3(1.0), phosphorMask, uPhosphorIntensity);
+      color *= phosphorMask;
+    }
+
+    // Scanlines
+    if (uScanlineIntensity > 0.001) {
+      float scanline = sin(uv.y * uScanlineCount * 3.14159) * 0.5 + 0.5;
+      scanline = pow(scanline, 1.5);
+      color *= 1.0 - scanline * uScanlineIntensity;
+    }
+
+    // Simple bloom
+    if (uBloomIntensity > 0.001) {
+      vec3 bloomSample = vec3(0.0);
+      float samples = 0.0;
+      for (float x = -2.0; x <= 2.0; x += 1.0) {
+        for (float y = -2.0; y <= 2.0; y += 1.0) {
+          vec2 offset = vec2(x, y) * 0.003;
+          vec3 s = texture2D(tDiffuse, uv + offset).rgb;
+          float lum = dot(s, LUMA);
+          if (lum > uBloomThreshold) {
+            bloomSample += s * (lum - uBloomThreshold);
+            samples += 1.0;
+          }
+        }
+      }
+      if (samples > 0.0) {
+        color += bloomSample / samples * uBloomIntensity;
+      }
+    }
+
+    // Noise/static
+    if (uNoiseIntensity > 0.001) {
+      float noise = hash(uv * uResolution + uTime * 100.0) * 2.0 - 1.0;
+      color += noise * uNoiseIntensity;
+    }
+
+    // Flicker
+    if (uFlickerStrength > 0.001) {
+      float flicker = 1.0 + sin(uTime * 60.0) * uFlickerStrength;
+      color *= flicker;
+    }
+
+    // Color adjustments
+    color *= uBrightness;
+    color = (color - 0.5) * uContrast + 0.5;
+    float lum = dot(color, LUMA);
+    color = mix(vec3(lum), color, uSaturation);
+
+    // Vignette
+    if (uVignetteStrength > 0.001) {
+      vec2 vigCoord = uv * 2.0 - 1.0;
+      float vignette = 1.0 - dot(vigCoord, vigCoord) * uVignetteStrength * 0.5;
+      color *= vignette;
+    }
+
+    gl_FragColor = vec4(color, 1.0);
   }
 `;
-
-// --- Configuration ---
-const config = {
-  cellSize: 0.85,
-  distortion: 0.08,
-  lerpFactor: 0.08,
-};
 
 // --- State ---
 let isRunning = false;
@@ -156,419 +284,437 @@ let renderer = null;
 let scene = null;
 let crtScene = null;
 let camera = null;
-let plane = null;
-let animationId = null;
 let renderTarget = null;
-let crtPass = null;
-let crtTweakPanel = null;
+let crtMesh = null;
+let imagesMesh = null;
+let atlasTexture = null;
 
-let offset = { x: 0, y: 0 };
+let imageData = []; // Pre-computed image positions, sizes, depths
+let viewOffset = { x: 0, y: 0 };
 let targetOffset = { x: 0, y: 0 };
+let parallax = { x: 0, y: 0 };
+let targetParallax = { x: 0, y: 0 };
+
 let isDragging = false;
-let isClick = true;
+let dragStart = { x: 0, y: 0 };
+let dragDistance = 0;
 let clickStartTime = 0;
-let previousMouse = { x: 0, y: 0 };
 
 let focusedIndex = -1;
 let focusState = { value: 0 };
-let currentFocusCell = { x: 0, y: 0 };
+let animationId = null;
 
-// Drag zoom state
-let dragZoom = { value: 1 };
-let dragStartPos = { x: 0, y: 0 };
-let totalDragDistance = 0;
+// Tweak panel reference
+let tweakPanel = null;
 
-// Mouse pressed state for fisheye flattening
-let mousePressed = { value: 0 };
+// --- Golden angle distribution for organic scatter ---
+const goldenAngle = Math.PI * (3 - Math.sqrt(5));
 
-// Mouse parallax state
-let mouse = { x: 0, y: 0 };
-let mouseParallax = { x: 0, y: 0 };
+function generateImageLayout() {
+  const count = projects.length;
+  imageData = [];
 
-// --- Helper Functions ---
-const createTextureAtlas = (textures) => {
-  const atlasSize = Math.ceil(Math.sqrt(textures.length));
-  const textureSize = 512;
+  // Use spiral-based distribution with grid influence
+  const spiralScale = 2.5;
+
+  for (let i = 0; i < count; i++) {
+    // Golden angle spiral as base
+    const angle = i * goldenAngle;
+    const radius = Math.sqrt(i + 0.5) * spiralScale * 0.3;
+
+    // Add structured grid influence
+    const gridX = (i % CONFIG.gridCols) - CONFIG.gridCols / 2;
+    const gridY = Math.floor(i / CONFIG.gridCols) - CONFIG.gridRows / 2;
+
+    // Blend spiral and grid (hybrid approach)
+    const blendFactor = 0.6;
+    let x = radius * Math.cos(angle) * blendFactor + gridX * CONFIG.baseSpacing * (1 - blendFactor);
+    let y = radius * Math.sin(angle) * blendFactor + gridY * CONFIG.baseSpacing * (1 - blendFactor);
+
+    // Add scatter noise
+    const scatterX = (seededRandom(i * 17) - 0.5) * CONFIG.scatterAmount * 2;
+    const scatterY = (seededRandom(i * 31) - 0.5) * CONFIG.scatterAmount * 2;
+    x += scatterX;
+    y += scatterY;
+
+    // Assign depth layer (0, 1, 2)
+    const depth = Math.floor(seededRandom(i * 47) * CONFIG.depthLayers);
+
+    // Size based on depth (closer = larger)
+    const baseSize = CONFIG.sizeVariation.min +
+      seededRandom(i * 73) * (CONFIG.sizeVariation.max - CONFIG.sizeVariation.min);
+    const depthSizeBonus = (CONFIG.depthLayers - 1 - depth) * 0.15;
+    const size = baseSize + depthSizeBonus;
+
+    // Random rotation
+    const rotation = (seededRandom(i * 97) - 0.5) * CONFIG.rotationRange * 2;
+
+    imageData.push({
+      index: i,
+      x, y, depth, size, rotation,
+      project: projects[i]
+    });
+  }
+
+  // Sort by depth (back to front for proper rendering)
+  imageData.sort((a, b) => b.depth - a.depth);
+}
+
+function seededRandom(seed) {
+  const x = Math.sin(seed * 9999) * 10000;
+  return x - Math.floor(x);
+}
+
+// --- Texture Atlas ---
+function createTextureAtlas(images) {
+  const size = Math.ceil(Math.sqrt(projects.length));
+  const tileSize = CONFIG.textureSize;
   const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = atlasSize * textureSize;
+  canvas.width = canvas.height = size * tileSize;
   const ctx = canvas.getContext("2d");
+
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  textures.forEach((texture, index) => {
-    const x = (index % atlasSize) * textureSize;
-    const y = Math.floor(index / atlasSize) * textureSize;
-    if (texture.image?.complete) {
-      const img = texture.image;
-      const aspect = img.width / img.height;
-      let drawW = textureSize, drawH = textureSize, drawX = x, drawY = y;
-      if (aspect > 1) {
-        drawH = textureSize / aspect;
-        drawY = y + (textureSize - drawH) / 2;
+  images.forEach((img, i) => {
+    const x = (i % size) * tileSize;
+    const y = Math.floor(i / size) * tileSize;
+
+    if (img && img.complete && img.naturalWidth > 0) {
+      // Cover fit
+      const imgAspect = img.naturalWidth / img.naturalHeight;
+      let drawW = tileSize, drawH = tileSize, drawX = x, drawY = y;
+
+      if (imgAspect > 1) {
+        drawH = tileSize / imgAspect;
+        drawY = y + (tileSize - drawH) / 2;
       } else {
-        drawW = textureSize * aspect;
-        drawX = x + (textureSize - drawW) / 2;
+        drawW = tileSize * imgAspect;
+        drawX = x + (tileSize - drawW) / 2;
       }
+
       ctx.drawImage(img, drawX, drawY, drawW, drawH);
     }
   });
 
-  const atlasTexture = new THREE.CanvasTexture(canvas);
-  atlasTexture.wrapS = THREE.ClampToEdgeWrapping;
-  atlasTexture.wrapT = THREE.ClampToEdgeWrapping;
-  atlasTexture.minFilter = THREE.LinearFilter;
-  atlasTexture.magFilter = THREE.LinearFilter;
-  atlasTexture.flipY = false;
-  return atlasTexture;
-};
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.flipY = false;
+  return { texture, size };
+}
 
-const loadTextures = () => {
-  const textureLoader = new THREE.TextureLoader();
-  const imageTextures = [];
-  let loadedCount = 0;
-  return new Promise((resolve) => {
-    projects.forEach((project) => {
-      const texture = textureLoader.load(project.image, () => {
-        if (++loadedCount === projects.length) resolve(imageTextures);
-      });
-      texture.wrapS = THREE.ClampToEdgeWrapping;
-      texture.wrapT = THREE.ClampToEdgeWrapping;
-      texture.minFilter = THREE.LinearFilter;
-      texture.magFilter = THREE.LinearFilter;
-      imageTextures.push(texture);
-    });
+async function loadImages() {
+  const images = await Promise.all(
+    projects.map(p => new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = p.image;
+    }))
+  );
+  return images;
+}
+
+// --- Create Instanced Mesh ---
+function createImagesMesh(atlasSize) {
+  const count = imageData.length;
+  const geometry = new THREE.PlaneGeometry(0.5, 0.5);
+
+  // Instance attributes
+  const offsets = new Float32Array(count * 3);
+  const atlasUVs = new Float32Array(count * 2);
+  const sizes = new Float32Array(count);
+  const rotations = new Float32Array(count);
+  const depths = new Float32Array(count);
+
+  imageData.forEach((data, i) => {
+    offsets[i * 3] = data.x;
+    offsets[i * 3 + 1] = data.y;
+    offsets[i * 3 + 2] = data.index; // Store original index for focus detection
+
+    const atlasX = (data.index % atlasSize) / atlasSize;
+    const atlasY = Math.floor(data.index / atlasSize) / atlasSize;
+    atlasUVs[i * 2] = atlasX;
+    atlasUVs[i * 2 + 1] = 1 - atlasY - (1 / atlasSize); // Flip Y
+
+    sizes[i] = data.size;
+    rotations[i] = data.rotation;
+    depths[i] = data.depth / (CONFIG.depthLayers - 1);
   });
-};
 
-const findNearestCellForIndex = (targetIndex, centerX, centerY) => {
-  let bestCell = { x: 0, y: 0 };
+  geometry.setAttribute("offset", new THREE.InstancedBufferAttribute(offsets, 3));
+  geometry.setAttribute("atlasUV", new THREE.InstancedBufferAttribute(atlasUVs, 2));
+  geometry.setAttribute("size", new THREE.InstancedBufferAttribute(sizes, 1));
+  geometry.setAttribute("rotation", new THREE.InstancedBufferAttribute(rotations, 1));
+  geometry.setAttribute("depth", new THREE.InstancedBufferAttribute(depths, 1));
+
+  const material = new THREE.ShaderMaterial({
+    vertexShader: imageVertexShader,
+    fragmentShader: imageFragmentShader,
+    uniforms: {
+      uAtlas: { value: atlasTexture },
+      uAtlasSize: { value: atlasSize },
+      uViewOffset: { value: new THREE.Vector2(0, 0) },
+      uParallax: { value: new THREE.Vector2(0, 0) },
+      uFocusIndex: { value: -1 },
+      uFocusState: { value: 0 },
+      uAspect: { value: 1 }
+    },
+    transparent: true,
+    depthTest: true,
+    depthWrite: false
+  });
+
+  const mesh = new THREE.InstancedMesh(geometry, material, count);
+  mesh.frustumCulled = false;
+  return mesh;
+}
+
+// --- CRT Post-processing ---
+function createCRTPass(width, height) {
+  const geometry = new THREE.PlaneGeometry(2, 2);
+  const material = new THREE.ShaderMaterial({
+    vertexShader: crtVertexShader,
+    fragmentShader: crtFragmentShader,
+    uniforms: {
+      tDiffuse: { value: null },
+      uResolution: { value: new THREE.Vector2(width, height) },
+      uTime: { value: 0 },
+      uScanlineIntensity: { value: CONFIG.crt.scanlineIntensity },
+      uScanlineCount: { value: CONFIG.crt.scanlineCount },
+      uPhosphorIntensity: { value: CONFIG.crt.phosphorIntensity },
+      uBloomIntensity: { value: CONFIG.crt.bloomIntensity },
+      uBloomThreshold: { value: CONFIG.crt.bloomThreshold },
+      uCurvature: { value: CONFIG.crt.curvature },
+      uVignetteStrength: { value: CONFIG.crt.vignetteStrength },
+      uNoiseIntensity: { value: CONFIG.crt.noiseIntensity },
+      uBrightness: { value: CONFIG.crt.brightness },
+      uContrast: { value: CONFIG.crt.contrast },
+      uSaturation: { value: CONFIG.crt.saturation },
+      uRgbShift: { value: CONFIG.crt.rgbShift },
+      uFlickerStrength: { value: CONFIG.crt.flickerStrength }
+    }
+  });
+
+  return new THREE.Mesh(geometry, material);
+}
+
+// --- Hit Testing ---
+function getClickedImage(clientX, clientY) {
+  if (!renderer || !container) return null;
+
+  const rect = container.getBoundingClientRect();
+  const aspect = rect.width / rect.height;
+
+  // Convert to world coordinates
+  const ndcX = ((clientX - rect.left) / rect.width) * 2 - 1;
+  const ndcY = -((clientY - rect.top) / rect.height) * 2 + 1;
+
+  const worldX = ndcX * aspect * 2 + viewOffset.x - parallax.x;
+  const worldY = ndcY * 2 + viewOffset.y - parallax.y;
+
+  // Find closest image
+  let closest = null;
   let minDist = Infinity;
-  const radius = 15;
 
-  const cx = Math.round(centerX);
-  const cy = Math.round(centerY);
+  for (const data of imageData) {
+    const depthParallax = (1 + data.depth / (CONFIG.depthLayers - 1) * 0.5) * CONFIG.parallaxStrength;
+    const imgX = data.x + targetParallax.x * depthParallax;
+    const imgY = data.y + targetParallax.y * depthParallax;
 
-  for (let x = cx - radius; x <= cx + radius; x++) {
-    for (let y = cy - radius; y <= cy + radius; y++) {
-      let idx = (x + y * 3) % projects.length;
-      if (idx < 0) idx += projects.length;
+    const halfSize = data.size * 0.25;
 
-      if (idx === targetIndex) {
-        const dist = (x - centerX) ** 2 + (y - centerY) ** 2;
-        if (dist < minDist) {
-          minDist = dist;
-          bestCell = { x, y };
-        }
+    // Check if within bounds (accounting for rotation roughly)
+    const dx = Math.abs(worldX - imgX);
+    const dy = Math.abs(worldY - imgY);
+
+    if (dx < halfSize && dy < halfSize) {
+      const dist = dx * dx + dy * dy;
+      if (dist < minDist) {
+        minDist = dist;
+        closest = data;
       }
     }
   }
-  return bestCell;
-};
 
-// --- Title Animation ---
-const wrapChars = (text) =>
-  text.split("").map((c) =>
-    `<span style="display:inline-block; will-change: transform;">${c === " " ? "&nbsp;" : c}</span>`
-  ).join("");
-
-const animateTitle = (element, newText) => {
-  if (!element.querySelector("span")) {
-    element.innerHTML = wrapChars(element.textContent);
-  }
-  const oldChars = element.querySelectorAll("span");
-  gsap.to(oldChars, {
-    y: "100%",
-    opacity: 0,
-    stagger: 0.015,
-    duration: 0.25,
-    ease: "power2.in",
-    onComplete: () => {
-      element.innerHTML = wrapChars(newText);
-      const newChars = element.querySelectorAll("span");
-      gsap.fromTo(newChars,
-        { y: "100%", opacity: 0 },
-        { y: "0%", opacity: 1, stagger: 0.015, duration: 0.25, ease: "power2.out" }
-      );
-    },
-  });
-};
+  return closest;
+}
 
 // --- Focus Mode ---
-const updateDOMOverlay = (index) => {
-  const overlay = document.getElementById("archive-overlay");
-  const title = document.getElementById("archive-title");
+function enterFocusMode(data) {
+  if (focusedIndex === data.index) return;
 
-  if (index !== -1) {
-    const newTitleText = projects[index].title;
-    if (title) {
-      if (overlay.classList.contains("active") && title.textContent.replace(/\u00a0/g, " ") !== newTitleText) {
-        animateTitle(title, newTitleText);
-      } else {
-        title.innerHTML = wrapChars(newTitleText);
-        gsap.set(title.querySelectorAll("span"), { y: "0%", opacity: 1 });
-      }
-    }
-    overlay.classList.add("active");
-  } else {
-    overlay.classList.remove("active");
-  }
-};
+  focusedIndex = data.index;
 
-const enterFocusMode = (index, cellX, cellY) => {
-  if (focusedIndex === index && currentFocusCell.x === cellX && currentFocusCell.y === cellY) return;
+  // Center on image
+  targetOffset.x = data.x;
+  targetOffset.y = data.y;
 
-  focusedIndex = index;
-  currentFocusCell = { x: cellX, y: cellY };
-
-  if (plane?.material?.uniforms) {
-    plane.material.uniforms.uFocusIndex.value = index;
+  if (imagesMesh?.material?.uniforms) {
+    imagesMesh.material.uniforms.uFocusIndex.value = data.index;
   }
 
   gsap.to(focusState, {
     value: 1,
-    duration: 0.5,
+    duration: 0.4,
     ease: "power2.out",
-    onUpdate: () => {
-      if (plane?.material?.uniforms) {
-        plane.material.uniforms.uFocusState.value = focusState.value;
-      }
-    },
+    onUpdate: updateFocusUniform
   });
 
-  // Center on the cell (accounting for random offset)
-  const randomOffsetX = (Math.sin(cellX * 12.9898 + cellY * 78.233) % 1) * 0.6 - 0.3;
-  const randomOffsetY = (Math.sin((cellX + 100) * 12.9898 + cellY * 78.233) % 1) * 0.6 - 0.3;
-  const gridCellSize = config.cellSize * 1.5;
-  
-  targetOffset.x = (cellX + 0.5 + randomOffsetX) * gridCellSize;
-  targetOffset.y = (cellY + 0.5 + randomOffsetY) * gridCellSize;
+  updateOverlay(data.index);
+}
 
-  updateDOMOverlay(index);
-};
-
-const exitFocusMode = () => {
+function exitFocusMode() {
   if (focusedIndex === -1) return;
   focusedIndex = -1;
 
   gsap.to(focusState, {
     value: 0,
-    duration: 0.4,
+    duration: 0.3,
     ease: "power2.out",
-    onUpdate: () => {
-      if (plane?.material?.uniforms) {
-        plane.material.uniforms.uFocusState.value = focusState.value;
-      }
-    },
+    onUpdate: updateFocusUniform
   });
 
-  updateDOMOverlay(-1);
-};
+  updateOverlay(-1);
+}
 
-const navigateProject = (direction) => {
+function updateFocusUniform() {
+  if (imagesMesh?.material?.uniforms) {
+    imagesMesh.material.uniforms.uFocusState.value = focusState.value;
+  }
+}
+
+function navigateProject(direction) {
   if (focusedIndex === -1) return;
 
   let nextIndex = focusedIndex + direction;
   if (nextIndex >= projects.length) nextIndex = 0;
   if (nextIndex < 0) nextIndex = projects.length - 1;
 
-  const nextCell = findNearestCellForIndex(nextIndex, currentFocusCell.x, currentFocusCell.y);
-  enterFocusMode(nextIndex, nextCell.x, nextCell.y);
-};
+  const data = imageData.find(d => d.index === nextIndex);
+  if (data) enterFocusMode(data);
+}
 
-// --- Click Detection ---
-const getClickedCell = (clientX, clientY) => {
-  if (!renderer) return null;
+// --- DOM Overlay ---
+function updateOverlay(index) {
+  const overlay = document.getElementById("archive-overlay");
+  const title = document.getElementById("archive-title");
 
-  const rect = renderer.domElement.getBoundingClientRect();
-  const screenX = ((clientX - rect.left) / rect.width) * 2 - 1;
-  const screenY = -(((clientY - rect.top) / rect.height) * 2 - 1);
-
-  // Apply same distortion as shader
-  const radius = Math.sqrt(screenX * screenX + screenY * screenY);
-  const distortion = 1.0 - config.distortion * radius * radius;
-
-  const aspectRatio = rect.width / rect.height;
-  let worldX = screenX * distortion * aspectRatio + offset.x;
-  let worldY = screenY * distortion + offset.y;
-
-  // Match shader's grid calculation
-  const gridCellSize = config.cellSize * 1.5;
-  const cellX = Math.floor(worldX / gridCellSize);
-  const cellY = Math.floor(worldY / gridCellSize);
-  
-  // Apply same random offset as shader
-  const randomOffsetX = (Math.sin(cellX * 12.9898 + cellY * 78.233) % 1) * 0.6 - 0.3;
-  const randomOffsetY = (Math.sin((cellX + 100) * 12.9898 + cellY * 78.233) % 1) * 0.6 - 0.3;
-
-  // Check if click is on image
-  const cellUVX = (worldX / gridCellSize - cellX) - randomOffsetX;
-  const cellUVY = (worldY / gridCellSize - cellY) - randomOffsetY;
-
-  // Random size matching shader
-  const randomSize = Math.abs(Math.sin((cellX + 200) * 12.9898 + cellY * 78.233) % 1);
-  const sizeCategory = Math.abs(Math.sin((cellX + 300) * 12.9898 + cellY * 78.233) % 1);
-  let baseImageSize;
-  if (sizeCategory < 0.3) {
-    baseImageSize = 0.3 + randomSize * 0.15;
-  } else if (sizeCategory < 0.7) {
-    baseImageSize = 0.45 + randomSize * 0.2;
+  if (index !== -1 && title) {
+    const newTitle = projects[index].title;
+    animateTitle(title, newTitle);
+    overlay?.classList.add("active");
   } else {
-    baseImageSize = 0.65 + randomSize * 0.25;
+    overlay?.classList.remove("active");
   }
-  const imageSize = focusedIndex === -1 ? baseImageSize : (focusState.value > 0.5 ? 0.90 : baseImageSize);
-  const border = (1 - imageSize) / 2;
-  const isOnImage = cellUVX > border && cellUVX < (1 - border) &&
-                    cellUVY > border && cellUVY < (1 - border);
+}
 
-  let texIndex = (cellX + cellY * 3) % projects.length;
-  if (texIndex < 0) texIndex += projects.length;
+function animateTitle(el, text) {
+  if (!el.querySelector("span")) {
+    el.innerHTML = wrapChars(el.textContent || "");
+  }
 
-  return { cellX, cellY, texIndex, isOnImage };
-};
+  const oldChars = el.querySelectorAll("span");
+  gsap.to(oldChars, {
+    y: "100%",
+    opacity: 0,
+    stagger: 0.02,
+    duration: 0.2,
+    ease: "power2.in",
+    onComplete: () => {
+      el.innerHTML = wrapChars(text);
+      gsap.fromTo(el.querySelectorAll("span"),
+        { y: "100%", opacity: 0 },
+        { y: "0%", opacity: 1, stagger: 0.02, duration: 0.2, ease: "power2.out" }
+      );
+    }
+  });
+}
+
+function wrapChars(text) {
+  return text.split("").map(c =>
+    `<span style="display:inline-block">${c === " " ? "&nbsp;" : c}</span>`
+  ).join("");
+}
 
 // --- Event Handlers ---
-const onPointerDown = (e) => {
-  // Allow navbar and UI buttons to work
-  if (e.target.closest(".nav-wrap") ||
-      e.target.closest(".nav-btn") ||
-      e.target.closest(".menu-wrap") ||
-      e.target.closest(".menu-box") ||
-      e.target.closest(".bottom-nav-wrap")) {
+function onPointerDown(e) {
+  if (e.target.closest(".nav-wrap, .nav-btn, .menu-wrap, .bottom-nav-wrap, .archive-header, .archive-nav-wrap")) {
     return;
   }
 
   isDragging = true;
-  isClick = true;
+  dragStart.x = e.clientX;
+  dragStart.y = e.clientY;
+  dragDistance = 0;
   clickStartTime = Date.now();
-  previousMouse.x = e.clientX;
-  previousMouse.y = e.clientY;
-  dragStartPos.x = e.clientX;
-  dragStartPos.y = e.clientY;
-  totalDragDistance = 0;
+}
 
-  // Animate fisheye flattening
-  gsap.to(mousePressed, {
-    value: 1,
-    duration: 0.3,
-    ease: "power2.out"
-  });
-};
-
-const onPointerMove = (e) => {
-  // Update mouse position for parallax (only when not dragging)
-  if (!isDragging && renderer) {
-    const rect = renderer.domElement.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width - 0.5;
-    const y = (e.clientY - rect.top) / rect.height - 0.5;
-    // Subtle parallax effect
-    mouse.x = -x * 0.02;
-    mouse.y = y * 0.02;
+function onPointerMove(e) {
+  // Always update parallax target
+  if (container) {
+    const rect = container.getBoundingClientRect();
+    targetParallax.x = ((e.clientX - rect.left) / rect.width - 0.5) * -2;
+    targetParallax.y = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
   }
 
   if (!isDragging) return;
 
-  const deltaX = e.clientX - previousMouse.x;
-  const deltaY = e.clientY - previousMouse.y;
+  const dx = e.clientX - dragStart.x;
+  const dy = e.clientY - dragStart.y;
+  dragDistance = Math.sqrt(dx * dx + dy * dy);
 
-  // Track total drag distance
-  totalDragDistance += Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+  if (dragDistance > CONFIG.clickThreshold) {
+    targetOffset.x -= (e.clientX - dragStart.x) * CONFIG.dragSpeed;
+    targetOffset.y += (e.clientY - dragStart.y) * CONFIG.dragSpeed;
+    dragStart.x = e.clientX;
+    dragStart.y = e.clientY;
 
-  // Only mark as not a click if significant drag distance
-  if (totalDragDistance > 10) {
-    isClick = false;
-
-    // Zoom out effect when dragging
-    const maxDragDistance = 200;
-    const zoomProgress = Math.min(totalDragDistance / maxDragDistance, 1);
-    dragZoom.value = 1 - (zoomProgress * 0.2); // Zoom out to 80%
-
-    // Exit focus mode once dragged enough
-    if (focusedIndex !== -1 && totalDragDistance > 50) {
+    if (focusedIndex !== -1 && dragDistance > 30) {
       exitFocusMode();
     }
   }
+}
 
-  targetOffset.x -= deltaX * 0.002;
-  targetOffset.y += deltaY * 0.002;
-
-  previousMouse.x = e.clientX;
-  previousMouse.y = e.clientY;
-};
-
-const onPointerUp = (e) => {
+function onPointerUp(e) {
   if (!isDragging) return;
   isDragging = false;
 
-  // Reset fisheye flattening
-  gsap.to(mousePressed, {
-    value: 0,
-    duration: 0.4,
-    ease: "power2.out"
-  });
-
-  // Reset drag zoom with animation
-  if (dragZoom.value !== 1) {
-    gsap.to(dragZoom, {
-      value: 1,
-      duration: 0.3,
-      ease: "power2.out"
-    });
-  }
-
-  // Allow click if drag distance is small (less than 15px) or it's a quick action
   const wasQuickClick = Date.now() - clickStartTime < 250;
-  const wasSmallDrag = totalDragDistance < 15;
-  
-  if ((isClick || wasSmallDrag) && wasQuickClick) {
-    const result = getClickedCell(e.clientX, e.clientY);
-    if (!result) {
-      // Clicked outside valid area - exit focus mode if active
-      if (focusedIndex !== -1) {
-        exitFocusMode();
-      }
-      return;
-    }
+  const wasSmallDrag = dragDistance < CONFIG.clickThreshold;
 
-    const { cellX, cellY, texIndex, isOnImage } = result;
+  if (wasQuickClick && wasSmallDrag) {
+    const clicked = getClickedImage(e.clientX, e.clientY);
 
-    if (focusedIndex === -1) {
-      // Not in focus mode - only enter if clicking on image
-      if (isOnImage) {
-        enterFocusMode(texIndex, cellX, cellY);
-      }
-    } else {
-      // In focus mode
-      if (!isOnImage) {
-        // Clicked on blank space - exit focus mode
+    if (clicked) {
+      if (focusedIndex === -1) {
+        enterFocusMode(clicked);
+      } else if (clicked.index === focusedIndex) {
         exitFocusMode();
-      } else if (texIndex !== focusedIndex || cellX !== currentFocusCell.x || cellY !== currentFocusCell.y) {
-        // Clicked on different image - switch to it
-        enterFocusMode(texIndex, cellX, cellY);
       } else {
-        // Clicked on same image - exit focus mode
-        exitFocusMode();
+        enterFocusMode(clicked);
       }
+    } else if (focusedIndex !== -1) {
+      exitFocusMode();
     }
   }
+}
 
-  // Reset total drag distance
-  totalDragDistance = 0;
-};
-
-const onWheel = (e) => {
-  // Only handle wheel on canvas
+function onWheel(e) {
   if (!e.target.closest("#gallery")) return;
-
   e.preventDefault();
-  targetOffset.x += e.deltaX * 0.001;
-  targetOffset.y -= e.deltaY * 0.001;
 
-  if (focusedIndex !== -1 && (Math.abs(e.deltaX) > 10 || Math.abs(e.deltaY) > 10)) {
+  targetOffset.x += e.deltaX * 0.002;
+  targetOffset.y -= e.deltaY * 0.002;
+
+  if (focusedIndex !== -1 && (Math.abs(e.deltaX) > 20 || Math.abs(e.deltaY) > 20)) {
     exitFocusMode();
   }
-};
+}
 
-const onKeyDown = (e) => {
+function onKeyDown(e) {
   if (focusedIndex === -1) return;
 
   if (e.key === "ArrowRight") {
@@ -581,194 +727,312 @@ const onKeyDown = (e) => {
     e.preventDefault();
     exitFocusMode();
   }
-};
+}
 
-const onResize = () => {
+function onResize() {
   if (!container || !renderer) return;
 
   const width = container.offsetWidth;
   const height = container.offsetHeight;
+  const pixelRatio = Math.min(window.devicePixelRatio, CONFIG.maxPixelRatio);
 
   renderer.setSize(width, height);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(pixelRatio);
 
-  if (plane?.material?.uniforms) {
-    plane.material.uniforms.uResolution.value.set(width, height);
-  }
-  
-  // Update render target
   if (renderTarget) {
-    const pixelRatio = Math.min(window.devicePixelRatio, 2);
     renderTarget.setSize(width * pixelRatio, height * pixelRatio);
   }
-  
-  // Update CRT shader resolution
-  if (crtPass?.material?.uniforms) {
-    crtPass.material.uniforms.uResolution = { value: new THREE.Vector2(width, height) };
-  }
-};
 
-// --- Animation ---
-const animate = () => {
+  if (imagesMesh?.material?.uniforms) {
+    imagesMesh.material.uniforms.uAspect.value = width / height;
+  }
+
+  if (crtMesh?.material?.uniforms) {
+    crtMesh.material.uniforms.uResolution.value.set(width, height);
+  }
+}
+
+// --- Animation Loop ---
+function animate() {
   if (!isRunning) return;
   animationId = requestAnimationFrame(animate);
 
-  // Smooth offset
-  offset.x += (targetOffset.x - offset.x) * config.lerpFactor;
-  offset.y += (targetOffset.y - offset.y) * config.lerpFactor;
+  // Smooth interpolation
+  viewOffset.x += (targetOffset.x - viewOffset.x) * CONFIG.lerpSpeed;
+  viewOffset.y += (targetOffset.y - viewOffset.y) * CONFIG.lerpSpeed;
+  parallax.x += (targetParallax.x - parallax.x) * 0.08;
+  parallax.y += (targetParallax.y - parallax.y) * 0.08;
 
-  // Smooth parallax lerp
-  mouseParallax.x += (mouse.x - mouseParallax.x) * 0.05;
-  mouseParallax.y += (mouse.y - mouseParallax.y) * 0.05;
-
-  if (plane?.material?.uniforms) {
-    plane.material.uniforms.uOffset.value.set(offset.x, offset.y);
-    plane.material.uniforms.uTime.value = performance.now() * 0.001;
-    plane.material.uniforms.uMousePressed.value = mousePressed.value;
-    plane.material.uniforms.uZoom.value = dragZoom.value;
-    plane.material.uniforms.uMouseParallax.value.set(mouseParallax.x, mouseParallax.y);
+  // Update uniforms
+  if (imagesMesh?.material?.uniforms) {
+    imagesMesh.material.uniforms.uViewOffset.value.set(viewOffset.x, viewOffset.y);
+    imagesMesh.material.uniforms.uParallax.value.set(
+      parallax.x * CONFIG.parallaxStrength,
+      parallax.y * CONFIG.parallaxStrength
+    );
   }
 
-  // Render archive scene to render target
+  // Render to target
   renderer.setRenderTarget(renderTarget);
   renderer.clear();
   renderer.render(scene, camera);
-  
-  // Render CRT post-processing to screen
-  renderer.setRenderTarget(null);
-  renderer.clear();
-  
-  if (crtPass?.material?.uniforms?.time) {
-    crtPass.material.uniforms.time.value = performance.now() * 0.001;
-  }
-  
-  renderer.render(crtScene, camera);
-};
 
-// --- Initialize ---
-const init = async () => {
+  // CRT pass
+  renderer.setRenderTarget(null);
+  if (crtMesh?.material?.uniforms) {
+    crtMesh.material.uniforms.tDiffuse.value = renderTarget.texture;
+    crtMesh.material.uniforms.uTime.value = performance.now() * 0.001;
+  }
+  renderer.render(crtScene, camera);
+}
+
+// --- Tweak Panel ---
+function createTweakPanel() {
+  const panel = document.createElement("div");
+  panel.id = "crt-tweak-panel";
+  panel.innerHTML = `
+    <style>
+      #crt-tweak-panel {
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        background: rgba(0,0,0,0.9);
+        border: 1px solid #333;
+        padding: 16px;
+        font-family: monospace;
+        font-size: 11px;
+        color: #fff;
+        z-index: 1000;
+        width: 240px;
+        max-height: calc(100vh - 100px);
+        overflow-y: auto;
+        display: none;
+      }
+      #crt-tweak-panel.visible { display: block; }
+      #crt-tweak-panel h3 {
+        margin: 0 0 12px;
+        font-size: 12px;
+        color: #0f0;
+        border-bottom: 1px solid #333;
+        padding-bottom: 8px;
+      }
+      #crt-tweak-panel .section {
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #222;
+      }
+      #crt-tweak-panel .section-title {
+        color: #888;
+        margin-bottom: 8px;
+        font-size: 10px;
+        text-transform: uppercase;
+      }
+      #crt-tweak-panel label {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 6px;
+      }
+      #crt-tweak-panel input[type="range"] {
+        width: 100px;
+        height: 4px;
+        -webkit-appearance: none;
+        background: #333;
+        border-radius: 2px;
+      }
+      #crt-tweak-panel input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 12px;
+        height: 12px;
+        background: #0f0;
+        border-radius: 50%;
+        cursor: pointer;
+      }
+      #crt-tweak-panel .value {
+        width: 35px;
+        text-align: right;
+        color: #0f0;
+      }
+      #crt-tweak-panel button {
+        width: 100%;
+        padding: 8px;
+        margin-top: 8px;
+        background: #222;
+        border: 1px solid #444;
+        color: #fff;
+        cursor: pointer;
+        font-family: monospace;
+      }
+      #crt-tweak-panel button:hover { background: #333; }
+      #crt-toggle {
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        background: rgba(0,0,0,0.8);
+        border: 1px solid #333;
+        color: #0f0;
+        padding: 8px 12px;
+        font-family: monospace;
+        font-size: 11px;
+        cursor: pointer;
+        z-index: 999;
+      }
+    </style>
+    <h3>CRT SHADER</h3>
+    <div class="section">
+      <div class="section-title">Scanlines</div>
+      ${createSlider("scanlineIntensity", "Intensity", 0, 1, 0.01)}
+      ${createSlider("scanlineCount", "Count", 100, 800, 10)}
+      ${createSlider("phosphorIntensity", "Phosphor", 0, 1, 0.01)}
+    </div>
+    <div class="section">
+      <div class="section-title">Color</div>
+      ${createSlider("brightness", "Brightness", 0.5, 2, 0.01)}
+      ${createSlider("contrast", "Contrast", 0.5, 2, 0.01)}
+      ${createSlider("saturation", "Saturation", 0, 2, 0.01)}
+      ${createSlider("rgbShift", "RGB Shift", 0, 2, 0.1)}
+    </div>
+    <div class="section">
+      <div class="section-title">Effects</div>
+      ${createSlider("bloomIntensity", "Bloom", 0, 1, 0.01)}
+      ${createSlider("bloomThreshold", "Bloom Thresh", 0, 1, 0.01)}
+      ${createSlider("noiseIntensity", "Noise", 0, 0.2, 0.005)}
+      ${createSlider("flickerStrength", "Flicker", 0, 0.1, 0.005)}
+    </div>
+    <div class="section">
+      <div class="section-title">Distortion</div>
+      ${createSlider("curvature", "Curvature", 0, 0.15, 0.005)}
+      ${createSlider("vignetteStrength", "Vignette", 0, 1, 0.01)}
+    </div>
+    <button id="crt-reset">Reset Defaults</button>
+  `;
+
+  const toggle = document.createElement("button");
+  toggle.id = "crt-toggle";
+  toggle.textContent = "CRT ⚙";
+  toggle.onclick = () => panel.classList.toggle("visible");
+
+  document.body.appendChild(panel);
+  document.body.appendChild(toggle);
+
+  // Bind sliders
+  panel.querySelectorAll("input[type=range]").forEach(input => {
+    const key = input.dataset.key;
+    input.value = CONFIG.crt[key];
+    input.nextElementSibling.textContent = parseFloat(input.value).toFixed(2);
+
+    input.oninput = () => {
+      const val = parseFloat(input.value);
+      input.nextElementSibling.textContent = val.toFixed(2);
+      CONFIG.crt[key] = val;
+      if (crtMesh?.material?.uniforms) {
+        const uniformKey = "u" + key.charAt(0).toUpperCase() + key.slice(1);
+        if (crtMesh.material.uniforms[uniformKey]) {
+          crtMesh.material.uniforms[uniformKey].value = val;
+        }
+      }
+    };
+  });
+
+  panel.querySelector("#crt-reset").onclick = resetCRTDefaults;
+
+  return { panel, toggle };
+}
+
+function createSlider(key, label, min, max, step) {
+  return `
+    <label>
+      <span>${label}</span>
+      <input type="range" data-key="${key}" min="${min}" max="${max}" step="${step}">
+      <span class="value">0</span>
+    </label>
+  `;
+}
+
+function resetCRTDefaults() {
+  const defaults = {
+    scanlineIntensity: 0.35,
+    scanlineCount: 480,
+    phosphorIntensity: 0.4,
+    bloomIntensity: 0.25,
+    bloomThreshold: 0.4,
+    curvature: 0.03,
+    vignetteStrength: 0.3,
+    noiseIntensity: 0.04,
+    brightness: 1.15,
+    contrast: 1.1,
+    saturation: 1.15,
+    rgbShift: 0.3,
+    flickerStrength: 0.015
+  };
+
+  Object.assign(CONFIG.crt, defaults);
+
+  document.querySelectorAll("#crt-tweak-panel input[type=range]").forEach(input => {
+    const key = input.dataset.key;
+    if (defaults[key] !== undefined) {
+      input.value = defaults[key];
+      input.nextElementSibling.textContent = defaults[key].toFixed(2);
+
+      if (crtMesh?.material?.uniforms) {
+        const uniformKey = "u" + key.charAt(0).toUpperCase() + key.slice(1);
+        if (crtMesh.material.uniforms[uniformKey]) {
+          crtMesh.material.uniforms[uniformKey].value = defaults[key];
+        }
+      }
+    }
+  });
+}
+
+// --- Init / Destroy ---
+async function init() {
   container = document.getElementById("gallery");
   if (!container) return;
 
   const width = container.offsetWidth;
   const height = container.offsetHeight;
+  const pixelRatio = Math.min(window.devicePixelRatio, CONFIG.maxPixelRatio);
 
   // Renderer
-  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true });
   renderer.setSize(width, height);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setClearColor(0x000000, 0);
+  renderer.setPixelRatio(pixelRatio);
+  renderer.setClearColor(0x000000, 1);
   container.appendChild(renderer.domElement);
 
-  // Scene & Camera
+  // Scenes & Camera
   scene = new THREE.Scene();
   crtScene = new THREE.Scene();
   camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
-  camera.position.z = 1;
+  camera.position.z = 5;
+
+  // Generate layout
+  generateImageLayout();
 
   // Load textures
-  const imageTextures = await loadTextures();
-  const imageAtlas = createTextureAtlas(imageTextures);
+  const images = await loadImages();
+  const { texture, size } = createTextureAtlas(images);
+  atlasTexture = texture;
 
-  // Shader plane
-  const geometry = new THREE.PlaneGeometry(2, 2);
-  const material = new THREE.ShaderMaterial({
-    vertexShader,
-    fragmentShader,
-    uniforms: {
-      uResolution: { value: new THREE.Vector2(width, height) },
-      uDistortion: { value: config.distortion },
-      uTime: { value: 0 },
-      uImageAtlas: { value: imageAtlas },
-      uTextureCount: { value: projects.length },
-      uOffset: { value: new THREE.Vector2(0, 0) },
-      uCellSize: { value: config.cellSize },
-      uFocusIndex: { value: -1 },
-      uFocusState: { value: 0 },
-      uMousePressed: { value: 0 },
-      uZoom: { value: 1 },
-      uMouseParallax: { value: new THREE.Vector2(0, 0) },
-    },
-    transparent: true,
-  });
+  // Create meshes
+  imagesMesh = createImagesMesh(size);
+  imagesMesh.material.uniforms.uAspect.value = width / height;
+  scene.add(imagesMesh);
 
-  plane = new THREE.Mesh(geometry, material);
-  scene.add(plane);
-
-  // Setup render target for post-processing
-  const pixelRatio = Math.min(window.devicePixelRatio, 2);
+  // Render target
   renderTarget = new THREE.WebGLRenderTarget(width * pixelRatio, height * pixelRatio, {
-    format: THREE.RGBAFormat,
-    type: THREE.UnsignedByteType,
     minFilter: THREE.LinearFilter,
     magFilter: THREE.LinearFilter
   });
-  
-  // Create CRT post-processing material with properly initialized uniforms
-  const crtUniforms = {
-    tDiffuse: { value: renderTarget.texture },
-    scanlineIntensity: { value: 0.46 },
-    scanlineCount: { value: 663.0 },
-    time: { value: 0.0 },
-    yOffset: { value: 0.0 },
-    brightness: { value: 1.32 },
-    contrast: { value: 1.06 },
-    saturation: { value: 1.20 },
-    bloomIntensity: { value: 0.23 },
-    bloomThreshold: { value: 0.35 },
-    rgbShift: { value: 0.0 },
-    adaptiveIntensity: { value: 1.0 },
-    vignetteStrength: { value: 0.0 },
-    curvature: { value: 0.5 },
-    flickerStrength: { value: 0.0 }
-  };
-  
-  const crtMaterial = new THREE.ShaderMaterial({
-    vertexShader: CRTShader.vertexShader,
-    fragmentShader: CRTShader.fragmentShader,
-    uniforms: crtUniforms,
-    transparent: false,
-    depthWrite: false,
-    depthTest: false
-  });
-  
-  // CRT Pass plane
-  const crtGeometry = new THREE.PlaneGeometry(2, 2);
-  crtPass = new THREE.Mesh(crtGeometry, crtMaterial);
-  crtScene.add(crtPass);
-  
-  // Setup CRT Tweak Panel
-  const crtController = {
-    getEnabled: () => true,
-    setEnabled: (val) => {},
-    get: (key) => crtMaterial.uniforms[key]?.value ?? 0,
-    set: (key, val) => {
-      if (crtMaterial.uniforms[key]) {
-        crtMaterial.uniforms[key].value = val;
-      }
-    }
-  };
-  
-  crtTweakPanel = new CRTTweakPanel({
-    target: crtController,
-    defaults: {
-      enabled: true,
-      scanlineIntensity: 0.46,
-      scanlineCount: 663,
-      adaptiveIntensity: 1.0,
-      brightness: 1.32,
-      contrast: 1.06,
-      saturation: 1.20,
-      bloomIntensity: 0.23,
-      bloomThreshold: 0.35,
-      rgbShift: 0.0,
-      vignetteStrength: 0.0,
-      curvature: 0.5,
-      flickerStrength: 0.0
-    }
-  });
 
-  // Event listeners (use canvas-level where possible)
+  // CRT pass
+  crtMesh = createCRTPass(width, height);
+  crtScene.add(crtMesh);
+
+  // Tweak panel
+  tweakPanel = createTweakPanel();
+
+  // Event listeners
   const canvas = renderer.domElement;
   canvas.addEventListener("pointerdown", onPointerDown);
   window.addEventListener("pointermove", onPointerMove);
@@ -777,27 +1041,19 @@ const init = async () => {
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("resize", onResize);
 
-  // UI Buttons
-  const prevBtn = document.getElementById("archive-prev");
-  const nextBtn = document.getElementById("archive-next");
-  if (prevBtn) prevBtn.addEventListener("click", (e) => { e.stopPropagation(); navigateProject(-1); });
-  if (nextBtn) nextBtn.addEventListener("click", (e) => { e.stopPropagation(); navigateProject(1); });
-
-  // Overlay background click
-  const overlay = document.getElementById("archive-overlay");
-  if (overlay) {
-    overlay.addEventListener("click", (e) => {
-      // Close if clicking the background (not the header or nav buttons)
-      // Check if the click target is the overlay itself or an element that isn't interactive
-      if (!e.target.closest('.archive-header') && !e.target.closest('.archive-nav-wrap') && !e.target.closest('.nav-btn')) {
-        exitFocusMode();
-      }
-    });
-  }
+  // Nav buttons
+  document.getElementById("archive-prev")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    navigateProject(-1);
+  });
+  document.getElementById("archive-next")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    navigateProject(1);
+  });
 
   isRunning = true;
   animate();
-};
+}
 
 export async function initArchiveScene() {
   if (isRunning) return;
@@ -818,39 +1074,42 @@ export function destroyArchiveScene() {
   window.removeEventListener("keydown", onKeyDown);
   window.removeEventListener("resize", onResize);
 
+  // Clean up tweak panel
+  document.getElementById("crt-tweak-panel")?.remove();
+  document.getElementById("crt-toggle")?.remove();
+
   if (renderer) {
     renderer.dispose();
-    if (renderer.domElement?.parentNode) {
-      renderer.domElement.parentNode.removeChild(renderer.domElement);
-    }
+    renderer.domElement?.remove();
   }
 
-  if (plane?.material) plane.material.dispose();
-  if (plane?.geometry) plane.geometry.dispose();
-  
-  if (crtPass?.material) crtPass.material.dispose();
-  if (crtPass?.geometry) crtPass.geometry.dispose();
-  
-  if (renderTarget) {
-    renderTarget.dispose();
+  if (imagesMesh) {
+    imagesMesh.geometry.dispose();
+    imagesMesh.material.dispose();
   }
+
+  if (crtMesh) {
+    crtMesh.geometry.dispose();
+    crtMesh.material.dispose();
+  }
+
+  if (renderTarget) renderTarget.dispose();
+  if (atlasTexture) atlasTexture.dispose();
 
   container = null;
   renderer = null;
   scene = null;
   crtScene = null;
   camera = null;
-  plane = null;
-  crtPass = null;
+  imagesMesh = null;
+  crtMesh = null;
   renderTarget = null;
-  crtTweakPanel = null;
+  atlasTexture = null;
+  imageData = [];
   focusedIndex = -1;
   focusState = { value: 0 };
-  offset = { x: 0, y: 0 };
+  viewOffset = { x: 0, y: 0 };
   targetOffset = { x: 0, y: 0 };
-  dragZoom = { value: 1 };
-  totalDragDistance = 0;
-  mousePressed = { value: 0 };
-  mouse = { x: 0, y: 0 };
-  mouseParallax = { x: 0, y: 0 };
+  parallax = { x: 0, y: 0 };
+  targetParallax = { x: 0, y: 0 };
 }
