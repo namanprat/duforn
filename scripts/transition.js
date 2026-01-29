@@ -276,7 +276,7 @@ export async function revealTransition() {
 }
 
 // ========== PAGE SLIDE TRANSITION ==========
-// Zoom out current page, slide up new page from bottom
+// Zoom out current page (as screenshot), slide up new page from bottom
 // Uses html2canvas to capture Three.js canvases properly
 
 export async function pageSlideLeave(currentContainer) {
@@ -290,7 +290,7 @@ export async function pageSlideLeave(currentContainer) {
     backgroundColor: "#000000",
     useCORS: true,
     logging: false,
-    scale: window.devicePixelRatio || 1,
+    scale: Math.min(window.devicePixelRatio || 1, 2),
     windowWidth: window.innerWidth,
     windowHeight: window.innerHeight,
     onclone: (clonedDoc) => {
@@ -314,7 +314,7 @@ export async function pageSlideLeave(currentContainer) {
     }
   });
 
-  // Create wrapper with the captured screenshot
+  // Create wrapper with the captured screenshot (this will zoom out)
   currentPageWrapper = document.createElement("div");
   currentPageWrapper.className = "page-transition-wrapper";
   currentPageWrapper.style.cssText = `
@@ -323,10 +323,11 @@ export async function pageSlideLeave(currentContainer) {
     left: 0;
     width: 100%;
     height: 100%;
-    z-index: 10;
+    z-index: 5;
     overflow: hidden;
     background-color: #000;
     transform-origin: center center;
+    pointer-events: none;
   `;
 
   // Add the screenshot as an image
@@ -341,20 +342,18 @@ export async function pageSlideLeave(currentContainer) {
   currentPageWrapper.appendChild(img);
   document.body.appendChild(currentPageWrapper);
 
-  // Hide the original content
+  // Hide the original content and #background
   gsap.set(currentContainer, { visibility: 'hidden' });
-
-  // Hide the #background too if it exists
   const bgDiv = document.getElementById('background');
   if (bgDiv) {
     gsap.set(bgDiv, { visibility: 'hidden' });
   }
 
-  // Start zoom out animation
+  // Start zoom out animation and return Promise
   return new Promise((resolve) => {
     gsap.to(currentPageWrapper, {
       scale: 0.92,
-      duration: 0.5,
+      duration: 0.4,
       ease: "power2.out",
       onComplete: resolve
     });
@@ -363,50 +362,17 @@ export async function pageSlideLeave(currentContainer) {
 
 export function pageSlideEnter(nextContainer) {
   return new Promise((resolve) => {
-    // Create wrapper for incoming page
-    const incomingWrapper = document.createElement("div");
-    incomingWrapper.className = "page-incoming";
-    incomingWrapper.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 20;
-      overflow: hidden;
-      background-color: #000;
-    `;
-
-    // Store reference to parent before moving
-    const parent = nextContainer.parentNode;
-    const nextSibling = nextContainer.nextSibling;
-
-    // Move container into wrapper
-    incomingWrapper.appendChild(nextContainer);
-    document.body.appendChild(incomingWrapper);
-
-    // Set initial position (off-screen at bottom)
-    gsap.set(incomingWrapper, { yPercent: 100 });
-    gsap.set(nextContainer, { visibility: 'visible' });
+    // Don't move the container - animate it in place
+    // Set it to start from bottom
+    gsap.set(nextContainer, {
+      yPercent: 100,
+      visibility: 'visible'
+    });
 
     // Create timeline for coordinated animation
     const tl = gsap.timeline({
       onComplete: () => {
-        // Restore next container to its original parent
-        if (parent) {
-          if (nextSibling) {
-            parent.insertBefore(nextContainer, nextSibling);
-          } else {
-            parent.appendChild(nextContainer);
-          }
-        }
-
-        // Remove incoming wrapper
-        if (incomingWrapper.parentNode) {
-          incomingWrapper.parentNode.removeChild(incomingWrapper);
-        }
-
-        // Remove current page wrapper
+        // Clean up - remove screenshot wrapper
         if (currentPageWrapper && currentPageWrapper.parentNode) {
           currentPageWrapper.parentNode.removeChild(currentPageWrapper);
           currentPageWrapper = null;
@@ -418,19 +384,22 @@ export function pageSlideEnter(nextContainer) {
           gsap.set(bgDiv, { visibility: 'visible' });
         }
 
+        // Reset container transform
+        gsap.set(nextContainer, { clearProps: 'yPercent' });
+
         isPageTransitioning = false;
         resolve();
       }
     });
 
     // Slide in new page from bottom
-    tl.to(incomingWrapper, {
+    tl.to(nextContainer, {
       yPercent: 0,
       duration: 1,
       ease: "expo.out"
     }, 0);
 
-    // Continue zooming out the current wrapper
+    // Continue zooming out the screenshot
     if (currentPageWrapper) {
       tl.to(currentPageWrapper, {
         scale: 0.85,
@@ -447,10 +416,10 @@ export function cleanupPageTransition() {
     currentPageWrapper.parentNode.removeChild(currentPageWrapper);
     currentPageWrapper = null;
   }
-  // Remove any lingering incoming wrappers
-  const incoming = document.querySelector('.page-incoming');
-  if (incoming && incoming.parentNode) {
-    incoming.parentNode.removeChild(incoming);
+  // Restore #background visibility
+  const bgDiv = document.getElementById('background');
+  if (bgDiv) {
+    gsap.set(bgDiv, { visibility: 'visible' });
   }
   isPageTransitioning = false;
 }

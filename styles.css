@@ -2062,7 +2062,7 @@ section {
   display: block;
 }
 
-/* Page slide transition wrapper */
+/* Page slide transition - screenshot wrapper (zooms out behind) */
 .page-transition-wrapper {
   position: fixed;
   top: 0;
@@ -2070,30 +2070,16 @@ section {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  z-index: 5;
+  background-color: var(--theme-background);
+  pointer-events: none;
+}
+
+/* Main container styles during page transition */
+main[data-barba="container"] {
+  position: relative;
   z-index: 10;
   background-color: var(--theme-background);
-}
-
-.page-transition-wrapper > main {
-  width: 100%;
-  height: 100%;
-}
-
-/* Incoming page container */
-.page-incoming {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 20;
-  overflow: hidden;
-  background-color: var(--theme-background);
-}
-
-.page-incoming > main {
-  width: 100%;
-  height: 100%;
 }
 
 /* --- CONTACT STYLES --- */
