@@ -1,277 +1,286 @@
 import gsap from "gsap";
-import * as THREE from "three";
 import html2canvas from "html2canvas";
 
-let renderer = null;
-let scene = null;
-let camera = null;
-let mesh = null;
-let uniforms = null;
-let rafId = null;
-const fragmentShader = `
-  precision highp float;
+/**
+ * Page Transition System
+ *
+ * Inspired by Codrops Slideshow Animations demo3 - uses a scale+translate approach:
+ * - On leave: capture current page as snapshot, scale it down
+ * - On enter: new page slides up from bottom
+ * - Both animations overlap for a cinematic effect
+ *
+ * This approach handles Three.js canvases by capturing them as part of the html2canvas
+ * snapshot, so they visually remain part of the outgoing page during transition.
+ */
 
-  uniform float time;
-  uniform float progress;
-  uniform sampler2D texture1;
-  uniform sampler2D texture2;
-  uniform vec4 resolution;
-  uniform vec4 iMouse;
-  uniform float uOpacity;
+// Module state
+let snapshotEl = null;
+let transitionContainer = null;
+let isAnimating = false;
 
-  varying vec2 vUv;
+/**
+ * Get or create the transition container
+ * This container holds the snapshot during transitions
+ */
+function getTransitionContainer() {
+  if (transitionContainer) return transitionContainer;
 
-  #define PI 3.14159265359
-
-  mat2 r2d(float a) {
-    return mat2(cos(a), sin(a), -sin(a), cos(a));
+  transitionContainer = document.querySelector('.transition');
+  if (!transitionContainer) {
+    transitionContainer = document.createElement('div');
+    transitionContainer.className = 'transition';
+    document.body.appendChild(transitionContainer);
   }
 
-  vec2 mouseRotZoom(vec2 uv) {
-    vec2 mouse = (iMouse.xy == vec2(0.0)) ? vec2(1.0, 0.1) : iMouse.xy / resolution.xy;
-    uv.xy *= r2d(-(mouse.x) * PI * 2.0);
-    uv *= clamp((1.0 / (10.0 * mouse.y)), 0.2, 1.3);
-    return uv;
-  }
-
-  void mainImage(out vec4 o, vec2 u) {
-    vec2 v = resolution.xy, w, k = u = 0.2 * (u + u - v) / v.y;
-    o = vec4(1.0, 2.0, 3.0, 0.0);
-    float a = 0.5, t = time;
-
-    u = mouseRotZoom(u);
-
-    for (float i = 0.0; i < 25.0; i++) {
-      t += 1.0;
-      a += 0.03;
-
-      float powVal = pow(a, i);
-      v = cos(t - (8.0) * u * powVal) - 6.0 * u;
-
-      vec4 rotVec = cos(i + t * 0.03 - vec4(0.0, 11.0, 33.0, 0.0));
-      mat2 rot = mat2(rotVec.x, rotVec.y, rotVec.z, rotVec.w);
-      u *= rot;
-
-      u += 0.006 * tanh(50.0 * dot(u, u) * cos(1e2 * u.yx + t))
-           + 0.3 * a * u
-           + 0.004 * cos(t + 5.0 * exp(-0.02 * dot(o, o)));
-
-      w = u / (1.0 - 3.0 * dot(u, u));
-      o += (1.0 + cos(vec4(0.0, 1.0, 3.0, 0.0) + t)) / length((1.0 + i * dot(v, v)) * sin(w * 4.0 - 12.0 * u.yx + t));
-
-      if (o.x + o.y + o.z > 113.01) break;
-    }
-
-    o = pow(o = 1.0 - sqrt(exp(-o * o * o / 400.0)), -0.3 * o / o) - dot(k -= u, k) / 10.0;
-
-    o = vec4(sin(o.xyz + time * vec3(0.2, 0.3, 0.4)) * 0.5 + 0.5, 1.0);
-
-    o = vec4(o.xyz - pow(o.xyz, vec3(4.75)), 1.0);
-
-    float maxBeforeBlack = 0.3;
-    if ((o.x > maxBeforeBlack) || (o.y > maxBeforeBlack) || (o.z > maxBeforeBlack)) {
-      o.xyz = vec3(0.0);
-    }
-
-    o *= 2.0;
-  }
-
-  void main() {
-    vec2 fragCoord = vUv * resolution.xy;
-    vec4 portalColor;
-    mainImage(portalColor, fragCoord);
-
-    float mask = clamp((portalColor.r + portalColor.g + portalColor.b) / 3.0, 0.0, 1.0);
-    mask = smoothstep(0.2, 0.8, mask * progress + progress * 0.1);
-
-    vec4 color1 = texture2D(texture1, vUv);
-    vec4 color2 = texture2D(texture2, vUv);
-    vec4 mixed = mix(color1, color2, mask);
-    gl_FragColor = vec4(mixed.rgb, mixed.a * uOpacity);
-  }
-`;
-
-function ensureWebglOverlay() {
-  if (renderer) return;
-
-  containerEl = document.querySelector(".transition-overlay");
-  if (!containerEl) {
-    containerEl = document.createElement("div");
-    containerEl.className = "transition-overlay";
-    document.body.appendChild(containerEl);
-  }
-
-  const width = window.innerWidth;
-  const height = window.innerHeight;
-
-  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setSize(width, height);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.domElement.style.position = "absolute";
-  renderer.domElement.style.top = "0";
-  renderer.domElement.style.left = "0";
-  renderer.domElement.style.width = "100%";
-  renderer.domElement.style.height = "100%";
-  renderer.domElement.style.pointerEvents = "none";
-
-  scene = new THREE.Scene();
-  camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-
-  uniforms = {
-    time: { value: 0 },
-    progress: { value: 0 },
-    texture1: { value: null },
-    texture2: { value: null },
-    resolution: { value: new THREE.Vector4(width, height, width / height, 1) },
-    iMouse: { value: new THREE.Vector4(0, 0, 0, 0) },
-    uOpacity: { value: 0 }
-  };
-
-  const geometry = new THREE.PlaneGeometry(2, 2);
-  const material = new THREE.ShaderMaterial({
-    uniforms,
-    vertexShader,
-    fragmentShader,
-    transparent: true,
-    depthTest: false,
-    depthWrite: false
-  });
-
-  mesh = new THREE.Mesh(geometry, material);
-  mesh.frustumCulled = false;
-  scene.add(mesh);
-
-  containerEl.appendChild(renderer.domElement);
-
-  resizeHandler = () => {
-    if (!renderer || !uniforms) return;
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    renderer.setSize(w, h);
-    uniforms.resolution.value.set(w, h, w / h, 1);
-  };
-  window.addEventListener("resize", resizeHandler);
+  return transitionContainer;
 }
 
-function renderLoop() {
-  if (!renderer || !scene || !camera || !uniforms) return;
-  const now = performance.now();
-  if (!startTime) startTime = now;
-  uniforms.time.value = (now - startTime) / 1000;
-  renderer.render(scene, camera);
-  rafId = requestAnimationFrame(renderLoop);
-}
-
-function ensureRunning() {
-  ensureWebglOverlay();
-  if (running) return;
-  running = true;
-  startTime = performance.now();
-  renderLoop();
-}
-
-function fadeInOverlay() {
-  ensureRunning();
-  if (containerEl) {
-    containerEl.style.display = "block";
-  }
-  return gsap.to(uniforms.uOpacity, {
-    value: 1,
-    duration: 0.25,
-    ease: "power2.out"
-  });
-}
-
-function fadeOutOverlay() {
-  return new Promise((resolve) => {
-    if (!uniforms || !containerEl) {
-      resolve();
-      return;
-    }
-    gsap.to(uniforms.uOpacity, {
-      value: 0,
-      duration: 0.45,
-      ease: "power2.inOut",
-      delay: 0.05,
-      onComplete: () => {
-        running = false;
-        if (rafId) {
-          cancelAnimationFrame(rafId);
-          rafId = null;
-        }
-        containerEl.style.display = "none";
-        resolve();
-      }
-    });
-  });
-}
-
-async function captureTexture() {
+/**
+ * Capture the current page state including all canvases
+ * Returns an image element with the snapshot
+ */
+async function capturePageSnapshot() {
+  // Configure html2canvas to capture WebGL canvases
   const canvas = await html2canvas(document.body, {
-    backgroundColor: null,
+    backgroundColor: '#000000',
     useCORS: true,
     logging: false,
-    scale: 1
+    scale: Math.min(window.devicePixelRatio || 1, 2),
+    // Allow tainted canvas to capture WebGL content
+    allowTaint: true,
+    // Capture canvas elements
+    onclone: (clonedDoc) => {
+      // Copy canvas content from original to cloned document
+      const originalCanvases = document.querySelectorAll('canvas');
+      const clonedCanvases = clonedDoc.querySelectorAll('canvas');
+
+      originalCanvases.forEach((originalCanvas, index) => {
+        if (clonedCanvases[index]) {
+          try {
+            const clonedCtx = clonedCanvases[index].getContext('2d');
+            if (clonedCtx) {
+              clonedCanvases[index].width = originalCanvas.width;
+              clonedCanvases[index].height = originalCanvas.height;
+              clonedCtx.drawImage(originalCanvas, 0, 0);
+            }
+          } catch (e) {
+            // Canvas might be tainted, that's OK - html2canvas will handle it
+          }
+        }
+      });
+    }
   });
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.needsUpdate = true;
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.minFilter = THREE.LinearFilter;
-  texture.magFilter = THREE.LinearFilter;
-  texture.flipY = true;
-  return texture;
+
+  // Create image element from canvas
+  const img = document.createElement('img');
+  img.src = canvas.toDataURL('image/png');
+  img.className = 'transition-snapshot';
+  img.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    object-fit: cover;
+    z-index: 999;
+    pointer-events: none;
+    transform-origin: center center;
+    will-change: transform, opacity;
+  `;
+
+  return img;
 }
 
-function disposeTexture(tex) {
-  if (tex && tex.dispose) tex.dispose();
-}
-
-// animation functions
-export async function animateTransition() {
-  ensureRunning();
-  await fadeInOverlay();
-  uniforms.progress.value = 0;
-  // capture current view as texture1
-  const currentTexture = await captureTexture();
-  disposeTexture(prevTexture);
-  prevTexture = currentTexture;
-  uniforms.texture1.value = currentTexture;
-  uniforms.texture2.value = currentTexture;
-  return new Promise((resolve) => {
-    gsap.to(uniforms.progress, {
-      value: 1,
-      duration: 0.6,
-      ease: "power2.inOut",
-      onComplete: resolve
-    });
-  });
-}
-
-export async function revealTransition() {
-  ensureRunning();
-  if (containerEl) {
-    containerEl.style.display = "block";
+/**
+ * Clean up snapshot element
+ */
+function cleanupSnapshot() {
+  if (snapshotEl && snapshotEl.parentNode) {
+    snapshotEl.parentNode.removeChild(snapshotEl);
   }
-  gsap.set(uniforms?.uOpacity, { value: 1 });
-  uniforms.progress.value = 0;
-  // capture new view as texture2 and blend from previous capture
-  const nextTexture = await captureTexture();
-  uniforms.texture1.value = prevTexture || nextTexture;
-  uniforms.texture2.value = nextTexture;
-  await new Promise((resolve) => {
-    gsap.to(uniforms.progress, {
-      value: 1,
-      duration: 0.7,
-      ease: "power2.inOut",
-      onComplete: resolve
-    });
-  });
-  await fadeOutOverlay();
-  disposeTexture(prevTexture);
-  prevTexture = uniforms.texture2.value;
+  snapshotEl = null;
 }
 
-// utility functions
+/**
+ * Main transition animation - leave phase
+ *
+ * Captures the current page state and begins the scale-down animation.
+ * The snapshot remains visible while Barba.js swaps the page content.
+ *
+ * Three.js canvas handling:
+ * - The canvas is captured as part of the html2canvas snapshot
+ * - After capture, the original page content AND #background are hidden
+ * - The snapshot visually represents the old page during the transition
+ * - This prevents any flash or reinitialization of WebGL content
+ */
+export async function animateTransition() {
+  if (isAnimating) return Promise.resolve();
+  isAnimating = true;
+
+  // Clean up any previous snapshot
+  cleanupSnapshot();
+
+  const container = getTransitionContainer();
+  const barbaContainer = document.querySelector('[data-barba="container"]');
+  const backgroundEl = document.getElementById('background');
+
+  try {
+    // Capture the current page state (including WebGL canvases)
+    snapshotEl = await capturePageSnapshot();
+    container.appendChild(snapshotEl);
+
+    // Ensure the snapshot is visible
+    gsap.set(snapshotEl, {
+      opacity: 1,
+      scale: 1,
+      y: 0
+    });
+
+    // Hide the original page content after capturing
+    // This ensures no duplicate content shows underneath the snapshot
+    if (barbaContainer) {
+      gsap.set(barbaContainer, { opacity: 0 });
+    }
+
+    // Also hide the #background element (WebGL canvas container)
+    // This prevents the WebGL from showing as the snapshot scales down
+    if (backgroundEl) {
+      gsap.set(backgroundEl, { opacity: 0 });
+    }
+
+    // Animate the snapshot scaling down (zoom out effect)
+    // This creates the "current page moving away" effect
+    await gsap.to(snapshotEl, {
+      scale: 0.85,
+      opacity: 0.95,
+      duration: 0.45,
+      ease: 'power2.inOut'
+    });
+
+  } catch (error) {
+    console.warn('Transition capture failed, continuing without snapshot:', error);
+    // Restore visibility if capture failed
+    if (barbaContainer) {
+      gsap.set(barbaContainer, { opacity: 1 });
+    }
+    if (backgroundEl) {
+      gsap.set(backgroundEl, { opacity: 1 });
+    }
+    isAnimating = false;
+    return Promise.resolve();
+  }
+
+  return Promise.resolve();
+}
+
+/**
+ * Reveal transition - enter phase
+ *
+ * The new page slides up from the bottom OVER the old snapshot,
+ * which continues to scale down behind it.
+ *
+ * Key z-index handling:
+ * - Snapshot stays at z-index 999 (inside .transition at 1000)
+ * - New page container is elevated to z-index 1001 during animation
+ * - This creates the effect of the new page sliding over the old
+ */
+export async function revealTransition() {
+  const barbaContainer = document.querySelector('[data-barba="container"]');
+  const backgroundEl = document.getElementById('background');
+  const namespace = barbaContainer?.dataset?.barbaNamespace;
+
+  if (!barbaContainer) {
+    cleanupSnapshot();
+    isAnimating = false;
+    return Promise.resolve();
+  }
+
+  // Elevate the new page ABOVE the snapshot layer during transition
+  // This creates the effect of the new page sliding over the old
+  gsap.set(barbaContainer, {
+    y: '100%',
+    opacity: 1,
+    position: 'relative',
+    zIndex: 1001 // Above .transition (1000) and snapshot (999)
+  });
+
+  // Create a timeline for overlapping animations
+  const tl = gsap.timeline({
+    defaults: {
+      ease: 'power3.out'
+    },
+    onComplete: () => {
+      // Clean up
+      cleanupSnapshot();
+      isAnimating = false;
+
+      // Reset container styles
+      gsap.set(barbaContainer, {
+        clearProps: 'transform,y,zIndex,position'
+      });
+
+      // Restore #background visibility for pages that need WebGL
+      // (home/contact pages use the WebGL background)
+      if (backgroundEl && (namespace === 'home' || namespace === 'contact')) {
+        gsap.set(backgroundEl, { opacity: 1 });
+      }
+    }
+  });
+
+  // Continue scaling down the snapshot (visible behind the sliding page)
+  if (snapshotEl) {
+    tl.to(snapshotEl, {
+      scale: 0.7,
+      opacity: 0.3,
+      duration: 0.9,
+      ease: 'power2.inOut'
+    }, 0);
+  }
+
+  // Slide the new page up from bottom (over the snapshot)
+  tl.to(barbaContainer, {
+    y: '0%',
+    duration: 0.85,
+    ease: 'expo.out'
+  }, 0.05); // Slight delay for staggered start
+
+  return tl.then();
+}
+
+/**
+ * Initial page reveal (first load)
+ * Simpler animation without the snapshot
+ */
+export async function initialReveal() {
+  const barbaContainer = document.querySelector('[data-barba="container"]');
+
+  if (!barbaContainer) {
+    return Promise.resolve();
+  }
+
+  // Fade in the page
+  gsap.set(barbaContainer, {
+    opacity: 0,
+    y: 30
+  });
+
+  await gsap.to(barbaContainer, {
+    opacity: 1,
+    y: 0,
+    duration: 0.6,
+    ease: 'power2.out'
+  });
+
+  gsap.set(barbaContainer, {
+    clearProps: 'transform,opacity,y'
+  });
+
+  return Promise.resolve();
+}
+
+/**
+ * Close menu if open before transition
+ */
 export function closeMenuIfOpen() {
   const menuToggleBtn = document.querySelector(".menu-toggle-btn");
   if (menuToggleBtn && menuToggleBtn.classList.contains("menu-open")) {
@@ -279,4 +288,33 @@ export function closeMenuIfOpen() {
   }
 }
 
-export default { revealTransition, animateTransition, closeMenuIfOpen };
+/**
+ * Check if a transition is currently in progress
+ */
+export function isTransitioning() {
+  return isAnimating;
+}
+
+/**
+ * Force cleanup (useful for error recovery)
+ */
+export function forceCleanup() {
+  cleanupSnapshot();
+  isAnimating = false;
+
+  const barbaContainer = document.querySelector('[data-barba="container"]');
+  if (barbaContainer) {
+    gsap.set(barbaContainer, {
+      clearProps: 'all'
+    });
+  }
+}
+
+export default {
+  animateTransition,
+  revealTransition,
+  initialReveal,
+  closeMenuIfOpen,
+  isTransitioning,
+  forceCleanup
+};
