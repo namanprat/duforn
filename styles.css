@@ -2034,7 +2034,7 @@ section {
 }
 
 /* --- TRANSITION STYLES --- */
-/* Page transition container - holds the snapshot during transitions */
+/* page transition */
 .transition {
   position: fixed;
   top: 0;
@@ -2043,32 +2043,15 @@ section {
   width: 100vw;
   height: 100vh;
   pointer-events: none;
-  overflow: hidden;
-  background-color: #000000;
 }
 
-/* Snapshot image during transition */
-.transition-snapshot {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  object-fit: cover;
-  z-index: 999;
-  pointer-events: none;
-  transform-origin: center center;
-  will-change: transform, opacity;
-}
-
-/* Legacy overlay support (for backward compatibility) */
 .transition-overlay {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: transparent;
+  background-color: #00000000;
   pointer-events: none;
   overflow: hidden;
 }
@@ -2077,19 +2060,6 @@ section {
   width: 100%;
   height: 100%;
   display: block;
-}
-
-/* Barba container styles for transitions */
-[data-barba="container"] {
-  position: relative;
-  z-index: 1;
-  background-color: var(--theme-background);
-}
-
-/* Ensure page-wrap provides the black background */
-.page-wrap {
-  background-color: #000000;
-  min-height: 100vh;
 }
 
 /* --- CONTACT STYLES --- */
