@@ -11,7 +11,6 @@ let rafId = null;
 
 // Page slide transition state
 let currentPageWrapper = null;
-let incomingPageWrapper = null;
 let isPageTransitioning = false;
 const fragmentShader = `
   precision highp float;
@@ -278,55 +277,96 @@ export async function revealTransition() {
 
 // ========== PAGE SLIDE TRANSITION ==========
 // Zoom out current page, slide up new page from bottom
+// Direct animation on Barba containers
 
-export async function pageSlideLeave(currentContainer) {
-  if (isPageTransitioning) {
-    return;
-  }
-  isPageTransitioning = true;
-
-  // Capture the current page as an image using html2canvas
-  // This handles all canvases (Three.js, etc.) properly
-  const canvas = await html2canvas(document.body, {
-    backgroundColor: "#000000",
-    useCORS: true,
-    logging: false,
-    scale: 1,
-    windowWidth: window.innerWidth,
-    windowHeight: window.innerHeight
-  });
-
-  // Create wrapper for the screenshot
-  currentPageWrapper = document.createElement("div");
-  currentPageWrapper.className = "page-transition-wrapper";
-  currentPageWrapper.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 10;
-    overflow: hidden;
-    background-color: #000;
-  `;
-
-  // Add the screenshot as an image
-  const img = document.createElement("img");
-  img.src = canvas.toDataURL("image/jpeg", 0.9);
-  img.style.cssText = `
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  `;
-  currentPageWrapper.appendChild(img);
-  document.body.appendChild(currentPageWrapper);
-
-  // Hide the original container
-  gsap.set(currentContainer, { visibility: "hidden" });
-
-  // Start zooming out (partial zoom, will continue in enter)
+export function pageSlideLeave(currentContainer) {
   return new Promise((resolve) => {
+    if (isPageTransitioning) {
+      resolve();
+      return;
+    }
+    isPageTransitioning = true;
+
+    // Create a wrapper for the current page content (screenshot-style)
+    currentPageWrapper = document.createElement("div");
+    currentPageWrapper.className = "page-transition-wrapper";
+    currentPageWrapper.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      overflow: hidden;
+      background-color: #000;
+      transform-origin: center center;
+    `;
+
+    // Clone the current container for the zoom-out effect
+    const clone = currentContainer.cloneNode(true);
+    clone.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    `;
+    currentPageWrapper.appendChild(clone);
+
+    // Handle Three.js canvases - copy their current frame
+    const originalCanvases = currentContainer.querySelectorAll('canvas');
+    const clonedCanvases = clone.querySelectorAll('canvas');
+    originalCanvases.forEach((origCanvas, i) => {
+      if (clonedCanvases[i]) {
+        try {
+          const ctx = clonedCanvases[i].getContext('2d');
+          if (ctx && origCanvas.width && origCanvas.height) {
+            clonedCanvases[i].width = origCanvas.width;
+            clonedCanvases[i].height = origCanvas.height;
+            ctx.drawImage(origCanvas, 0, 0);
+          }
+        } catch (e) {
+          // WebGL canvas might not be copyable
+        }
+      }
+    });
+
+    // Also capture the #background Three.js canvas if it exists
+    const bgCanvas = document.querySelector('#background canvas');
+    if (bgCanvas) {
+      const bgWrapper = document.createElement('div');
+      bgWrapper.id = 'background-clone';
+      bgWrapper.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100vh;
+        z-index: -1;
+        overflow: hidden;
+      `;
+      const bgClone = document.createElement('canvas');
+      bgClone.width = bgCanvas.width;
+      bgClone.height = bgCanvas.height;
+      bgClone.style.cssText = 'width: 100%; height: 100%;';
+      try {
+        const ctx = bgClone.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(bgCanvas, 0, 0);
+        }
+      } catch (e) {
+        // WebGL canvas might not be copyable
+      }
+      bgWrapper.appendChild(bgClone);
+      currentPageWrapper.insertBefore(bgWrapper, currentPageWrapper.firstChild);
+    }
+
+    document.body.appendChild(currentPageWrapper);
+
+    // Hide the original container
+    gsap.set(currentContainer, { visibility: 'hidden' });
+
+    // Start the zoom out animation
     gsap.to(currentPageWrapper, {
       scale: 0.92,
       duration: 0.5,
@@ -339,9 +379,9 @@ export async function pageSlideLeave(currentContainer) {
 export function pageSlideEnter(nextContainer) {
   return new Promise((resolve) => {
     // Create wrapper for incoming page
-    incomingPageWrapper = document.createElement("div");
-    incomingPageWrapper.className = "page-incoming";
-    incomingPageWrapper.style.cssText = `
+    const incomingWrapper = document.createElement("div");
+    incomingWrapper.className = "page-incoming";
+    incomingWrapper.style.cssText = `
       position: fixed;
       top: 0;
       left: 0;
@@ -352,20 +392,22 @@ export function pageSlideEnter(nextContainer) {
       background-color: #000;
     `;
 
-    // Move the next container into the wrapper temporarily
+    // Store reference to parent before moving
     const parent = nextContainer.parentNode;
     const nextSibling = nextContainer.nextSibling;
-    incomingPageWrapper.appendChild(nextContainer);
-    document.body.appendChild(incomingPageWrapper);
+
+    // Move container into wrapper
+    incomingWrapper.appendChild(nextContainer);
+    document.body.appendChild(incomingWrapper);
 
     // Set initial position (off-screen at bottom)
-    gsap.set(incomingPageWrapper, { yPercent: 100 });
-    gsap.set(nextContainer, { visibility: "visible" });
+    gsap.set(incomingWrapper, { yPercent: 100 });
+    gsap.set(nextContainer, { visibility: 'visible' });
 
-    // Animate the incoming page sliding up
+    // Create timeline for coordinated animation
     const tl = gsap.timeline({
       onComplete: () => {
-        // Move container back to its original parent
+        // Restore next container to its original parent
         if (parent) {
           if (nextSibling) {
             parent.insertBefore(nextContainer, nextSibling);
@@ -374,14 +416,15 @@ export function pageSlideEnter(nextContainer) {
           }
         }
 
-        // Clean up wrappers
+        // Remove incoming wrapper
+        if (incomingWrapper.parentNode) {
+          incomingWrapper.parentNode.removeChild(incomingWrapper);
+        }
+
+        // Remove current page wrapper
         if (currentPageWrapper && currentPageWrapper.parentNode) {
           currentPageWrapper.parentNode.removeChild(currentPageWrapper);
           currentPageWrapper = null;
-        }
-        if (incomingPageWrapper && incomingPageWrapper.parentNode) {
-          incomingPageWrapper.parentNode.removeChild(incomingPageWrapper);
-          incomingPageWrapper = null;
         }
 
         isPageTransitioning = false;
@@ -389,14 +432,14 @@ export function pageSlideEnter(nextContainer) {
       }
     });
 
-    // Slide in the new page from bottom
-    tl.to(incomingPageWrapper, {
+    // Slide in new page from bottom
+    tl.to(incomingWrapper, {
       yPercent: 0,
       duration: 1,
       ease: "expo.out"
     }, 0);
 
-    // Continue zooming out the current page wrapper
+    // Continue zooming out the current wrapper
     if (currentPageWrapper) {
       tl.to(currentPageWrapper, {
         scale: 0.85,
@@ -413,9 +456,10 @@ export function cleanupPageTransition() {
     currentPageWrapper.parentNode.removeChild(currentPageWrapper);
     currentPageWrapper = null;
   }
-  if (incomingPageWrapper && incomingPageWrapper.parentNode) {
-    incomingPageWrapper.parentNode.removeChild(incomingPageWrapper);
-    incomingPageWrapper = null;
+  // Remove any lingering incoming wrappers
+  const incoming = document.querySelector('.page-incoming');
+  if (incoming && incoming.parentNode) {
+    incoming.parentNode.removeChild(incoming);
   }
   isPageTransitioning = false;
 }
