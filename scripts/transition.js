@@ -8,6 +8,11 @@ let camera = null;
 let mesh = null;
 let uniforms = null;
 let rafId = null;
+
+// Page slide transition state
+let currentPageWrapper = null;
+let incomingPageWrapper = null;
+let isPageTransitioning = false;
 const fragmentShader = `
   precision highp float;
 
@@ -271,6 +276,150 @@ export async function revealTransition() {
   prevTexture = uniforms.texture2.value;
 }
 
+// ========== PAGE SLIDE TRANSITION ==========
+// Zoom out current page, slide up new page from bottom
+
+export async function pageSlideLeave(currentContainer) {
+  if (isPageTransitioning) {
+    return;
+  }
+  isPageTransitioning = true;
+
+  // Capture the current page as an image using html2canvas
+  // This handles all canvases (Three.js, etc.) properly
+  const canvas = await html2canvas(document.body, {
+    backgroundColor: "#000000",
+    useCORS: true,
+    logging: false,
+    scale: 1,
+    windowWidth: window.innerWidth,
+    windowHeight: window.innerHeight
+  });
+
+  // Create wrapper for the screenshot
+  currentPageWrapper = document.createElement("div");
+  currentPageWrapper.className = "page-transition-wrapper";
+  currentPageWrapper.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+    overflow: hidden;
+    background-color: #000;
+  `;
+
+  // Add the screenshot as an image
+  const img = document.createElement("img");
+  img.src = canvas.toDataURL("image/jpeg", 0.9);
+  img.style.cssText = `
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  `;
+  currentPageWrapper.appendChild(img);
+  document.body.appendChild(currentPageWrapper);
+
+  // Hide the original container
+  gsap.set(currentContainer, { visibility: "hidden" });
+
+  // Start zooming out (partial zoom, will continue in enter)
+  return new Promise((resolve) => {
+    gsap.to(currentPageWrapper, {
+      scale: 0.92,
+      duration: 0.5,
+      ease: "power2.out",
+      onComplete: resolve
+    });
+  });
+}
+
+export function pageSlideEnter(nextContainer) {
+  return new Promise((resolve) => {
+    // Create wrapper for incoming page
+    incomingPageWrapper = document.createElement("div");
+    incomingPageWrapper.className = "page-incoming";
+    incomingPageWrapper.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 20;
+      overflow: hidden;
+      background-color: #000;
+    `;
+
+    // Move the next container into the wrapper temporarily
+    const parent = nextContainer.parentNode;
+    const nextSibling = nextContainer.nextSibling;
+    incomingPageWrapper.appendChild(nextContainer);
+    document.body.appendChild(incomingPageWrapper);
+
+    // Set initial position (off-screen at bottom)
+    gsap.set(incomingPageWrapper, { yPercent: 100 });
+    gsap.set(nextContainer, { visibility: "visible" });
+
+    // Animate the incoming page sliding up
+    const tl = gsap.timeline({
+      onComplete: () => {
+        // Move container back to its original parent
+        if (parent) {
+          if (nextSibling) {
+            parent.insertBefore(nextContainer, nextSibling);
+          } else {
+            parent.appendChild(nextContainer);
+          }
+        }
+
+        // Clean up wrappers
+        if (currentPageWrapper && currentPageWrapper.parentNode) {
+          currentPageWrapper.parentNode.removeChild(currentPageWrapper);
+          currentPageWrapper = null;
+        }
+        if (incomingPageWrapper && incomingPageWrapper.parentNode) {
+          incomingPageWrapper.parentNode.removeChild(incomingPageWrapper);
+          incomingPageWrapper = null;
+        }
+
+        isPageTransitioning = false;
+        resolve();
+      }
+    });
+
+    // Slide in the new page from bottom
+    tl.to(incomingPageWrapper, {
+      yPercent: 0,
+      duration: 1,
+      ease: "expo.out"
+    }, 0);
+
+    // Continue zooming out the current page wrapper
+    if (currentPageWrapper) {
+      tl.to(currentPageWrapper, {
+        scale: 0.85,
+        duration: 1,
+        ease: "power2.inOut"
+      }, 0);
+    }
+  });
+}
+
+// Clean up function in case transition is interrupted
+export function cleanupPageTransition() {
+  if (currentPageWrapper && currentPageWrapper.parentNode) {
+    currentPageWrapper.parentNode.removeChild(currentPageWrapper);
+    currentPageWrapper = null;
+  }
+  if (incomingPageWrapper && incomingPageWrapper.parentNode) {
+    incomingPageWrapper.parentNode.removeChild(incomingPageWrapper);
+    incomingPageWrapper = null;
+  }
+  isPageTransitioning = false;
+}
+
 // utility functions
 export function closeMenuIfOpen() {
   const menuToggleBtn = document.querySelector(".menu-toggle-btn");
@@ -279,4 +428,4 @@ export function closeMenuIfOpen() {
   }
 }
 
-export default { revealTransition, animateTransition, closeMenuIfOpen };
+export default { revealTransition, animateTransition, closeMenuIfOpen, pageSlideLeave, pageSlideEnter, cleanupPageTransition };

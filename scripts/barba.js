@@ -1,7 +1,7 @@
 import barba from '@barba/core';
 import gsap from 'gsap';
 import { lenis } from './lenis-scroll.js';
-import { animateTransition, revealTransition, closeMenuIfOpen } from './transition.js';
+import { animateTransition, revealTransition, closeMenuIfOpen, pageSlideLeave, pageSlideEnter, cleanupPageTransition } from './transition.js';
 import { initMenu } from './menu.js';
 import { initIndex, destroyIndex } from './index.js';
 import { initVariableFont } from './variable-font.js';
@@ -171,17 +171,18 @@ barba.init({
         }
         cleanupScrollTriggers(); // Clean up ScrollTriggers before transition
         closeMenuIfOpen();
-        await animateTransition();
+
+        // Use the new page slide transition
+        await pageSlideLeave(data.current.container);
       },
-      async enter() {
-        await revealTransition();
+      async enter(data) {
+        // Slide in the new page from bottom
+        await pageSlideEnter(data.next.container);
       },
       async once(data) {
         // Initialize features first
         initPageFeatures(data?.next?.namespace);
-        
-        await revealTransition();
-        
+
         // Animate text reveals on first load for home/contact pages
         const ns = data?.next?.namespace;
         if (ns === 'home' || ns === 'contact') {
@@ -191,14 +192,14 @@ barba.init({
             const heroP = container.querySelector('.hero .hero-contain p');
             const heroBtn = container.querySelector('.hero .btn, .hero .btn a');
             const fadeTargets = [heroP, heroBtn].filter(Boolean);
-            
+
             if (fadeTargets.length) {
               gsap.set(fadeTargets, { opacity: 0 });
             }
-            
+
             // Animate headers
             await animateRevealEnter(container);
-            
+
             // Then fade in paragraph and button
             if (fadeTargets.length) {
               await gsap.to(fadeTargets, { opacity: 1, duration: 0.35, ease: 'power2.out', delay: 0.2 });
@@ -207,11 +208,8 @@ barba.init({
         }
       },
       async after(data) {
-        // Only init if not already initialized in once()
-        const ns = data?.next?.namespace;
-        if (ns !== 'home' && ns !== 'contact') {
-          initPageFeatures(ns);
-        }
+        // Initialize features for the new page
+        initPageFeatures(data?.next?.namespace);
       }
     }
   ]
