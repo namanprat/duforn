@@ -277,96 +277,81 @@ export async function revealTransition() {
 
 // ========== PAGE SLIDE TRANSITION ==========
 // Zoom out current page, slide up new page from bottom
-// Direct animation on Barba containers
+// Uses html2canvas to capture Three.js canvases properly
 
-export function pageSlideLeave(currentContainer) {
-  return new Promise((resolve) => {
-    if (isPageTransitioning) {
-      resolve();
-      return;
-    }
-    isPageTransitioning = true;
+export async function pageSlideLeave(currentContainer) {
+  if (isPageTransitioning) {
+    return;
+  }
+  isPageTransitioning = true;
 
-    // Create a wrapper for the current page content (screenshot-style)
-    currentPageWrapper = document.createElement("div");
-    currentPageWrapper.className = "page-transition-wrapper";
-    currentPageWrapper.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 10;
-      overflow: hidden;
-      background-color: #000;
-      transform-origin: center center;
-    `;
-
-    // Clone the current container for the zoom-out effect
-    const clone = currentContainer.cloneNode(true);
-    clone.style.cssText = `
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-    `;
-    currentPageWrapper.appendChild(clone);
-
-    // Handle Three.js canvases - copy their current frame
-    const originalCanvases = currentContainer.querySelectorAll('canvas');
-    const clonedCanvases = clone.querySelectorAll('canvas');
-    originalCanvases.forEach((origCanvas, i) => {
-      if (clonedCanvases[i]) {
-        try {
-          const ctx = clonedCanvases[i].getContext('2d');
-          if (ctx && origCanvas.width && origCanvas.height) {
+  // Use html2canvas to capture entire page including Three.js canvases
+  const canvas = await html2canvas(document.body, {
+    backgroundColor: "#000000",
+    useCORS: true,
+    logging: false,
+    scale: window.devicePixelRatio || 1,
+    windowWidth: window.innerWidth,
+    windowHeight: window.innerHeight,
+    onclone: (clonedDoc) => {
+      // Ensure cloned canvases get the current frame
+      const originalCanvases = document.body.querySelectorAll('canvas');
+      const clonedCanvases = clonedDoc.body.querySelectorAll('canvas');
+      originalCanvases.forEach((origCanvas, i) => {
+        if (clonedCanvases[i]) {
+          try {
             clonedCanvases[i].width = origCanvas.width;
             clonedCanvases[i].height = origCanvas.height;
-            ctx.drawImage(origCanvas, 0, 0);
+            const ctx = clonedCanvases[i].getContext('2d');
+            if (ctx) {
+              ctx.drawImage(origCanvas, 0, 0);
+            }
+          } catch (e) {
+            // WebGL canvas copy failed
           }
-        } catch (e) {
-          // WebGL canvas might not be copyable
         }
-      }
-    });
-
-    // Also capture the #background Three.js canvas if it exists
-    const bgCanvas = document.querySelector('#background canvas');
-    if (bgCanvas) {
-      const bgWrapper = document.createElement('div');
-      bgWrapper.id = 'background-clone';
-      bgWrapper.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100vh;
-        z-index: -1;
-        overflow: hidden;
-      `;
-      const bgClone = document.createElement('canvas');
-      bgClone.width = bgCanvas.width;
-      bgClone.height = bgCanvas.height;
-      bgClone.style.cssText = 'width: 100%; height: 100%;';
-      try {
-        const ctx = bgClone.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(bgCanvas, 0, 0);
-        }
-      } catch (e) {
-        // WebGL canvas might not be copyable
-      }
-      bgWrapper.appendChild(bgClone);
-      currentPageWrapper.insertBefore(bgWrapper, currentPageWrapper.firstChild);
+      });
     }
+  });
 
-    document.body.appendChild(currentPageWrapper);
+  // Create wrapper with the captured screenshot
+  currentPageWrapper = document.createElement("div");
+  currentPageWrapper.className = "page-transition-wrapper";
+  currentPageWrapper.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+    overflow: hidden;
+    background-color: #000;
+    transform-origin: center center;
+  `;
 
-    // Hide the original container
-    gsap.set(currentContainer, { visibility: 'hidden' });
+  // Add the screenshot as an image
+  const img = document.createElement("img");
+  img.src = canvas.toDataURL("image/jpeg", 0.92);
+  img.style.cssText = `
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  `;
+  currentPageWrapper.appendChild(img);
+  document.body.appendChild(currentPageWrapper);
 
-    // Start the zoom out animation
+  // Hide the original content
+  gsap.set(currentContainer, { visibility: 'hidden' });
+
+  // Hide the #background too if it exists
+  const bgDiv = document.getElementById('background');
+  if (bgDiv) {
+    gsap.set(bgDiv, { visibility: 'hidden' });
+  }
+
+  // Start zoom out animation
+  return new Promise((resolve) => {
     gsap.to(currentPageWrapper, {
       scale: 0.92,
       duration: 0.5,
@@ -425,6 +410,12 @@ export function pageSlideEnter(nextContainer) {
         if (currentPageWrapper && currentPageWrapper.parentNode) {
           currentPageWrapper.parentNode.removeChild(currentPageWrapper);
           currentPageWrapper = null;
+        }
+
+        // Restore #background visibility
+        const bgDiv = document.getElementById('background');
+        if (bgDiv) {
+          gsap.set(bgDiv, { visibility: 'visible' });
         }
 
         isPageTransitioning = false;
