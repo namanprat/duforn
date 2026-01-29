@@ -1,7 +1,7 @@
 import barba from '@barba/core';
 import gsap from 'gsap';
 import { lenis } from './lenis-scroll.js';
-import { animateTransition, revealTransition, closeMenuIfOpen, pageSlideLeave, pageSlideEnter, cleanupPageTransition } from './transition.js';
+import { closeMenuIfOpen, pageSlideLeave, pageSlideEnter, cleanupPageTransition } from './transition.js';
 import { initMenu } from './menu.js';
 import { initIndex, destroyIndex } from './index.js';
 import { initVariableFont } from './variable-font.js';
@@ -176,8 +176,8 @@ barba.init({
         await pageSlideLeave(data.current.container);
       },
       async enter(data) {
-        // Slide in the new page from bottom
-        await pageSlideEnter(data.next.container);
+        // Slide in the new page from bottom, pass both containers
+        await pageSlideEnter(data.next.container, data.current.container);
       },
       async once(data) {
         // Initialize features first
