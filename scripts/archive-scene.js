@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { archiveItems as projects } from "../data/archive-items.js";
+import { projects } from "./data.js";
 import { CRTShader } from "./CRTShader.js";
 import gsap from "gsap";
 
@@ -21,11 +21,11 @@ const fragmentShader = `
   uniform vec2 uOffset;
   uniform float uCellSize;
   uniform float uFocusIndex;
-  uniform vec2 uFocusCell;
   uniform float uFocusState;
   uniform float uMousePressed;
   uniform float uZoom;
   uniform vec2 uMouseParallax;
+  uniform float uAspectRatios[${projects.length}];
 
   varying vec2 vUv;
 
@@ -34,16 +34,16 @@ const fragmentShader = `
     return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
   }
 
-  // Integer-safe texture index – uses only addition and mod so GLSL
-  // float32 and JS float64 produce identical results for any cell.
-  float texIndexForCell(vec2 cell, float count) {
-    return mod(cell.x * 7.0 + cell.y * 13.0, count);
+  // Per-cell parallax intensity variation with optimized calculation
+  float getParallaxIntensity(vec2 cellId) {
+    // Simplified parallax for better performance
+    return 0.6 + random(cellId) * 0.8;
   }
 
   void main() {
     vec2 screenUV = (vUv - 0.5) * 2.0;
 
-    // Apply zoom (includes focus zoom for centering)
+    // Apply zoom
     screenUV /= uZoom;
 
     // Fisheye distortion - flattens when mouse is pressed
@@ -53,47 +53,77 @@ const fragmentShader = `
     vec2 distortedUV = screenUV * distortion;
 
     vec2 aspectRatio = vec2(uResolution.x / uResolution.y, 1.0);
-    vec2 worldCoord = (distortedUV * aspectRatio) + uOffset + uMouseParallax;
+    float gridCellSize = uCellSize * 1.5;
+    
+    // Get current cell for parallax variation
+    vec2 preCellPos = (distortedUV * aspectRatio + uOffset) / gridCellSize;
+    vec2 cellId = floor(preCellPos);
+    float parallaxIntensity = getParallaxIntensity(cellId);
+    
+    // Apply variable parallax based on cell depth (disabled when focused)
+    vec2 parallaxOffset = uMouseParallax * parallaxIntensity * (1.0 - uFocusState);
+    
+    vec2 worldCoord = (distortedUV * aspectRatio) + uOffset + parallaxOffset;
 
     // Use larger grid cells for looser spacing
-    float gridCellSize = uCellSize * 1.5;
     vec2 cellPos = worldCoord / gridCellSize;
-    vec2 cellId = floor(cellPos);
+    cellId = floor(cellPos);
     vec2 cellUV = fract(cellPos);
-
-    // Slight random jitter per cell – keep it small so images never
-    // get pushed outside their cell bounds.
+    
+    // Add random offset to each cell for scattered placement
     vec2 randomOffset = vec2(
-      random(cellId) * 0.2 - 0.1,
-      random(cellId + vec2(100.0, 0.0)) * 0.2 - 0.1
+      random(cellId) * 0.6 - 0.3,
+      random(cellId + vec2(100.0, 0.0)) * 0.6 - 0.3
     );
+    
+    // Apply random offset to cell UV
     cellUV -= randomOffset;
 
-    float texIndex = texIndexForCell(cellId, uTextureCount);
+    float texIndex = mod(cellId.x + cellId.y * 3.0, uTextureCount);
     if (texIndex < 0.0) texIndex += uTextureCount;
+    texIndex = floor(texIndex);
 
-    // Focus is cell-specific so only the clicked cell highlights, not all cells with same image
-    bool isFocused = (abs(cellId.x - uFocusCell.x) < 0.1) && (abs(cellId.y - uFocusCell.y) < 0.1);
+    bool isFocused = abs(texIndex - uFocusIndex) < 0.1;
 
     vec3 color = vec3(0.0);
     float outAlpha = 0.0;
 
-    // Vary image sizes randomly
+    // Vary image sizes randomly - more varied like reference
     float randomSize = random(cellId + vec2(200.0, 0.0));
     float sizeCategory = random(cellId + vec2(300.0, 0.0));
     float baseImageSize;
     if (sizeCategory < 0.3) {
-      baseImageSize = 0.45 + randomSize * 0.1;  // Small:  0.45 to 0.55
+      baseImageSize = 0.3 + randomSize * 0.15; // Small: 0.30 to 0.45
     } else if (sizeCategory < 0.7) {
-      baseImageSize = 0.55 + randomSize * 0.15; // Medium: 0.55 to 0.70
+      baseImageSize = 0.45 + randomSize * 0.2; // Medium: 0.45 to 0.65
     } else {
-      baseImageSize = 0.70 + randomSize * 0.15; // Large:  0.70 to 0.85
+      baseImageSize = 0.65 + randomSize * 0.25; // Large: 0.65 to 0.90
     }
-    float targetImageSize = isFocused ? 0.90 : baseImageSize;
-    float imageSize = mix(baseImageSize, targetImageSize, uFocusState);
-    
-    float imageBorder = (1.0 - imageSize) * 0.5;
-    vec2 imageUV = (cellUV - imageBorder) / imageSize;
+    // In focus mode, scale inactive images to 0.9 and active to 1.05
+    float targetSize = isFocused ? baseImageSize * 1.05 : baseImageSize * 0.9;
+    float imageSize = mix(baseImageSize, targetSize, uFocusState);
+
+    float naturalAspect = uAspectRatios[int(texIndex)];
+    vec2 imageScale = naturalAspect > 1.0
+      ? vec2(1.0, 1.0 / naturalAspect)
+      : vec2(naturalAspect, 1.0);
+
+    vec2 imageSizeVec = imageSize * imageScale;
+    vec2 imageBorder = (1.0 - imageSizeVec) * 0.5;
+
+    vec2 imageUV = (cellUV - imageBorder) / imageSizeVec;
+
+    // Map image-space UVs to the padded atlas tile so the image keeps its natural aspect.
+    vec2 atlasImageUV = imageUV;
+    if (naturalAspect > 1.0) {
+      float newHeight = 1.0 / naturalAspect;
+      float yOffset = (1.0 - newHeight) * 0.5;
+      atlasImageUV.y = imageUV.y * newHeight + yOffset;
+    } else {
+      float newWidth = naturalAspect;
+      float xOffset = (1.0 - newWidth) * 0.5;
+      atlasImageUV.x = imageUV.x * newWidth + xOffset;
+    }
 
     float edgeSmooth = 0.02;
     vec2 imageMask = smoothstep(-edgeSmooth, edgeSmooth, imageUV) *
@@ -106,19 +136,19 @@ const fragmentShader = `
       float atlasSize = ceil(sqrt(uTextureCount));
       vec2 atlasPos = vec2(mod(texIndex, atlasSize), floor(texIndex / atlasSize));
 
-      // Chromatic Aberration - increases at edges of viewport
-      float caStrength = 0.012 * pow(radius, 2.0);
+      // Optimized Chromatic Aberration - reduced intensity for performance
+      float caStrength = 0.003 * pow(radius, 2.0);
       vec2 caOffset = screenUV * caStrength;
 
-      vec2 imageUVR = imageUV - caOffset;
+      vec2 imageUVR = atlasImageUV - caOffset;
       vec2 atlasUVR = (atlasPos + clamp(imageUVR, 0.0, 1.0)) / atlasSize;
       atlasUVR.y = 1.0 - atlasUVR.y;
 
-      vec2 imageUVG = imageUV;
+      vec2 imageUVG = atlasImageUV;
       vec2 atlasUVG = (atlasPos + imageUVG) / atlasSize;
       atlasUVG.y = 1.0 - atlasUVG.y;
 
-      vec2 imageUVB = imageUV + caOffset;
+      vec2 imageUVB = atlasImageUV + caOffset;
       vec2 atlasUVB = (atlasPos + clamp(imageUVB, 0.0, 1.0)) / atlasSize;
       atlasUVB.y = 1.0 - atlasUVB.y;
 
@@ -165,7 +195,6 @@ let plane = null;
 let animationId = null;
 let renderTarget = null;
 let crtPass = null;
-let crtTweakPanel = null;
 
 let offset = { x: 0, y: 0 };
 let targetOffset = { x: 0, y: 0 };
@@ -176,7 +205,7 @@ let previousMouse = { x: 0, y: 0 };
 
 let focusedIndex = -1;
 let focusState = { value: 0 };
-let currentFocusCell = { x: -9999, y: -9999 };
+let currentFocusCell = { x: 0, y: 0 };
 
 // Drag zoom state
 let dragZoom = { value: 1 };
@@ -189,20 +218,10 @@ let mousePressed = { value: 0 };
 // Mouse parallax state
 let mouse = { x: 0, y: 0 };
 let mouseParallax = { x: 0, y: 0 };
+let lastMouseUpdateTime = 0;
+const MOUSE_THROTTLE_MS = 16; // ~60fps throttle
 
 // --- Helper Functions ---
-const fract = (x) => x - Math.floor(x);
-const randomJS = (vec2) => {
-  const dt = vec2.x * 12.9898 + vec2.y * 78.233;
-  const sn = Math.sin(dt);
-  return fract(sn * 43758.5453123);
-};
-
-// Must match shader texIndexForCell exactly – integer math only.
-const texIndexForCellJS = (cellX, cellY, count) => {
-  return ((cellX * 7 + cellY * 13) % count + count) % count;
-};
-
 const createTextureAtlas = (textures) => {
   const atlasSize = Math.ceil(Math.sqrt(textures.length));
   const textureSize = 512;
@@ -215,7 +234,6 @@ const createTextureAtlas = (textures) => {
   textures.forEach((texture, index) => {
     const x = (index % atlasSize) * textureSize;
     const y = Math.floor(index / atlasSize) * textureSize;
-
     if (texture.image?.complete) {
       const img = texture.image;
       const aspect = img.width / img.height;
@@ -241,28 +259,20 @@ const createTextureAtlas = (textures) => {
 };
 
 const loadTextures = () => {
+  // Load textures and get their aspect ratios
   const textureLoader = new THREE.TextureLoader();
   const imageTextures = [];
+  const aspectRatios = [];
   let loadedCount = 0;
+  
   return new Promise((resolve) => {
-    if (projects.length === 0) {
-      resolve(imageTextures);
-      return;
-    }
-
-    projects.forEach((project) => {
-      const texture = textureLoader.load(
-        project.image,
-        () => {
-          loadedCount++;
-          if (loadedCount === projects.length) resolve(imageTextures);
-        },
-        undefined,
-        () => {
-          loadedCount++;
-          if (loadedCount === projects.length) resolve(imageTextures);
+    projects.forEach((project, index) => {
+      const texture = textureLoader.load(project.image, (tex) => {
+        aspectRatios[index] = tex.image.width / tex.image.height;
+        if (++loadedCount === projects.length) {
+          resolve({ imageTextures, aspectRatios });
         }
-      );
+      });
       texture.wrapS = THREE.ClampToEdgeWrapping;
       texture.wrapT = THREE.ClampToEdgeWrapping;
       texture.minFilter = THREE.LinearFilter;
@@ -275,14 +285,15 @@ const loadTextures = () => {
 const findNearestCellForIndex = (targetIndex, centerX, centerY) => {
   let bestCell = { x: 0, y: 0 };
   let minDist = Infinity;
-  const radius = 20;
+  const radius = 15;
 
   const cx = Math.round(centerX);
   const cy = Math.round(centerY);
 
   for (let x = cx - radius; x <= cx + radius; x++) {
     for (let y = cy - radius; y <= cy + radius; y++) {
-      const idx = texIndexForCellJS(x, y, projects.length);
+      let idx = (x + y * 3) % projects.length;
+      if (idx < 0) idx += projects.length;
 
       if (idx === targetIndex) {
         const dist = (x - centerX) ** 2 + (y - centerY) ** 2;
@@ -353,7 +364,6 @@ const enterFocusMode = (index, cellX, cellY) => {
 
   if (plane?.material?.uniforms) {
     plane.material.uniforms.uFocusIndex.value = index;
-    plane.material.uniforms.uFocusCell.value.set(cellX, cellY);
   }
 
   gsap.to(focusState, {
@@ -367,26 +377,10 @@ const enterFocusMode = (index, cellX, cellY) => {
     },
   });
 
-  // Slight zoom in when focusing
-  gsap.to(dragZoom, {
-    value: 1.1,
-    duration: 0.5,
-    ease: "power2.out"
-  });
-
-  // Compute the world-space center of the image in this cell
-  // Shader: worldCoord = distortedUV * aspect + uOffset
-  // At screen center distortedUV = 0, so worldCoord = uOffset
-  // Image center in world coords = (cellId + 0.5 + randomOffset) * gridCellSize
-  const rand1 = randomJS({ x: cellX, y: cellY });
-  const rand2 = randomJS({ x: cellX + 100.0, y: cellY });
-
-  const randomOffsetX = rand1 * 0.2 - 0.1;
-  const randomOffsetY = rand2 * 0.2 - 0.1;
+  // Center on the cell, ensuring it's perfectly in the middle
   const gridCellSize = config.cellSize * 1.5;
-
-  targetOffset.x = (cellX + 0.5 + randomOffsetX) * gridCellSize;
-  targetOffset.y = (cellY + 0.5 + randomOffsetY) * gridCellSize;
+  targetOffset.x = (cellX + 0.5) * gridCellSize;
+  targetOffset.y = (cellY + 0.5) * gridCellSize;
 
   updateDOMOverlay(index);
 };
@@ -394,11 +388,6 @@ const enterFocusMode = (index, cellX, cellY) => {
 const exitFocusMode = () => {
   if (focusedIndex === -1) return;
   focusedIndex = -1;
-  currentFocusCell = { x: -9999, y: -9999 };
-
-  if (plane?.material?.uniforms) {
-    plane.material.uniforms.uFocusCell.value.set(-9999, -9999);
-  }
 
   gsap.to(focusState, {
     value: 0,
@@ -409,13 +398,6 @@ const exitFocusMode = () => {
         plane.material.uniforms.uFocusState.value = focusState.value;
       }
     },
-  });
-
-  // Zoom out when exiting focus
-  gsap.to(dragZoom, {
-    value: 1,
-    duration: 0.4,
-    ease: "power2.out"
   });
 
   updateDOMOverlay(-1);
@@ -434,68 +416,81 @@ const navigateProject = (direction) => {
 
 // --- Click Detection ---
 const getClickedCell = (clientX, clientY) => {
-  if (!renderer || !container) return null;
+  if (!renderer) return null;
 
   const rect = renderer.domElement.getBoundingClientRect();
-  // Use CSS dimensions for aspect ratio (not canvas pixel dimensions)
-  let screenX = ((clientX - rect.left) / rect.width) * 2 - 1;
-  let screenY = -(((clientY - rect.top) / rect.height) * 2 - 1);
+  const screenX = ((clientX - rect.left) / rect.width) * 2 - 1;
+  const screenY = -(((clientY - rect.top) / rect.height) * 2 - 1);
 
-  // Apply zoom (must match shader exactly)
-  screenX /= dragZoom.value;
-  screenY /= dragZoom.value;
+  // Invert fisheye distortion to find pre-distorted coordinates
+  const ndc = new THREE.Vector2(screenX, screenY);
+  const radius = ndc.length();
+  
+  // If distortion is zero, this formula is unstable.
+  if (config.distortion < 1e-4) {
+    // No distortion, direct mapping
+  } else {
+    // Analytical solution for inverse of lens distortion
+    const a = config.distortion;
+    const ru = radius; // distorted radius
+    // Solve `ru = rd * (1 - a * rd^2)` for rd (undistorted radius)
+    // This is a cubic equation: a * rd^3 - rd + ru = 0
+    // We can use Cardano's formula or a numerical approximation.
+    // Since we need a quick solution, let's use a few iterations of Newton's method.
+    let rd = ru; // Initial guess
+    for(let i = 0; i < 4; i++) {
+      const f = a * rd * rd * rd - rd + ru;
+      const f_prime = 3.0 * a * rd * rd - 1.0;
+      rd -= f / f_prime;
+    }
+    ndc.normalize().multiplyScalar(rd);
+  }
 
-  // Apply fisheye distortion (accounting for mousePressed state)
-  const radius = Math.sqrt(screenX * screenX + screenY * screenY);
-  const effectiveDistortion = config.distortion * (1.0 - mousePressed.value);
-  const distortion = 1.0 - effectiveDistortion * radius * radius;
-
-  const distortedX = screenX * distortion;
-  const distortedY = screenY * distortion;
-
-  // Use CSS rect for aspect ratio to match shader uResolution
   const aspectRatio = rect.width / rect.height;
-  const worldX = distortedX * aspectRatio + offset.x + mouseParallax.x;
-  const worldY = distortedY + offset.y + mouseParallax.y;
+  let worldX = ndc.x * aspectRatio + offset.x;
+  let worldY = ndc.y + offset.y;
 
-  // Calculate cell coordinates
+  // Match shader's grid calculation
   const gridCellSize = config.cellSize * 1.5;
   const cellX = Math.floor(worldX / gridCellSize);
   const cellY = Math.floor(worldY / gridCellSize);
+  
+  // Check if click is on image (ignoring random offset for precision)
+  const cellUVX = (worldX / gridCellSize) - cellX;
+  const cellUVY = (worldY / gridCellSize) - cellY;
 
-  // Apply same random offset as shader
-  const rand1 = randomJS({ x: cellX, y: cellY });
-  const rand2 = randomJS({ x: cellX + 100.0, y: cellY });
-
-  const randomOffsetX = rand1 * 0.2 - 0.1;
-  const randomOffsetY = rand2 * 0.2 - 0.1;
-
-  // Calculate cell UV coordinates
-  const cellUVX = (worldX / gridCellSize - cellX) - randomOffsetX;
-  const cellUVY = (worldY / gridCellSize - cellY) - randomOffsetY;
-
-  const texIndex = texIndexForCellJS(cellX, cellY, projects.length);
-
-  // Compute image size matching shader logic
-  const randSize = randomJS({ x: cellX + 200.0, y: cellY });
-  const randCategory = randomJS({ x: cellX + 300.0, y: cellY });
+  // Random size matching shader
+  const randomSize = Math.abs(Math.sin((cellX + 200) * 12.9898 + cellY * 78.233) % 1);
+  const sizeCategory = Math.abs(Math.sin((cellX + 300) * 12.9898 + cellY * 78.233) % 1);
   let baseImageSize;
-  if (randCategory < 0.3) {
-    baseImageSize = 0.45 + randSize * 0.1;
-  } else if (randCategory < 0.7) {
-    baseImageSize = 0.55 + randSize * 0.15;
+  if (sizeCategory < 0.3) {
+    baseImageSize = 0.3 + randomSize * 0.15;
+  } else if (sizeCategory < 0.7) {
+    baseImageSize = 0.45 + randomSize * 0.2;
   } else {
-    baseImageSize = 0.70 + randSize * 0.15;
+    baseImageSize = 0.65 + randomSize * 0.25;
+  }
+  const isFocused = (texIndex === focusedIndex);
+  const targetSize = isFocused ? baseImageSize * 1.05 : baseImageSize * 0.9;
+  const imageSize = baseImageSize + (targetSize - baseImageSize) * focusState.value;
+  const border = (1 - imageSize) / 2;
+  
+  // Account for natural aspect ratio in hit detection
+  const aspectRatios = plane.material.uniforms.uAspectRatios.value;
+  let texIndex = (cellX + cellY * 3) % projects.length;
+  if (texIndex < 0) texIndex += projects.length;
+  const naturalAspect = aspectRatios[texIndex];
+  
+  let u = (cellUVX - border) / imageSize;
+  let v = (cellUVY - border) / imageSize;
+
+  if (naturalAspect > 1.0) {
+    u = (u - 0.5) * naturalAspect + 0.5;
+  } else {
+    v = (v - 0.5) / naturalAspect + 0.5;
   }
 
-  // Match shader: cell-based focus check, then mix(base, target, focusState)
-  const isFocused = (cellX === currentFocusCell.x && cellY === currentFocusCell.y);
-  const targetImageSize = isFocused ? 0.90 : baseImageSize;
-  const imageSize = baseImageSize + (targetImageSize - baseImageSize) * focusState.value;
-
-  const border = (1 - imageSize) / 2;
-  const isOnImage = cellUVX > border && cellUVX < (1 - border) &&
-                    cellUVY > border && cellUVY < (1 - border);
+  const isOnImage = u >= 0.0 && u <= 1.0 && v >= 0.0 && v <= 1.0;
 
   return { cellX, cellY, texIndex, isOnImage };
 };
@@ -529,14 +524,18 @@ const onPointerDown = (e) => {
 };
 
 const onPointerMove = (e) => {
-  // Update mouse position for parallax (only when not dragging)
+  // Update mouse position for parallax (only when not dragging, throttled)
   if (!isDragging && renderer) {
-    const rect = renderer.domElement.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width - 0.5;
-    const y = (e.clientY - rect.top) / rect.height - 0.5;
-    // Subtle parallax effect
-    mouse.x = -x * 0.02;
-    mouse.y = y * 0.02;
+    const now = performance.now();
+    if (now - lastMouseUpdateTime > MOUSE_THROTTLE_MS) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width - 0.5;
+      const y = (e.clientY - rect.top) / rect.height - 0.5;
+      // Parallax effect
+      mouse.x = -x * 0.08;
+      mouse.y = y * 0.08;
+      lastMouseUpdateTime = now;
+    }
   }
 
   if (!isDragging) return;
@@ -740,8 +739,8 @@ const init = async () => {
   camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
   camera.position.z = 1;
 
-  // Load textures
-  const imageTextures = await loadTextures();
+  // Load textures and aspect ratios
+  const { imageTextures, aspectRatios } = await loadTextures();
   const imageAtlas = createTextureAtlas(imageTextures);
 
   // Shader plane
@@ -758,18 +757,17 @@ const init = async () => {
       uOffset: { value: new THREE.Vector2(0, 0) },
       uCellSize: { value: config.cellSize },
       uFocusIndex: { value: -1 },
-      uFocusCell: { value: new THREE.Vector2(-9999, -9999) },
       uFocusState: { value: 0 },
       uMousePressed: { value: 0 },
       uZoom: { value: 1 },
       uMouseParallax: { value: new THREE.Vector2(0, 0) },
+      uAspectRatios: { value: aspectRatios },
     },
     transparent: true,
   });
 
   plane = new THREE.Mesh(geometry, material);
   scene.add(plane);
-
 
   // Setup render target for post-processing
   const pixelRatio = Math.min(window.devicePixelRatio, 2);
@@ -780,7 +778,7 @@ const init = async () => {
     magFilter: THREE.LinearFilter
   });
   
-  // Create CRT post-processing material with properly initialized uniforms
+  // Create CRT post-processing material with locked settings
   const crtUniforms = {
     tDiffuse: { value: renderTarget.texture },
     scanlineIntensity: { value: 0.46 },
@@ -795,7 +793,7 @@ const init = async () => {
     rgbShift: { value: 0.0 },
     adaptiveIntensity: { value: 1.0 },
     vignetteStrength: { value: 0.0 },
-    curvature: { value: 0.5 },
+    curvature: { value: 0.65 },
     flickerStrength: { value: 0.0 }
   };
   
@@ -812,7 +810,7 @@ const init = async () => {
   const crtGeometry = new THREE.PlaneGeometry(2, 2);
   crtPass = new THREE.Mesh(crtGeometry, crtMaterial);
   crtScene.add(crtPass);
-
+  
   // Event listeners (use canvas-level where possible)
   const canvas = renderer.domElement;
   canvas.addEventListener("pointerdown", onPointerDown);
@@ -828,23 +826,13 @@ const init = async () => {
   if (prevBtn) prevBtn.addEventListener("click", (e) => { e.stopPropagation(); navigateProject(-1); });
   if (nextBtn) nextBtn.addEventListener("click", (e) => { e.stopPropagation(); navigateProject(1); });
 
-  // Overlay background click - detect whether the user clicked on a
-  // different image or on empty space and route accordingly.
+  // Overlay background click
   const overlay = document.getElementById("archive-overlay");
   if (overlay) {
     overlay.addEventListener("click", (e) => {
-      // Ignore clicks on interactive overlay elements
-      if (e.target.closest('.archive-header') || e.target.closest('.archive-nav-wrap') || e.target.closest('.nav-btn')) {
-        return;
-      }
-
-      // Check if the click corresponds to an image in the grid
-      const result = getClickedCell(e.clientX, e.clientY);
-      if (result && result.isOnImage && result.texIndex !== focusedIndex) {
-        // Clicked a different image - switch focus to it
-        enterFocusMode(result.texIndex, result.cellX, result.cellY);
-      } else {
-        // Clicked empty space or the same image - exit focus
+      // Close if clicking the background (not the header or nav buttons)
+      // Check if the click target is the overlay itself or an element that isn't interactive
+      if (!e.target.closest('.archive-header') && !e.target.closest('.archive-nav-wrap') && !e.target.closest('.nav-btn')) {
         exitFocusMode();
       }
     });
@@ -898,10 +886,8 @@ export function destroyArchiveScene() {
   plane = null;
   crtPass = null;
   renderTarget = null;
-  crtTweakPanel = null;
   focusedIndex = -1;
   focusState = { value: 0 };
-  currentFocusCell = { x: -9999, y: -9999 };
   offset = { x: 0, y: 0 };
   targetOffset = { x: 0, y: 0 };
   dragZoom = { value: 1 };
@@ -909,4 +895,5 @@ export function destroyArchiveScene() {
   mousePressed = { value: 0 };
   mouse = { x: 0, y: 0 };
   mouseParallax = { x: 0, y: 0 };
+  lastMouseUpdateTime = 0;
 }

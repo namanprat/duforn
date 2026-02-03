@@ -16,6 +16,7 @@ html, body {
   height: 100%;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
+  user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -180,6 +181,14 @@ html {
   --spacing-space-6: clamp(2 * 1rem, ((2 - ((2.5 - 2) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((2.5 - 2) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 2.5 * 1rem);
   --spacing-space-7: clamp(2.25 * 1rem, ((2.25 - ((3 - 2.25) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((3 - 2.25) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 3 * 1rem);
   --spacing-space-8: clamp(2.5 * 1rem, ((2.5 - ((4 - 2.5) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((4 - 2.5) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 4 * 1rem);
+
+  /* Infinite Grid */
+  --grid-line-color: rgba(255, 255, 255, 0.1);
+  --grid-line-width: 1px;
+  --grid-major-line-color: rgba(255, 255, 255, 0.2);
+  --grid-major-line-width: 2px;
+  --grid-major-every: 5;
+  --grid-zoom: 1.0;
 }
 /* --- BASE STYLES --- */
 * {

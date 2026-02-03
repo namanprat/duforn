@@ -7,6 +7,7 @@ import { initIndex, destroyIndex } from './index.js';
 import { initVariableFont } from './variable-font.js';
 import { initWork, destroyWork } from './work.js';
 import { initArchiveScene, destroyArchiveScene } from './archive-scene.js';
+import { initInfiniteGrid, destroyGrid } from './infinite-grid.js';
 import { animateRevealEnter, initScrollTextReveals, getOrSplit, cleanupScrollTriggers } from './text-reveal.js';
 import webgl, { destroyWebgl } from './three.js';
 import { initLinkHover, destroyLinkHover } from './link-hover.js';
@@ -53,14 +54,17 @@ function initPageFeatures(namespace) {
     initWork();
     destroyWebgl();
     destroyArchiveScene();
+    destroyGrid();
   } else if (ns === 'archive') {
     destroyIndex();
     destroyWork();
     destroyWebgl();
     initArchiveScene();
+    initInfiniteGrid();
   } else if (ns === 'home' || ns === 'contact') {
     destroyWork();
     destroyArchiveScene();
+    destroyGrid();
     webgl();
     if (ns === 'home') {
       initIndex();
@@ -71,6 +75,7 @@ function initPageFeatures(namespace) {
     destroyIndex();
     destroyWork();
     destroyArchiveScene();
+    destroyGrid();
     destroyWebgl();
   }
 }
@@ -168,6 +173,7 @@ barba.init({
         }
         if (data?.current?.namespace === 'archive') {
           destroyArchiveScene();
+          destroyGrid();
         }
         cleanupScrollTriggers(); // Clean up ScrollTriggers before transition
         closeMenuIfOpen();
