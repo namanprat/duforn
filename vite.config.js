@@ -24,4 +24,17 @@ export default defineConfig({
     ],
     copyPublicDir: true,
   },
+  test: {
+    globals: true,
+    environment: 'happy-dom',
+    setupFiles: ['./test/setup.js'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'lcov'],
+      include: ['scripts/**/*.js'],
+      exclude: ['scripts/shaders*.js', 'scripts/CRT*.js', 'scripts/data.js']
+    },
+    testTimeout: 10000,
+    mockReset: true
+  }
 });
