@@ -34,10 +34,9 @@ const fragmentShader = `
     return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
   }
 
-  // Per-cell parallax intensity variation with optimized calculation
+  // Per-cell parallax intensity variation (creates depth)
   float getParallaxIntensity(vec2 cellId) {
-    // Simplified parallax for better performance
-    return 0.6 + random(cellId) * 0.8;
+    return 0.5 + random(cellId + vec2(500.0, 0.0)) * 1.5;
   }
 
   void main() {
@@ -99,30 +98,19 @@ const fragmentShader = `
     } else {
       baseImageSize = 0.65 + randomSize * 0.25; // Large: 0.65 to 0.90
     }
-    // In focus mode, scale inactive images to 0.9 and active to 1.05
-    float targetSize = isFocused ? baseImageSize * 1.05 : baseImageSize * 0.9;
-    float imageSize = mix(baseImageSize, targetSize, uFocusState);
+    // In focus mode, use natural size without scaling; otherwise use base size
+    float targetImageSize = baseImageSize;
+    float imageSize = mix(baseImageSize, targetImageSize, uFocusState);
+    
+    float imageBorder = (1.0 - imageSize) * 0.5;
+    vec2 imageUV = (cellUV - imageBorder) / imageSize;
 
+    // Apply natural aspect ratio
     float naturalAspect = uAspectRatios[int(texIndex)];
-    vec2 imageScale = naturalAspect > 1.0
-      ? vec2(1.0, 1.0 / naturalAspect)
-      : vec2(naturalAspect, 1.0);
-
-    vec2 imageSizeVec = imageSize * imageScale;
-    vec2 imageBorder = (1.0 - imageSizeVec) * 0.5;
-
-    vec2 imageUV = (cellUV - imageBorder) / imageSizeVec;
-
-    // Map image-space UVs to the padded atlas tile so the image keeps its natural aspect.
-    vec2 atlasImageUV = imageUV;
     if (naturalAspect > 1.0) {
-      float newHeight = 1.0 / naturalAspect;
-      float yOffset = (1.0 - newHeight) * 0.5;
-      atlasImageUV.y = imageUV.y * newHeight + yOffset;
+      imageUV.x = (imageUV.x - 0.5) * naturalAspect + 0.5;
     } else {
-      float newWidth = naturalAspect;
-      float xOffset = (1.0 - newWidth) * 0.5;
-      atlasImageUV.x = imageUV.x * newWidth + xOffset;
+      imageUV.y = (imageUV.y - 0.5) / naturalAspect + 0.5;
     }
 
     float edgeSmooth = 0.02;
@@ -136,19 +124,19 @@ const fragmentShader = `
       float atlasSize = ceil(sqrt(uTextureCount));
       vec2 atlasPos = vec2(mod(texIndex, atlasSize), floor(texIndex / atlasSize));
 
-      // Optimized Chromatic Aberration - reduced intensity for performance
-      float caStrength = 0.003 * pow(radius, 2.0);
+      // Chromatic Aberration - increases at edges of viewport
+      float caStrength = 0.012 * pow(radius, 2.0);
       vec2 caOffset = screenUV * caStrength;
 
-      vec2 imageUVR = atlasImageUV - caOffset;
+      vec2 imageUVR = imageUV - caOffset;
       vec2 atlasUVR = (atlasPos + clamp(imageUVR, 0.0, 1.0)) / atlasSize;
       atlasUVR.y = 1.0 - atlasUVR.y;
 
-      vec2 imageUVG = atlasImageUV;
+      vec2 imageUVG = imageUV;
       vec2 atlasUVG = (atlasPos + imageUVG) / atlasSize;
       atlasUVG.y = 1.0 - atlasUVG.y;
 
-      vec2 imageUVB = atlasImageUV + caOffset;
+      vec2 imageUVB = imageUV + caOffset;
       vec2 atlasUVB = (atlasPos + clamp(imageUVB, 0.0, 1.0)) / atlasSize;
       atlasUVB.y = 1.0 - atlasUVB.y;
 
@@ -218,8 +206,6 @@ let mousePressed = { value: 0 };
 // Mouse parallax state
 let mouse = { x: 0, y: 0 };
 let mouseParallax = { x: 0, y: 0 };
-let lastMouseUpdateTime = 0;
-const MOUSE_THROTTLE_MS = 16; // ~60fps throttle
 
 // --- Helper Functions ---
 const createTextureAtlas = (textures) => {
@@ -470,9 +456,7 @@ const getClickedCell = (clientX, clientY) => {
   } else {
     baseImageSize = 0.65 + randomSize * 0.25;
   }
-  const isFocused = (texIndex === focusedIndex);
-  const targetSize = isFocused ? baseImageSize * 1.05 : baseImageSize * 0.9;
-  const imageSize = baseImageSize + (targetSize - baseImageSize) * focusState.value;
+  const imageSize = baseImageSize;
   const border = (1 - imageSize) / 2;
   
   // Account for natural aspect ratio in hit detection
@@ -524,18 +508,14 @@ const onPointerDown = (e) => {
 };
 
 const onPointerMove = (e) => {
-  // Update mouse position for parallax (only when not dragging, throttled)
+  // Update mouse position for parallax (only when not dragging)
   if (!isDragging && renderer) {
-    const now = performance.now();
-    if (now - lastMouseUpdateTime > MOUSE_THROTTLE_MS) {
-      const rect = renderer.domElement.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / rect.width - 0.5;
-      const y = (e.clientY - rect.top) / rect.height - 0.5;
-      // Parallax effect
-      mouse.x = -x * 0.08;
-      mouse.y = y * 0.08;
-      lastMouseUpdateTime = now;
-    }
+    const rect = renderer.domElement.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    // Enhanced parallax effect with more intensity
+    mouse.x = -x * 0.08;
+    mouse.y = y * 0.08;
   }
 
   if (!isDragging) return;
@@ -895,5 +875,4 @@ export function destroyArchiveScene() {
   mousePressed = { value: 0 };
   mouse = { x: 0, y: 0 };
   mouseParallax = { x: 0, y: 0 };
-  lastMouseUpdateTime = 0;
 }
