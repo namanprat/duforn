@@ -2102,8 +2102,8 @@ img {
   column-gap: var(--site--gutter);
 }
 .grid-guide__col {
-  background: rgba(255, 255, 255, 0.06);
-  outline: 1px dashed rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.06);
+  outline: 1px dashed rgb(102, 102, 102);
 }
 @media (prefers-color-scheme: light) {
   .grid-guide__col {
@@ -2170,7 +2170,8 @@ img {
   pointer-events: none;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: center;
+  align-items: center;
   padding: var(--site--margin);
   opacity: 0;
   transition: opacity 0.5s ease;
@@ -2181,28 +2182,82 @@ img {
   pointer-events: auto;
 }
 
+.archive-grid-control {
+  position: absolute;
+  top: var(--site--margin);
+  right: var(--site--margin);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  pointer-events: auto;
+  color: var(--theme-primary);
+  font-size: 0.875rem;
+  z-index: 10;
+}
+
+.archive-grid-control input[type="range"] {
+  width: 120px;
+  cursor: pointer;
+  accent-color: var(--theme-primary);
+}
+
+.archive-grid-controls {
+  position: fixed;
+  top: var(--site--margin);
+  right: var(--site--margin);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: auto;
+  z-index: 101;
+}
+
+.archive-control-group {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--theme-primary);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.archive-control-group input[type="range"] {
+  width: 80px;
+  height: 4px;
+  cursor: pointer;
+  accent-color: var(--theme-primary);
+}
+
+.control-value {
+  min-width: 2rem;
+  text-align: right;
+  font-family: var(--text-style-font-secondary);
+}
+
 .archive-header {
-  width: 100%;
   text-align: center;
-  margin-top: 5rem;
   overflow: hidden;
+  pointer-events: auto;
+  max-width: 90%;
+  width: auto;
 }
 
 .archive-nav-wrap {
+  position: absolute;
+  bottom: var(--site--margin);
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 5;
-  width: 100%;
-  align-items: center;
-  display: block;
+  width: auto;
+  display: flex;
+  justify-content: center;
+  text-align: center;
 }
 
 .archive-nav-contain {
-  max-width: var(--container--main);
-  width: 100%;
-  margin-left: auto;
-  margin-right: auto;
   display: flex;
   flex-direction: row;
-  justify-content: space-between;
+  gap: 2rem;
 }
 
 .nav-btn {

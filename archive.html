@@ -62,8 +62,21 @@
 
       <section id="gallery"></section>
 
+      <!-- Grid controls (outside overlay so they're always visible) -->
+      <div class="archive-grid-controls">
+        <div class="archive-control-group">
+          <label for="grid-size-slider">Grid: </label>
+          <input type="range" id="grid-size-slider" min="0.2" max="2.0" step="0.1" value="0.5" />
+          <span id="grid-size-value" class="control-value">0.5</span>
+        </div>
+        <div class="archive-control-group">
+          <label for="line-thickness-slider">Line: </label>
+          <input type="range" id="line-thickness-slider" min="0.01" max="0.1" step="0.01" value="0.03" />
+          <span id="line-thickness-value" class="control-value">0.03</span>
+        </div>
+      </div>
+
       <div id="archive-overlay" class="archive-overlay">
-        <!-- <button id="archive-close" class="nav-btn" style="position: absolute; top: 2rem; right: 2rem;">Close</button> -->
         <div class="archive-header">
           <h2 id="archive-title">Title</h2>
         </div>

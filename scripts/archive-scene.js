@@ -3,6 +3,63 @@ import { projects } from "./data.js";
 import { CRTShader } from "./CRTShader.js";
 import gsap from "gsap";
 
+// --- Background Grid Shader ---
+const gridVertexShader = `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const gridFragmentShader = `
+  uniform vec2 uResolution;
+  uniform float uGridSize;
+  uniform float uTime;
+  uniform float uMousePressed;
+  uniform float uZoom;
+  uniform float uDistortion;
+  uniform vec2 uOffset;
+  uniform float uLineThickness;
+
+  varying vec2 vUv;
+
+  void main() {
+    vec2 screenUV = (vUv - 0.5) * 2.0;
+
+    // Apply zoom
+    screenUV /= uZoom;
+
+    // Fisheye distortion - flattens when mouse is pressed
+    float radius = length(screenUV);
+    float effectiveDistortion = mix(uDistortion, 0.0, uMousePressed);
+    float distortion = 1.0 - effectiveDistortion * radius * radius;
+    vec2 distortedUV = screenUV * distortion;
+
+    vec2 aspectRatio = vec2(uResolution.x / uResolution.y, 1.0);
+    
+    // Grid moves with offset (infinite scrolling)
+    vec2 gridCoord = (distortedUV * aspectRatio + uOffset) / uGridSize;
+    vec2 gridCell = fract(gridCoord);
+    
+    // Line thickness
+    float lineWidth = uLineThickness;
+    
+    // Calculate distance to nearest grid line
+    float distX = min(gridCell.x, 1.0 - gridCell.x);
+    float distY = min(gridCell.y, 1.0 - gridCell.y);
+    
+    // Draw lines
+    float lines = step(lineWidth, distX) * step(lineWidth, distY);
+    float gridLine = 1.0 - lines;
+    
+    // 50% grey color
+    vec3 gridColor = vec3(0.5);
+    
+    gl_FragColor = vec4(gridColor, gridLine * 0.5);
+  }
+`;
+
 // --- Archive Shaders ---
 const vertexShader = `
   varying vec2 vUv;
@@ -24,7 +81,6 @@ const fragmentShader = `
   uniform float uFocusState;
   uniform float uMousePressed;
   uniform float uZoom;
-  uniform vec2 uMouseParallax;
   uniform float uAspectRatios[${projects.length}];
 
   varying vec2 vUv;
@@ -32,11 +88,6 @@ const fragmentShader = `
   // Random function for pseudo-random placement
   float random(vec2 st) {
     return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
-  }
-
-  // Per-cell parallax intensity variation (creates depth)
-  float getParallaxIntensity(vec2 cellId) {
-    return 0.5 + random(cellId + vec2(500.0, 0.0)) * 1.5;
   }
 
   void main() {
@@ -54,19 +105,11 @@ const fragmentShader = `
     vec2 aspectRatio = vec2(uResolution.x / uResolution.y, 1.0);
     float gridCellSize = uCellSize * 1.5;
     
-    // Get current cell for parallax variation
-    vec2 preCellPos = (distortedUV * aspectRatio + uOffset) / gridCellSize;
-    vec2 cellId = floor(preCellPos);
-    float parallaxIntensity = getParallaxIntensity(cellId);
-    
-    // Apply variable parallax based on cell depth (disabled when focused)
-    vec2 parallaxOffset = uMouseParallax * parallaxIntensity * (1.0 - uFocusState);
-    
-    vec2 worldCoord = (distortedUV * aspectRatio) + uOffset + parallaxOffset;
+    vec2 worldCoord = (distortedUV * aspectRatio) + uOffset;
 
     // Use larger grid cells for looser spacing
     vec2 cellPos = worldCoord / gridCellSize;
-    cellId = floor(cellPos);
+    vec2 cellId = floor(cellPos);
     vec2 cellUV = fract(cellPos);
     
     // Add random offset to each cell for scattered placement
@@ -105,12 +148,18 @@ const fragmentShader = `
     float imageBorder = (1.0 - imageSize) * 0.5;
     vec2 imageUV = (cellUV - imageBorder) / imageSize;
 
-    // Apply natural aspect ratio
+    // Apply natural aspect ratio with cover behavior
     float naturalAspect = uAspectRatios[int(texIndex)];
-    if (naturalAspect > 1.0) {
-      imageUV.x = (imageUV.x - 0.5) * naturalAspect + 0.5;
+    float cellAspect = 1.0; // Cells are square
+    
+    if (naturalAspect > cellAspect) {
+      // Image wider than cell - scale to cover height
+      float scale = cellAspect / naturalAspect;
+      imageUV.x = (imageUV.x - 0.5) / scale + 0.5;
     } else {
-      imageUV.y = (imageUV.y - 0.5) / naturalAspect + 0.5;
+      // Image taller than cell - scale to cover width
+      float scale = naturalAspect / cellAspect;
+      imageUV.y = (imageUV.y - 0.5) / scale + 0.5;
     }
 
     float edgeSmooth = 0.02;
@@ -170,6 +219,8 @@ const config = {
   cellSize: 0.85,
   distortion: 0.08,
   lerpFactor: 0.08,
+  gridSize: 0.5, // Initial grid size
+  lineThickness: 0.03, // Line thickness for grid
 };
 
 // --- State ---
@@ -180,6 +231,7 @@ let scene = null;
 let crtScene = null;
 let camera = null;
 let plane = null;
+let gridPlane = null;
 let animationId = null;
 let renderTarget = null;
 let crtPass = null;
@@ -402,7 +454,7 @@ const navigateProject = (direction) => {
 
 // --- Click Detection ---
 const getClickedCell = (clientX, clientY) => {
-  if (!renderer) return null;
+  if (!renderer || !plane?.material?.uniforms) return null;
 
   const rect = renderer.domElement.getBoundingClientRect();
   const screenX = ((clientX - rect.left) / rect.width) * 2 - 1;
@@ -412,18 +464,11 @@ const getClickedCell = (clientX, clientY) => {
   const ndc = new THREE.Vector2(screenX, screenY);
   const radius = ndc.length();
   
-  // If distortion is zero, this formula is unstable.
-  if (config.distortion < 1e-4) {
-    // No distortion, direct mapping
-  } else {
-    // Analytical solution for inverse of lens distortion
+  // Inverse fisheye distortion
+  if (config.distortion >= 1e-4) {
     const a = config.distortion;
-    const ru = radius; // distorted radius
-    // Solve `ru = rd * (1 - a * rd^2)` for rd (undistorted radius)
-    // This is a cubic equation: a * rd^3 - rd + ru = 0
-    // We can use Cardano's formula or a numerical approximation.
-    // Since we need a quick solution, let's use a few iterations of Newton's method.
-    let rd = ru; // Initial guess
+    const ru = radius;
+    let rd = ru;
     for(let i = 0; i < 4; i++) {
       const f = a * rd * rd * rd - rd + ru;
       const f_prime = 3.0 * a * rd * rd - 1.0;
@@ -433,21 +478,38 @@ const getClickedCell = (clientX, clientY) => {
   }
 
   const aspectRatio = rect.width / rect.height;
-  let worldX = ndc.x * aspectRatio + offset.x;
-  let worldY = ndc.y + offset.y;
+  const worldX = ndc.x * aspectRatio / dragZoom.value + offset.x;
+  const worldY = ndc.y / dragZoom.value + offset.y;
 
   // Match shader's grid calculation
   const gridCellSize = config.cellSize * 1.5;
   const cellX = Math.floor(worldX / gridCellSize);
   const cellY = Math.floor(worldY / gridCellSize);
   
-  // Check if click is on image (ignoring random offset for precision)
-  const cellUVX = (worldX / gridCellSize) - cellX;
-  const cellUVY = (worldY / gridCellSize) - cellY;
+  // Get fractional position within cell
+  let cellUVX = (worldX % gridCellSize) / gridCellSize;
+  let cellUVY = (worldY % gridCellSize) / gridCellSize;
 
-  // Random size matching shader
-  const randomSize = Math.abs(Math.sin((cellX + 200) * 12.9898 + cellY * 78.233) % 1);
-  const sizeCategory = Math.abs(Math.sin((cellX + 300) * 12.9898 + cellY * 78.233) % 1);
+  // Handle negative modulo
+  if (cellUVX < 0) cellUVX += 1;
+  if (cellUVY < 0) cellUVY += 1;
+
+  // Helper function to match shader's random
+  const random = (x, y) => {
+    const val = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453123;
+    return val - Math.floor(val);
+  };
+
+  // Apply random offset (matching shader)
+  const randomOffsetX = random(cellX, cellY) * 0.6 - 0.3;
+  const randomOffsetY = random(cellX + 100, cellY) * 0.6 - 0.3;
+  cellUVX -= randomOffsetX;
+  cellUVY -= randomOffsetY;
+
+  // Match shader's random sizing
+  const randomSize = random(cellX + 200, cellY);
+  const sizeCategory = random(cellX + 300, cellY);
+  
   let baseImageSize;
   if (sizeCategory < 0.3) {
     baseImageSize = 0.3 + randomSize * 0.15;
@@ -456,22 +518,31 @@ const getClickedCell = (clientX, clientY) => {
   } else {
     baseImageSize = 0.65 + randomSize * 0.25;
   }
+  
   const imageSize = baseImageSize;
   const border = (1 - imageSize) / 2;
   
-  // Account for natural aspect ratio in hit detection
-  const aspectRatios = plane.material.uniforms.uAspectRatios.value;
+  // Get texture index
   let texIndex = (cellX + cellY * 3) % projects.length;
   if (texIndex < 0) texIndex += projects.length;
+  texIndex = Math.floor(texIndex);
+  
+  // Account for natural aspect ratio with cover behavior
+  const aspectRatios = plane.material.uniforms.uAspectRatios.value;
   const naturalAspect = aspectRatios[texIndex];
+  const cellAspect = 1.0; // Cells are square
   
   let u = (cellUVX - border) / imageSize;
   let v = (cellUVY - border) / imageSize;
 
-  if (naturalAspect > 1.0) {
-    u = (u - 0.5) * naturalAspect + 0.5;
+  if (naturalAspect > cellAspect) {
+    // Image wider than cell - scale to cover height
+    const scale = cellAspect / naturalAspect;
+    u = (u - 0.5) / scale + 0.5;
   } else {
-    v = (v - 0.5) / naturalAspect + 0.5;
+    // Image taller than cell - scale to cover width
+    const scale = naturalAspect / cellAspect;
+    v = (v - 0.5) / scale + 0.5;
   }
 
   const isOnImage = u >= 0.0 && u <= 1.0 && v >= 0.0 && v <= 1.0;
@@ -508,16 +579,6 @@ const onPointerDown = (e) => {
 };
 
 const onPointerMove = (e) => {
-  // Update mouse position for parallax (only when not dragging)
-  if (!isDragging && renderer) {
-    const rect = renderer.domElement.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width - 0.5;
-    const y = (e.clientY - rect.top) / rect.height - 0.5;
-    // Enhanced parallax effect with more intensity
-    mouse.x = -x * 0.08;
-    mouse.y = y * 0.08;
-  }
-
   if (!isDragging) return;
 
   const deltaX = e.clientX - previousMouse.x;
@@ -670,16 +731,21 @@ const animate = () => {
   offset.x += (targetOffset.x - offset.x) * config.lerpFactor;
   offset.y += (targetOffset.y - offset.y) * config.lerpFactor;
 
-  // Smooth parallax lerp
-  mouseParallax.x += (mouse.x - mouseParallax.x) * 0.05;
-  mouseParallax.y += (mouse.y - mouseParallax.y) * 0.05;
-
   if (plane?.material?.uniforms) {
     plane.material.uniforms.uOffset.value.set(offset.x, offset.y);
     plane.material.uniforms.uTime.value = performance.now() * 0.001;
     plane.material.uniforms.uMousePressed.value = mousePressed.value;
     plane.material.uniforms.uZoom.value = dragZoom.value;
-    plane.material.uniforms.uMouseParallax.value.set(mouseParallax.x, mouseParallax.y);
+  }
+
+  // Update grid plane
+  if (gridPlane?.material?.uniforms) {
+    gridPlane.material.uniforms.uGridSize.value = config.gridSize;
+    gridPlane.material.uniforms.uTime.value = performance.now() * 0.001;
+    gridPlane.material.uniforms.uMousePressed.value = mousePressed.value;
+    gridPlane.material.uniforms.uZoom.value = dragZoom.value;
+    gridPlane.material.uniforms.uOffset.value.set(offset.x, offset.y);
+    gridPlane.material.uniforms.uLineThickness.value = config.lineThickness;
   }
 
   // Render archive scene to render target
@@ -725,6 +791,31 @@ const init = async () => {
 
   // Shader plane
   const geometry = new THREE.PlaneGeometry(2, 2);
+  
+  // Grid plane (added FIRST so it renders behind images)
+  const gridMaterial = new THREE.ShaderMaterial({
+    vertexShader: gridVertexShader,
+    fragmentShader: gridFragmentShader,
+    uniforms: {
+      uResolution: { value: new THREE.Vector2(width, height) },
+      uGridSize: { value: config.gridSize },
+      uTime: { value: 0 },
+      uMousePressed: { value: 0 },
+      uZoom: { value: 1 },
+      uDistortion: { value: config.distortion },
+      uOffset: { value: new THREE.Vector2(0, 0) },
+      uLineThickness: { value: config.lineThickness },
+    },
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+  });
+  
+  gridPlane = new THREE.Mesh(geometry, gridMaterial);
+  gridPlane.position.z = -0.5; // Behind images
+  scene.add(gridPlane);
+  
+  // Image plane (renders on top of grid)
   const material = new THREE.ShaderMaterial({
     vertexShader,
     fragmentShader,
@@ -740,7 +831,6 @@ const init = async () => {
       uFocusState: { value: 0 },
       uMousePressed: { value: 0 },
       uZoom: { value: 1 },
-      uMouseParallax: { value: new THREE.Vector2(0, 0) },
       uAspectRatios: { value: aspectRatios },
     },
     transparent: true,
@@ -806,6 +896,32 @@ const init = async () => {
   if (prevBtn) prevBtn.addEventListener("click", (e) => { e.stopPropagation(); navigateProject(-1); });
   if (nextBtn) nextBtn.addEventListener("click", (e) => { e.stopPropagation(); navigateProject(1); });
 
+  // Grid size slider
+  const gridSizeSlider = document.getElementById("grid-size-slider");
+  if (gridSizeSlider) {
+    gridSizeSlider.addEventListener("input", (e) => {
+      const value = parseFloat(e.target.value);
+      config.gridSize = value;
+      const valueDisplay = document.getElementById("grid-size-value");
+      if (valueDisplay) {
+        valueDisplay.textContent = value.toFixed(1);
+      }
+    });
+  }
+
+  // Line thickness slider
+  const lineThicknessSlider = document.getElementById("line-thickness-slider");
+  if (lineThicknessSlider) {
+    lineThicknessSlider.addEventListener("input", (e) => {
+      const value = parseFloat(e.target.value);
+      config.lineThickness = value;
+      const valueDisplay = document.getElementById("line-thickness-value");
+      if (valueDisplay) {
+        valueDisplay.textContent = value.toFixed(2);
+      }
+    });
+  }
+
   // Overlay background click
   const overlay = document.getElementById("archive-overlay");
   if (overlay) {
@@ -851,6 +967,9 @@ export function destroyArchiveScene() {
   if (plane?.material) plane.material.dispose();
   if (plane?.geometry) plane.geometry.dispose();
   
+  if (gridPlane?.material) gridPlane.material.dispose();
+  if (gridPlane?.geometry) gridPlane.geometry.dispose();
+  
   if (crtPass?.material) crtPass.material.dispose();
   if (crtPass?.geometry) crtPass.geometry.dispose();
   
@@ -864,6 +983,7 @@ export function destroyArchiveScene() {
   crtScene = null;
   camera = null;
   plane = null;
+  gridPlane = null;
   crtPass = null;
   renderTarget = null;
   focusedIndex = -1;
