@@ -3,64 +3,7 @@ import { projects } from "./data.js";
 import { CRTShader } from "./CRTShader.js";
 import gsap from "gsap";
 
-// --- Background Grid Shader ---
-const gridVertexShader = `
-  varying vec2 vUv;
-  void main() {
-    vUv = uv;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }
-`;
-
-const gridFragmentShader = `
-  uniform vec2 uResolution;
-  uniform float uGridSize;
-  uniform float uTime;
-  uniform float uMousePressed;
-  uniform float uZoom;
-  uniform float uDistortion;
-  uniform vec2 uOffset;
-  uniform float uLineThickness;
-
-  varying vec2 vUv;
-
-  void main() {
-    vec2 screenUV = (vUv - 0.5) * 2.0;
-
-    // Apply zoom
-    screenUV /= uZoom;
-
-    // Fisheye distortion - flattens when mouse is pressed
-    float radius = length(screenUV);
-    float effectiveDistortion = mix(uDistortion, 0.0, uMousePressed);
-    float distortion = 1.0 - effectiveDistortion * radius * radius;
-    vec2 distortedUV = screenUV * distortion;
-
-    vec2 aspectRatio = vec2(uResolution.x / uResolution.y, 1.0);
-    
-    // Grid moves with offset (infinite scrolling)
-    vec2 gridCoord = (distortedUV * aspectRatio + uOffset) / uGridSize;
-    vec2 gridCell = fract(gridCoord);
-    
-    // Line thickness
-    float lineWidth = uLineThickness;
-    
-    // Calculate distance to nearest grid line
-    float distX = min(gridCell.x, 1.0 - gridCell.x);
-    float distY = min(gridCell.y, 1.0 - gridCell.y);
-    
-    // Draw lines
-    float lines = step(lineWidth, distX) * step(lineWidth, distY);
-    float gridLine = 1.0 - lines;
-    
-    // 50% grey color
-    vec3 gridColor = vec3(0.5);
-    
-    gl_FragColor = vec4(gridColor, gridLine * 0.5);
-  }
-`;
-
-// --- Archive Shaders ---
+// --- Shaders ---
 const vertexShader = `
   varying vec2 vUv;
   void main() {
@@ -81,14 +24,9 @@ const fragmentShader = `
   uniform float uFocusState;
   uniform float uMousePressed;
   uniform float uZoom;
-  uniform float uAspectRatios[${projects.length}];
+  uniform float uIntroProgress;
 
   varying vec2 vUv;
-
-  // Random function for pseudo-random placement
-  float random(vec2 st) {
-    return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
-  }
 
   void main() {
     vec2 screenUV = (vUv - 0.5) * 2.0;
@@ -103,23 +41,12 @@ const fragmentShader = `
     vec2 distortedUV = screenUV * distortion;
 
     vec2 aspectRatio = vec2(uResolution.x / uResolution.y, 1.0);
-    float gridCellSize = uCellSize * 1.5;
-    
-    vec2 worldCoord = (distortedUV * aspectRatio) + uOffset;
+    // Expand from center based on intro progress
+    vec2 worldCoord = (distortedUV * aspectRatio) * uIntroProgress + uOffset;
 
-    // Use larger grid cells for looser spacing
-    vec2 cellPos = worldCoord / gridCellSize;
+    vec2 cellPos = worldCoord / uCellSize;
     vec2 cellId = floor(cellPos);
     vec2 cellUV = fract(cellPos);
-    
-    // Add random offset to each cell for scattered placement
-    vec2 randomOffset = vec2(
-      random(cellId) * 0.6 - 0.3,
-      random(cellId + vec2(100.0, 0.0)) * 0.6 - 0.3
-    );
-    
-    // Apply random offset to cell UV
-    cellUV -= randomOffset;
 
     float texIndex = mod(cellId.x + cellId.y * 3.0, uTextureCount);
     if (texIndex < 0.0) texIndex += uTextureCount;
@@ -130,37 +57,15 @@ const fragmentShader = `
     vec3 color = vec3(0.0);
     float outAlpha = 0.0;
 
-    // Vary image sizes randomly - more varied like reference
-    float randomSize = random(cellId + vec2(200.0, 0.0));
-    float sizeCategory = random(cellId + vec2(300.0, 0.0));
-    float baseImageSize;
-    if (sizeCategory < 0.3) {
-      baseImageSize = 0.3 + randomSize * 0.15; // Small: 0.30 to 0.45
-    } else if (sizeCategory < 0.7) {
-      baseImageSize = 0.45 + randomSize * 0.2; // Medium: 0.45 to 0.65
-    } else {
-      baseImageSize = 0.65 + randomSize * 0.25; // Large: 0.65 to 0.90
-    }
-    // In focus mode, use natural size without scaling; otherwise use base size
-    float targetImageSize = baseImageSize;
+    float baseImageSize = 0.7;
+    float targetImageSize = isFocused ? 0.92 : 0.5;
     float imageSize = mix(baseImageSize, targetImageSize, uFocusState);
     
+    // Scale image from center during intro
+    imageSize *= smoothstep(0.0, 0.5, uIntroProgress);
+
     float imageBorder = (1.0 - imageSize) * 0.5;
     vec2 imageUV = (cellUV - imageBorder) / imageSize;
-
-    // Apply natural aspect ratio with cover behavior
-    float naturalAspect = uAspectRatios[int(texIndex)];
-    float cellAspect = 1.0; // Cells are square
-    
-    if (naturalAspect > cellAspect) {
-      // Image wider than cell - scale to cover height
-      float scale = cellAspect / naturalAspect;
-      imageUV.x = (imageUV.x - 0.5) / scale + 0.5;
-    } else {
-      // Image taller than cell - scale to cover width
-      float scale = naturalAspect / cellAspect;
-      imageUV.y = (imageUV.y - 0.5) / scale + 0.5;
-    }
 
     float edgeSmooth = 0.02;
     vec2 imageMask = smoothstep(-edgeSmooth, edgeSmooth, imageUV) *
@@ -208,19 +113,30 @@ const fragmentShader = `
     // Vignette fade at edges
     float fade = 1.0 - smoothstep(1.0, 1.6, radius);
     
-    outAlpha *= fade;
+    // Fade in based on intro progress
+    float introAlpha = smoothstep(0.0, 0.25, uIntroProgress);
+    outAlpha *= (fade * introAlpha);
 
-    gl_FragColor = vec4(color * fade, outAlpha);
+    gl_FragColor = vec4(color * fade * introAlpha, outAlpha);
   }
 `;
 
 // --- Configuration ---
 const config = {
-  cellSize: 0.85,
+  cellSize: 0.65,
   distortion: 0.08,
   lerpFactor: 0.08,
-  gridSize: 0.5, // Initial grid size
-  lineThickness: 0.03, // Line thickness for grid
+  // CRT Parameters
+  crtScanlineIntensity: 0.46,
+  crtScanlineCount: 663.0,
+  crtBrightness: 1.32,
+  crtContrast: 1.06,
+  crtSaturation: 1.20,
+  crtBloomIntensity: 0.23,
+  crtBloomThreshold: 0.35,
+  crtCurvature: 0.65,
+  crtFlickerStrength: 0.0,
+  crtVignetteStrength: 0.0,
 };
 
 // --- State ---
@@ -231,10 +147,9 @@ let scene = null;
 let crtScene = null;
 let camera = null;
 let plane = null;
-let gridPlane = null;
-let animationId = null;
-let renderTarget = null;
 let crtPass = null;
+let renderTarget = null;
+let animationId = null;
 
 let offset = { x: 0, y: 0 };
 let targetOffset = { x: 0, y: 0 };
@@ -254,10 +169,6 @@ let totalDragDistance = 0;
 
 // Mouse pressed state for fisheye flattening
 let mousePressed = { value: 0 };
-
-// Mouse parallax state
-let mouse = { x: 0, y: 0 };
-let mouseParallax = { x: 0, y: 0 };
 
 // --- Helper Functions ---
 const createTextureAtlas = (textures) => {
@@ -297,19 +208,13 @@ const createTextureAtlas = (textures) => {
 };
 
 const loadTextures = () => {
-  // Load textures and get their aspect ratios
   const textureLoader = new THREE.TextureLoader();
   const imageTextures = [];
-  const aspectRatios = [];
   let loadedCount = 0;
-  
   return new Promise((resolve) => {
-    projects.forEach((project, index) => {
-      const texture = textureLoader.load(project.image, (tex) => {
-        aspectRatios[index] = tex.image.width / tex.image.height;
-        if (++loadedCount === projects.length) {
-          resolve({ imageTextures, aspectRatios });
-        }
+    projects.forEach((project) => {
+      const texture = textureLoader.load(project.image, () => {
+        if (++loadedCount === projects.length) resolve(imageTextures);
       });
       texture.wrapS = THREE.ClampToEdgeWrapping;
       texture.wrapT = THREE.ClampToEdgeWrapping;
@@ -415,10 +320,9 @@ const enterFocusMode = (index, cellX, cellY) => {
     },
   });
 
-  // Center on the cell, ensuring it's perfectly in the middle
-  const gridCellSize = config.cellSize * 1.5;
-  targetOffset.x = (cellX + 0.5) * gridCellSize;
-  targetOffset.y = (cellY + 0.5) * gridCellSize;
+  // Center on the cell
+  targetOffset.x = (cellX + 0.5) * config.cellSize;
+  targetOffset.y = (cellY + 0.5) * config.cellSize;
 
   updateDOMOverlay(index);
 };
@@ -454,104 +358,43 @@ const navigateProject = (direction) => {
 
 // --- Click Detection ---
 const getClickedCell = (clientX, clientY) => {
-  if (!renderer || !plane?.material?.uniforms) return null;
+  if (!renderer) return null;
 
   const rect = renderer.domElement.getBoundingClientRect();
   const screenX = ((clientX - rect.left) / rect.width) * 2 - 1;
   const screenY = -(((clientY - rect.top) / rect.height) * 2 - 1);
 
-  // Invert fisheye distortion to find pre-distorted coordinates
-  const ndc = new THREE.Vector2(screenX, screenY);
-  const radius = ndc.length();
-  
-  // Inverse fisheye distortion
-  if (config.distortion >= 1e-4) {
-    const a = config.distortion;
-    const ru = radius;
-    let rd = ru;
-    for(let i = 0; i < 4; i++) {
-      const f = a * rd * rd * rd - rd + ru;
-      const f_prime = 3.0 * a * rd * rd - 1.0;
-      rd -= f / f_prime;
-    }
-    ndc.normalize().multiplyScalar(rd);
-  }
+  // Apply same distortion as shader
+  const radius = Math.sqrt(screenX * screenX + screenY * screenY);
+  const distortion = 1.0 - config.distortion * radius * radius;
 
   const aspectRatio = rect.width / rect.height;
-  const worldX = ndc.x * aspectRatio / dragZoom.value + offset.x;
-  const worldY = ndc.y / dragZoom.value + offset.y;
+  let worldX = screenX * distortion * aspectRatio + offset.x;
+  let worldY = screenY * distortion + offset.y;
 
-  // Match shader's grid calculation
-  const gridCellSize = config.cellSize * 1.5;
-  const cellX = Math.floor(worldX / gridCellSize);
-  const cellY = Math.floor(worldY / gridCellSize);
-  
-  // Get fractional position within cell
-  let cellUVX = (worldX % gridCellSize) / gridCellSize;
-  let cellUVY = (worldY % gridCellSize) / gridCellSize;
+  const cellX = Math.floor(worldX / config.cellSize);
+  const cellY = Math.floor(worldY / config.cellSize);
 
-  // Handle negative modulo
-  if (cellUVX < 0) cellUVX += 1;
-  if (cellUVY < 0) cellUVY += 1;
+  // Check if click is on image (images occupy ~70% of cell, centered)
+  const cellUVX = worldX / config.cellSize - cellX;
+  const cellUVY = worldY / config.cellSize - cellY;
 
-  // Helper function to match shader's random
-  const random = (x, y) => {
-    const val = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453123;
-    return val - Math.floor(val);
-  };
-
-  // Apply random offset (matching shader)
-  const randomOffsetX = random(cellX, cellY) * 0.6 - 0.3;
-  const randomOffsetY = random(cellX + 100, cellY) * 0.6 - 0.3;
-  cellUVX -= randomOffsetX;
-  cellUVY -= randomOffsetY;
-
-  // Match shader's random sizing
-  const randomSize = random(cellX + 200, cellY);
-  const sizeCategory = random(cellX + 300, cellY);
-  
-  let baseImageSize;
-  if (sizeCategory < 0.3) {
-    baseImageSize = 0.3 + randomSize * 0.15;
-  } else if (sizeCategory < 0.7) {
-    baseImageSize = 0.45 + randomSize * 0.2;
-  } else {
-    baseImageSize = 0.65 + randomSize * 0.25;
-  }
-  
-  const imageSize = baseImageSize;
+  const imageSize = focusedIndex === -1 ? 0.7 : (focusState.value > 0.5 ? 0.92 : 0.7);
   const border = (1 - imageSize) / 2;
-  
-  // Get texture index
+  const isOnImage = cellUVX > border && cellUVX < (1 - border) &&
+                    cellUVY > border && cellUVY < (1 - border);
+
   let texIndex = (cellX + cellY * 3) % projects.length;
   if (texIndex < 0) texIndex += projects.length;
-  texIndex = Math.floor(texIndex);
-  
-  // Account for natural aspect ratio with cover behavior
-  const aspectRatios = plane.material.uniforms.uAspectRatios.value;
-  const naturalAspect = aspectRatios[texIndex];
-  const cellAspect = 1.0; // Cells are square
-  
-  let u = (cellUVX - border) / imageSize;
-  let v = (cellUVY - border) / imageSize;
-
-  if (naturalAspect > cellAspect) {
-    // Image wider than cell - scale to cover height
-    const scale = cellAspect / naturalAspect;
-    u = (u - 0.5) / scale + 0.5;
-  } else {
-    // Image taller than cell - scale to cover width
-    const scale = naturalAspect / cellAspect;
-    v = (v - 0.5) / scale + 0.5;
-  }
-
-  const isOnImage = u >= 0.0 && u <= 1.0 && v >= 0.0 && v <= 1.0;
 
   return { cellX, cellY, texIndex, isOnImage };
 };
 
 // --- Event Handlers ---
 const onPointerDown = (e) => {
+  // Block interaction during intro
+  if (plane?.material?.uniforms?.uIntroProgress?.value < 0.9) return;
+
   // Allow navbar and UI buttons to work
   if (e.target.closest(".nav-wrap") ||
       e.target.closest(".nav-btn") ||
@@ -670,6 +513,9 @@ const onPointerUp = (e) => {
 };
 
 const onWheel = (e) => {
+  // Block interaction during intro
+  if (plane?.material?.uniforms?.uIntroProgress?.value < 0.9) return;
+
   // Only handle wheel on canvas
   if (!e.target.closest("#gallery")) return;
 
@@ -704,21 +550,16 @@ const onResize = () => {
   const height = container.offsetHeight;
 
   renderer.setSize(width, height);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  const pixelRatio = Math.min(window.devicePixelRatio, 2);
+  renderer.setPixelRatio(pixelRatio);
 
   if (plane?.material?.uniforms) {
     plane.material.uniforms.uResolution.value.set(width, height);
   }
-  
+
   // Update render target
   if (renderTarget) {
-    const pixelRatio = Math.min(window.devicePixelRatio, 2);
     renderTarget.setSize(width * pixelRatio, height * pixelRatio);
-  }
-  
-  // Update CRT shader resolution
-  if (crtPass?.material?.uniforms) {
-    crtPass.material.uniforms.uResolution = { value: new THREE.Vector2(width, height) };
   }
 };
 
@@ -736,16 +577,6 @@ const animate = () => {
     plane.material.uniforms.uTime.value = performance.now() * 0.001;
     plane.material.uniforms.uMousePressed.value = mousePressed.value;
     plane.material.uniforms.uZoom.value = dragZoom.value;
-  }
-
-  // Update grid plane
-  if (gridPlane?.material?.uniforms) {
-    gridPlane.material.uniforms.uGridSize.value = config.gridSize;
-    gridPlane.material.uniforms.uTime.value = performance.now() * 0.001;
-    gridPlane.material.uniforms.uMousePressed.value = mousePressed.value;
-    gridPlane.material.uniforms.uZoom.value = dragZoom.value;
-    gridPlane.material.uniforms.uOffset.value.set(offset.x, offset.y);
-    gridPlane.material.uniforms.uLineThickness.value = config.lineThickness;
   }
 
   // Render archive scene to render target
@@ -781,41 +612,15 @@ const init = async () => {
 
   // Scene & Camera
   scene = new THREE.Scene();
-  crtScene = new THREE.Scene();
   camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
   camera.position.z = 1;
 
-  // Load textures and aspect ratios
-  const { imageTextures, aspectRatios } = await loadTextures();
+  // Load textures
+  const imageTextures = await loadTextures();
   const imageAtlas = createTextureAtlas(imageTextures);
 
   // Shader plane
   const geometry = new THREE.PlaneGeometry(2, 2);
-  
-  // Grid plane (added FIRST so it renders behind images)
-  const gridMaterial = new THREE.ShaderMaterial({
-    vertexShader: gridVertexShader,
-    fragmentShader: gridFragmentShader,
-    uniforms: {
-      uResolution: { value: new THREE.Vector2(width, height) },
-      uGridSize: { value: config.gridSize },
-      uTime: { value: 0 },
-      uMousePressed: { value: 0 },
-      uZoom: { value: 1 },
-      uDistortion: { value: config.distortion },
-      uOffset: { value: new THREE.Vector2(0, 0) },
-      uLineThickness: { value: config.lineThickness },
-    },
-    transparent: true,
-    depthTest: false,
-    depthWrite: false,
-  });
-  
-  gridPlane = new THREE.Mesh(geometry, gridMaterial);
-  gridPlane.position.z = -0.5; // Behind images
-  scene.add(gridPlane);
-  
-  // Image plane (renders on top of grid)
   const material = new THREE.ShaderMaterial({
     vertexShader,
     fragmentShader,
@@ -831,7 +636,7 @@ const init = async () => {
       uFocusState: { value: 0 },
       uMousePressed: { value: 0 },
       uZoom: { value: 1 },
-      uAspectRatios: { value: aspectRatios },
+      uIntroProgress: { value: 0 },
     },
     transparent: true,
   });
@@ -848,23 +653,24 @@ const init = async () => {
     magFilter: THREE.LinearFilter
   });
   
-  // Create CRT post-processing material with locked settings
+  // Create CRT post-processing scene
+  crtScene = new THREE.Scene();
   const crtUniforms = {
     tDiffuse: { value: renderTarget.texture },
-    scanlineIntensity: { value: 0.46 },
-    scanlineCount: { value: 663.0 },
+    scanlineIntensity: { value: config.crtScanlineIntensity },
+    scanlineCount: { value: config.crtScanlineCount },
     time: { value: 0.0 },
     yOffset: { value: 0.0 },
-    brightness: { value: 1.32 },
-    contrast: { value: 1.06 },
-    saturation: { value: 1.20 },
-    bloomIntensity: { value: 0.23 },
-    bloomThreshold: { value: 0.35 },
+    brightness: { value: config.crtBrightness },
+    contrast: { value: config.crtContrast },
+    saturation: { value: config.crtSaturation },
+    bloomIntensity: { value: config.crtBloomIntensity },
+    bloomThreshold: { value: config.crtBloomThreshold },
     rgbShift: { value: 0.0 },
     adaptiveIntensity: { value: 1.0 },
-    vignetteStrength: { value: 0.0 },
-    curvature: { value: 0.65 },
-    flickerStrength: { value: 0.0 }
+    vignetteStrength: { value: config.crtVignetteStrength },
+    curvature: { value: config.crtCurvature },
+    flickerStrength: { value: config.crtFlickerStrength }
   };
   
   const crtMaterial = new THREE.ShaderMaterial({
@@ -880,7 +686,18 @@ const init = async () => {
   const crtGeometry = new THREE.PlaneGeometry(2, 2);
   crtPass = new THREE.Mesh(crtGeometry, crtMaterial);
   crtScene.add(crtPass);
-  
+
+  // Intro Animation
+  gsap.fromTo(material.uniforms.uIntroProgress, 
+    { value: 0 }, 
+    { 
+      value: 1, 
+      duration: 1.8, 
+      ease: "power3.out", 
+      delay: 0.2 
+    }
+  );
+
   // Event listeners (use canvas-level where possible)
   const canvas = renderer.domElement;
   canvas.addEventListener("pointerdown", onPointerDown);
@@ -896,32 +713,6 @@ const init = async () => {
   if (prevBtn) prevBtn.addEventListener("click", (e) => { e.stopPropagation(); navigateProject(-1); });
   if (nextBtn) nextBtn.addEventListener("click", (e) => { e.stopPropagation(); navigateProject(1); });
 
-  // Grid size slider
-  const gridSizeSlider = document.getElementById("grid-size-slider");
-  if (gridSizeSlider) {
-    gridSizeSlider.addEventListener("input", (e) => {
-      const value = parseFloat(e.target.value);
-      config.gridSize = value;
-      const valueDisplay = document.getElementById("grid-size-value");
-      if (valueDisplay) {
-        valueDisplay.textContent = value.toFixed(1);
-      }
-    });
-  }
-
-  // Line thickness slider
-  const lineThicknessSlider = document.getElementById("line-thickness-slider");
-  if (lineThicknessSlider) {
-    lineThicknessSlider.addEventListener("input", (e) => {
-      const value = parseFloat(e.target.value);
-      config.lineThickness = value;
-      const valueDisplay = document.getElementById("line-thickness-value");
-      if (valueDisplay) {
-        valueDisplay.textContent = value.toFixed(2);
-      }
-    });
-  }
-
   // Overlay background click
   const overlay = document.getElementById("archive-overlay");
   if (overlay) {
@@ -933,6 +724,54 @@ const init = async () => {
       }
     });
   }
+
+  // CRT GUI Controls
+  const setupCRTControls = () => {
+    const createSlider = (id, label, min, max, step, value, onChange) => {
+      const container = document.getElementById(id);
+      if (!container) return;
+      
+      const slider = container.querySelector('input[type="range"]');
+      const display = container.querySelector('.control-value');
+      
+      if (slider) {
+        slider.min = min;
+        slider.max = max;
+        slider.step = step;
+        slider.value = value;
+        slider.addEventListener('input', (e) => {
+          const val = parseFloat(e.target.value);
+          onChange(val);
+          if (display) display.textContent = val.toFixed(2);
+        });
+        if (display) display.textContent = value.toFixed(2);
+      }
+    };
+
+    if (crtPass?.material?.uniforms) {
+      const uniforms = crtPass.material.uniforms;
+      
+      createSlider('crt-scanline-intensity', 'Scanlines', 0, 1, 0.01, config.crtScanlineIntensity,
+        (val) => { config.crtScanlineIntensity = val; uniforms.scanlineIntensity.value = val; });
+      
+      createSlider('crt-brightness', 'Brightness', 0.5, 2, 0.01, config.crtBrightness,
+        (val) => { config.crtBrightness = val; uniforms.brightness.value = val; });
+      
+      createSlider('crt-contrast', 'Contrast', 0.5, 2, 0.01, config.crtContrast,
+        (val) => { config.crtContrast = val; uniforms.contrast.value = val; });
+      
+      createSlider('crt-saturation', 'Saturation', 0, 2, 0.01, config.crtSaturation,
+        (val) => { config.crtSaturation = val; uniforms.saturation.value = val; });
+      
+      createSlider('crt-bloom', 'Bloom', 0, 1, 0.01, config.crtBloomIntensity,
+        (val) => { config.crtBloomIntensity = val; uniforms.bloomIntensity.value = val; });
+      
+      createSlider('crt-curvature', 'Curvature', 0, 1, 0.01, config.crtCurvature,
+        (val) => { config.crtCurvature = val; uniforms.curvature.value = val; });
+    }
+  };
+
+  setupCRTControls();
 
   isRunning = true;
   animate();
@@ -966,10 +805,7 @@ export function destroyArchiveScene() {
 
   if (plane?.material) plane.material.dispose();
   if (plane?.geometry) plane.geometry.dispose();
-  
-  if (gridPlane?.material) gridPlane.material.dispose();
-  if (gridPlane?.geometry) gridPlane.geometry.dispose();
-  
+
   if (crtPass?.material) crtPass.material.dispose();
   if (crtPass?.geometry) crtPass.geometry.dispose();
   
@@ -983,7 +819,6 @@ export function destroyArchiveScene() {
   crtScene = null;
   camera = null;
   plane = null;
-  gridPlane = null;
   crtPass = null;
   renderTarget = null;
   focusedIndex = -1;
@@ -993,6 +828,4 @@ export function destroyArchiveScene() {
   dragZoom = { value: 1 };
   totalDragDistance = 0;
   mousePressed = { value: 0 };
-  mouse = { x: 0, y: 0 };
-  mouseParallax = { x: 0, y: 0 };
 }

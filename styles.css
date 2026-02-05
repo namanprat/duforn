@@ -2234,6 +2234,33 @@ img {
   font-family: var(--text-style-font-secondary);
 }
 
+.archive-crt-controls {
+  position: fixed;
+  bottom: var(--site--margin);
+  left: var(--site--margin);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: auto;
+  z-index: 101;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 0.75rem;
+  border: 1px solid rgba(226, 226, 226, 0.2);
+  border-radius: 4px;
+  max-width: 200px;
+}
+
+.crt-gui-title {
+  color: var(--theme-primary);
+  font-size: 0.625rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid rgba(226, 226, 226, 0.1);
+  margin-bottom: 0.25rem;
+}
+
 .archive-header {
   text-align: center;
   overflow: hidden;
