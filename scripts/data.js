@@ -46,47 +46,18 @@ export const projects = [
   },
   {
     title: "Afterimage",
-    image: "/canvas/image-1.jpg",
+    image: "/canvas/image-10.png",
     year: 2023,
   },
   {
     title: "Shadowhead",
-    image: "/canvas/image-2.jpg",
+    image: "/canvas/image-11.png",
     year: 2022,
   },
   {
     title: "Opal Lace",
-    image: "/canvas/image-3.jpg",
+    image: "/canvas/image-12.png",
     year: 2024,
   },
-  {
-    title: "Glassprint",
-    image: "/canvas/image-4.jpg",
-    year: 2024,
-  },
-  {
-    title: "Redshift",
-    image: "/canvas/image-5.jpg",
-    year: 2023,
-  },
-  {
-    title: "White Noise",
-    image: "/canvas/image-6.jpg",
-    year: 2023,
-  },
-  {
-    title: "Twin Field",
-    image: "/canvas/image-7.jpg",
-    year: 2024,
-  },
-  {
-    title: "Petalloop",
-    image: "/canvas/image-8.jpg",
-    year: 2023,
-  },
-  {
-    title: "Ghostwalk",
-    image: "/canvas/image-9.jpg",
-    year: 2024,
-  },
+  
 ];
