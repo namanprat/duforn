@@ -20,6 +20,8 @@ let containerEl = null;
 let isRunning = false;
 let dissolvePass = null;
 let heroScrollTrigger = null;
+let sceneTween = null;
+const sceneState = { x: 0, y: 0, z: 0 };
 
 const DissolveShader = {
   uniforms: {
@@ -166,9 +168,6 @@ export function webgl() {
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
       composer.setSize(width, height);
-      if (dissolvePass) {
-        dissolvePass.uniforms.uResolution.value.set(width, height);
-      }
     }, 100);
   };
   window.addEventListener('resize', resizeHandler);
@@ -177,34 +176,27 @@ export function webgl() {
   const renderPass = new RenderPass(scene, camera);
   composer.addPass(renderPass);
 
-  dissolvePass = new ShaderPass(DissolveShader);
-  dissolvePass.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
-  composer.addPass(dissolvePass);
-
   const outputPass = new OutputPass();
   composer.addPass(outputPass);
-
-  // Setup ScrollTrigger for dissolve effect
-  const hero = document.querySelector('.hero');
-  if (hero) {
-    heroScrollTrigger = ScrollTrigger.create({
-      trigger: hero,
-      start: "top top",
-      end: "bottom top",
-      scrub: true,
-      onUpdate: (self) => {
-        if (dissolvePass) {
-          dissolvePass.uniforms.uProgress.value = self.progress;
-        }
-      }
-    });
-  }
 
   let mousePos = { x: 0, y: 0 };
   let cameraTarget = { angle: Math.PI / 2, y: 0 };
   let cameraCurrent = { angle: Math.PI / 2, y: 0 };
   const BASE_CAMERA_RADIUS = Math.sqrt(50) / 2.5;
   let lastMouseTime = 0;
+
+  // Read sessionStorage to set initial scene offset (handles re-init after destroyWebgl)
+  if (sessionStorage.getItem('webgl-page') === 'contact') {
+    sceneState.x = 0;
+    sceneState.y = -2;
+    sceneState.z = 0;
+    scene.position.set(sceneState.x, sceneState.y, sceneState.z);
+  } else {
+    sceneState.x = 0;
+    sceneState.y = 0;
+    sceneState.z = 0;
+    scene.position.set(sceneState.x, sceneState.y, sceneState.z);
+  }
 
   mouseHandler = (event) => {
     // Throttle mouse updates to ~30fps for smoother performance
@@ -259,6 +251,11 @@ export function destroyWebgl() {
     mouseHandler = null;
   }
 
+  if (sceneTween) {
+    sceneTween.kill();
+    sceneTween = null;
+  }
+
   if (heroScrollTrigger) {
     heroScrollTrigger.kill();
     heroScrollTrigger = null;
@@ -283,6 +280,43 @@ export function destroyWebgl() {
   scene = null;
   camera = null;
   containerEl = null;
+}
+
+export function isWebglRunning() {
+  return isRunning;
+}
+
+/**
+ * Animate (or immediately set) the scene to home or contact position.
+ * @param {'home'|'contact'} page
+ * @param {boolean} immediate — if true, skip the tween
+ */
+export function setScenePage(page, immediate = false) {
+  const target = page === 'contact' ? { x: 0, y: -2, z: 0 } : { x: 0, y: 0, z: 0 };
+  sessionStorage.setItem('webgl-page', page);
+
+  if (sceneTween) {
+    sceneTween.kill();
+    sceneTween = null;
+  }
+
+  if (immediate) {
+    sceneState.x = target.x;
+    sceneState.y = target.y;
+    sceneState.z = target.z;
+    if (scene) scene.position.set(sceneState.x, sceneState.y, sceneState.z);
+  } else {
+    sceneTween = gsap.to(sceneState, {
+      x: target.x,
+      y: target.y,
+      z: target.z,
+      duration: 1.2,
+      ease: 'power2.inOut',
+      onUpdate: () => {
+        if (scene) scene.position.set(sceneState.x, sceneState.y, sceneState.z);
+      }
+    });
+  }
 }
 
 export default webgl;

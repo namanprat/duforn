@@ -14,11 +14,14 @@ High-performance interactive portfolio built as a static multi-page app with SPA
 | Vite | ^7.1.5 | Build tool (multi-page config) |
 | Barba.js | ^2.10.3 | SPA-style page transitions |
 | Three.js | ^0.180.0 | WebGL backgrounds + postprocessing |
-| GSAP | ^3.13.0 | Animations + ScrollTrigger + Draggable |
+| three-stdlib | ^2.36.1 | Three.js loader/helper utilities |
+| GSAP | ^3.13.0 | Animations + ScrollTrigger + Draggable + SplitText |
 | Lenis | ^1.3.11 | Smooth scrolling |
 | html2canvas | ^1.4.1 | Page capture for transitions |
 | split-type | ^0.3.4 | Text splitting for animations |
 | postprocessing | ^6.38.2 | Three.js post-processing effects |
+| lil-gui | ^0.21.0 | Debug GUI |
+| Vitest | ^4.0.18 | Unit testing framework |
 
 ## Commands
 
@@ -27,6 +30,9 @@ npm run dev       # Dev server (localhost:5173)
 npm run host      # Dev server on LAN
 npm run build     # Production build to dist/
 npm run preview   # Preview production build
+npm test          # Run unit tests (Vitest)
+npm run test:ui   # Run tests with browser UI
+npm run test:coverage  # Run tests with coverage
 ```
 
 ## Directory Structure
@@ -44,22 +50,30 @@ duforn/
 │
 ├── scripts/                # JavaScript modules
 │   ├── barba.js            # Page routing & lifecycle (MAIN ENTRY)
-│   ├── three.js            # WebGL background (home/contact)
+│   ├── three.js            # WebGL background (home/contact) + camera blending
 │   ├── transition.js       # Page transition shader effects
 │   ├── work.js             # Work page slider + thumbnail wheel
-│   ├── archive-scene.js    # Archive 3D scene
-│   ├── index.js            # Home page features
+│   ├── index.js            # Home page hero scroll effects
 │   ├── middle-carousel.js  # WebGL image carousel
 │   ├── lenis-scroll.js     # Smooth scroll setup
 │   ├── text-reveal.js      # SplitText animations
 │   ├── menu.js             # Navigation menu
-│   ├── variable-font.js    # Font weight hover effects
-│   ├── link-hover.js       # Link interaction effects
+│   ├── link-hover.js       # 3D character flip hover effects
 │   ├── btn-hover.js        # Button hover effects
-│   └── preloader.js        # Asset preloading
+│   ├── preloader.js        # Asset preloading
+│   └── archive/            # Archive page (modular)
+│       ├── index.js        # Entry point (init/destroy)
+│       ├── state.js        # Shared state management
+│       ├── config.js       # Configuration constants
+│       ├── renderer.js     # WebGL rendering setup
+│       ├── atlas.js        # Texture atlas management
+│       ├── shaders.js      # Archive-specific shaders
+│       ├── input.js        # Mouse, keyboard, touch input
+│       └── focus.js        # Focus mode panel logic
 │
 ├── data/
-│   └── work-items.js       # Project data for work page
+│   ├── work-items.js       # Project data for work page
+│   └── archive-items.js    # Archive item data (id, title, year, description, category, image)
 │
 ├── public/                 # Static assets (served at root)
 │   ├── home/               # 3D models, textures
@@ -116,24 +130,39 @@ Every page **MUST** follow this structure for Barba.js:
 
 ### Barba.js Lifecycle
 
+There are **two transition types**:
+
+**`home-contact-transition`** (home ↔ contact): Text-based transitions with camera blending, no html2canvas capture.
 ```
-Initial Load → once() → revealTransition() → initPageFeatures()
-Navigation   → leave() → animateTransition() → enter() → after() → initPageFeatures()
+once()  → initPageFeatures() → revealTransition() → animateRevealEnter()
+leave() → setCameraPage() → text animations out → Promise.all()
+enter() → set initial text states
+after() → initPageFeatures() → animateRevealEnter() / hero text in
 ```
 
-**Key file:** `scripts/barba.js:78-217`
+**`default`** (all other navigations): Standard html2canvas shader transitions.
+```
+once()  → initPageFeatures() → revealTransition() → text animations
+leave() → destroy page modules → cleanupScrollTriggers() → animateTransition()
+enter() → revealTransition()
+after() → initPageFeatures()
+```
+
+**Key file:** `scripts/barba.js:77-366`
 
 ### initPageFeatures(namespace)
 
-Called on every page load/transition (see `scripts/barba.js:42-76`):
+Called on every page load/transition (see `scripts/barba.js:40-75`):
 
 1. `initTime()` — Clock display
 2. `initMenu()` — Navigation
-3. `initVariableFont()` — Font hover effects
-4. `initScrollTextReveals()` — Text animations
-5. `initLinkHover()` — Link effects
-6. `initBtnHover()` — Button effects
-7. Namespace-specific: `webgl()`, `initWork()`, `initArchiveScene()`, `initIndex()`
+3. `initScrollTextReveals()` — Text animations
+4. `initLinkHover()` — 3D character flip hover effects
+5. `initBtnHover()` — Button effects
+6. Namespace-specific:
+   - `home` / `contact`: `webgl()` + `setCameraPage(ns, true)`, home also calls `initIndex()`
+   - `work`: `initWork()`, destroys WebGL + archive
+   - `archive`: `initArchiveScene()` (from `./archive/index.js`), destroys WebGL
 
 ## Module Pattern
 
@@ -193,7 +222,7 @@ function removeEventListeners() {
 2. **Store event handlers as named functions** (not anonymous)
 3. **Cancel ALL animation frames in destroy**
 4. **Clear DOM references to prevent memory leaks**
-5. **Check `isRunning` flag before initialization** (see `scripts/three.js:113-115`)
+5. **Check `isRunning` flag before initialization** (see `scripts/three.js:115-117`)
 
 ## WebGL Implementation
 
@@ -201,17 +230,24 @@ function removeEventListeners() {
 
 - Attaches to `#background` element
 - Loads GLTF from `/home/scene.glb`
-- Camera responds to mouse + scroll
-- Uses EffectComposer for dissolve shader
+- Shared across home and contact pages (not destroyed during home↔contact transitions)
+- Camera blends between home position (polar orbit with scroll zoom) and contact position (fixed with mouse parallax)
+- Uses EffectComposer with custom dissolve shader (chromatic aberration + FBM noise)
 
 ```javascript
 // Initialize (checks isRunning flag internally)
-import webgl, { destroyWebgl } from './three.js';
+import webgl, { destroyWebgl, setCameraPage } from './three.js';
 webgl();
+
+// Switch camera between home/contact (animated blend, 1.2s)
+setCameraPage('contact');       // smooth tween
+setCameraPage('home', true);    // immediate, no animation
 
 // Cleanup (CRITICAL - prevents memory leaks)
 destroyWebgl();
 ```
+
+**Camera blending:** `cameraState.contactBlend` (0 = home, 1 = contact) is animated via GSAP tween. The current page is persisted in `sessionStorage('webgl-page')` so re-initialization after navigation to/from archive/work restores the correct position.
 
 ### Transition WebGL (`scripts/transition.js`)
 
@@ -295,7 +331,8 @@ gsap.fromTo(split.words,
 - `.text-reveal` — Words slide up on scroll
 - `.text-reveal-reverse` — Words slide down on scroll
 - `.text-reveal-header` — Header text with transition animations
-- `.body-text-reveal` — Body text with line-by-line reveal
+- `.body-text-reveal` — Body text with line-by-line reveal (excludes hero elements)
+- `.hero-text-reveal` — Hero text with line-based splitting (home page, animated in Barba transitions)
 
 ### Lenis Smooth Scroll (`scripts/lenis-scroll.js`)
 
@@ -439,12 +476,16 @@ export function destroyNewpage() {
 ```javascript
 import { initNewpage, destroyNewpage } from './newpage.js';
 
-// In initPageFeatures():
-if (ns === 'newpage') {
+// In initPageFeatures() — add an else-if branch:
+} else if (ns === 'newpage') {
+  // Destroy other page modules as needed
+  destroyWork();
+  destroyArchiveScene();
+  destroyWebgl();
   initNewpage();
 }
 
-// In leave transition:
+// In the default leave transition:
 if (data?.current?.namespace === 'newpage') {
   destroyNewpage();
 }
@@ -453,12 +494,12 @@ if (data?.current?.namespace === 'newpage') {
 ## Performance Best Practices
 
 1. **DOM Queries:** Query once, cache references in module-level variables
-2. **Event Handlers:** Use named functions, throttle scroll/resize (see `scripts/three.js:208-213`)
+2. **Event Handlers:** Use named functions, throttle scroll/resize (see `scripts/three.js:191-201`)
 3. **Animations:** Use GSAP, not CSS transitions on frequently animated properties
 4. **Three.js:**
    - Dispose ALL resources (geometries, materials, textures, renderers)
    - Cap pixel ratio: `Math.min(window.devicePixelRatio || 1, 1.5)`
-   - Debounce resize handlers (see `scripts/three.js:157-173`)
+   - Debounce resize handlers (see `scripts/three.js:159-172`)
 5. **Images:** Use appropriate sizes, assets from `public/` are not processed
 
 ### Memory Leak Prevention Checklist
@@ -506,12 +547,16 @@ console.log(ScrollTrigger.getAll());
 | File | Purpose | Key Exports |
 |------|---------|-------------|
 | `scripts/barba.js` | Page routing & lifecycle | `initPageFeatures()` |
-| `scripts/three.js` | WebGL background | `webgl()`, `destroyWebgl()` |
+| `scripts/three.js` | WebGL background + camera | `webgl()`, `destroyWebgl()`, `setCameraPage()` |
 | `scripts/transition.js` | Page transitions | `animateTransition()`, `revealTransition()`, `closeMenuIfOpen()` |
 | `scripts/work.js` | Work page | `initWork()`, `destroyWork()` |
+| `scripts/archive/index.js` | Archive page | `initArchiveScene()`, `destroyArchiveScene()` |
+| `scripts/index.js` | Home page hero scroll | `initIndex()`, `destroyIndex()` |
 | `scripts/text-reveal.js` | Text animations | `getOrSplit()`, `initScrollTextReveals()`, `animateRevealEnter()`, `cleanupScrollTriggers()` |
+| `scripts/link-hover.js` | 3D char flip hover | `initLinkHover()`, `destroyLinkHover()` |
 | `scripts/lenis-scroll.js` | Smooth scroll | `lenis` |
 | `data/work-items.js` | Work data | `workItems` |
+| `data/archive-items.js` | Archive data | `archiveItems` |
 
 ## External Resources
 

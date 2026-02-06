@@ -303,7 +303,7 @@ function initScrollTextReveals() {
   const regular = document.querySelectorAll(".text-reveal:not(.hero .text-reveal)");
   const reverse = document.querySelectorAll(".text-reveal-reverse:not(.hero .text-reveal-reverse)");
   const headers = document.querySelectorAll(".text-reveal-header:not(.hero .text-reveal-header)");
-  const bodyReveals = document.querySelectorAll(".body-text-reveal");
+  const bodyReveals = document.querySelectorAll(".body-text-reveal:not(.hero .body-text-reveal):not(.hero-text-reveal)");
   
   // Process regular reveals
   for (let i = 0; i < regular.length; i++) {

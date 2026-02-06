@@ -17,20 +17,36 @@
       <div class="transition-overlay"></div>
     </div>
 
-    <!-- menu -->
     <nav class="nav-wrap u-position-fixed">
-      <div class="nav-contain u-container-full">
-        <a class="u-mobile-hidden" href="/work">work</a>
-        <a href="/" class="u-text-style-font-secondary">naman pratulya</a>
-        <a class="u-mobile-hidden" href="/contact">contact</a>
+        <div class="nav-contain u-container-full">
+          <a class="u-mobile-hidden" href="/work">work</a>
+          <a href="/" class="link-main">naman pratulya</a>
+          <a class="u-mobile-hidden" href="/contact">contact</a>
 
-        <div class="menu-toggle-btn">
-          <div class="menu-toggle-btn-wrapper">
-            <a>MENU</a>
+          <div class="menu-toggle-btn">
+              <div class="menu-toggle-btn-wrapper">
+              <a>MENU</a>
+            </div>
           </div>
         </div>
-      </div>
-    </nav>
+      </nav>
+
+      <!-- <div class="grid-guide">
+        <div class="grid-guide__inner">
+          <div class="grid-guide__col"></div>
+          <div class="grid-guide__col"></div>
+          <div class="grid-guide__col"></div>
+          <div class="grid-guide__col"></div>
+          <div class="grid-guide__col"></div>
+          <div class="grid-guide__col"></div>
+          <div class="grid-guide__col"></div>
+          <div class="grid-guide__col"></div>
+          <div class="grid-guide__col"></div>
+          <div class="grid-guide__col"></div>
+          <div class="grid-guide__col"></div>
+          <div class="grid-guide__col"></div>
+        </div>
+      </div> -->
 
     <div class="bottom-nav-wrap u-position-fixed u-container-full u-mobile-hidden">
       <div class="bottom-nav-contain">
@@ -43,9 +59,9 @@
       <div class="menu-content u-container-full">
         <div class="menu-box">
           <div class="menu-items">
-            <a class="menu-item" href="/work" data-animate="font-weight"><h1>Work</h1></a>
-            <a class="menu-item" href="/archive" data-animate="font-weight"><h1>Archive</h1></a>
-            <a class="menu-item" href="/contact" data-animate="font-weight"><h1>Contact</h1></a>
+              <a class="menu-item" href="/work"><h1>Work</h1></a>
+              <a class="menu-item" href="/archive"><h1>Archive</h1></a>
+              <a class="menu-item" href="/contact"><h1>Contact</h1></a>
           </div>
           <line></line>
           <div class="menu-footer">
@@ -58,69 +74,30 @@
       </div>
     </div>
 
+    <!-- WebGL background container -->
+    <div id="background"></div>
+
     <main data-barba="container" data-barba-namespace="archive">
 
       <section id="gallery"></section>
 
-      <!-- Grid controls (outside overlay so they're always visible) -->
-      <div class="archive-grid-controls">
-        <div class="archive-control-group">
-          <label for="grid-size-slider">Grid: </label>
-          <input type="range" id="grid-size-slider" min="0.2" max="2.0" step="0.1" value="0.5" />
-          <span id="grid-size-value" class="control-value">0.5</span>
-        </div>
-        <div class="archive-control-group">
-          <label for="line-thickness-slider">Line: </label>
-          <input type="range" id="line-thickness-slider" min="0.01" max="0.1" step="0.01" value="0.03" />
-          <span id="line-thickness-value" class="control-value">0.03</span>
-        </div>
-      </div>
-
-      <!-- CRT GUI controls -->
-      <div class="archive-crt-controls" id="crt-gui">
-        <div class="crt-gui-title">CRT</div>
-        <div class="archive-control-group" id="crt-scanline-intensity">
-          <label>Scanlines: </label>
-          <input type="range" />
-          <span class="control-value">0.46</span>
-        </div>
-        <div class="archive-control-group" id="crt-brightness">
-          <label>Brightness: </label>
-          <input type="range" />
-          <span class="control-value">1.32</span>
-        </div>
-        <div class="archive-control-group" id="crt-contrast">
-          <label>Contrast: </label>
-          <input type="range" />
-          <span class="control-value">1.06</span>
-        </div>
-        <div class="archive-control-group" id="crt-saturation">
-          <label>Saturation: </label>
-          <input type="range" />
-          <span class="control-value">1.20</span>
-        </div>
-        <div class="archive-control-group" id="crt-bloom">
-          <label>Bloom: </label>
-          <input type="range" />
-          <span class="control-value">0.23</span>
-        </div>
-        <div class="archive-control-group" id="crt-curvature">
-          <label>Curvature: </label>
-          <input type="range" />
-          <span class="control-value">0.65</span>
-        </div>
-      </div>
-
+      <!-- Focus mode overlay -->
       <div id="archive-overlay" class="archive-overlay">
-        <div class="archive-header">
-          <h2 id="archive-title">Title</h2>
+        <!-- Info panel (slides in from right on desktop, bottom on mobile) -->
+        <div class="archive-focus-panel">
+          <button class="archive-close-btn" aria-label="Close">&times;</button>
+          <div class="archive-focus-content">
+            <h2 class="archive-focus-title"></h2>
+            <p class="archive-focus-year u-text-style-font-secondary"></p>
+            <p class="archive-focus-description"></p>
+            <div class="archive-focus-category u-text-style-font-secondary"></div>
+          </div>
         </div>
 
-        <div class="archive-nav-wrap u-center-fixed u-container-full">
-          <div class="archive-nav-contain">
-            <button id="archive-prev" class="nav-btn u-radius-round">&larr;</button>
-            <button id="archive-next" class="nav-btn u-radius-round">&rarr;</button>
-          </div>
+        <!-- Navigation buttons -->
+        <div class="archive-nav-wrap">
+          <button id="archive-prev" class="archive-nav-btn" aria-label="Previous">&larr;</button>
+          <button id="archive-next" class="archive-nav-btn" aria-label="Next">&rarr;</button>
         </div>
       </div>
 

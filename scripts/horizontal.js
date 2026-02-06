@@ -1,127 +1,168 @@
-      import gsap from "gsap";
-      import { Draggable } from "gsap/Draggable";
-      import { lenis } from "./lenis-scroll.js";
+import gsap from "gsap";
+import { Draggable } from "gsap/Draggable";
+import { lenis } from "./lenis-scroll.js";
 
-      // register plugin as early as possible
-      gsap.registerPlugin(Draggable);
+// register plugin as early as possible
+gsap.registerPlugin(Draggable);
 
-      function horizontalScroll() {
-        const timeline = document.querySelector(".timeline");
-        const scroller = document.querySelector(".scroller");
-        const container = document.querySelector(".horizontal-container");
-        if (!timeline || !scroller || !container) {
-          console.warn("horizontalScroll: missing required DOM elements", { timeline, scroller, container });
-          return;
-        }
+let draggableInstance = null;
+let scrollHandler = null;
+let resizeHandler = null;
+let lenisScrollHandler = null;
 
-        const gap = parseInt(window.getComputedStyle(document.body).fontSize) || 16;
+export function initHorizontal() {
+  const timeline = document.querySelector(".timeline");
+  const scroller = document.querySelector(".scroller");
+  const container = document.querySelector(".horizontal-container");
+  if (!timeline || !scroller || !container) {
+    console.warn("initHorizontal: missing required DOM elements", { timeline, scroller, container });
+    return;
+  }
 
-        // helper: update spacer height so page has vertical scroll equal to horizontal content
-        function updateSpacer() {
-          let spacer = document.getElementById("horizontal-spacer");
-          if (!spacer) {
-            spacer = document.createElement("div");
-            spacer.id = "horizontal-spacer";
-            spacer.style.width = "1px";
-            spacer.style.pointerEvents = "none";
-            document.body.appendChild(spacer);
-          }
+  const gap = parseInt(window.getComputedStyle(document.body).fontSize) || 16;
 
-          // total horizontal scrollable distance
-          const totalHorizontal = Math.max(0, container.scrollWidth - window.innerWidth);
+  // helper: update spacer height so page has vertical scroll equal to horizontal content
+  function updateSpacer() {
+    let spacer = document.getElementById("horizontal-spacer");
+    if (!spacer) {
+      spacer = document.createElement("div");
+      spacer.id = "horizontal-spacer";
+      spacer.style.width = "1px";
+      spacer.style.pointerEvents = "none";
+      document.body.appendChild(spacer);
+    }
 
-          // make vertical scroll height roughly proportional to horizontal extent
-          // add viewport height to ensure full scroll
-          const spacerHeight = totalHorizontal + window.innerHeight;
-          spacer.style.height = spacerHeight + "px";
-        }
+    // total horizontal scrollable distance
+    const totalHorizontal = Math.max(0, container.scrollWidth - window.innerWidth);
 
-        function createMarkers(count = 50) {
-          // don't duplicate markers
-          if (timeline.querySelector(".marker")) return;
-          for (let i = 0; i < count; i++) {
-            const marker = document.createElement("div");
-            marker.classList.add("marker");
-            timeline.appendChild(marker);
-          }
-        }
+    // make vertical scroll height roughly proportional to horizontal extent
+    // add viewport height to ensure full scroll
+    const spacerHeight = totalHorizontal + window.innerHeight;
+    spacer.style.height = spacerHeight + "px";
+  }
 
-        createMarkers(50);
-        updateSpacer();
+  function createMarkers(count = 50) {
+    // don't duplicate markers
+    if (timeline.querySelector(".marker")) return;
+    for (let i = 0; i < count; i++) {
+      const marker = document.createElement("div");
+      marker.classList.add("marker");
+      timeline.appendChild(marker);
+    }
+  }
 
-        // compute sizes used for mapping
-        function computeSizes() {
-          return {
-            timelineWidth: timeline.offsetWidth,
-            scrollerWidth: scroller.offsetWidth,
-            maxDragX: Math.max(0, timeline.offsetWidth - scroller.offsetWidth - 2 * gap),
-            maxContainerScroll: Math.max(0, container.scrollWidth - window.innerWidth),
-            totalScrollHeight: Math.max(1, document.documentElement.scrollHeight - window.innerHeight),
-          };
-        }
+  createMarkers(50);
+  updateSpacer();
 
-        let sizes = computeSizes();
+  // compute sizes used for mapping
+  function computeSizes() {
+    return {
+      timelineWidth: timeline.offsetWidth,
+      scrollerWidth: scroller.offsetWidth,
+      maxDragX: Math.max(0, timeline.offsetWidth - scroller.offsetWidth - 2 * gap),
+      maxContainerScroll: Math.max(0, container.scrollWidth - window.innerWidth),
+      totalScrollHeight: Math.max(1, document.documentElement.scrollHeight - window.innerHeight),
+    };
+  }
 
-        // Draggable for manual interaction
-        Draggable.create(scroller, {
-          type: "x",
-          bounds: {
-            minX: gap,
-            maxX: sizes.maxDragX + gap,
-          },
-          onDrag: function () {
-            const progress = (this.x - gap) / sizes.maxDragX;
-            updateContainerPosition(clamp(progress, 0, 1));
-          },
-        });
+  let sizes = computeSizes();
 
-        // map vertical scroll to horizontal movement
-        function onScroll() {
-          sizes = computeSizes();
-          const progress = clamp(window.scrollY / sizes.totalScrollHeight, 0, 1);
-          updateContainerPosition(progress);
+  // Draggable for manual interaction
+  draggableInstance = Draggable.create(scroller, {
+    type: "x",
+    bounds: {
+      minX: gap,
+      maxX: sizes.maxDragX + gap,
+    },
+    onDrag: function () {
+      const progress = (this.x - gap) / sizes.maxDragX;
+      updateContainerPosition(clamp(progress, 0, 1));
+    },
+  })[0];
 
-          // move scroller to match
-          const newScrollerX = gap + progress * sizes.maxDragX;
-          gsap.to(scroller, { x: newScrollerX, duration: 0.1, overwrite: "auto" });
-        }
+  // small helper
+  function clamp(v, a, b) {
+    return Math.min(b, Math.max(a, v));
+  }
 
-        // small helper
-        function clamp(v, a, b) {
-          return Math.min(b, Math.max(a, v));
-        }
+  function updateContainerPosition(progress) {
+    const x = -sizes.maxContainerScroll * progress;
+    gsap.to(container, { x: x, duration: 0.15, ease: "power2.out", overwrite: "auto" });
+  }
 
-        function updateContainerPosition(progress) {
-          const x = -sizes.maxContainerScroll * progress;
-          gsap.to(container, { x: x, duration: 0.15, ease: "power2.out", overwrite: "auto" });
-        }
+  // map vertical scroll to horizontal movement
+  scrollHandler = function() {
+    sizes = computeSizes();
+    const progress = clamp(window.scrollY / sizes.totalScrollHeight, 0, 1);
+    updateContainerPosition(progress);
 
-        // Lenis integration if available
-        if (typeof lenis !== "undefined" && lenis && typeof lenis.on === "function") {
-          lenis.on("scroll", () => {
-            onScroll();
-          });
-        } else {
-          // fallback to native scroll
-          window.addEventListener("scroll", onScroll, { passive: true });
-        }
+    // move scroller to match
+    const newScrollerX = gap + progress * sizes.maxDragX;
+    gsap.to(scroller, { x: newScrollerX, duration: 0.1, overwrite: "auto" });
+  };
 
-        // handle resize
-        let resizeTimer;
-        window.addEventListener("resize", () => {
-          clearTimeout(resizeTimer);
-          resizeTimer = setTimeout(() => {
-            updateSpacer();
-            sizes = computeSizes();
-            onScroll();
-          }, 120);
-        });
+  // Lenis integration if available
+  if (typeof lenis !== "undefined" && lenis && typeof lenis.on === "function") {
+    lenisScrollHandler = () => scrollHandler();
+    lenis.on("scroll", lenisScrollHandler);
+  } else {
+    // fallback to native scroll
+    window.addEventListener("scroll", scrollHandler, { passive: true });
+  }
 
-        // initial position
-        onScroll();
-      }
+  // handle resize
+  let resizeTimer;
+  resizeHandler = () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      updateSpacer();
+      sizes = computeSizes();
+      scrollHandler();
+    }, 120);
+  };
+  window.addEventListener("resize", resizeHandler);
 
-      // main execution
-      document.addEventListener("DOMContentLoaded", () => {
-        horizontalScroll();
-      });
+  // initial position
+  scrollHandler();
+}
+
+export function destroyHorizontal() {
+  // Kill Draggable
+  if (draggableInstance) {
+    draggableInstance.kill();
+    draggableInstance = null;
+  }
+
+  // Remove scroll listeners
+  if (scrollHandler) {
+    if (typeof lenis !== "undefined" && lenis && typeof lenis.off === "function" && lenisScrollHandler) {
+      lenis.off("scroll", lenisScrollHandler);
+      lenisScrollHandler = null;
+    } else {
+      window.removeEventListener("scroll", scrollHandler);
+    }
+    scrollHandler = null;
+  }
+
+  // Remove resize listener
+  if (resizeHandler) {
+    window.removeEventListener("resize", resizeHandler);
+    resizeHandler = null;
+  }
+
+  // Remove spacer element
+  const spacer = document.getElementById("horizontal-spacer");
+  if (spacer && spacer.parentNode) {
+    spacer.parentNode.removeChild(spacer);
+  }
+
+  // Kill any GSAP tweens on container
+  const container = document.querySelector(".horizontal-container");
+  if (container) {
+    gsap.killTweensOf(container);
+  }
+  const scroller = document.querySelector(".scroller");
+  if (scroller) {
+    gsap.killTweensOf(scroller);
+  }
+}

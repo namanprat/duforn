@@ -7,9 +7,9 @@
     <link rel="icon" href="/site-icon.png" />
     <meta name="theme-color" content="#000000" />
     <meta name="author" content="Naman Pratulya" />
-    <script type="module" crossorigin src="/assets/Draggable-CLXCkgre.js"></script>
-    <script type="module" crossorigin src="/assets/barba-2KAAWooA.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/Draggable-RNeQ7_OV.css">
+    <script type="module" crossorigin src="/assets/Draggable-Btad6S5_.js"></script>
+    <script type="module" crossorigin src="/assets/barba-Vefi1y_o.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/Draggable-GqQxGT4L.css">
   </head>
 
   <body data-barba="wrapper" class="page-wrap">
@@ -60,21 +60,30 @@
       </div>
     </div>
 
+    <!-- WebGL background container -->
+    <div id="background"></div>
+
     <main data-barba="container" data-barba-namespace="archive">
 
       <section id="gallery"></section>
 
+      <!-- Focus mode overlay -->
       <div id="archive-overlay" class="archive-overlay">
-        <!-- <button id="archive-close" class="nav-btn" style="position: absolute; top: 2rem; right: 2rem;">Close</button> -->
-        <div class="archive-header">
-          <h2 id="archive-title">Title</h2>
+        <!-- Info panel (slides in from right on desktop, bottom on mobile) -->
+        <div class="archive-focus-panel">
+          <button class="archive-close-btn" aria-label="Close">&times;</button>
+          <div class="archive-focus-content">
+            <h2 class="archive-focus-title"></h2>
+            <p class="archive-focus-year u-text-style-font-secondary"></p>
+            <p class="archive-focus-description"></p>
+            <div class="archive-focus-category u-text-style-font-secondary"></div>
+          </div>
         </div>
 
-        <div class="archive-nav-wrap u-center-fixed u-container-full">
-          <div class="archive-nav-contain">
-            <button id="archive-prev" class="nav-btn u-radius-round">&larr;</button>
-            <button id="archive-next" class="nav-btn u-radius-round">&rarr;</button>
-          </div>
+        <!-- Navigation buttons -->
+        <div class="archive-nav-wrap">
+          <button id="archive-prev" class="archive-nav-btn" aria-label="Previous">&larr;</button>
+          <button id="archive-next" class="archive-nav-btn" aria-label="Next">&rarr;</button>
         </div>
       </div>
 

@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
 
-  <body>
+  <body data-barba="wrapper">
 
     <!-- page transition -->
     <div class="transition">
@@ -18,31 +18,36 @@
     </div>
 
     <!-- menu -->
-    <nav>
-      <a href="/" class="active">naman pratulya</a>
+    <nav class="nav-wrap u-position-fixed">
+        <div class="nav-contain u-container-full">
+          <a class="u-mobile-hidden" href="/work">work</a>
+          <a href="/" class="link-main">naman pratulya</a>
+          <a class="u-mobile-hidden" href="/contact">contact</a>
 
-      <div class="nav-1">
-        <ul class="nav-links">
-          <li class="nav-item">
-            <a href="/work">Work</a>
-          </li>
-          <li class="nav-item">
-            <a href="/archive">archive</a>
-          </li>
-          <li class="nav-item">
-            <a href="/contact">Contact</a>
-          </li>
-        </ul>
-      </div>
-
-      <a id="time">12:34:56 IST</a>
-
-      <div class="menu-toggle-btn">
-        <div class="menu-toggle-btn-wrapper">
-          <p>Menu</p>
+          <div class="menu-toggle-btn">
+              <div class="menu-toggle-btn-wrapper">
+              <a>MENU</a>
+            </div>
+          </div>
         </div>
-      </div>
-    </nav>
+      </nav>
+
+      <!-- <div class="grid-guide">
+        <div class="grid-guide__inner">
+          <div class="grid-guide__col"></div>
+          <div class="grid-guide__col"></div>
+          <div class="grid-guide__col"></div>
+          <div class="grid-guide__col"></div>
+          <div class="grid-guide__col"></div>
+          <div class="grid-guide__col"></div>
+          <div class="grid-guide__col"></div>
+          <div class="grid-guide__col"></div>
+          <div class="grid-guide__col"></div>
+          <div class="grid-guide__col"></div>
+          <div class="grid-guide__col"></div>
+          <div class="grid-guide__col"></div>
+        </div>
+      </div> -->
 
     <div class="nav-parent">
       <div class="nav-overlay">
@@ -69,7 +74,8 @@
       </div>
     </div>
 
-    <div class="horizontal-container">
+    <main data-barba="container" data-barba-namespace="film">
+      <div class="horizontal-container">
       <section class="hero hero-section">
         <video class="hero-video" autoplay muted loop playsinline>
           <source src="/contact/contact-hero.mp4" type="video/mp4" />
@@ -128,10 +134,8 @@
     <div class="timeline">
       <div class="scroller"><p>[ &nbsp;Drag &nbsp;]</p></div>
     </div>
+    </main>
 
-    <script type="module" src="/scripts/menu.js"></script>
-    <script type="module" src="/scripts/horizontal.js"></script>
-    <!-- parallax and pixelated-video scripts removed -->
-    <script type="module" src="/scripts/transition.js"></script>
+    <script type="module" src="/scripts/barba.js"></script>
   </body>
 </html>
