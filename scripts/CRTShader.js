@@ -59,15 +59,17 @@ export const CRTShader = {
     const vec3 LUMA = vec3(0.299, 0.587, 0.114);
     const float BLOOM_THRESHOLD_FACTOR = 0.5;
     const float BLOOM_FACTOR_MULT = 1.5;
-    const float RGB_SHIFT_SCALE = 0.005;
-    const float RGB_SHIFT_INTENSITY = 0.08;
+    const float CHROMATIC_SHIFT_SCALE = 0.0035;
 
-    // Optimized curvature function
+    // Optimized curvature function (normalized so corners stay within 0-1)
     vec2 curveRemapUV(vec2 uv, float curvature) {
       vec2 coords = uv * 2.0 - 1.0;
-      float curveAmount = curvature * 0.25; // Reduced from 0.5
-      float dist = dot(coords, coords); // More efficient than x*x + y*y
+      float curveAmount = curvature * 0.25;
+      float dist = dot(coords, coords);
       coords = coords * (1.0 + dist * curveAmount);
+      // Normalize by corner distortion factor so edges map to exactly 0-1
+      float maxFactor = 1.0 + 2.0 * curveAmount;
+      coords /= maxFactor;
       return coords * 0.5 + 0.5;
     }
 
@@ -94,13 +96,9 @@ export const CRTShader = {
     void main() {
       vec2 uv = vUv;
 
-      // Apply screen curvature if enabled (early out for out-of-bounds)
+      // Apply screen curvature if enabled
       if (curvature > 0.001) {
         uv = curveRemapUV(uv, curvature);
-        if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
-          gl_FragColor = vec4(0.0);
-          return;
-        }
       }
 
       // Get the original pixel color
@@ -120,11 +118,31 @@ export const CRTShader = {
         }
       }
 
-      // Apply RGB shift only if significant (skip for minimal values)
+      // Apply radial chromatic aberration (classic red/cyan lens fringing)
       if (rgbShift > 0.005) {
-        float shift = rgbShift * RGB_SHIFT_SCALE;
-        pixel.r += texture2D(tDiffuse, vec2(uv.x + shift, uv.y)).r * RGB_SHIFT_INTENSITY;
-        pixel.b += texture2D(tDiffuse, vec2(uv.x - shift, uv.y)).b * RGB_SHIFT_INTENSITY;
+        vec2 centerVec = uv - vec2(0.5);
+        float radius = length(centerVec);
+        vec2 radialDir = radius > 0.00001 ? centerVec / radius : vec2(0.0, 1.0);
+        vec2 tangentialDir = vec2(-radialDir.y, radialDir.x);
+
+        float edge = clamp(radius * 2.0, 0.0, 1.25);
+        float edgeWeight = edge * edge * edge;
+        float microVariation = sin((uv.y + time * 0.21) * 190.0 + uv.x * 113.0) * 0.5 + 0.5;
+        float asymmetry = (microVariation - 0.5) * 0.35;
+        float shift = rgbShift * CHROMATIC_SHIFT_SCALE * edgeWeight;
+
+        vec2 redOffset = radialDir * shift * (1.05 + asymmetry) + tangentialDir * shift * 0.08 * asymmetry;
+        vec2 blueOffset = -radialDir * shift * (1.05 - asymmetry) - tangentialDir * shift * 0.08 * asymmetry;
+
+        vec2 minUv = vec2(0.001);
+        vec2 maxUv = vec2(0.999);
+        float blend = clamp(edgeWeight * 0.9 + 0.05, 0.0, 1.0);
+
+        float red = texture2D(tDiffuse, clamp(uv + redOffset, minUv, maxUv)).r;
+        float blue = texture2D(tDiffuse, clamp(uv + blueOffset, minUv, maxUv)).b;
+
+        pixel.r = mix(pixel.r, red, blend);
+        pixel.b = mix(pixel.b, blue, blend);
       }
 
       // Apply brightness

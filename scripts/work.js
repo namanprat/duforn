@@ -1,574 +1,1059 @@
-import gsap from "gsap";
-import { MotionPathPlugin } from "gsap/MotionPathPlugin";
-import { Draggable } from "gsap/Draggable";
-import { workItems } from "../data/work-items.js";
-import { getOrSplit } from "./text-reveal.js";
+import gsap from 'gsap';
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import GUI from 'lil-gui';
+import { workItems } from '../data/work-items.js';
+import { CRTShader } from './CRTShader.js';
 
-gsap.registerPlugin(MotionPathPlugin, Draggable);
+// Single-ring circle gallery with kokomi-style scroll, grain, and animated effects
 
-// Constants
 const CONFIG = {
-  SLIDES_MULTIPLIER: 5,
-  EXTRA_SLIDES_MULTIPLIER: 3,
-  END_SCALE: 5,
-  SLIDE_WIDTH_RATIO: 0.45,
-  SCROLL_INTENSITY: 1,
-  LERP_FACTOR: 0.1,
-  SCROLL_TIMEOUT: 150,
-  MOBILE_BREAKPOINT: 1000,
-  // Oval/ellipse radii - horizontal and vertical
-  OVAL_RADIUS_X_MOBILE: 144,
-  OVAL_RADIUS_Y_MOBILE: 336,
-  OVAL_RADIUS_X_DESKTOP: 540,
-  OVAL_RADIUS_Y_DESKTOP: 336,
-  THUMBNAIL_OFFSET_Y: -25,
-  OUTER_DISTANCE_MULTIPLIER: 3,
-  INTRO_DELAY: 0.2,
-  INTRO_EASE: "power2.out",
-  INTRO_STAGGER: 0.05,
-  INTRO_DURATION: 1.0,
-  SPIRAL_ROTATION: 540, // 1.5 rotations
-  TAU: Math.PI * 2,
-  DRAG_SENSITIVITY: 1.2,
-  MOMENTUM_DECAY: 0.94,
-  MOMENTUM_MIN_SPEED: 0.05
+  RING_RADIUS: 340,
+  IMAGE_WIDTH: 76.5,
+  IMAGE_HEIGHT: 96.05,
+  SCROLL_SPEED: 0.0012,
+  SCROLL_LERP: 0.12,
+  DRAG_MULTIPLIER: -1.2,
+  EDGE_DISTORTION: 0.15,
+  GRAIN_INTENSITY: 0.03,
+  Z_DEPTH_INTENSITY: 80,
+  VELOCITY_DECAY: 0.88,
 };
 
-// State
-const state = {
-  slider: null,
-  slideTitle: null,
-  thumbnailWheel: null,
-  totalImages: workItems.length,
-  totalSlides: 0,
-  slideWidth: 0,
-  viewportCenter: 0,
-  isMobile: false,
-  currentX: 0,
-  targetX: 0,
-  isScrolling: false,
-  scrollTimeout: null,
-  activeSlideIndex: 0,
-  isInitialized: false,
-  isThumbnailIntroPlaying: false,
-  thumbnailIntroTl: null,
-  rafId: null,
-  slides: null,
-  thumbnails: null,
-  introRadiusProgress: 0,
-  dragProxy: null,
-  draggable: null,
-  dragMomentum: 0,
-  lastDragTime: 0,
-  isDragging: false,
+// CRT post-processing configuration (tunable for work page)
+const CRT_CONFIG = {
+  scanlineIntensity: 0.46,
+  scanlineCount: 663.0,
+  brightness: 1.32,
+  contrast: 1.06,
+  saturation: 1.20,
+  bloomIntensity: 0.23,
+  bloomThreshold: 0.35,
+  rgbShift: 0.12,
+  adaptiveIntensity: 1.0,
+  vignetteStrength: 0.0,
+  curvature: 0.65,
+  flickerStrength: 0.0,
 };
 
-// Precompute values
-let totalWidth = 0;
-let outerDistance = 0;
-let halfSlideWidth = 0;
-
-// Event listener options
-const wheelOpts = { passive: false };
-
-// Utility functions
-const normalize = (angle) => {
-  let a = angle % CONFIG.TAU;
-  return a < 0 ? a + CONFIG.TAU : a;
+const ABERRATION_CONFIG = {
+  motionSmoothing: 0.14,
+  velocityToBoost: 0.42,
+  maxBoost: 0.85,
+  additiveBoost: 0.06,
+  multiplicativeBoost: 1.8,
 };
 
-const getThumbnailRadii = () => 
-  state.isMobile 
-    ? { rx: CONFIG.OVAL_RADIUS_X_MOBILE, ry: CONFIG.OVAL_RADIUS_Y_MOBILE }
-    : { rx: CONFIG.OVAL_RADIUS_X_DESKTOP, ry: CONFIG.OVAL_RADIUS_Y_DESKTOP };
-
-const getCurrentRotationRad = () => {
-  const progress = Math.abs(state.currentX) / state.slideWidth;
-  return -(progress * CONFIG.TAU / state.totalSlides) + Math.PI / 2;
-};
-
-// DOM creation
-function createSlides() {
-  if (!state.slider) return;
+// Scroll distortion and grain shader (chromatic aberration handled by CRT post-processing)
+const VERTEX_SHADER = `
+  varying vec2 vUv;
   
-  const fragment = document.createDocumentFragment();
-  const totalSlidesToCreate = state.totalSlides * CONFIG.EXTRA_SLIDES_MULTIPLIER;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const FRAGMENT_SHADER = `
+  uniform sampler2D uTexture;
+  uniform float uTime;
+  uniform float uEdgeDistortion;
+  uniform float uGrainIntensity;
+  uniform vec2 uScreenPos;
+  uniform vec2 uResolution;
   
-  for (let i = 0; i < totalSlidesToCreate; i++) {
-    const slide = document.createElement("div");
-    slide.className = "slide";
-    
-    const img = document.createElement("img");
-    img.src = workItems[i % state.totalImages].image;
-    
-    slide.appendChild(img);
-    fragment.appendChild(slide);
+  varying vec2 vUv;
+  
+  highp float random(vec2 co) {
+    highp float a = 12.9898;
+    highp float b = 78.233;
+    highp float c = 43758.5453;
+    highp float dt = dot(co.xy, vec2(a, b));
+    highp float sn = mod(dt, 3.14);
+    return fract(sin(sn) * c);
   }
   
-  state.slider.appendChild(fragment);
-  state.slides = state.slider.querySelectorAll(".slide");
+  vec3 grain(vec2 uv, vec3 col, float amount) {
+    float noise = random(uv + uTime);
+    col += (noise - 0.5) * amount;
+    return col;
+  }
+  
+  void main() {
+    vec2 uv = vUv;
+    
+    // Calculate screen position for edge effects
+    vec2 screenUV = uScreenPos / uResolution;
+    vec2 screenCenter = vec2(0.5);
+    vec2 toCenter = screenUV - screenCenter;
+    float distFromCenter = length(toCenter);
+    float edgeFactor = distFromCenter * distFromCenter;
+    
+    // Edge-based fisheye distortion
+    float distortion = 1.0 + uEdgeDistortion * edgeFactor;
+    vec2 centeredUV = uv - vec2(0.5);
+    uv = vec2(0.5) + centeredUV * distortion;
+    
+    vec3 col = texture2D(uTexture, uv).rgb;
+
+    // Add grain effect
+    col = grain(uv, col, uGrainIntensity);
+
+    gl_FragColor = vec4(col, 1.0);
+  }
+`;
+
+const state = {
+  // DOM
+  container: null,
+  titleEl: null,
+  captionEl: null,
+  
+  // Three.js
+  renderer: null,
+  scene: null,
+  camera: null,
+  raycaster: null,
+  clock: null,
+  
+  // CRT post-processing
+  renderTarget: null,
+  crtScene: null,
+  crtCamera: null,
+  crtPass: null,
+  crtUniforms: null,
+
+  // Gallery
+  meshes: [],
+  sharedGeometry: null,
+  textureCache: new Map(),
+  centerTitleMesh: null,
+  centerTitleText: '',
+
+  // 3D model (separate perspective scene)
+  modelScene: null,
+  modelCamera: null,
+  model: null,
+  clayMaterial: null,
+  lights: [],
+
+  // Debug
+  gui: null,
+
+  // Mouse parallax (orbital camera, matching home page)
+  cameraTarget: { angle: Math.PI / 2, y: 0, tilt: 0 },
+  cameraCurrent: { angle: Math.PI / 2, y: 0, tilt: 0 },
+  lastMouseTime: 0,
+
+  // Scroll tracking (kokomi-style)
+  scrollTarget: 0,
+  scrollCurrent: 0,
+  scrollDelta: 0,
+  
+  // Parallax offsets for wheel meshes (applied on top of scroll rotation)
+  wheelParallaxOffset: { x: 0, y: 0, z: 0, tilt: 0 },
+
+  // Interaction
+  rotation: 0,
+  targetRotation: 0,
+  scrollVelocity: 0,
+  crtBaseRgbShift: CRT_CONFIG.rgbShift,
+  crtMotionBoost: 0,
+  isPointerDown: false,
+  lastPointerY: 0,
+  dragStartY: 0,
+
+  // Animation
+  animationFrame: null,
+
+  // Event handlers
+  handlers: {
+    resize: null,
+    pointerdown: null,
+    pointermove: null,
+    pointerup: null,
+    wheel: null,
+    mousemove: null,
+  },
+};
+
+async function loadAllTextures() {
+  const loader = new THREE.TextureLoader();
+  
+  const promises = workItems.map(item => {
+    return new Promise((resolve) => {
+      loader.load(
+        item.image,
+        (texture) => {
+          texture.colorSpace = THREE.SRGBColorSpace;
+          texture.minFilter = THREE.LinearFilter;
+          texture.magFilter = THREE.LinearFilter;
+          state.textureCache.set(item.image, texture);
+          resolve();
+        },
+        undefined,
+        (error) => {
+          console.warn(`Failed to load: ${item.image}`, error);
+          resolve();
+        }
+      );
+    });
+  });
+  
+  await Promise.all(promises);
 }
 
-function createThumbnailItems() {
-  if (!state.thumbnailWheel) return;
-  
-  const fragment = document.createDocumentFragment();
-  const { rx, ry } = getThumbnailRadii();
-  const cx = state.viewportCenter;
-  const cy = window.innerHeight * 0.5 + CONFIG.THUMBNAIL_OFFSET_Y;
-  
-  for (let i = 0; i < state.totalSlides; i++) {
-    const angle = (i / state.totalSlides) * CONFIG.TAU;
-    
-    const thumbnail = document.createElement("div");
-    thumbnail.className = "thumbnail-item";
-    
-    const img = document.createElement("img");
-    img.src = workItems[i % state.totalImages].image;
-    thumbnail.appendChild(img);
-    
-    // Store angle and compute initial position on oval
-    thumbnail._scale = 1; // Default to full scale for resize etc.
+function setupModelScene() {
+  const width = window.innerWidth;
+  const height = window.innerHeight;
 
-    thumbnail._angle = angle;
-    const x = rx * Math.cos(angle) + cx;
-    const y = ry * Math.sin(angle) + cy;
+  // Separate perspective scene matching home page (#background) settings
+  state.modelScene = new THREE.Scene();
+  state.modelScene.background = new THREE.Color(0xfefefe);
+
+  state.modelCamera = new THREE.PerspectiveCamera(100, width / height, 0.1, 1000);
+  const radius = Math.sqrt(50) / 2.5; // BASE_CAMERA_RADIUS from three.js
+  state.modelCamera.position.set(0, 1, radius);
+  state.modelCamera.lookAt(0, 0, 0);
+
+  // Lighting matching home page
+  const ambient = new THREE.AmbientLight(0xffffff, 0.5);
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+  dirLight.position.set(5, 5, 5);
+
+  state.modelScene.add(ambient);
+  state.modelScene.add(dirLight);
+  state.lights = [ambient, dirLight];
+}
+
+function loadModel() {
+  const loader = new GLTFLoader();
+  loader.load(
+    '/brev.glb',
+    (glb) => {
+      const model = glb.scene;
+
+      // Replace all materials with clay (matte, no textures)
+      state.clayMaterial = new THREE.MeshStandardMaterial({
+        color: 0xd4d0cc,
+        roughness: 0.85,
+        metalness: 0.0,
+      });
+      const clayMaterial = state.clayMaterial;
+
+      model.traverse((child) => {
+        if (child.isMesh) {
+          if (child.material) {
+            if (Array.isArray(child.material)) {
+              child.material.forEach(mat => {
+                if (mat.map) mat.map.dispose();
+                mat.dispose();
+              });
+            } else {
+              if (child.material.map) child.material.map.dispose();
+              child.material.dispose();
+            }
+          }
+          child.material = clayMaterial;
+        }
+      });
+
+      // No scale override — use native GLB scale like home page
+      state.modelScene.add(model);
+      state.model = model;
+    },
+    undefined,
+    (err) => console.error('Work model load error:', err)
+  );
+}
+
+function setupRenderer() {
+  const container = document.getElementById('work-gallery')
+    || document.querySelector("[data-barba-namespace='work'] .slider")
+    || document.querySelector("[data-barba-namespace='work']");
+  if (!container) return false;
+  
+  state.container = container;
+  
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  
+  state.renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    alpha: true,
+    powerPreference: 'high-performance'
+  });
+  state.renderer.setSize(width, height);
+  state.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  state.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  state.renderer.toneMappingExposure = 1;
+  state.renderer.outputColorSpace = THREE.SRGBColorSpace;
+  state.renderer.setClearColor(0xfefefe, 1);
+  container.appendChild(state.renderer.domElement);
+  
+  state.camera = new THREE.OrthographicCamera(
+    -width / 2,
+    width / 2,
+    height / 2,
+    -height / 2,
+    -1000,
+    1000
+  );
+  state.camera.position.z = 500;
+  
+  state.scene = new THREE.Scene();
+  // No background — transparent so the model scene shows through
+  
+  state.raycaster = new THREE.Raycaster();
+  state.clock = new THREE.Clock();
+  
+  // Setup CRT post-processing
+  setupCRTPass(width, height);
+  
+  return true;
+}
+
+function setupCRTPass(width, height) {
+  // Create render target for initial gallery render
+  state.renderTarget = new THREE.WebGLRenderTarget(width, height, {
+    format: THREE.RGBAFormat,
+    type: THREE.UnsignedByteType,
+    minFilter: THREE.LinearFilter,
+    magFilter: THREE.LinearFilter,
+  });
+  
+  // Create scene and dedicated camera for CRT post-processing
+  state.crtScene = new THREE.Scene();
+  state.crtCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  
+  // Create geometry for CRT pass
+  const crtGeometry = new THREE.PlaneGeometry(2, 2);
+  
+  // Create material from CRTShader
+  const crtMaterial = new THREE.ShaderMaterial({
+    uniforms: THREE.UniformsUtils.clone(CRTShader.uniforms),
+    vertexShader: CRTShader.vertexShader,
+    fragmentShader: CRTShader.fragmentShader,
+  });
+  
+  // Set render target texture
+  crtMaterial.uniforms.tDiffuse.value = state.renderTarget.texture;
+  
+  // Apply CRT config values
+  Object.keys(CRT_CONFIG).forEach(key => {
+    if (crtMaterial.uniforms[key]) {
+      crtMaterial.uniforms[key].value = CRT_CONFIG[key];
+    }
+  });
+  
+  // Store uniforms for animation updates
+  state.crtUniforms = crtMaterial.uniforms;
+  
+  // Create mesh and add to CRT scene
+  state.crtPass = new THREE.Mesh(crtGeometry, crtMaterial);
+  state.crtScene.add(state.crtPass);
+}
+
+function updateChromaticAberrationUniform() {
+  if (!state.crtUniforms?.rgbShift) return;
+
+  const baseShift = Math.max(0, state.crtBaseRgbShift);
+  const motionBoost = Math.max(0, state.crtMotionBoost);
+  const combinedShift = baseShift * (1 + motionBoost * ABERRATION_CONFIG.multiplicativeBoost)
+    + motionBoost * ABERRATION_CONFIG.additiveBoost;
+
+  state.crtUniforms.rgbShift.value = combinedShift;
+}
+
+async function setupCenterTitle() {
+  if (!state.scene || !workItems.length) return;
+
+  try {
+    const { Text } = await import('https://esm.sh/troika-three-text@0.52.4');
+    const title = new Text();
+    title.text = workItems[0].title || '';
+    title.font = '/OTJubilee-Golden.otf';
+    title.fontSize = 36;
+    title.color = 0x111111;
+    title.anchorX = 'center';
+    title.anchorY = 'middle';
+    title.position.set(0, 0, 190);
+    title.maxWidth = window.innerWidth * 0.7;
+    title.textAlign = 'center';
+    title.material.depthTest = false;
+    title.material.depthWrite = false;
+    title.sync();
+
+    state.scene.add(title);
+    state.centerTitleMesh = title;
+    state.centerTitleText = title.text;
+
+    if (state.titleEl) {
+      state.titleEl.style.opacity = '0';
+      state.titleEl.style.pointerEvents = 'none';
+    }
+  } catch (error) {
+    console.warn('Troika text failed to load, using DOM title fallback', error);
+  }
+}
+
+function setupGallery() {
+  state.sharedGeometry = new THREE.PlaneGeometry(1, 1);
+  
+  const totalItems = workItems.length;
+  const angleStep = (Math.PI * 2) / totalItems;
+  
+  workItems.forEach((item, index) => {
+    const texture = state.textureCache.get(item.image);
+    if (!texture) return;
     
-    gsap.set(thumbnail, {
-      x, y,
-      transformOrigin: "center center"
+    // Create shader material with chromatic aberration, grain, and time-based effects
+    const material = new THREE.ShaderMaterial({
+      vertexShader: VERTEX_SHADER,
+      fragmentShader: FRAGMENT_SHADER,
+      uniforms: {
+        uTexture: { value: texture },
+        uTime: { value: 0 },
+        uEdgeDistortion: { value: CONFIG.EDGE_DISTORTION },
+        uGrainIntensity: { value: CONFIG.GRAIN_INTENSITY },
+        uScreenPos: { value: new THREE.Vector2(0, 0) },
+        uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+      },
+      transparent: false,
+      side: THREE.DoubleSide,
     });
     
-    fragment.appendChild(thumbnail);
-  }
-  
-  state.thumbnailWheel.appendChild(fragment);
-  state.thumbnails = state.thumbnailWheel.querySelectorAll(".thumbnail-item");
+    const mesh = new THREE.Mesh(state.sharedGeometry, material);
+    
+    // Position on single ring
+    const angle = index * angleStep;
+    mesh.position.x = Math.cos(angle) * CONFIG.RING_RADIUS;
+    mesh.position.y = Math.sin(angle) * CONFIG.RING_RADIUS;
+    mesh.position.z = 0;
+    
+    mesh.scale.set(CONFIG.IMAGE_WIDTH, CONFIG.IMAGE_HEIGHT, 1);
+    
+    mesh.userData = {
+      workItem: item,
+      baseAngle: angle,
+      index,
+    };
+    
+    state.scene.add(mesh);
+    state.meshes.push(mesh);
+  });
 }
 
-function initializeSlider() {
-  if (!state.slides) return;
+function updateScroll() {
+  // Smooth lerp scroll (kokomi-style but slower)
+  const prev = state.scrollCurrent;
+  state.scrollCurrent += (state.scrollTarget - state.scrollCurrent) * CONFIG.SCROLL_LERP;
+  state.scrollDelta = state.scrollCurrent - prev;
   
-  const positions = new Float32Array(state.slides.length);
+  // Update rotation from scroll
+  state.targetRotation = state.scrollCurrent * CONFIG.SCROLL_SPEED;
+}
+
+function updateRotation() {
+  // Smooth lerp towards target
+  const prevRotation = state.rotation;
+  state.rotation += (state.targetRotation - state.rotation) * CONFIG.SCROLL_LERP;
   
-  state.slides.forEach((slide, i) => {
-    positions[i] = i * state.slideWidth - state.slideWidth;
+  // Calculate velocity for shader effects
+  state.scrollVelocity = Math.abs(state.scrollDelta * 0.5);
+  state.scrollVelocity *= CONFIG.VELOCITY_DECAY;
+  
+  // Update time for animated effects
+  const time = state.clock ? state.clock.getElapsedTime() : 0;
+  
+  // Smooth parallax offsets based on camera target (orbital parallax)
+  const parallaxParams = state.guiParallax || { angleRange: 0.15, yRange: 0.3, tiltRange: 0.02 };
+  state.wheelParallaxOffset.x += (state.cameraTarget.angle * parallaxParams.angleRange * 100 - state.wheelParallaxOffset.x) * CONFIG.SCROLL_LERP;
+  state.wheelParallaxOffset.y += (state.cameraTarget.y * parallaxParams.yRange * 100 - state.wheelParallaxOffset.y) * CONFIG.SCROLL_LERP;
+  state.wheelParallaxOffset.tilt += (state.cameraTarget.tilt - state.wheelParallaxOffset.tilt) * CONFIG.SCROLL_LERP;
+  state.wheelParallaxOffset.z += (-state.cameraTarget.angle * 50 - state.wheelParallaxOffset.z) * CONFIG.SCROLL_LERP;
+  
+  // Update all mesh positions and shader uniforms
+  state.meshes.forEach(mesh => {
+    const { baseAngle } = mesh.userData;
+    const currentAngle = baseAngle + state.rotation;
+    
+    // Base ring position
+    mesh.position.x = Math.cos(currentAngle) * CONFIG.RING_RADIUS;
+    mesh.position.y = Math.sin(currentAngle) * CONFIG.RING_RADIUS;
+    
+    // Z-depth motion based on scroll velocity (like kokomi)
+    const zDepth = -Math.min(Math.abs(state.scrollDelta) * CONFIG.Z_DEPTH_INTENSITY, 100);
+    mesh.position.z = zDepth + Math.sin(currentAngle * 2) * 15;
+    
+    // Apply parallax offsets (mouse-based depth and tilt as if part of 3D scene)
+    mesh.position.x += state.wheelParallaxOffset.x * 0.15;
+    mesh.position.y += state.wheelParallaxOffset.y * 0.1;
+    mesh.position.z += state.wheelParallaxOffset.z * 0.05;
+    
+    // Apply tilt rotation to individual mesh based on parallax (pitch and roll)
+    mesh.rotation.z = state.wheelParallaxOffset.tilt * 0.5;
+    mesh.rotation.x = state.cameraTarget.y * 0.1;
+    mesh.rotation.y = state.cameraTarget.angle * 0.08;
+    
+    // Calculate screen position for edge effects
+    const projected = mesh.position.clone().project(state.camera);
+    const screenX = (projected.x + 1) * 0.5 * window.innerWidth;
+    const screenY = (1 - projected.y) * 0.5 * window.innerHeight;
+    
+    // Update shader uniforms
+    if (mesh.material && mesh.material.uniforms) {
+      mesh.material.uniforms.uTime.value = time;
+      mesh.material.uniforms.uScreenPos.value.set(screenX, screenY);
+    }
+  });
+}
+
+function updateTitle() {
+  if (!state.titleEl && !state.centerTitleMesh) return;
+  
+  // Find closest mesh to top (90 degrees / PI/2)
+  let closestMesh = null;
+  let minDiff = Infinity;
+  
+  state.meshes.forEach(mesh => {
+    const { baseAngle } = mesh.userData;
+    const currentAngle = (baseAngle + state.rotation) % (Math.PI * 2);
+    const normalized = currentAngle < 0 ? currentAngle + Math.PI * 2 : currentAngle;
+    const diff = Math.abs(normalized - Math.PI / 2);
+    
+    if (diff < minDiff) {
+      minDiff = diff;
+      closestMesh = mesh;
+    }
   });
   
-  // Batch set positions
-  gsap.set(state.slides, {
-    x: (i) => positions[i]
-  });
-  
-  const centerOffset = state.viewportCenter - halfSlideWidth;
-  state.currentX = centerOffset;
-  state.targetX = centerOffset;
-}
-
-// Event handlers
-function handleScroll(e) {
-  const delta = e.deltaY || e.detail || e.wheelDelta * -1;
-  state.targetX -= delta * CONFIG.SCROLL_INTENSITY;
-  
-  state.isScrolling = true;
-  clearTimeout(state.scrollTimeout);
-  
-  state.scrollTimeout = setTimeout(() => {
-    state.isScrolling = false;
-  }, CONFIG.SCROLL_TIMEOUT);
-}
-
-function preventScroll(e) {
-  if (e.target === document || e.target === document.body) {
-    window.scrollTo(0, 0);
+  if (closestMesh) {
+    const newTitle = closestMesh.userData.workItem.title;
+    if (state.titleEl && state.titleEl.textContent !== newTitle) {
+      state.titleEl.textContent = newTitle;
+    }
+    if (state.centerTitleMesh && state.centerTitleText !== newTitle) {
+      state.centerTitleMesh.text = newTitle;
+      state.centerTitleMesh.sync();
+      state.centerTitleText = newTitle;
+    }
   }
 }
 
-// Animation loop
 function animate() {
-  // Apply momentum to targetX with decay
-  if (Math.abs(state.dragMomentum) > CONFIG.MOMENTUM_MIN_SPEED) {
-    state.targetX -= state.dragMomentum * 0.016; // approximate per-frame (~60fps)
-    state.dragMomentum *= CONFIG.MOMENTUM_DECAY;
-  } else if (!state.isDragging) {
-    state.dragMomentum = 0;
+  updateScroll();
+  updateRotation();
+  updateTitle();
+  
+  // Update CRT shader time uniform
+  const time = state.clock ? state.clock.getElapsedTime() : 0;
+  if (state.crtUniforms && state.crtUniforms.time) {
+    state.crtUniforms.time.value = time;
+  }
+  const targetBoost = Math.min(state.scrollVelocity * ABERRATION_CONFIG.velocityToBoost, ABERRATION_CONFIG.maxBoost);
+  state.crtMotionBoost += (targetBoost - state.crtMotionBoost) * ABERRATION_CONFIG.motionSmoothing;
+  updateChromaticAberrationUniform();
+  
+  // Orbital camera parallax for 3D model (matching home page three.js)
+  const lerpFactor = state.guiParallax ? state.guiParallax.lerp : 0.04;
+  state.cameraCurrent.angle += (state.cameraTarget.angle - state.cameraCurrent.angle) * lerpFactor;
+  state.cameraCurrent.y += (state.cameraTarget.y - state.cameraCurrent.y) * lerpFactor;
+  state.cameraCurrent.tilt += (state.cameraTarget.tilt - state.cameraCurrent.tilt) * lerpFactor;
+
+  if (state.modelCamera) {
+    const radius = Math.sqrt(50) / 2.5;
+    state.modelCamera.position.x = Math.cos(state.cameraCurrent.angle) * radius;
+    state.modelCamera.position.z = Math.sin(state.cameraCurrent.angle) * radius;
+    state.modelCamera.position.y += (state.cameraCurrent.y + 1 - state.modelCamera.position.y);
+
+    // Handheld camera drift
+    const driftTime = performance.now() * 0.001;
+    state.modelCamera.position.x += Math.sin(driftTime * 0.7) * 0.012 + Math.sin(driftTime * 1.3) * 0.008;
+    state.modelCamera.position.y += Math.sin(driftTime * 0.5) * 0.012 + Math.cos(driftTime * 1.1) * 0.008;
+    state.modelCamera.position.z += Math.cos(driftTime * 0.6) * 0.008;
+
+    state.modelCamera.lookAt(0, 0, 0);
+    state.modelCamera.rotation.z += state.cameraCurrent.tilt;
   }
 
-  state.currentX += (state.targetX - state.currentX) * CONFIG.LERP_FACTOR;
-  
-  // Infinite loop wrapping
-  if (state.currentX > 0) {
-    state.currentX -= totalWidth;
-    state.targetX -= totalWidth;
-  } else if (state.currentX < -totalWidth) {
-    state.currentX += totalWidth;
-    state.targetX += totalWidth;
+  // Three-pass rendering:
+  // 1. Render 3D model scene to render target (background)
+  if (state.renderer && state.modelScene && state.modelCamera && state.renderTarget) {
+    state.renderer.setRenderTarget(state.renderTarget);
+    state.renderer.render(state.modelScene, state.modelCamera);
+  }
+
+  // 2. Render gallery overlay on top (no clear, transparent backgrounds blend)
+  if (state.renderer && state.scene && state.camera && state.renderTarget) {
+    state.renderer.autoClear = false;
+    state.renderer.render(state.scene, state.camera);
+    state.renderer.autoClear = true;
   }
   
-  let centerSlideIndex = 0;
-  let closestToCenter = Infinity;
-  
-  // Single loop for all slide updates
-  state.slides.forEach((slide, index) => {
-    const x = index * state.slideWidth + state.currentX;
-    const slideCenterX = x + halfSlideWidth;
-    const distanceFromCenter = Math.abs(slideCenterX - state.viewportCenter);
-    
-    // Update position
-    slide.style.transform = `translate3d(${x}px, 0, 0)`;
-    
-    // Calculate and apply scale
-    const progress = Math.min(distanceFromCenter / outerDistance, 1);
-    const easedProgress = progress < 0.5
-      ? 2 * progress * progress
-      : 1 - Math.pow(-2 * progress + 2, 2) * 0.5;
-    
-    const scale = 1 + easedProgress * (CONFIG.END_SCALE - 1);
-    const img = slide.firstElementChild;
-    img.style.transform = `scale(${scale})`;
-    
-    // Track closest to center
-    if (distanceFromCenter < closestToCenter) {
-      closestToCenter = distanceFromCenter;
-      centerSlideIndex = index % state.totalSlides;
-    }
-  });
-  
-  // Update active slide
-  const slideProgress = Math.abs(state.currentX) / state.slideWidth;
-  const newActiveSlideIndex = Math.floor(slideProgress) % state.totalSlides;
-  
-  if (newActiveSlideIndex !== state.activeSlideIndex) {
-    state.activeSlideIndex = newActiveSlideIndex;
+  // 2. Render CRT post-processing to screen
+  if (state.renderer && state.crtScene) {
+    state.renderer.setRenderTarget(null);
+    state.renderer.render(state.crtScene, state.crtCamera);
   }
   
-  // Update title
-  const currentTitleIndex = centerSlideIndex % state.totalImages;
-  const currentItem = workItems[currentTitleIndex];
-  
-  if (state.slideTitle.textContent !== currentItem.title) {
-    state.slideTitle.textContent = currentItem.title;
-    state.slideTitle.dataset.href = currentItem.href || "";
-  }
-  
-  updateThumbnailItems();
-  
-  state.rafId = requestAnimationFrame(animate);
-}
-
-function updateThumbnailItems() {
-  if (!state.thumbnails) return;
-  
-  const currentRotation = getCurrentRotationRad();
-  const { rx, ry } = getThumbnailRadii();
-  const cx = state.viewportCenter;
-  const cy = window.innerHeight * 0.5 + CONFIG.THUMBNAIL_OFFSET_Y;
-  
-  state.thumbnails.forEach((thumbnail) => {
-    // Determine effective scale from property or default to 1 if not set
-    // (during normal operation _scale might be undefined or we just use 1)
-    const s = (typeof thumbnail._scale === 'number') ? thumbnail._scale : 1;
-    // Determine expansion factor: if intro is playing, we use state.introRadiusProgress
-    // If intro finished or on resize, we expect full radius (progress = 1)
-    
-    // BUT: onResize sets isThumbnailIntroPlaying = false, but introRadiusProgress might be 0.
-    // So we should check if intro is playing. If NOT playing, force full expansion?
-    // Let's rely on state.introRadiusProgress being managed correctly.
-    // In onResize we will set it to 1.
-    
-    const radiusMultiplier = state.introRadiusProgress;
-
-    const angle = thumbnail._angle + currentRotation;
-    // Interpolate from center (cx,cy) to oval position
-    // Center is when radiusMultiplier is 0
-    // Oval is when radiusMultiplier is 1
-    const x = (rx * radiusMultiplier) * Math.cos(angle) + cx;
-    const y = (ry * radiusMultiplier) * Math.sin(angle) + cy;
-    
-    thumbnail.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${s})`;
-  });
-}
-
-// Draggable setup
-let lastDragX = 0;
-function onDragPress() {
-  lastDragX = state.draggable ? state.draggable.x : 0;
-  state.lastDragTime = performance.now();
-  state.dragMomentum = 0;
-  state.isDragging = true;
-}
-
-function onDragMove() {
-  if (!state.draggable) return;
-  const now = performance.now();
-  const dx = state.draggable.x - lastDragX;
-  const dt = Math.max((now - state.lastDragTime) / 1000, 0.001); // seconds
-  lastDragX = state.draggable.x;
-  state.lastDragTime = now;
-  // Map horizontal drag to slider movement with sensitivity
-  const delta = dx * CONFIG.DRAG_SENSITIVITY;
-  state.targetX -= delta;
-  // Update momentum with latest speed
-  state.dragMomentum = delta / dt;
-}
-
-function onDragRelease() {
-  state.isDragging = false;
-  // momentum decay handled in animate()
-}
-
-function setupDrag() {
-  // Ensure previous instance is cleaned
-  destroyDrag();
-
-  // Invisible proxy so the wheel itself doesn't move
-  const proxy = document.createElement("div");
-  proxy.style.position = "absolute";
-  proxy.style.left = "0";
-  proxy.style.top = "0";
-  proxy.style.width = "1px";
-  proxy.style.height = "1px";
-  proxy.style.pointerEvents = "none";
-  document.body.appendChild(proxy);
-  state.dragProxy = proxy;
-
-  // Create draggable bound to the thumbnail wheel as the trigger
-  const instances = Draggable.create(proxy, {
-    trigger: state.thumbnailWheel,
-    type: "x",
-    cursor: "grab",
-    activeCursor: "grabbing",
-    onPress: onDragPress,
-    onDrag: onDragMove,
-    onRelease: onDragRelease,
-    allowContextMenu: true,
-    minimumMovement: 1,
-    zIndexBoost: false,
-    dragResistance: 0.02,
-  });
-  state.draggable = instances && instances[0] ? instances[0] : null;
-}
-
-function destroyDrag() {
-  if (state.draggable) {
-    state.draggable.kill();
-    state.draggable = null;
-  }
-  if (state.dragProxy && state.dragProxy.parentNode) {
-    state.dragProxy.parentNode.removeChild(state.dragProxy);
-    state.dragProxy = null;
+  if (state.animationFrame !== null) {
+    state.animationFrame = requestAnimationFrame(animate);
   }
 }
 
-function playThumbnailWheelIntro() {
-  if (!state.thumbnailWheel || !state.thumbnails?.length) return;
+function handleClick(event) {
+  if (!state.renderer || !state.camera) return;
   
-  if (state.thumbnailIntroTl) {
-    state.thumbnailIntroTl.kill();
-  }
+  const rect = state.renderer.domElement.getBoundingClientRect();
+  const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
   
-  state.isThumbnailIntroPlaying = true;
-  state.introRadiusProgress = 0; // Ensure we start at center
+  const pointer = new THREE.Vector2(x, y);
+  state.raycaster.setFromCamera(pointer, state.camera);
   
-  const cx = state.viewportCenter;
-  const cy = window.innerHeight * 0.5 + CONFIG.THUMBNAIL_OFFSET_Y;
-  const { rx, ry } = getThumbnailRadii();
+  const intersects = state.raycaster.intersectObjects(state.meshes);
   
-  // Disable pointer events during animation
-  if (state.thumbnailWheel) {
-    state.thumbnailWheel.style.pointerEvents = 'none';
-  }
-  if (state.slider) {
-    state.slider.style.pointerEvents = 'none';
-  }
-  
-  // Set initial state: all thumbnails stacked at center (radius 0)
-  // Scale 0, opacity 0.
-  state.thumbnails.forEach((t, i) => {
-    t._scale = 0;
-    gsap.set(t, { opacity: 0, zIndex: 100 + (state.thumbnails.length - 1 - i) });
-  });
-
-  // Create timeline
-  state.thumbnailIntroTl = gsap.timeline({
-    onComplete: () => {
-      // Clean handoff to normal state
-      state.isThumbnailIntroPlaying = false;
-      state.introRadiusProgress = 1;
-      
-      // Re-enable pointer events
-      if (state.thumbnailWheel) {
-        state.thumbnailWheel.style.pointerEvents = 'auto';
-      }
-      if (state.slider) {
-        state.slider.style.pointerEvents = 'auto';
-      }
-      // Draggable becomes usable after intro when pointer events are enabled
-    }
-  });
-  
-  // Phase 1: Thumbnails appear stacked (last one first, first one last) - starting bigger
-  // Animate _scale and opacity
-  state.thumbnails.forEach((thumbnail, i) => {
-    const delay = (state.thumbnails.length - 1 - i) * 0.08;
+  if (intersects.length > 0) {
+    const mesh = intersects[0].object;
+    const { workItem } = mesh.userData;
     
-    // Opacity on element directly
-    state.thumbnailIntroTl.to(thumbnail, { opacity: 1, duration: 0.5, ease: "power2.out" }, delay);
-    
-    // _scale on element property
-    state.thumbnailIntroTl.to(thumbnail, { _scale: 1.3, duration: 0.5, ease: "power2.out" }, delay);
-  });
-  
-  // Phase 2: Short pause
-  state.thumbnailIntroTl.to({}, { duration: 0.3 });
-  
-  // Phase 3: Spread to circle positions (radiusProgress -> 1) and scale down to normal (_scale -> 1)
-  // All together
-  state.thumbnailIntroTl.to(state, {
-    introRadiusProgress: 1,
-    duration: 1.2,
-    ease: "power2.inOut"
-  }, "expand");
-  
-  state.thumbnails.forEach((thumbnail) => {
-    state.thumbnailIntroTl.to(thumbnail, {
-      _scale: 1,
-      duration: 1.2,
-      ease: "power2.inOut"
-    }, "expand");
-  });
-
-  // Text reveal overlaps with expansion
-  const slideTitle = document.querySelector('.slide-title');
-  if (slideTitle) {
-    const split = getOrSplit(slideTitle);
-    if (split?.chars) {
-      gsap.set(slideTitle, { opacity: 1 });
-      state.thumbnailIntroTl.fromTo(
-        split.chars,
-        { y: 100, opacity: 0 },
-        {
-          y: 0,
-          opacity: 1,
-          duration: 1,
-          stagger: {
-            amount: 0.2,
-          },
-          ease: "power2.out"
-        },
-        "expand+=0.2"
-      );
+    if (workItem && workItem.href) {
+      window.location.href = workItem.href;
     }
   }
 }
-// Resize handler
+
+function onWheel(event) {
+  // Prevent default page scroll
+  event.preventDefault();
+  
+  // Update scroll target (kokomi-style)
+  state.scrollTarget += event.deltaY;
+}
+
 function onResize() {
-  if (state.thumbnailIntroTl) {
-    state.thumbnailIntroTl.kill();
-    state.thumbnailIntroTl = null;
+  if (!state.renderer || !state.camera) return;
+  
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  
+  state.renderer.setSize(width, height);
+  state.camera.left = -width / 2;
+  state.camera.right = width / 2;
+  state.camera.top = height / 2;
+  state.camera.bottom = -height / 2;
+  state.camera.updateProjectionMatrix();
+  
+  // Update model camera aspect
+  if (state.modelCamera) {
+    state.modelCamera.aspect = width / height;
+    state.modelCamera.updateProjectionMatrix();
+  }
+
+  // Update render target size
+  if (state.renderTarget) {
+    state.renderTarget.setSize(width, height);
   }
   
-  state.isThumbnailIntroPlaying = false;
-  state.introRadiusProgress = 1;
-  state.isMobile = window.innerWidth < CONFIG.MOBILE_BREAKPOINT;
-  state.slideWidth = window.innerWidth * CONFIG.SLIDE_WIDTH_RATIO;
-  state.viewportCenter = window.innerWidth * 0.5;
-  
-  // Recalculate derived values
-  halfSlideWidth = state.slideWidth * 0.5;
-  totalWidth = state.totalSlides * state.slideWidth;
-  outerDistance = state.slideWidth * CONFIG.OUTER_DISTANCE_MULTIPLIER;
-  
-  if (state.thumbnailWheel) {
-    state.thumbnailWheel.innerHTML = "";
+  // Update resolution uniform for all materials
+  state.meshes.forEach(mesh => {
+    if (mesh.material && mesh.material.uniforms && mesh.material.uniforms.uResolution) {
+      mesh.material.uniforms.uResolution.value.set(width, height);
+    }
+  });
+
+  if (state.centerTitleMesh) {
+    state.centerTitleMesh.maxWidth = width * 0.7;
+    state.centerTitleMesh.sync();
   }
-  
-  createThumbnailItems();
-  initializeSlider();
-  updateThumbnailItems();
 }
 
-// Setup and cleanup
-function setupEventListeners() {
-  window.addEventListener("wheel", handleScroll, wheelOpts);
-  window.addEventListener("DOMMouseScroll", handleScroll, wheelOpts);
-  window.addEventListener("scroll", preventScroll, wheelOpts);
-  window.addEventListener("resize", onResize);
+function onMouseMove(event) {
+  const now = performance.now();
+  if (now - state.lastMouseTime < 16) return;
+  state.lastMouseTime = now;
+
+  const mx = (event.clientX / window.innerWidth) * 2 - 1;
+  const my = -(event.clientY / window.innerHeight) * 2 + 1;
+
+  // Orbital camera targeting (matching home page three.js)
+  const p = state.guiParallax || { angleRange: 0.15, yRange: 0.3, tiltRange: 0.02 };
+  state.cameraTarget.angle = Math.PI / 2 + mx * p.angleRange;
+  state.cameraTarget.y = -my * p.yRange;
+  state.cameraTarget.tilt = mx * p.tiltRange;
 }
 
-function cleanupWork() {
-  if (state.thumbnailIntroTl) {
-    state.thumbnailIntroTl.kill();
-    state.thumbnailIntroTl = null;
-  }
-  
-  state.isThumbnailIntroPlaying = false;
-  
-  if (state.rafId) {
-    cancelAnimationFrame(state.rafId);
-    state.rafId = null;
-  }
-  
-  window.removeEventListener("wheel", handleScroll, wheelOpts);
-  window.removeEventListener("DOMMouseScroll", handleScroll, wheelOpts);
-  window.removeEventListener("scroll", preventScroll, wheelOpts);
-  window.removeEventListener("resize", onResize);
-  
-  if (state.slideTitle) {
-    state.slideTitle.onclick = null;
-  }
-  
-  if (state.slider) state.slider.innerHTML = "";
-  if (state.thumbnailWheel) state.thumbnailWheel.innerHTML = "";
-  destroyDrag();
-  
-  // Clear cached references
-  state.slides = null;
-  state.thumbnails = null;
-  state.isInitialized = false;
+function onPointerDown(event) {
+  state.isPointerDown = true;
+  state.lastPointerY = event.clientY;
+  state.dragStartY = event.clientY;
 }
 
-function initWork() {
-  cleanupWork();
+function onPointerMove(event) {
+  if (!state.isPointerDown) return;
   
-  state.slider = document.querySelector(".slider");
-  state.slideTitle = document.querySelector(".slide-title");
-  state.thumbnailWheel = document.querySelector(".thumbnail-wheel");
+  const deltaY = event.clientY - state.lastPointerY;
+  // Update scroll target on drag (like kokomi)
+  state.scrollTarget -= deltaY * 2;
+  state.lastPointerY = event.clientY;
+}
+
+function onPointerUp(event) {
+  if (!state.isPointerDown) return;
+  state.isPointerDown = false;
   
-  if (!state.slider || !state.slideTitle || !state.thumbnailWheel) return;
+  const dragDistance = Math.abs(event.clientY - state.dragStartY);
   
-  // Initialize dimensions
-  state.isMobile = window.innerWidth < CONFIG.MOBILE_BREAKPOINT;
-  state.slideWidth = window.innerWidth * CONFIG.SLIDE_WIDTH_RATIO;
-  state.viewportCenter = window.innerWidth * 0.5;
-  state.totalSlides = state.totalImages * CONFIG.SLIDES_MULTIPLIER;
+  if (dragDistance < 5) {
+    handleClick(event);
+  }
+}
+
+function playIntro() {
+  const tl = gsap.timeline();
   
-  // Precompute frequently used values
-  halfSlideWidth = state.slideWidth * 0.5;
-  totalWidth = state.totalSlides * state.slideWidth;
-  outerDistance = state.slideWidth * CONFIG.OUTER_DISTANCE_MULTIPLIER;
+  // Rotate in from offset
+  tl.fromTo(
+    state,
+    { rotation: -Math.PI * 0.3 },
+    { 
+      rotation: 0,
+      duration: 1.8,
+      ease: 'power2.out'
+    }
+  );
   
-  createSlides();
-  createThumbnailItems();
-  initializeSlider();
-  setupEventListeners();
-  setupDrag();
-  
-  // Hide slide title initially
-  if (state.slideTitle) {
-    gsap.set(state.slideTitle, { opacity: 0 });
+  // Scale in meshes with stagger
+  if (state.meshes.length > 0) {
+    state.meshes.forEach(mesh => {
+      gsap.set(mesh.scale, { x: 0, y: 0 });
+    });
+    
+    state.meshes.forEach((mesh, index) => {
+      tl.to(
+        mesh.scale,
+        {
+          x: CONFIG.IMAGE_WIDTH,
+          y: CONFIG.IMAGE_HEIGHT,
+          duration: 1.2,
+          ease: 'back.out(1.4)'
+        },
+        0.3 + index * 0.08
+      );
+    });
   }
   
-  // Play circle intro animation
-  playThumbnailWheelIntro();
-  
-  state.slideTitle.onclick = () => {
-    const href = state.slideTitle.dataset.href;
-    if (href) window.location.href = href;
+  return tl;
+}
+
+function setupGui() {
+  if (state.gui) { state.gui.destroy(); state.gui = null; }
+
+  const gui = new GUI({ title: 'Work Page Debug' });
+  state.gui = gui;
+
+  // --- Model Transform ---
+  const modelFolder = gui.addFolder('Model Transform');
+  const pos = { x: 0, y: 0, z: -200 };
+  const rot = { x: 0, y: 0, z: 0 };
+  const scaleVal = { scale: 80 };
+
+  modelFolder.add(pos, 'x', -500, 500, 1).name('Position X').onChange(v => { if (state.model) state.model.position.x = v; });
+  modelFolder.add(pos, 'y', -500, 500, 1).name('Position Y').onChange(v => { if (state.model) state.model.position.y = v; });
+  modelFolder.add(pos, 'z', -500, 100, 1).name('Position Z').onChange(v => { if (state.model) state.model.position.z = v; });
+  modelFolder.add(rot, 'x', -Math.PI, Math.PI, 0.01).name('Rotation X').onChange(v => { if (state.model) state.model.rotation.x = v; });
+  modelFolder.add(rot, 'y', -Math.PI, Math.PI, 0.01).name('Rotation Y').onChange(v => { if (state.model) state.model.rotation.y = v; });
+  modelFolder.add(rot, 'z', -Math.PI, Math.PI, 0.01).name('Rotation Z').onChange(v => { if (state.model) state.model.rotation.z = v; });
+  modelFolder.add(scaleVal, 'scale', 1, 300, 1).name('Scale').onChange(v => { if (state.model) state.model.scale.setScalar(v); });
+  modelFolder.close();
+
+  // --- Material ---
+  const matFolder = gui.addFolder('Clay Material');
+  const matParams = { color: '#d4d0cc', roughness: 0.85, metalness: 0.0, wireframe: false };
+
+  matFolder.addColor(matParams, 'color').name('Color').onChange(v => { if (state.clayMaterial) state.clayMaterial.color.set(v); });
+  matFolder.add(matParams, 'roughness', 0, 1, 0.01).name('Roughness').onChange(v => { if (state.clayMaterial) state.clayMaterial.roughness = v; });
+  matFolder.add(matParams, 'metalness', 0, 1, 0.01).name('Metalness').onChange(v => { if (state.clayMaterial) state.clayMaterial.metalness = v; });
+  matFolder.add(matParams, 'wireframe').name('Wireframe').onChange(v => { if (state.clayMaterial) state.clayMaterial.wireframe = v; });
+  matFolder.close();
+
+  // --- Lighting ---
+  const lightFolder = gui.addFolder('Lighting');
+  const lightParams = {
+    ambientIntensity: 0.6,
+    ambientColor: '#ffffff',
+    dirIntensity: 0.8,
+    dirColor: '#ffffff',
+    dirX: 100, dirY: 200, dirZ: 300,
   };
-  
-  animate();
-  state.isInitialized = true;
+
+  lightFolder.add(lightParams, 'ambientIntensity', 0, 2, 0.01).name('Ambient Intensity').onChange(v => { if (state.lights[0]) state.lights[0].intensity = v; });
+  lightFolder.addColor(lightParams, 'ambientColor').name('Ambient Color').onChange(v => { if (state.lights[0]) state.lights[0].color.set(v); });
+  lightFolder.add(lightParams, 'dirIntensity', 0, 3, 0.01).name('Dir Intensity').onChange(v => { if (state.lights[1]) state.lights[1].intensity = v; });
+  lightFolder.addColor(lightParams, 'dirColor').name('Dir Color').onChange(v => { if (state.lights[1]) state.lights[1].color.set(v); });
+  lightFolder.add(lightParams, 'dirX', -500, 500, 1).name('Dir X').onChange(v => { if (state.lights[1]) state.lights[1].position.x = v; });
+  lightFolder.add(lightParams, 'dirY', -500, 500, 1).name('Dir Y').onChange(v => { if (state.lights[1]) state.lights[1].position.y = v; });
+  lightFolder.add(lightParams, 'dirZ', -500, 500, 1).name('Dir Z').onChange(v => { if (state.lights[1]) state.lights[1].position.z = v; });
+  lightFolder.close();
+
+  // --- Parallax (orbital camera) ---
+  const parallaxFolder = gui.addFolder('Parallax');
+  const parallaxParams = { angleRange: 0.15, yRange: 0.3, tiltRange: 0.02, lerp: 0.04 };
+
+  parallaxFolder.add(parallaxParams, 'angleRange', 0, 0.5, 0.01).name('Angle Range');
+  parallaxFolder.add(parallaxParams, 'yRange', 0, 2, 0.01).name('Y Range');
+  parallaxFolder.add(parallaxParams, 'tiltRange', 0, 0.2, 0.01).name('Tilt Range');
+  parallaxFolder.add(parallaxParams, 'lerp', 0.001, 0.1, 0.001).name('Lerp');
+  parallaxFolder.close();
+
+  // Store params so mouse handler + animate() can read them
+  state.guiParallax = parallaxParams;
+
+  // --- CRT ---
+  const crtFolder = gui.addFolder('CRT Post-Processing');
+  const crt = { ...CRT_CONFIG };
+
+  crtFolder.add(crt, 'scanlineIntensity', 0, 1, 0.01).name('Scanlines').onChange(v => { if (state.crtUniforms?.scanlineIntensity) state.crtUniforms.scanlineIntensity.value = v; });
+  crtFolder.add(crt, 'scanlineCount', 100, 1500, 1).name('Scanline Count').onChange(v => { if (state.crtUniforms?.scanlineCount) state.crtUniforms.scanlineCount.value = v; });
+  crtFolder.add(crt, 'brightness', 0.5, 2, 0.01).name('Brightness').onChange(v => { if (state.crtUniforms?.brightness) state.crtUniforms.brightness.value = v; });
+  crtFolder.add(crt, 'contrast', 0.5, 2, 0.01).name('Contrast').onChange(v => { if (state.crtUniforms?.contrast) state.crtUniforms.contrast.value = v; });
+  crtFolder.add(crt, 'saturation', 0, 2, 0.01).name('Saturation').onChange(v => { if (state.crtUniforms?.saturation) state.crtUniforms.saturation.value = v; });
+  crtFolder.add(crt, 'bloomIntensity', 0, 1, 0.01).name('Bloom').onChange(v => { if (state.crtUniforms?.bloomIntensity) state.crtUniforms.bloomIntensity.value = v; });
+  crtFolder.add(crt, 'bloomThreshold', 0, 1, 0.01).name('Bloom Threshold').onChange(v => { if (state.crtUniforms?.bloomThreshold) state.crtUniforms.bloomThreshold.value = v; });
+  crtFolder.add(crt, 'rgbShift', 0, 1.2, 0.01).name('Chromatic Aberration').onChange(v => {
+    state.crtBaseRgbShift = v;
+    updateChromaticAberrationUniform();
+  });
+  crtFolder.add(crt, 'curvature', 0, 2, 0.01).name('Curvature').onChange(v => { if (state.crtUniforms?.curvature) state.crtUniforms.curvature.value = v; });
+  crtFolder.add(crt, 'vignetteStrength', 0, 1, 0.01).name('Vignette').onChange(v => { if (state.crtUniforms?.vignetteStrength) state.crtUniforms.vignetteStrength.value = v; });
+  crtFolder.add(crt, 'flickerStrength', 0, 0.1, 0.001).name('Flicker').onChange(v => { if (state.crtUniforms?.flickerStrength) state.crtUniforms.flickerStrength.value = v; });
+  crtFolder.close();
+
+  // --- Scene ---
+  const sceneFolder = gui.addFolder('Scene');
+  const sceneParams = { background: '#fefefe' };
+  sceneFolder.addColor(sceneParams, 'background').name('Background').onChange(v => {
+    if (state.scene) state.scene.background = new THREE.Color(v);
+    if (state.renderer) state.renderer.setClearColor(new THREE.Color(v), 1);
+  });
+  sceneFolder.close();
 }
 
-export { initWork, cleanupWork as destroyWork };
+function attachEventListeners() {
+  state.handlers.resize = onResize;
+  state.handlers.pointerdown = onPointerDown;
+  state.handlers.pointermove = onPointerMove;
+  state.handlers.pointerup = onPointerUp;
+  state.handlers.wheel = onWheel;
+  state.handlers.mousemove = onMouseMove;
+
+  window.addEventListener('resize', state.handlers.resize);
+  document.addEventListener('mousemove', state.handlers.mousemove, { passive: true });
+
+  if (state.container) {
+    state.container.addEventListener('pointerdown', state.handlers.pointerdown);
+    state.container.addEventListener('wheel', state.handlers.wheel, { passive: false });
+    window.addEventListener('pointermove', state.handlers.pointermove);
+    window.addEventListener('pointerup', state.handlers.pointerup);
+  }
+}
+
+function removeEventListeners() {
+  if (state.handlers.resize) {
+    window.removeEventListener('resize', state.handlers.resize);
+  }
+  if (state.handlers.pointerdown && state.container) {
+    state.container.removeEventListener('pointerdown', state.handlers.pointerdown);
+  }
+  if (state.handlers.wheel && state.container) {
+    state.container.removeEventListener('wheel', state.handlers.wheel);
+  }
+  if (state.handlers.pointermove) {
+    window.removeEventListener('pointermove', state.handlers.pointermove);
+  }
+  if (state.handlers.pointerup) {
+    window.removeEventListener('pointerup', state.handlers.pointerup);
+  }
+  if (state.handlers.mousemove) {
+    document.removeEventListener('mousemove', state.handlers.mousemove);
+  }
+  
+  Object.keys(state.handlers).forEach(key => {
+    state.handlers[key] = null;
+  });
+}
+
+async function initWork() {
+  destroyWork();
+  
+  const mainContainer = document.querySelector("[data-barba-namespace='work']");
+  if (!mainContainer) {
+    console.warn('Work page container not found');
+    return;
+  }
+  
+  state.titleEl = document.querySelector('.work-title') || document.querySelector('.slide-title');
+  state.captionEl = document.querySelector('.work-caption');
+  
+  if (!setupRenderer()) {
+    console.error('Failed to setup renderer');
+    return;
+  }
+  
+  await loadAllTextures();
+  setupGallery();
+  await setupCenterTitle();
+  setupModelScene();
+  loadModel();
+  setupGui();
+  attachEventListeners();
+  
+  // Initialize scroll tracking (kokomi-style)
+  state.scrollTarget = 0;
+  state.scrollCurrent = 0;
+  state.scrollDelta = 0;
+  state.crtBaseRgbShift = CRT_CONFIG.rgbShift;
+  state.crtMotionBoost = 0;
+  updateChromaticAberrationUniform();
+  
+  state.animationFrame = null;
+  state.animationFrame = requestAnimationFrame(animate);
+  playIntro();
+}
+
+function destroyWork() {
+  if (state.animationFrame !== null) {
+    cancelAnimationFrame(state.animationFrame);
+    state.animationFrame = null;
+  }
+  
+  removeEventListeners();
+  
+  // Dispose meshes
+  state.meshes.forEach(mesh => {
+    if (mesh.material) {
+      if (mesh.material.uniforms && mesh.material.uniforms.uTexture) {
+        // Texture is disposed separately from cache
+        mesh.material.uniforms.uTexture.value = null;
+      }
+      mesh.material.dispose();
+    }
+    if (state.scene) {
+      state.scene.remove(mesh);
+    }
+  });
+  state.meshes = [];
+
+  if (state.centerTitleMesh) {
+    if (state.scene) {
+      state.scene.remove(state.centerTitleMesh);
+    }
+    state.centerTitleMesh.dispose();
+    state.centerTitleMesh = null;
+    state.centerTitleText = '';
+  }
+  
+  if (state.sharedGeometry) {
+    state.sharedGeometry.dispose();
+    state.sharedGeometry = null;
+  }
+  
+  state.textureCache.forEach(texture => texture.dispose());
+  state.textureCache.clear();
+
+  // Destroy GUI
+  if (state.gui) {
+    state.gui.destroy();
+    state.gui = null;
+  }
+  state.guiParallax = null;
+  state.clayMaterial = null;
+
+  // Dispose 3D model
+  if (state.model) {
+    state.model.traverse((child) => {
+      if (child.isMesh) {
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) child.material.dispose();
+      }
+    });
+    if (state.modelScene) state.modelScene.remove(state.model);
+    state.model = null;
+  }
+
+  // Dispose lights
+  state.lights.forEach(light => {
+    if (state.modelScene) state.modelScene.remove(light);
+  });
+  state.lights = [];
+
+  state.modelScene = null;
+  state.modelCamera = null;
+  
+  // Dispose CRT pass
+  if (state.crtPass) {
+    if (state.crtPass.geometry) {
+      state.crtPass.geometry.dispose();
+    }
+    if (state.crtPass.material) {
+      state.crtPass.material.dispose();
+    }
+    if (state.crtScene) {
+      state.crtScene.remove(state.crtPass);
+    }
+    state.crtPass = null;
+  }
+  
+  // Dispose render target
+  if (state.renderTarget) {
+    state.renderTarget.dispose();
+    state.renderTarget = null;
+  }
+  
+  state.crtScene = null;
+  state.crtCamera = null;
+  state.crtUniforms = null;
+  
+  if (state.renderer) {
+    state.renderer.dispose();
+    if (state.renderer.domElement && state.renderer.domElement.parentNode) {
+      state.renderer.domElement.parentNode.removeChild(state.renderer.domElement);
+    }
+    state.renderer = null;
+  }
+  
+  state.scene = null;
+  state.camera = null;
+  state.raycaster = null;
+  state.clock = null;
+  state.container = null;
+  if (state.titleEl) {
+    state.titleEl.style.opacity = '';
+    state.titleEl.style.pointerEvents = '';
+  }
+  state.titleEl = null;
+  state.captionEl = null;
+  state.rotation = 0;
+  state.targetRotation = 0;
+  state.scrollVelocity = 0;
+  state.scrollTarget = 0;
+  state.scrollCurrent = 0;
+  state.scrollDelta = 0;
+  state.crtBaseRgbShift = CRT_CONFIG.rgbShift;
+  state.crtMotionBoost = 0;
+  state.isPointerDown = false;
+  state.cameraTarget.angle = Math.PI / 2;
+  state.cameraTarget.y = 0;
+  state.cameraTarget.tilt = 0;
+  state.cameraCurrent.angle = Math.PI / 2;
+  state.cameraCurrent.y = 0;
+  state.cameraCurrent.tilt = 0;
+  state.lastMouseTime = 0;
+  state.wheelParallaxOffset.x = 0;
+  state.wheelParallaxOffset.y = 0;
+  state.wheelParallaxOffset.z = 0;
+  state.wheelParallaxOffset.tilt = 0;
+}
+
+export { initWork, destroyWork };

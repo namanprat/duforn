@@ -1,13 +1,18 @@
 /* --- UTILITY CLASSES --- */
 @font-face {
-  font-family: InterVariable;
-  src: url(./public/OTJubilee-Golden.woff2);
+  font-family: OTJuilee-Golden;
+  src: url(./public/OTJubilee-Golden.otf) format("opentype");
 }
 
 @font-face {
-  font-family: secondary;
-  src: url(./public/InterVariable.woff2);
-  /* src: url(./public/XanhMono-Regular.ttf); */
+  font-family: NeueMontreal;
+  src: url(./public/PPNeueMontreal-Medium.otf) format("opentype");
+
+}
+
+@font-face {
+  font-family: GeistMono;
+  src: url(./public/menu/GeistMono\ Medium.woff2);
 }
 
 /* Mobile fix: prevent iOS rubber band effect */
@@ -27,8 +32,9 @@ html {
 
 :root {
   /* Core Theme & Typography */
-  --text-style-font-primary: "InterVariable", sans-serif;
-  --text-style-font-secondary: secondary, monospace;
+  --text-style-font-primary: OTJuilee-Golden, serif;
+  --text-style-font-secondary: NeueMontreal, monospace;
+  --text-style-font-tertiary: GeistMono, monospace;
 
   /* Colours */
   /* --theme-accent: #ddbb7d;
@@ -90,7 +96,9 @@ html {
   --typography-font-size-h3: clamp(2.25 * 1rem, ((2.25 - ((3 - 2.25) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((3 - 2.25) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 3 * 1rem);
   --typography-font-size-h2: clamp(2.5 * 1rem, ((2.5 - ((4 - 2.5) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((4 - 2.5) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 4 * 1rem);
   --typography-font-size-h1: clamp(3 * 1rem, ((3 - ((5 - 3) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((5 - 3) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 5 * 1rem);
-  --typography-font-size-display: clamp(4 * 1rem, ((4 - ((7 - 4) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((7 - 4) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 7 * 1rem);
+  --typography-font-size-display: clamp(6 * 1rem, ((6 - ((10 - 6) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((10 - 6) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 10 * 1rem);
+
+  /* --typography-font-size-display: clamp(4 * 1rem, ((4 - ((7 - 4) / (var(--site--viewport-max) - var(--site--viewport-min)) * var(--site--viewport-min))) * 1rem + ((7 - 4) / (var(--site--viewport-max) - var(--site--viewport-min))) * 100vw), 7 * 1rem); */
 
 
   --font-primary-trim-top: 0.33em;
@@ -474,7 +482,7 @@ p {
 }
 
 .page-wrap::after {
-  display: none;
+  display: block;
   content: "";
   top: -50%;
   left: -50%;
@@ -483,12 +491,12 @@ p {
   pointer-events: none;
   position: fixed;
   background-image: url("/grain.png");
-  z-index: 5;
+  z-index: 999;
   background-repeat: repeat;
   background-size: 1000px;
   opacity: 0.3;
   mix-blend-mode: overlay;
-  /* animation: grain 0.7s steps(5) infinite; */
+  animation: grain 3s steps(5) infinite;
 }
 
 @keyframes grain {
@@ -1331,6 +1339,11 @@ section {
 .u-text-style-font-secondary {
   font-family: var(--text-style-font-secondary);
 }
+.u-text-style-font-tertiary {
+    font-family: var(--text-style-font-tertiary);
+
+}
+
 .u-line-height-small {
   line-height: var(--typography-line-height-small);
 }
@@ -1773,6 +1786,13 @@ section {
   .u-max-width-full {
     max-width: 100%;
   }
+  .menu-wrap {
+    padding: var(--spacing-space-4);
+  }
+  .menu-box {
+  margin: 0;
+
+  }
 }
 
 @media (max-width: 1024px) {
@@ -1941,12 +1961,12 @@ section {
 
   flex-direction: column;
   align-self: flex-start;
-    padding: var(--size-0-5rem);
+  padding: 0;
   margin-left: auto;
+  margin-right: var(--site--margin);
   width: 100%;
   height: fit-content;
-  max-width: var(--container--full);
-  background-color: var(--theme-accent);
+  max-width: 400px;
   clip-path: polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%);
   transform-origin: top center;
 
@@ -1982,7 +2002,7 @@ section {
   right: 0;
   left: 0;
   bottom: 0;
-  max-width: var(--container--main);
+  max-width: 100vw;
   height: 100%;
   margin: auto;
   padding-top: var(--spacing-space-4);
@@ -1998,16 +2018,6 @@ section {
   margin: auto;
   position: static;
   margin-top: var(--size-0-5rem);
-}
-
-.menu-box h3,
-.menu-box a {
-  width: 100%;
-  /* color: var(--_theme---text); */
-  color: rgb(62, 35, 0);
-}
-.menu-box h3 {
-  font-weight: 700;
 }
 
 .menu-item {
@@ -2027,7 +2037,67 @@ section {
 
 .menu-box .menu-footer .menu-footer-item {
   display: flex;
-  justify-content: space-around;
+  flex-direction: column;
+  gap: var(--spacing-space-2);
+
+}
+
+.receipt-barcode {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: var(--spacing-space-2) 0;
+}
+
+.receipt-barcode img {
+  width: clamp(200px, 100%, 290px);
+  height: auto;
+  display: block;
+}
+
+.receipt-star {
+  width: 100%;
+  height: 9px;
+  background-image: url('/menu/bill-asterix.svg');
+  background-repeat: space;
+  background-position: center;
+  background-size: 9px 9px;
+  margin: 0;
+}
+
+.receipt-dot {
+  width: 100%;
+  height: 3px;
+  aspect-ratio: 1/1;
+  background-image: url('/menu/bill-dot.svg');
+  background-repeat: space;
+  background-position: center;
+  background-size: 7px 2px;
+  margin: var(--spacing-space-2) 0;
+  padding: 0;
+}
+
+.receipt-close {
+  border: none;
+  background: none;
+  color: var(--swatch-dark);
+  font-family: var(--text-style-font-tertiary);
+  font-size: var(--typography-font-size-text-main);
+  letter-spacing: 0.1em;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-space-2);
+  padding: var(--spacing-space-1) var(--spacing-space-2);
+  cursor: pointer;
+}
+
+.receipt-close-text {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.receipt-close-arrow {
+  font-size: var(--typography-font-size-text-main);
 }
 
 @media (max-width: 768px) {
@@ -2080,6 +2150,10 @@ section {
   display: flex;
   position: relative;
   inset: 0%;
+}
+
+.contact-contain>.u-flex-vertical-nowrap {
+  gap: var(--spacing-space-6);
 }
 
 /* WORK */
