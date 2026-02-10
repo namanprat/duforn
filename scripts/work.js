@@ -1,6 +1,7 @@
 import gsap from 'gsap';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { Text as TroikaText } from 'troika-three-text';
 import GUI from 'lil-gui';
 import { workItems } from '../data/work-items.js';
@@ -141,11 +142,19 @@ const state = {
   modelScene: null,
   modelCamera: null,
   model: null,
-  clayMaterial: null,
+  modelMaterials: new Set(),
+  pmremGenerator: null,
+  envRenderTarget: null,
+  shadowCatcher: null,
   lights: [],
 
   // Debug
   gui: null,
+  materialResponse: {
+    roughnessScale: 1,
+    metalnessScale: 1,
+    envMapIntensity: 1,
+  },
 
   // Mouse parallax (orbital camera, matching home page)
   cameraTarget: { angle: Math.PI / 2, y: 0, tilt: 0 },
@@ -210,13 +219,70 @@ async function loadAllTextures() {
   await Promise.all(promises);
 }
 
+function tunePBRMaterial(material) {
+  if (!material) return material;
+  if (material.map) material.map.colorSpace = THREE.SRGBColorSpace;
+  if (material.emissiveMap) material.emissiveMap.colorSpace = THREE.SRGBColorSpace;
+  material.envMapIntensity = Math.max(material.envMapIntensity || 0.5, 0.9);
+  if (material.roughness !== undefined) material.roughness = Math.min(material.roughness, 0.92);
+  if (material.metalness !== undefined) material.metalness = Math.max(material.metalness, 0.02);
+  material.needsUpdate = true;
+  return material;
+}
+
+function applyMaterialResponse() {
+  state.modelMaterials.forEach((material) => {
+    if (!material) return;
+    if (material.roughness !== undefined) {
+      material.roughness = THREE.MathUtils.clamp(material.userData.baseRoughness * state.materialResponse.roughnessScale, 0.03, 1);
+    }
+    if (material.metalness !== undefined) {
+      material.metalness = THREE.MathUtils.clamp(material.userData.baseMetalness * state.materialResponse.metalnessScale, 0, 1);
+    }
+    material.envMapIntensity = THREE.MathUtils.clamp(material.userData.baseEnvMapIntensity * state.materialResponse.envMapIntensity, 0.2, 4);
+    material.needsUpdate = true;
+  });
+}
+
+function setupModelEnvironment() {
+  if (!state.renderer || !state.modelScene) return;
+  state.pmremGenerator = new THREE.PMREMGenerator(state.renderer);
+  state.pmremGenerator.compileEquirectangularShader();
+
+  const loader = new HDRLoader();
+  loader.load(
+    '/env.hdr',
+    (hdrTexture) => {
+      if (!state.modelScene || !state.pmremGenerator) {
+        hdrTexture.dispose();
+        return;
+      }
+      if (state.envRenderTarget) state.envRenderTarget.dispose();
+      state.envRenderTarget = state.pmremGenerator.fromEquirectangular(hdrTexture);
+      state.modelScene.environment = state.envRenderTarget.texture;
+      state.modelScene.background = state.envRenderTarget.texture;
+      state.modelScene.backgroundBlurriness = 0.56;
+      state.modelScene.backgroundIntensity = 0.45;
+      hdrTexture.dispose();
+      applyMaterialResponse();
+    },
+    undefined,
+    () => {
+      if (state.modelScene) {
+        state.modelScene.environment = null;
+        state.modelScene.background = new THREE.Color(0xf7f7f6);
+      }
+    }
+  );
+}
+
 function setupModelScene() {
   const width = window.innerWidth;
   const height = window.innerHeight;
 
   // Separate perspective scene matching home page (#background) settings
   state.modelScene = new THREE.Scene();
-  state.modelScene.background = new THREE.Color(0xfefefe);
+  state.modelScene.background = new THREE.Color(0xf7f7f6);
 
   state.modelCamera = new THREE.PerspectiveCamera(100, width / height, 0.1, 1000);
   const radius = Math.sqrt(50) / 2.5; // BASE_CAMERA_RADIUS from three.js
@@ -224,13 +290,31 @@ function setupModelScene() {
   state.modelCamera.lookAt(0, 0, 0);
 
   // Lighting matching home page
-  const ambient = new THREE.AmbientLight(0xffffff, 0.5);
-  const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-  dirLight.position.set(5, 5, 5);
+  const ambient = new THREE.AmbientLight(0xffffff, 0.18);
+  const dirLight = new THREE.DirectionalLight(0xffffff, 3.0);
+  dirLight.position.set(4.2, 7.5, 6.2);
+  dirLight.castShadow = true;
+  dirLight.shadow.mapSize.set(2048, 2048);
+  dirLight.shadow.bias = -0.00012;
+  dirLight.shadow.normalBias = 0.01;
+  dirLight.shadow.camera.near = 1;
+  dirLight.shadow.camera.far = 30;
+  dirLight.shadow.camera.left = -8;
+  dirLight.shadow.camera.right = 8;
+  dirLight.shadow.camera.top = 8;
+  dirLight.shadow.camera.bottom = -8;
 
   state.modelScene.add(ambient);
   state.modelScene.add(dirLight);
   state.lights = [ambient, dirLight];
+
+  const catcherGeometry = new THREE.PlaneGeometry(24, 24);
+  const catcherMaterial = new THREE.ShadowMaterial({ opacity: 0.2 });
+  state.shadowCatcher = new THREE.Mesh(catcherGeometry, catcherMaterial);
+  state.shadowCatcher.rotation.x = -Math.PI / 2;
+  state.shadowCatcher.position.y = -1.35;
+  state.shadowCatcher.receiveShadow = true;
+  state.modelScene.add(state.shadowCatcher);
 }
 
 function loadModel() {
@@ -239,33 +323,36 @@ function loadModel() {
     '/brev.glb',
     (glb) => {
       const model = glb.scene;
-
-      // Replace all materials with clay (matte, no textures)
-      state.clayMaterial = new THREE.MeshStandardMaterial({
-        color: 0xd4d0cc,
-        roughness: 0.85,
-        metalness: 0.0,
-      });
-      const clayMaterial = state.clayMaterial;
+      const box = new THREE.Box3().setFromObject(model);
+      const center = box.getCenter(new THREE.Vector3());
+      const minY = box.min.y;
+      model.position.sub(center);
+      model.position.y -= minY;
 
       model.traverse((child) => {
-        if (child.isMesh) {
-          if (child.material) {
-            if (Array.isArray(child.material)) {
-              child.material.forEach(mat => {
-                if (mat.map) mat.map.dispose();
-                mat.dispose();
-              });
-            } else {
-              if (child.material.map) child.material.map.dispose();
-              child.material.dispose();
-            }
-          }
-          child.material = clayMaterial;
+        if (!child.isMesh) return;
+        child.castShadow = true;
+        child.receiveShadow = true;
+
+        if (Array.isArray(child.material)) {
+          child.material = child.material.map((material) => {
+            const tuned = tunePBRMaterial(material);
+            tuned.userData.baseRoughness = tuned.roughness ?? 0.75;
+            tuned.userData.baseMetalness = tuned.metalness ?? 0.05;
+            tuned.userData.baseEnvMapIntensity = tuned.envMapIntensity ?? 1;
+            state.modelMaterials.add(tuned);
+            return tuned;
+          });
+        } else if (child.material) {
+          child.material = tunePBRMaterial(child.material);
+          child.material.userData.baseRoughness = child.material.roughness ?? 0.75;
+          child.material.userData.baseMetalness = child.material.metalness ?? 0.05;
+          child.material.userData.baseEnvMapIntensity = child.material.envMapIntensity ?? 1;
+          state.modelMaterials.add(child.material);
         }
       });
 
-      // No scale override — use native GLB scale like home page
+      applyMaterialResponse();
       state.modelScene.add(model);
       state.model = model;
     },
@@ -293,9 +380,11 @@ function setupRenderer() {
   state.renderer.setSize(width, height);
   state.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   state.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  state.renderer.toneMappingExposure = 1;
+  state.renderer.toneMappingExposure = 1.02;
   state.renderer.outputColorSpace = THREE.SRGBColorSpace;
-  state.renderer.setClearColor(0xfefefe, 1);
+  state.renderer.setClearColor(0xf7f7f6, 1);
+  state.renderer.shadowMap.enabled = true;
+  state.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   container.appendChild(state.renderer.domElement);
   
   state.camera = new THREE.OrthographicCamera(
@@ -313,6 +402,8 @@ function setupRenderer() {
   
   state.raycaster = new THREE.Raycaster();
   state.clock = new THREE.Clock();
+
+  setupModelEnvironment();
   
   // Setup CRT post-processing
   setupCRTPass(width, height);
@@ -968,13 +1059,25 @@ function setupGui() {
   modelFolder.close();
 
   // --- Material ---
-  const matFolder = gui.addFolder('Clay Material');
-  const matParams = { color: '#d4d0cc', roughness: 0.85, metalness: 0.0, wireframe: false };
+  const matFolder = gui.addFolder('PBR Response');
+  const matParams = {
+    roughnessScale: state.materialResponse.roughnessScale,
+    metalnessScale: state.materialResponse.metalnessScale,
+    envMapIntensity: state.materialResponse.envMapIntensity,
+  };
 
-  matFolder.addColor(matParams, 'color').name('Color').onChange(v => { if (state.clayMaterial) state.clayMaterial.color.set(v); });
-  matFolder.add(matParams, 'roughness', 0, 1, 0.01).name('Roughness').onChange(v => { if (state.clayMaterial) state.clayMaterial.roughness = v; });
-  matFolder.add(matParams, 'metalness', 0, 1, 0.01).name('Metalness').onChange(v => { if (state.clayMaterial) state.clayMaterial.metalness = v; });
-  matFolder.add(matParams, 'wireframe').name('Wireframe').onChange(v => { if (state.clayMaterial) state.clayMaterial.wireframe = v; });
+  matFolder.add(matParams, 'roughnessScale', 0.4, 1.6, 0.01).name('Roughness Scale').onChange(v => {
+    state.materialResponse.roughnessScale = v;
+    applyMaterialResponse();
+  });
+  matFolder.add(matParams, 'metalnessScale', 0.25, 2.5, 0.01).name('Metalness Scale').onChange(v => {
+    state.materialResponse.metalnessScale = v;
+    applyMaterialResponse();
+  });
+  matFolder.add(matParams, 'envMapIntensity', 0.2, 3, 0.01).name('IBL Intensity').onChange(v => {
+    state.materialResponse.envMapIntensity = v;
+    applyMaterialResponse();
+  });
   matFolder.close();
 
   // --- Lighting ---
@@ -1031,9 +1134,9 @@ function setupGui() {
 
   // --- Scene ---
   const sceneFolder = gui.addFolder('Scene');
-  const sceneParams = { background: '#fefefe' };
+  const sceneParams = { background: '#f7f7f6' };
   sceneFolder.addColor(sceneParams, 'background').name('Background').onChange(v => {
-    if (state.scene) state.scene.background = new THREE.Color(v);
+    if (state.modelScene) state.modelScene.background = new THREE.Color(v);
     if (state.renderer) state.renderer.setClearColor(new THREE.Color(v), 1);
   });
   sceneFolder.close();
@@ -1199,7 +1302,7 @@ function destroyWork() {
     state.gui = null;
   }
   state.guiParallax = null;
-  state.clayMaterial = null;
+  state.modelMaterials.clear();
 
   // Dispose 3D model
   if (state.model) {
@@ -1218,6 +1321,21 @@ function destroyWork() {
     if (state.modelScene) state.modelScene.remove(light);
   });
   state.lights = [];
+
+  if (state.shadowCatcher) {
+    if (state.modelScene) state.modelScene.remove(state.shadowCatcher);
+    if (state.shadowCatcher.geometry) state.shadowCatcher.geometry.dispose();
+    if (state.shadowCatcher.material) state.shadowCatcher.material.dispose();
+    state.shadowCatcher = null;
+  }
+  if (state.envRenderTarget) {
+    state.envRenderTarget.dispose();
+    state.envRenderTarget = null;
+  }
+  if (state.pmremGenerator) {
+    state.pmremGenerator.dispose();
+    state.pmremGenerator = null;
+  }
 
   state.modelScene = null;
   state.modelCamera = null;

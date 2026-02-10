@@ -31,6 +31,7 @@ class DisposableResource {
 export class Scene {
   constructor() {
     this.children = [];
+    this.position = { x: 0, y: 0, z: 0, set: vi.fn(), sub: vi.fn() };
     createdResources.scenes.add(this);
   }
 
@@ -43,6 +44,10 @@ export class Scene {
       const index = this.children.indexOf(obj);
       if (index > -1) this.children.splice(index, 1);
     });
+  }
+
+  traverse(callback) {
+    this.children.forEach((child) => callback(child));
   }
 }
 
@@ -58,13 +63,43 @@ export class PerspectiveCamera {
   }
 
   updateProjectionMatrix() {}
+
+  lookAt() {}
+}
+
+export class Color {
+  constructor(hex = 0xffffff) {
+    this.set(hex);
+  }
+
+  set(hex) {
+    this.hex = hex;
+    return this;
+  }
+
+  clone() {
+    return new Color(this.hex);
+  }
+}
+
+export class Vector2 {
+  constructor(x = 0, y = 0) {
+    this.x = x;
+    this.y = y;
+  }
+
+  set(x, y) {
+    this.x = x;
+    this.y = y;
+    return this;
+  }
 }
 
 // Mock Renderer
 export class WebGLRenderer {
   constructor(options = {}) {
     this.domElement = document.createElement('canvas');
-    this.shadowMap = { enabled: false };
+    this.shadowMap = { enabled: false, type: null };
     this.info = {
       memory: { geometries: 0, textures: 0 },
       render: { calls: 0, triangles: 0 }
@@ -126,6 +161,31 @@ export class MeshBasicMaterial extends DisposableResource {
   }
 }
 
+export class MeshStandardMaterial extends MeshBasicMaterial {
+  constructor(options = {}) {
+    super(options);
+    this.isMeshStandardMaterial = true;
+    this.roughness = options.roughness ?? 1;
+    this.metalness = options.metalness ?? 0;
+    this.envMapIntensity = options.envMapIntensity ?? 1;
+    this.normalMap = options.normalMap || null;
+    this.roughnessMap = options.roughnessMap || null;
+    this.metalnessMap = options.metalnessMap || null;
+    this.aoMap = options.aoMap || null;
+    this.map = options.map || null;
+    this.emissiveMap = options.emissiveMap || null;
+  }
+}
+
+export class MeshPhysicalMaterial extends MeshStandardMaterial {
+  constructor(options = {}) {
+    super(options);
+    this.isMeshPhysicalMaterial = true;
+  }
+}
+
+export class ShadowMaterial extends MeshBasicMaterial {}
+
 // Mock Texture
 export class Texture extends DisposableResource {
   constructor(image) {
@@ -149,6 +209,27 @@ export class Mesh {
     this.position = { x: 0, y: 0, z: 0, set: vi.fn() };
     this.rotation = { x: 0, y: 0, z: 0, set: vi.fn() };
     this.scale = { x: 1, y: 1, z: 1, set: vi.fn() };
+    this.castShadow = false;
+    this.receiveShadow = false;
+  }
+}
+
+export class AmbientLight {
+  constructor(color = 0xffffff, intensity = 1) {
+    this.color = new Color(color);
+    this.intensity = intensity;
+  }
+}
+
+export class DirectionalLight extends AmbientLight {
+  constructor(color = 0xffffff, intensity = 1) {
+    super(color, intensity);
+    this.position = { x: 0, y: 0, z: 0, set: vi.fn() };
+    this.castShadow = false;
+    this.shadow = {
+      mapSize: { set: vi.fn() },
+      camera: {},
+    };
   }
 }
 
@@ -173,6 +254,41 @@ export class Vector3 {
     this.z = v.z;
     return this;
   }
+}
+
+export class Box3 {
+  constructor() {
+    this.min = { x: -1, y: -1, z: -1 };
+    this.max = { x: 1, y: 1, z: 1 };
+  }
+
+  setFromObject() {
+    return this;
+  }
+
+  getCenter(target) {
+    if (target && typeof target.set === 'function') {
+      target.set(0, 0, 0);
+    }
+    return target;
+  }
+}
+
+export class PMREMGenerator {
+  constructor(renderer) {
+    this.renderer = renderer;
+  }
+
+  compileEquirectangularShader() {}
+
+  fromEquirectangular() {
+    return {
+      texture: new Texture(),
+      dispose: vi.fn(),
+    };
+  }
+
+  dispose() {}
 }
 
 // Mock Clock
@@ -217,6 +333,11 @@ export class GLTFLoader {
   }
 }
 
+export const ACESFilmicToneMapping = 1;
+export const SRGBColorSpace = 'srgb';
+export const BasicShadowMap = 0;
+export const PCFSoftShadowMap = 1;
+
 // Helper to check for resource leaks
 export function getResourceLeaks() {
   return {
@@ -240,14 +361,27 @@ export function resetResourceTracking() {
 export default {
   Scene,
   PerspectiveCamera,
+  Color,
+  Vector2,
   WebGLRenderer,
   BufferGeometry,
   PlaneGeometry,
   ShaderMaterial,
   MeshBasicMaterial,
+  MeshStandardMaterial,
+  MeshPhysicalMaterial,
+  ShadowMaterial,
   Texture,
   CanvasTexture,
   Mesh,
+  AmbientLight,
+  DirectionalLight,
   Vector3,
+  Box3,
+  PMREMGenerator,
   Clock,
+  ACESFilmicToneMapping,
+  SRGBColorSpace,
+  BasicShadowMap,
+  PCFSoftShadowMap,
 };
