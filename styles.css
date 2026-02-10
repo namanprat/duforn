@@ -1,18 +1,18 @@
 /* --- UTILITY CLASSES --- */
 @font-face {
-  font-family: OTJuilee-Golden;
-  src: url(./public/OTJubilee-Golden.otf) format("opentype");
+  font-family: OTJubilee-Golden;
+  src: url("/OTJubilee-Golden.otf") format("opentype");
 }
 
 @font-face {
   font-family: NeueMontreal;
-  src: url(./public/PPNeueMontreal-Medium.otf) format("opentype");
+  src: url("/PPNeueMontreal-Medium.otf") format("opentype");
 
 }
 
 @font-face {
   font-family: GeistMono;
-  src: url(./public/menu/GeistMono\ Medium.woff2);
+  src: url("/GeistMono.woff2") format("woff2");
 }
 
 /* Mobile fix: prevent iOS rubber band effect */
@@ -32,7 +32,7 @@ html {
 
 :root {
   /* Core Theme & Typography */
-  --text-style-font-primary: OTJuilee-Golden, serif;
+  --text-style-font-primary: OTJubilee-Golden, serif;
   --text-style-font-secondary: NeueMontreal, monospace;
   --text-style-font-tertiary: GeistMono, monospace;
 
@@ -2210,6 +2210,7 @@ img {
 }
 
 .slide-title {
+  opacity: 0;
   pointer-events: auto;
   cursor: pointer;
 }
@@ -2218,15 +2219,16 @@ img {
 }
 .thumbnail-item {
   position: absolute;
-  width: 4rem;
-  aspect-ratio: 1/1;
+  width: 6rem;
+  height: 6rem;
   overflow: hidden;
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  }
+}
+
+.thumbnail-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 
 @media (max-width: 1000px) {
@@ -2235,8 +2237,8 @@ img {
   }
 
   .thumbnail-item {
-    width: 20px;
-    height: 30px;
+    width: 3rem;
+    height: 3rem;
   }
 }
 /* --- ARCHIVE OVERLAY --- */

@@ -1,16 +1,18 @@
 import gsap from 'gsap';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { Text as TroikaText } from 'troika-three-text';
 import GUI from 'lil-gui';
 import { workItems } from '../data/work-items.js';
 import { CRTShader } from './CRTShader.js';
 
 // Single-ring circle gallery with kokomi-style scroll, grain, and animated effects
+const USE_DOM_WHEEL = true;
 
 const CONFIG = {
-  RING_RADIUS: 340,
+  RING_RADIUS: 391,
   IMAGE_WIDTH: 76.5,
-  IMAGE_HEIGHT: 96.05,
+  IMAGE_HEIGHT: 76.5,
   SCROLL_SPEED: 0.0012,
   SCROLL_LERP: 0.12,
   DRAG_MULTIPLIER: -1.2,
@@ -108,6 +110,7 @@ const state = {
   container: null,
   titleEl: null,
   captionEl: null,
+  thumbnailWheelEl: null,
   
   // Three.js
   renderer: null,
@@ -125,10 +128,14 @@ const state = {
 
   // Gallery
   meshes: [],
+  domThumbnails: [],
   sharedGeometry: null,
   textureCache: new Map(),
   centerTitleMesh: null,
   centerTitleText: '',
+  centerTitleMutationObserver: null,
+  centerTitleResizeObserver: null,
+  centerTitleSyncRaf: null,
 
   // 3D model (separate perspective scene)
   modelScene: null,
@@ -366,35 +373,105 @@ function updateChromaticAberrationUniform() {
 }
 
 async function setupCenterTitle() {
-  if (!state.scene || !workItems.length) return;
+  if (!state.scene || !state.titleEl || !workItems.length) return;
 
-  try {
-    const { Text } = await import('https://esm.sh/troika-three-text@0.52.4');
-    const title = new Text();
-    title.text = workItems[0].title || '';
-    title.font = '/OTJubilee-Golden.otf';
-    title.fontSize = 36;
-    title.color = 0x111111;
-    title.anchorX = 'center';
-    title.anchorY = 'middle';
-    title.position.set(0, 0, 190);
-    title.maxWidth = window.innerWidth * 0.7;
-    title.textAlign = 'center';
-    title.material.depthTest = false;
-    title.material.depthWrite = false;
-    title.sync();
+  const title = new TroikaText();
+  title.text = workItems[0].title || '';
+  title.anchorX = 'center';
+  title.anchorY = 'middle';
+  title.position.set(0, 0, 190);
+  title.maxWidth = window.innerWidth * 0.7;
+  title.material.depthTest = false;
+  title.material.depthWrite = false;
+  title.frustumCulled = false;
 
-    state.scene.add(title);
-    state.centerTitleMesh = title;
-    state.centerTitleText = title.text;
+  state.scene.add(title);
+  state.centerTitleMesh = title;
+  state.centerTitleText = title.text;
 
-    if (state.titleEl) {
-      state.titleEl.style.opacity = '0';
-      state.titleEl.style.pointerEvents = 'none';
-    }
-  } catch (error) {
-    console.warn('Troika text failed to load, using DOM title fallback', error);
+  const queueCenterTitleSync = () => {
+    if (state.centerTitleSyncRaf !== null) return;
+    state.centerTitleSyncRaf = requestAnimationFrame(() => {
+      state.centerTitleSyncRaf = null;
+      syncCenterTitleFromDom();
+    });
+  };
+
+  state.centerTitleMutationObserver = new MutationObserver(queueCenterTitleSync);
+  state.centerTitleMutationObserver.observe(state.titleEl, {
+    attributes: true,
+    attributeFilter: ['class', 'style'],
+    childList: true,
+    characterData: true,
+    subtree: true,
+  });
+
+  if ('ResizeObserver' in window) {
+    state.centerTitleResizeObserver = new ResizeObserver(queueCenterTitleSync);
+    state.centerTitleResizeObserver.observe(state.titleEl);
   }
+
+  state.titleEl.style.opacity = '0';
+  state.titleEl.style.pointerEvents = 'none';
+  syncCenterTitleFromDom();
+}
+
+function resolveTroikaFontPath(fontFamily) {
+  const families = fontFamily
+    .split(',')
+    .map(part => part.trim().replace(/^['"]|['"]$/g, '').toLowerCase());
+
+  for (const family of families) {
+    if (family.includes('otjubilee')) return '/OTJubilee-Golden.otf';
+    if (family.includes('neuemontreal') || family.includes('ppneuemontreal')) return '/PPNeueMontreal-Medium.otf';
+  }
+  return '/OTJubilee-Golden.otf';
+}
+
+function applyTextTransform(text, transform) {
+  if (transform === 'uppercase') return text.toUpperCase();
+  if (transform === 'lowercase') return text.toLowerCase();
+  if (transform === 'capitalize') {
+    return text.replace(/\b\p{L}/gu, m => m.toUpperCase());
+  }
+  return text;
+}
+
+function syncCenterTitleFromDom() {
+  if (!state.centerTitleMesh || !state.titleEl) return;
+
+  const style = window.getComputedStyle(state.titleEl);
+  const fontSizePx = Number.parseFloat(style.fontSize) || 36;
+  const letterSpacingPx = Number.parseFloat(style.letterSpacing);
+  const lineHeightPx = Number.parseFloat(style.lineHeight);
+  const textAlign = style.textAlign || 'center';
+  const rawText = state.titleEl.textContent?.trim() || state.centerTitleText || '';
+  const transformedText = applyTextTransform(rawText, style.textTransform);
+
+  const mesh = state.centerTitleMesh;
+  mesh.text = transformedText;
+  mesh.font = resolveTroikaFontPath(style.fontFamily || '');
+  mesh.fontSize = fontSizePx;
+  mesh.fontStyle = style.fontStyle || 'normal';
+  mesh.fontWeight = style.fontWeight || '400';
+  mesh.textAlign = textAlign;
+  mesh.letterSpacing = Number.isFinite(letterSpacingPx) ? (letterSpacingPx / fontSizePx) : 0;
+  mesh.lineHeight = Number.isFinite(lineHeightPx) ? (lineHeightPx / fontSizePx) : 'normal';
+  mesh.maxWidth = window.innerWidth * 0.7;
+
+  const color = new THREE.Color();
+  color.setStyle(style.color || '#111111');
+  mesh.color = color.getHex();
+
+  const rect = state.titleEl.getBoundingClientRect();
+  mesh.position.set(
+    rect.left + rect.width * 0.5 - window.innerWidth * 0.5,
+    window.innerHeight * 0.5 - (rect.top + rect.height * 0.5),
+    190
+  );
+
+  mesh.sync();
+  state.centerTitleText = transformedText;
 }
 
 function setupGallery() {
@@ -444,6 +521,70 @@ function setupGallery() {
   });
 }
 
+function setupDOMWheel() {
+  if (!state.thumbnailWheelEl) return;
+  state.thumbnailWheelEl.innerHTML = '';
+  state.domThumbnails = [];
+
+  const fragment = document.createDocumentFragment();
+  workItems.forEach((item, index) => {
+    const card = document.createElement('div');
+    card.className = 'thumbnail-item';
+    card.dataset.index = String(index);
+    card.dataset.href = item.href || '';
+    card.dataset.title = item.title || '';
+
+    const img = document.createElement('img');
+    img.src = item.image;
+    img.alt = item.title || `Work item ${index + 1}`;
+    card.appendChild(img);
+
+    fragment.appendChild(card);
+    state.domThumbnails.push(card);
+  });
+
+  state.thumbnailWheelEl.appendChild(fragment);
+}
+
+function updateDOMWheel() {
+  if (!state.domThumbnails.length) return;
+
+  const angleStep = (Math.PI * 2) / state.domThumbnails.length;
+  const activeIndex = getWheelActiveIndex();
+  const centerX = window.innerWidth * 0.5;
+  const centerY = window.innerHeight * 0.5;
+
+  state.domThumbnails.forEach((el, index) => {
+    const baseAngle = index * angleStep;
+    const currentAngle = baseAngle + state.rotation;
+    const x = Math.cos(currentAngle) * CONFIG.RING_RADIUS;
+    const y = -Math.sin(currentAngle) * CONFIG.RING_RADIUS;
+    const scale = 1;
+
+    el.style.left = `${centerX}px`;
+    el.style.top = `${centerY}px`;
+    el.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px) scale(${scale})`;
+    el.style.zIndex = String(Math.round(1000 + Math.cos(currentAngle) * 200));
+    el.classList.toggle('is-active', index === activeIndex);
+  });
+}
+
+function getWheelActiveIndex() {
+  if (!workItems.length) return 0;
+  const angleStep = (Math.PI * 2) / workItems.length;
+  let activeIndex = 0;
+  let minDiff = Infinity;
+  for (let index = 0; index < workItems.length; index++) {
+    const currentAngle = ((index * angleStep + state.rotation) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+    const diff = Math.abs(currentAngle - Math.PI / 2);
+    if (diff < minDiff) {
+      minDiff = diff;
+      activeIndex = index;
+    }
+  }
+  return activeIndex;
+}
+
 function updateScroll() {
   // Smooth lerp scroll (kokomi-style but slower)
   const prev = state.scrollCurrent;
@@ -472,6 +613,11 @@ function updateRotation() {
   state.wheelParallaxOffset.y += (state.cameraTarget.y * parallaxParams.yRange * 100 - state.wheelParallaxOffset.y) * CONFIG.SCROLL_LERP;
   state.wheelParallaxOffset.tilt += (state.cameraTarget.tilt - state.wheelParallaxOffset.tilt) * CONFIG.SCROLL_LERP;
   state.wheelParallaxOffset.z += (-state.cameraTarget.angle * 50 - state.wheelParallaxOffset.z) * CONFIG.SCROLL_LERP;
+
+  if (USE_DOM_WHEEL) {
+    updateDOMWheel();
+    return;
+  }
   
   // Update all mesh positions and shader uniforms
   state.meshes.forEach(mesh => {
@@ -510,33 +656,39 @@ function updateRotation() {
 }
 
 function updateTitle() {
-  if (!state.titleEl && !state.centerTitleMesh) return;
-  
+  if (!state.titleEl) return;
+
+  if (USE_DOM_WHEEL) {
+    if (!workItems.length) return;
+    const activeIndex = getWheelActiveIndex();
+    const newTitle = workItems[activeIndex]?.title || '';
+    if (state.titleEl.textContent !== newTitle) {
+      state.titleEl.textContent = newTitle;
+    }
+    return;
+  }
+
   // Find closest mesh to top (90 degrees / PI/2)
   let closestMesh = null;
   let minDiff = Infinity;
-  
+
   state.meshes.forEach(mesh => {
     const { baseAngle } = mesh.userData;
     const currentAngle = (baseAngle + state.rotation) % (Math.PI * 2);
     const normalized = currentAngle < 0 ? currentAngle + Math.PI * 2 : currentAngle;
     const diff = Math.abs(normalized - Math.PI / 2);
-    
+
     if (diff < minDiff) {
       minDiff = diff;
       closestMesh = mesh;
     }
   });
-  
+
   if (closestMesh) {
     const newTitle = closestMesh.userData.workItem.title;
-    if (state.titleEl && state.titleEl.textContent !== newTitle) {
+    if (state.titleEl.textContent !== newTitle) {
       state.titleEl.textContent = newTitle;
-    }
-    if (state.centerTitleMesh && state.centerTitleText !== newTitle) {
-      state.centerTitleMesh.text = newTitle;
-      state.centerTitleMesh.sync();
-      state.centerTitleText = newTitle;
+      syncCenterTitleFromDom();
     }
   }
 }
@@ -603,6 +755,26 @@ function animate() {
 }
 
 function handleClick(event) {
+  if (USE_DOM_WHEEL) {
+    let bestEl = null;
+    let bestDist = Infinity;
+    state.domThumbnails.forEach(el => {
+      const rect = el.getBoundingClientRect();
+      const cx = rect.left + rect.width * 0.5;
+      const cy = rect.top + rect.height * 0.5;
+      const dist = Math.hypot(event.clientX - cx, event.clientY - cy);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestEl = el;
+      }
+    });
+    if (bestEl && bestDist < 180) {
+      const href = bestEl.dataset.href;
+      if (href) window.location.href = href;
+    }
+    return;
+  }
+
   if (!state.renderer || !state.camera) return;
   
   const rect = state.renderer.domElement.getBoundingClientRect();
@@ -663,9 +835,12 @@ function onResize() {
     }
   });
 
+  if (USE_DOM_WHEEL) {
+    updateDOMWheel();
+  }
+
   if (state.centerTitleMesh) {
-    state.centerTitleMesh.maxWidth = width * 0.7;
-    state.centerTitleMesh.sync();
+    syncCenterTitleFromDom();
   }
 }
 
@@ -724,8 +899,32 @@ function playIntro() {
     }
   );
   
+  // Scale in DOM thumbnails with stagger
+  if (USE_DOM_WHEEL && state.domThumbnails.length > 0) {
+    gsap.set(state.domThumbnails, { scale: 0, opacity: 0 });
+    tl.to(
+      state.domThumbnails,
+      {
+        scale: 1,
+        opacity: 1,
+        duration: 0.9,
+        ease: 'power2.out',
+        stagger: 0.04,
+      },
+      0.2
+    );
+    if (state.titleEl) {
+      tl.fromTo(
+        state.titleEl,
+        { opacity: 0, y: 24 },
+        { opacity: 1, y: 0, duration: 0.8, ease: 'power2.out' },
+        0.15
+      );
+    }
+  }
+
   // Scale in meshes with stagger
-  if (state.meshes.length > 0) {
+  if (!USE_DOM_WHEEL && state.meshes.length > 0) {
     state.meshes.forEach(mesh => {
       gsap.set(mesh.scale, { x: 0, y: 0 });
     });
@@ -895,6 +1094,7 @@ async function initWork() {
   
   state.titleEl = document.querySelector('.work-title') || document.querySelector('.slide-title');
   state.captionEl = document.querySelector('.work-caption');
+  state.thumbnailWheelEl = document.querySelector('.thumbnail-wheel');
   
   if (!setupRenderer()) {
     console.error('Failed to setup renderer');
@@ -902,8 +1102,22 @@ async function initWork() {
   }
   
   await loadAllTextures();
-  setupGallery();
-  await setupCenterTitle();
+  if (USE_DOM_WHEEL) {
+    // DOM wheel mode: keep circle images + title in DOM for now.
+    setupDOMWheel();
+    if (state.titleEl) {
+      state.titleEl.style.opacity = '1';
+      state.titleEl.style.pointerEvents = 'auto';
+      state.titleEl.textContent = workItems[0]?.title || state.titleEl.textContent;
+    }
+    updateDOMWheel();
+  } else {
+    // Canvas wheel mode (temporarily disabled by USE_DOM_WHEEL):
+    // setupGallery();
+    // await setupCenterTitle();
+    setupGallery();
+    await setupCenterTitle();
+  }
   setupModelScene();
   loadModel();
   setupGui();
@@ -944,6 +1158,23 @@ function destroyWork() {
     }
   });
   state.meshes = [];
+  state.domThumbnails = [];
+  if (state.thumbnailWheelEl) {
+    state.thumbnailWheelEl.innerHTML = '';
+  }
+
+  if (state.centerTitleMutationObserver) {
+    state.centerTitleMutationObserver.disconnect();
+    state.centerTitleMutationObserver = null;
+  }
+  if (state.centerTitleResizeObserver) {
+    state.centerTitleResizeObserver.disconnect();
+    state.centerTitleResizeObserver = null;
+  }
+  if (state.centerTitleSyncRaf !== null) {
+    cancelAnimationFrame(state.centerTitleSyncRaf);
+    state.centerTitleSyncRaf = null;
+  }
 
   if (state.centerTitleMesh) {
     if (state.scene) {
@@ -1028,6 +1259,7 @@ function destroyWork() {
   state.raycaster = null;
   state.clock = null;
   state.container = null;
+  state.thumbnailWheelEl = null;
   if (state.titleEl) {
     state.titleEl.style.opacity = '';
     state.titleEl.style.pointerEvents = '';

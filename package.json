@@ -33,6 +33,7 @@
     "split-type": "^0.3.4",
     "three": "^0.180.0",
     "three-stdlib": "^2.36.1",
+    "troika-three-text": "^0.52.4",
     "ukiyojs": "^4.2.0",
     "vite": "^7.1.5"
   },

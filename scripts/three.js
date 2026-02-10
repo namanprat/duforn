@@ -113,7 +113,9 @@ const DissolveShader = {
 };
 
 export function webgl() {
-  if (isRunning) return;
+  if (isRunning) {
+    return { scene, camera, renderer };
+  }
   isRunning = true;
 
   scene = new THREE.Scene();
@@ -155,7 +157,6 @@ export function webgl() {
     undefined,
     (err) => console.error('GLTF load error:', err)
   );
-
   let resizeTimeout = null;
   resizeHandler = () => {
     // Debounce resize to avoid excessive recalculations
@@ -284,6 +285,10 @@ export function destroyWebgl() {
 
 export function isWebglRunning() {
   return isRunning;
+}
+
+export function getWebglContext() {
+  return { scene, camera, renderer };
 }
 
 /**

@@ -11,6 +11,147 @@ import { initLinkHover, destroyLinkHover } from './link-hover.js';
 import { initBtnHover } from './btn-hover.js';
 
 
+function tweenToPromise(tween) {
+  return tween
+    ? new Promise(resolve => tween.eventCallback('onComplete', resolve))
+    : Promise.resolve();
+}
+
+function createHomeLeaveTimeline(container) {
+  const tl = gsap.timeline({ defaults: { ease: 'power2.in' } });
+  let hasSteps = false;
+
+  const heroTextReveals = container.querySelectorAll('.hero-text-reveal');
+  for (let i = 0; i < heroTextReveals.length; i++) {
+    const split = getOrSplit(heroTextReveals[i], { type: 'lines' });
+    if (!split?.lines?.length) continue;
+    hasSteps = true;
+    tl.to(split.lines, {
+      yPercent: -100,
+      opacity: 0,
+      duration: 0.3,
+      stagger: 0.03
+    }, 0);
+  }
+
+  const heroLogo = container.querySelector('.hero-logo-top h1');
+  if (heroLogo) {
+    hasSteps = true;
+    tl.to(heroLogo, {
+      y: -30,
+      opacity: 0,
+      duration: 0.3
+    }, 0);
+  }
+
+  return hasSteps ? tl : null;
+}
+
+function createContactLeaveTimeline(container, nextNamespace) {
+  const tl = gsap.timeline({ defaults: { ease: 'power2.in' } });
+  let hasSteps = false;
+
+  const textRevealHeaders = container.querySelectorAll('.text-reveal-header');
+  for (let i = 0; i < textRevealHeaders.length; i++) {
+    const header = textRevealHeaders[i];
+    const split = getOrSplit(header);
+    if (!split?.words?.length) continue;
+    hasSteps = true;
+    const isReverse = header.classList.contains('text-reveal-reverse');
+    tl.to(split.words, {
+      y: isReverse ? 100 : -100,
+      opacity: 0,
+      duration: 0.25,
+      stagger: 0.015
+    }, 0);
+  }
+
+  const linkMain = document.querySelector('.link-main');
+  if (linkMain) {
+    hasSteps = true;
+    tl.to(linkMain, {
+      y: -20,
+      opacity: 0,
+      duration: 0.25,
+      onComplete: () => {
+        if (nextNamespace === 'home') {
+          gsap.set(linkMain, { autoAlpha: 0, clearProps: 'transform,opacity' });
+        }
+      }
+    }, 0);
+  }
+
+  return hasSteps ? tl : null;
+}
+
+function primeHomeEnter(container) {
+  const heroTextReveals = container.querySelectorAll('.hero-text-reveal');
+  for (let i = 0; i < heroTextReveals.length; i++) {
+    const split = getOrSplit(heroTextReveals[i], { type: 'lines' });
+    if (split?.lines?.length) {
+      gsap.set(split.lines, { yPercent: 100, opacity: 0 });
+    }
+  }
+
+  const heroLogo = container.querySelector('.hero-logo-top h1');
+  if (heroLogo) {
+    gsap.set(heroLogo, { y: 30, opacity: 0 });
+  }
+
+  const linkMain = document.querySelector('.link-main');
+  if (linkMain) {
+    gsap.set(linkMain, { autoAlpha: 0 });
+  }
+}
+
+function primeContactEnter() {
+  const linkMain = document.querySelector('.link-main');
+  if (linkMain) {
+    gsap.set(linkMain, { autoAlpha: 1, y: 20, opacity: 0 });
+  }
+}
+
+function createHomeEnterTimeline(container) {
+  const tl = gsap.timeline({ defaults: { ease: 'power2.out' } });
+  let stepCount = 0;
+
+  const heroTextReveals = container.querySelectorAll('.hero-text-reveal');
+  for (let i = 0; i < heroTextReveals.length; i++) {
+    const split = getOrSplit(heroTextReveals[i], { type: 'lines' });
+    if (!split?.lines?.length) continue;
+    tl.to(split.lines, {
+      yPercent: 0,
+      opacity: 1,
+      duration: 0.6,
+      stagger: 0.08
+    }, stepCount > 0 ? '<0.04' : 0);
+    stepCount += 1;
+  }
+
+  const heroLogo = container.querySelector('.hero-logo-top h1');
+  if (heroLogo) {
+    tl.to(heroLogo, {
+      y: 0,
+      opacity: 1,
+      duration: 0.4
+    }, 0.1);
+    stepCount += 1;
+  }
+
+  return stepCount > 0 ? tl : null;
+}
+
+function createContactEnterTween() {
+  const linkMain = document.querySelector('.link-main');
+  if (!linkMain) return null;
+  return gsap.to(linkMain, {
+    y: 0,
+    opacity: 1,
+    duration: 0.6,
+    ease: 'power2.out'
+  });
+}
+
 
 // Update time display
 let cachedTimeElement = null;
@@ -93,85 +234,17 @@ barba.init({
       to: { namespace: ['home', 'contact'] },
       async leave(data) {
         closeMenuIfOpen();
+        cleanupScrollTriggers();
         // Start scene shift toward the target page (runs during text-out animation)
         setScenePage(data?.next?.namespace);
         const container = data?.current?.container;
         const ns = data?.current?.namespace;
         if (!container) return;
 
-        const animations = [];
-
         if (ns === 'home') {
-          // Home page: animate out hero text reveals (lines)
-          const heroTextReveals = container.querySelectorAll('.hero-text-reveal');
-          for (let i = 0; i < heroTextReveals.length; i++) {
-            const el = heroTextReveals[i];
-            const split = getOrSplit(el, { type: 'lines' });
-            if (split?.lines?.length) {
-              animations.push(
-                gsap.to(split.lines, {
-                  yPercent: -100,
-                  opacity: 0,
-                  duration: 0.3,
-                  stagger: 0.03,
-                  ease: 'power2.in'
-                })
-              );
-            }
-          }
-          // Fade out hero logo
-          const heroLogo = container.querySelector('.hero-logo-top h1');
-          if (heroLogo) {
-            animations.push(
-              gsap.to(heroLogo, {
-                y: -30,
-                opacity: 0,
-                duration: 0.3,
-                ease: 'power2.in'
-              })
-            );
-          }
+          await tweenToPromise(createHomeLeaveTimeline(container));
         } else if (ns === 'contact') {
-          // Contact page: animate text-reveal headers out
-          const textRevealHeaders = container.querySelectorAll('.text-reveal-header');
-          for (let i = 0; i < textRevealHeaders.length; i++) {
-            const header = textRevealHeaders[i];
-            const split = getOrSplit(header);
-            if (split?.words?.length) {
-              const isReverse = header.classList.contains('text-reveal-reverse');
-              animations.push(
-                gsap.to(split.words, {
-                  y: isReverse ? 100 : -100,
-                  opacity: 0,
-                  duration: 0.25,
-                  stagger: 0.015,
-                  ease: 'power2.in'
-                })
-              );
-            }
-          }
-          // Animate out nav link-main (lines)
-          const linkMain = document.querySelector('.link-main');
-          if (linkMain) {
-            animations.push(
-              gsap.to(linkMain, {
-                y: -20,
-                opacity: 0,
-                duration: 0.25,
-                ease: 'power2.in',
-                onComplete: () => {
-                  // Hide link-main completely after animation when going to home
-                  if (data?.next?.namespace === 'home') {
-                    gsap.set(linkMain, { autoAlpha: 0, clearProps: 'transform,opacity' });
-                  }
-                }
-              })
-            );
-          }
-        }
-
-        if (animations.length) {
-          await Promise.all(animations.map(anim => new Promise(resolve => anim.eventCallback('onComplete', resolve))));
+          await tweenToPromise(createContactLeaveTimeline(container, data?.next?.namespace));
         }
       },
       async enter(data) {
@@ -180,31 +253,9 @@ barba.init({
         if (!container) return;
 
         if (ns === 'home') {
-          // Set initial state for home hero line reveals
-          const heroTextReveals = container.querySelectorAll('.hero-text-reveal');
-          for (let i = 0; i < heroTextReveals.length; i++) {
-            const el = heroTextReveals[i];
-            const split = getOrSplit(el, { type: 'lines' });
-            if (split?.lines?.length) {
-              gsap.set(split.lines, { yPercent: 100, opacity: 0 });
-            }
-          }
-          // Set initial state for hero logo
-          const heroLogo = container.querySelector('.hero-logo-top h1');
-          if (heroLogo) {
-            gsap.set(heroLogo, { y: 30, opacity: 0 });
-          }
-          // Hide nav link-main on home
-          const linkMain = document.querySelector('.link-main');
-          if (linkMain) {
-            gsap.set(linkMain, { autoAlpha: 0 });
-          }
+          primeHomeEnter(container);
         } else if (ns === 'contact') {
-          // Set initial state for nav link-main lines
-          const linkMain = document.querySelector('.link-main');
-          if (linkMain) {
-            gsap.set(linkMain, { autoAlpha: 1, y: 20, opacity: 0 });
-          }
+          primeContactEnter();
         }
         // Contact page text-reveal headers handled by animateRevealEnter
       },
@@ -216,35 +267,7 @@ barba.init({
         initPageFeatures(ns);
 
         if (ns === 'home') {
-          // Animate in home hero line reveals
-          const promises = [];
-          const heroTextReveals = container.querySelectorAll('.hero-text-reveal');
-          for (let i = 0; i < heroTextReveals.length; i++) {
-            const el = heroTextReveals[i];
-            const split = getOrSplit(el, { type: 'lines' });
-            if (split?.lines?.length) {
-              const tween = gsap.to(split.lines, {
-                yPercent: 0,
-                opacity: 1,
-                duration: 0.6,
-                stagger: 0.08,
-                ease: 'power2.out'
-              });
-              promises.push(new Promise(resolve => tween.eventCallback('onComplete', resolve)));
-            }
-          }
-          // Animate in hero logo
-          const heroLogo = container.querySelector('.hero-logo-top h1');
-          if (heroLogo) {
-            const tween = gsap.to(heroLogo, {
-              y: 0,
-              opacity: 1,
-              duration: 0.4,
-              ease: 'power2.out'
-            });
-            promises.push(new Promise(resolve => tween.eventCallback('onComplete', resolve)));
-          }
-          if (promises.length) await Promise.all(promises);
+          await tweenToPromise(createHomeEnterTimeline(container));
           // Ensure nav link-main is hidden on home
           const linkMain = document.querySelector('.link-main');
           if (linkMain) {
@@ -254,15 +277,7 @@ barba.init({
           // Animate contact text-reveal headers in
           await animateRevealEnter(container);
           // Animate nav link-main lines in
-          const linkMain = document.querySelector('.link-main');
-          if (linkMain) {
-            await gsap.to(linkMain, {
-              y: 0,
-              opacity: 1,
-              duration: 0.6,
-              ease: 'power2.out'
-            });
-          }
+          await tweenToPromise(createContactEnterTween());
         }
       }
     },
