@@ -25,7 +25,7 @@ function getConfig() {
 
 export function initBtnHover() {
   if (isTouchDevice()) {
-    console.log('Touch device detected - skipping button hover animations');
+    if (import.meta.env.DEV) console.log('Touch device detected - skipping button hover animations');
     return;
   }
 

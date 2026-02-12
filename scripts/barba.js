@@ -5,8 +5,8 @@ import { initMenu } from './menu.js';
 import { initIndex, destroyIndex } from './index.js';
 import { initWork, destroyWork } from './work.js';
 import { initArchiveScene, destroyArchiveScene } from './archive/index.js';
-import { animateRevealEnter, initScrollTextReveals, getOrSplit, cleanupScrollTriggers } from './text-reveal.js';
-import webgl, { destroyWebgl, setScenePage, isWebglRunning, mountSceneText } from './three.js';
+import { animateRevealEnter, initScrollTextReveals, getOrSplit, cleanupScrollTriggers, cleanupSplits } from './text-reveal.js';
+import webgl, { destroyWebgl, setScenePage, isWebglRunning } from './three.js';
 import { initLinkHover, destroyLinkHover } from './link-hover.js';
 import { initBtnHover } from './btn-hover.js';
 
@@ -213,7 +213,6 @@ function initPageFeatures(namespace) {
     if (!wasRunning) {
       setScenePage(ns, true);
     }
-    mountSceneText(ns);
     if (ns === 'home') {
       initIndex();
     } else {
@@ -236,6 +235,7 @@ barba.init({
       async leave(data) {
         closeMenuIfOpen();
         cleanupScrollTriggers();
+        cleanupSplits(); // Fix memory leak: revert all splits before transition
         // Start scene shift toward the target page (runs during text-out animation)
         setScenePage(data?.next?.namespace);
         const container = data?.current?.container;
@@ -295,6 +295,7 @@ barba.init({
           destroyArchiveScene();
         }
         cleanupScrollTriggers(); // Clean up ScrollTriggers before transition
+        cleanupSplits(); // Fix memory leak: revert all splits before transition
         closeMenuIfOpen();
         await animateTransition();
       },

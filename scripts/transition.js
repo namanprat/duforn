@@ -148,13 +148,27 @@ function init() {
     return;
   }
 
-  renderer = new THREE.WebGLRenderer({
-    alpha: true,
-    premultipliedAlpha: false,
-    antialias: true, // Enable AA for smoother edges
-  });
+  try {
+    renderer = new THREE.WebGLRenderer({
+      alpha: true,
+      premultipliedAlpha: false,
+      antialias: true, // Enable AA for smoother edges
+    });
+  } catch (err) {
+    console.warn('[transition] Failed to create WebGL renderer:', err);
+    return;
+  }
+
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+  // Add context loss handler
+  renderer.domElement.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault();
+    console.warn('[transition] Context lost');
+    cleanup();
+  }, false);
+
   containerEl.appendChild(renderer.domElement);
 
   camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -225,7 +239,7 @@ async function captureOldPage() {
     if (!el) return blackTex;
     const canvas = await html2canvas(el, {
       backgroundColor: "#000000",
-      scale: 0.5,
+      scale: 0.25, // Reduced from 0.5 for faster capture - shader distortion hides quality loss
       logging: false,
       useCORS: true,
     });

@@ -12,18 +12,7 @@ const lenis = new Lenis({
   wheelMultiplier: 0.8,
 });
 
-// Throttle ScrollTrigger updates for better performance
-let lastScrollTriggerUpdate = 0;
-const SCROLL_TRIGGER_THROTTLE = 16; // ~60fps
-
-lenis.on('scroll', () => {
-  const now = performance.now();
-  if (now - lastScrollTriggerUpdate >= SCROLL_TRIGGER_THROTTLE) {
-    lastScrollTriggerUpdate = now;
-    ScrollTrigger.update();
-  }
-});
-
+// ScrollTrigger updates automatically via GSAP ticker - no manual update needed
 gsap.ticker.add((time) => {
   lenis.raf(time * 1000);
 });

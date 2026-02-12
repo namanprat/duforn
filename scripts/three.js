@@ -3,8 +3,11 @@ import { GLTFLoader } from 'three-stdlib';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import gsap from 'gsap';
-import { Text } from 'troika-three-text';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+gsap.registerPlugin(ScrollTrigger);
 
 let renderer = null;
 let composer = null;
@@ -15,7 +18,10 @@ let mouseHandler = null;
 let rafId = null;
 let containerEl = null;
 let isRunning = false;
+let dissolvePass = null;
 let ssaoPass = null;
+let bloomPass = null;
+let dofPass = null;
 let keyLight = null;
 let ambientLight = null;
 let shadowCatcher = null;
@@ -24,22 +30,18 @@ let pmremGenerator = null;
 let envRenderTarget = null;
 let frameHistory = [];
 let effectsDowngraded = false;
+let heroScrollTrigger = null;
 let sceneTween = null;
+let debugGui = null;
 const tunedMaterials = new Set();
-
-// ── Text overlay state ──
-let overlayScene = null;
-let overlayCamera = null;
-let textEntries = []; // { mesh, uniforms, sourceEl, key }
-let sharedOverlayMaterial = null;
+const sceneState = { x: 0, y: 0, z: 0 };
 const cameraTarget = { angle: Math.PI / 2, y: 0, tilt: 0 };
 const cameraCurrent = { angle: Math.PI / 2, y: 0, tilt: 0 };
-const cameraOrbitOffset = { x: 0, y: 0, z: 0 };
-const parallaxConfig = { angleRange: 0.15, yRange: 0.3, tiltRange: 0.035, lerp: 0.02, orbitRadius: 5 };
+const parallaxConfig = { angleRange: 0.15, yRange: 0.3, tiltRange: 0.02, lerp: 0.04 };
 const tune = {
   exposure: 1.0,
   ambientIntensity: 0.18,
-  ambientColor: '#fff5ff', // Slight magenta to counteract green tint
+  ambientColor: '#ffffff',
   keyIntensity: 3.25,
   keyColor: '#ffffff',
   keyX: 4.2,
@@ -52,15 +54,27 @@ const tune = {
   metalnessScale: 1.0,
   shadowOpacity: 0.22,
   shadowY: -1.35,
-  modelX: 0,
-  modelY: -1,
-  modelZ: -5,
+  dissolveSpread: 0.2,
+  dissolveAberration: 0.24,
 };
+
+function createVector2(x = 0, y = 0) {
+  if (THREE.Vector2) return new THREE.Vector2(x, y);
+  return { x, y, set(nx, ny) { this.x = nx; this.y = ny; } };
+}
+
+function createColor(value = 0x000000) {
+  if (THREE.Color) return new THREE.Color(value);
+  return { r: 0, g: 0, b: 0 };
+}
 
 const QUALITY_CONFIG = Object.freeze({
   qualityProfile: 'balanced',
   hdriUrl: '/env.hdr',
   enableShadows: true,
+  enableSSAO: false,
+  enableDOF: false,
+  enableBloom: false,
 });
 
 function detectLowEndDevice() {
@@ -74,34 +88,41 @@ function detectLowEndDevice() {
 
 function getQualitySettings() {
   const lowEnd = detectLowEndDevice();
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   const profile = lowEnd ? 'balanced' : QUALITY_CONFIG.qualityProfile;
   if (profile === 'perf') {
     return {
       profile,
-      pixelRatioCap: 1.5,
+      pixelRatioCap: 1.2,
       toneMappingExposure: 0.95,
       enableShadows: false,
       enableSSAO: false,
-      shadowMapSize: 1024,
+      enableDOF: false,
+      enableBloom: false,
+      shadowMapSize: isMobile ? 512 : 1024,
     };
   }
   if (profile === 'balanced') {
     return {
       profile,
-      pixelRatioCap: 2,
+      pixelRatioCap: 1.4,
       toneMappingExposure: 1.0,
       enableShadows: QUALITY_CONFIG.enableShadows,
-      enableSSAO: true,
-      shadowMapSize: 1024,
+      enableSSAO: false,
+      enableDOF: false,
+      enableBloom: QUALITY_CONFIG.enableBloom,
+      shadowMapSize: isMobile ? 512 : 1536, // Reduced for mobile to save memory
     };
   }
   return {
     profile: 'max',
-    pixelRatioCap: 2,
+    pixelRatioCap: 1.6,
     toneMappingExposure: 1.02,
     enableShadows: QUALITY_CONFIG.enableShadows,
-    enableSSAO: true,
-    shadowMapSize: 2048,
+    enableSSAO: QUALITY_CONFIG.enableSSAO,
+    enableDOF: QUALITY_CONFIG.enableDOF,
+    enableBloom: QUALITY_CONFIG.enableBloom,
+    shadowMapSize: isMobile ? 1024 : 2048, // Reduced for mobile to save memory
   };
 }
 
@@ -151,8 +172,8 @@ function setupShadows(currentRenderer, currentScene, settings) {
   if (keyLight) {
     keyLight.castShadow = true;
     keyLight.shadow.mapSize.set(settings.shadowMapSize, settings.shadowMapSize);
-    keyLight.shadow.bias = -0.0001;
-    keyLight.shadow.normalBias = 0.02;
+    keyLight.shadow.bias = -0.00012;
+    keyLight.shadow.normalBias = 0.01;
     keyLight.shadow.camera.near = 1;
     keyLight.shadow.camera.far = 30;
     keyLight.shadow.camera.left = -7;
@@ -178,25 +199,67 @@ function setupPostFX(currentComposer, currentScene, currentCamera, currentRender
   const renderPass = new RenderPass(currentScene, currentCamera);
   currentComposer.addPass(renderPass);
 
+  dissolvePass = new ShaderPass(DissolveShader);
+  dissolvePass.uniforms.uResolution.value.set(width, height);
+  dissolvePass.uniforms.uAberration.value = tune.dissolveAberration;
+  dissolvePass.uniforms.uSpread.value = tune.dissolveSpread;
+  currentComposer.addPass(dissolvePass);
+
   const outputPass = new OutputPass();
   currentComposer.addPass(outputPass);
+
+  if (settings.profile === 'max') {
+    currentRenderer.info.autoReset = false;
+  }
+
+  if (typeof process !== 'undefined' && process.env && process.env.VITEST) return;
 
   if (settings.enableSSAO) {
     import('three/examples/jsm/postprocessing/SSAOPass.js')
       .then(({ SSAOPass }) => {
         if (!composer) return;
         ssaoPass = new SSAOPass(currentScene, currentCamera, width, height);
-        ssaoPass.kernelRadius = 6;
+        ssaoPass.kernelRadius = 14;
         ssaoPass.minDistance = 0.004;
-        ssaoPass.maxDistance = 0.08;
+        ssaoPass.maxDistance = 0.15;
         if (composer.insertPass) composer.insertPass(ssaoPass, 1);
         else composer.addPass(ssaoPass);
       })
-      .catch(() => { ssaoPass = null; });
+      .catch(() => {
+        ssaoPass = null;
+      });
   }
 
-  if (settings.profile === 'max') {
-    currentRenderer.info.autoReset = false;
+  if (settings.enableBloom) {
+    import('three/examples/jsm/postprocessing/UnrealBloomPass.js')
+      .then(({ UnrealBloomPass }) => {
+        if (!composer) return;
+        bloomPass = new UnrealBloomPass(createVector2(width, height), 0.16, 0.55, 0.88);
+        if (composer.insertPass) composer.insertPass(bloomPass, ssaoPass ? 2 : 1);
+        else composer.addPass(bloomPass);
+      })
+      .catch(() => {
+        bloomPass = null;
+      });
+  }
+
+  if (settings.enableDOF) {
+    import('three/examples/jsm/postprocessing/BokehPass.js')
+      .then(({ BokehPass }) => {
+        if (!composer) return;
+        dofPass = new BokehPass(currentScene, currentCamera, {
+          focus: 4.5,
+          aperture: 0.00002,
+          maxblur: 0.0035,
+          width,
+          height,
+        });
+        if (composer.insertPass) composer.insertPass(dofPass, 1);
+        else composer.addPass(dofPass);
+      })
+      .catch(() => {
+        dofPass = null;
+      });
   }
 }
 
@@ -239,6 +302,59 @@ function applyMaterialTuning() {
   });
 }
 
+function setupDebugGui() {
+  if (typeof process !== 'undefined' && process.env && process.env.VITEST) return;
+  import('lil-gui')
+    .then(({ default: GUI }) => {
+      if (debugGui || !scene || !camera) return;
+      debugGui = new GUI({ title: 'Three Background' });
+
+      const envFolder = debugGui.addFolder('Environment');
+      envFolder.add(tune, 'exposure', 0.4, 1.8, 0.01).name('Exposure').onChange(applyLightTuning);
+      envFolder.add(tune, 'envBackgroundIntensity', 0, 1.5, 0.01).name('BG Intensity').onChange(applyEnvironmentTuning);
+      envFolder.add(tune, 'envBackgroundBlur', 0, 1, 0.01).name('BG Blur').onChange(applyEnvironmentTuning);
+      envFolder.add(tune, 'envReflection', 0.2, 4, 0.01).name('Reflections').onChange(applyMaterialTuning);
+      envFolder.close();
+
+      const lightFolder = debugGui.addFolder('Lighting');
+      lightFolder.add(tune, 'ambientIntensity', 0, 2, 0.01).name('Ambient Int').onChange(applyLightTuning);
+      lightFolder.addColor(tune, 'ambientColor').name('Ambient Color').onChange(applyLightTuning);
+      lightFolder.add(tune, 'keyIntensity', 0, 8, 0.01).name('Key Int').onChange(applyLightTuning);
+      lightFolder.addColor(tune, 'keyColor').name('Key Color').onChange(applyLightTuning);
+      lightFolder.add(tune, 'keyX', -20, 20, 0.1).name('Key X').onChange(applyLightTuning);
+      lightFolder.add(tune, 'keyY', -20, 20, 0.1).name('Key Y').onChange(applyLightTuning);
+      lightFolder.add(tune, 'keyZ', -20, 20, 0.1).name('Key Z').onChange(applyLightTuning);
+      lightFolder.close();
+
+      const matFolder = debugGui.addFolder('Material');
+      matFolder.add(tune, 'roughnessScale', 0.2, 2, 0.01).name('Roughness').onChange(applyMaterialTuning);
+      matFolder.add(tune, 'metalnessScale', 0.2, 3, 0.01).name('Metalness').onChange(applyMaterialTuning);
+      matFolder.close();
+
+      const shadowFolder = debugGui.addFolder('Shadows');
+      shadowFolder.add(tune, 'shadowOpacity', 0, 0.6, 0.01).name('Contact Opacity').onChange(applyShadowTuning);
+      shadowFolder.add(tune, 'shadowY', -4, 2, 0.01).name('Contact Y').onChange(applyShadowTuning);
+      shadowFolder.close();
+
+      const parallaxFolder = debugGui.addFolder('Parallax');
+      parallaxFolder.add(parallaxConfig, 'angleRange', 0, 0.5, 0.01).name('Angle Range');
+      parallaxFolder.add(parallaxConfig, 'yRange', 0, 2, 0.01).name('Y Range');
+      parallaxFolder.add(parallaxConfig, 'tiltRange', 0, 0.2, 0.01).name('Tilt Range');
+      parallaxFolder.add(parallaxConfig, 'lerp', 0.001, 0.1, 0.001).name('Lerp');
+      parallaxFolder.close();
+
+      const fxFolder = debugGui.addFolder('Dissolve');
+      fxFolder.add(tune, 'dissolveSpread', 0, 0.6, 0.01).name('Spread').onChange((value) => {
+        if (dissolvePass?.uniforms?.uSpread) dissolvePass.uniforms.uSpread.value = value;
+      });
+      fxFolder.add(tune, 'dissolveAberration', 0, 1, 0.01).name('Aberration').onChange((value) => {
+        if (dissolvePass?.uniforms?.uAberration) dissolvePass.uniforms.uAberration.value = value;
+      });
+      fxFolder.close();
+    })
+    .catch(() => {});
+}
+
 function tuneMaterialMaps(material) {
   if (material.map) material.map.colorSpace = THREE.SRGBColorSpace;
   if (material.emissiveMap) material.emissiveMap.colorSpace = THREE.SRGBColorSpace;
@@ -248,7 +364,7 @@ function tuneMaterialMaps(material) {
 function getFallbackPhysicalMaterial(sourceMaterial) {
   if (!THREE.MeshPhysicalMaterial) return sourceMaterial;
   return new THREE.MeshPhysicalMaterial({
-    color: sourceMaterial?.color?.clone ? sourceMaterial.color.clone() : new THREE.Color(0xffffff),
+    color: sourceMaterial?.color?.clone ? sourceMaterial.color.clone() : createColor(0xd3d0cb),
     map: sourceMaterial?.map || null,
     normalMap: sourceMaterial?.normalMap || null,
     roughnessMap: sourceMaterial?.roughnessMap || null,
@@ -269,11 +385,15 @@ function tuneMeshMaterial(mesh) {
 
     if (!material.isMeshStandardMaterial && !material.isMeshPhysicalMaterial) {
       material = getFallbackPhysicalMaterial(sourceMaterial);
+    } else {
+      material.envMapIntensity = Math.max(material.envMapIntensity || 0.6, 1.3);
+      material.roughness = Math.min(material.roughness ?? 0.8, 0.9);
+      material.metalness = Math.max(material.metalness ?? 0.0, 0.02);
     }
 
     tuneMaterialMaps(material);
     material.userData.baseRoughness = material.roughness ?? 0.8;
-    material.userData.baseMetalness = material.metalness ?? 0.0;
+    material.userData.baseMetalness = material.metalness ?? 0.02;
     material.userData.baseEnvMapIntensity = material.envMapIntensity ?? 1;
     tunedMaterials.add(material);
     return material;
@@ -306,119 +426,105 @@ function finalizeModel(model) {
 function updateRuntimeQuality(deltaMs) {
   if (effectsDowngraded) return;
   frameHistory.push(deltaMs);
-  if (frameHistory.length > 60) frameHistory.shift();
-  if (frameHistory.length < 45) return;
+  if (frameHistory.length > 120) frameHistory.shift();
+  if (frameHistory.length < 90) return;
 
   const average = frameHistory.reduce((sum, value) => sum + value, 0) / frameHistory.length;
-  if (average < 22) return; // More aggressive: triggers sooner
+  if (average < 28) return;
 
+  if (dofPass) dofPass.enabled = false;
   if (ssaoPass) ssaoPass.enabled = false;
-  // Also reduce pixel ratio if struggling
-  if (renderer && average > 35) {
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
-  }
   effectsDowngraded = true;
 }
 
-// ── Text overlay helpers ──────────────────────────────────────────
+const DissolveShader = {
+  uniforms: {
+    tDiffuse: { value: null },
+    uProgress: { value: 0 },
+    uColor: { value: createColor(0x000000) },
+    uSpread: { value: 0.2 },
+    uAberration: { value: 1.0 },
+    uResolution: { value: createVector2() }
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float uProgress;
+    uniform vec2 uResolution;
+    uniform vec3 uColor;
+    uniform float uSpread;
+    uniform float uAberration;
+    varying vec2 vUv;
+    
+    // Simple noise
+    float Hash(vec2 p) {
+      vec3 p2 = vec3(p.xy, 1.0);
+      return fract(sin(dot(p2, vec3(37.1, 61.7, 12.4))) * 3758.5453123);
+    }
+    
+    float noise(in vec2 p) {
+      vec2 i = floor(p);
+      vec2 f = fract(p);
+      f *= f * (3.0 - 2.0 * f);
+      return mix(
+        mix(Hash(i + vec2(0.0, 0.0)), Hash(i + vec2(1.0, 0.0)), f.x),
+        mix(Hash(i + vec2(0.0, 1.0)), Hash(i + vec2(1.0, 1.0)), f.x),
+        f.y
+      );
+    }
+    
+    float fbm(vec2 p) {
+      // Simplified FBM with fewer octaves for better performance
+      float v = noise(p) * 0.5 + noise(p * 2.0) * 0.25;
+      return v;
+    }
 
-function resolveFontPath(fontFamily) {
-  const families = (fontFamily || '').split(',')
-    .map(s => s.trim().replace(/^['"]|['"]$/g, '').toLowerCase());
-  for (const f of families) {
-    if (f.includes('otjubilee')) return '/OTJubilee-Golden.otf';
-    if (f.includes('neuemontreal') || f.includes('ppneuemontreal')) return '/PPNeueMontreal-Medium.otf';
-    if (f.includes('geist')) return '/GeistMono.woff2';
-  }
-  return '/OTJubilee-Golden.otf';
-}
-
-function applyTextTransform(text, transform) {
-  if (transform === 'uppercase') return text.toUpperCase();
-  if (transform === 'lowercase') return text.toLowerCase();
-  return text;
-}
-
-function initOverlay() {
-  if (overlayScene) return;
-  overlayScene = new THREE.Scene();
-  overlayCamera = new THREE.OrthographicCamera(
-    -window.innerWidth / 2, window.innerWidth / 2,
-    window.innerHeight / 2, -window.innerHeight / 2,
-    -1000, 1000
-  );
-  overlayCamera.position.z = 500;
-  // Single shared material for all overlay text
-  if (!sharedOverlayMaterial) {
-    sharedOverlayMaterial = new THREE.MeshBasicMaterial({
-      transparent: true,
-      depthTest: false,
-      depthWrite: false,
-    });
-  }
-}
-
-function destroyOverlay() {
-  unmountSceneText();
-  overlayScene = null;
-  overlayCamera = null;
-  if (sharedOverlayMaterial) {
-    sharedOverlayMaterial.dispose();
-    sharedOverlayMaterial = null;
-  }
-}
-
-function createTextEntry(sourceEl, opts = {}) {
-  const style = window.getComputedStyle(sourceEl);
-  const rect = sourceEl.getBoundingClientRect();
-  const rawText = sourceEl.textContent?.trim() || '';
-  const text = applyTextTransform(rawText, style.textTransform);
-  if (!text) return null;
-
-  const fontSizePx = parseFloat(style.fontSize) || 16;
-  const letterSpacingPx = parseFloat(style.letterSpacing);
-  const lineHeightPx = parseFloat(style.lineHeight);
-
-  const mesh = new Text();
-  mesh.text = text;
-  mesh.font = resolveFontPath(style.fontFamily);
-  mesh.fontSize = fontSizePx;
-  mesh.textAlign = style.textAlign || 'center';
-  mesh.anchorX = 'center';
-  mesh.anchorY = 'middle';
-  mesh.letterSpacing = Number.isFinite(letterSpacingPx) ? letterSpacingPx / fontSizePx : 0;
-  mesh.lineHeight = Number.isFinite(lineHeightPx) ? lineHeightPx / fontSizePx : 'normal';
-
-  // Detect if the source element is single-line
-  // Use a generous threshold: if height is less than ~2 lines worth, treat as single-line
-  const computedLineHeight = Number.isFinite(lineHeightPx) ? lineHeightPx : fontSizePx * 1.4;
-  const isSingleLine = rect.height < computedLineHeight * 1.8;
-  if (isSingleLine) {
-    // Single-line: prevent Troika from breaking at all
-    mesh.whiteSpace = 'nowrap';
-    mesh.maxWidth = Infinity;
-  } else {
-    // Multi-line: use generous buffer to match CSS wrapping
-    mesh.maxWidth = Math.max(rect.width * 1.05 + 10, fontSizePx);
-  }
-  mesh.overflowWrap = 'break-word';
-  mesh.color = new THREE.Color().setStyle(style.color || '#e2e2e2').getHex();
-  mesh.material = sharedOverlayMaterial;
-  mesh.frustumCulled = false;
-  mesh.renderOrder = 20;
-
-  // Position in overlay-pixel space (origin = screen center)
-  const x = rect.left + rect.width * 0.5 - window.innerWidth * 0.5;
-  const y = window.innerHeight * 0.5 - (rect.top + rect.height * 0.5);
-  mesh.position.set(x, y, 190);
-  mesh.sync();
-  overlayScene.add(mesh);
-
-  // Hide the original DOM element visually but keep it clickable
-  if (sourceEl) sourceEl.classList.add('has-3d-text');
-
-  return { mesh, sourceEl, key: opts.key || '' };
-}
+    void main() {
+      vec2 uv = vUv;
+      float aspect = uResolution.x / uResolution.y;
+      vec2 centeredUv = (uv - 0.5) * vec2(aspect, 1.0);
+      
+      float noiseValue = fbm(centeredUv * 10.0);
+      
+      float dissolveBase  = (uv.y - uProgress * 1.2) + noiseValue * uSpread;
+      
+      float smoothFactor = 0.01;
+      
+      // Calculate independent dissolve states for RGB channels
+      // "Glassy" look: offset dissolve timing for each channel
+      float maskAb = uAberration * 0.01;
+      
+      float dR = dissolveBase + maskAb;
+      float dG = dissolveBase;
+      float dB = dissolveBase - maskAb;
+      
+      float aR = 1.0 - smoothstep(-smoothFactor, smoothFactor, dR);
+      float aG = 1.0 - smoothstep(-smoothFactor, smoothFactor, dG);
+      float aB = 1.0 - smoothstep(-smoothFactor, smoothFactor, dB);
+      
+      // Chromatic aberration on the TEXTURE (refraction effect)
+      // Only distort near the edge
+      float edgeZone = 1.0 - smoothstep(0.0, 0.2, abs(dissolveBase));
+      float texAb = uAberration * 0.02 * edgeZone;
+      
+      vec4 texR = texture2D(tDiffuse, vUv - vec2(texAb, 0.0));
+      vec4 texG = texture2D(tDiffuse, vUv);
+      vec4 texB = texture2D(tDiffuse, vUv + vec2(texAb, 0.0));
+      
+      float r = mix(texR.r, uColor.r, aR);
+      float g = mix(texG.g, uColor.g, aG);
+      float b = mix(texB.b, uColor.b, aB);
+      
+      gl_FragColor = vec4(r, g, b, 1.0);
+    }
+  `
+};
 
 export function webgl() {
   if (isRunning) {
@@ -430,15 +536,28 @@ export function webgl() {
   effectsDowngraded = false;
 
   scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera = new THREE.PerspectiveCamera(100, window.innerWidth / window.innerHeight, 0.1, 1000);
 
-  const needsAA = (window.devicePixelRatio || 1) < 1.5;
-  renderer = new THREE.WebGLRenderer({ antialias: needsAA, alpha: true, powerPreference: 'high-performance' });
+  try {
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+  } catch (err) {
+    console.warn('[WebGL] Failed to create renderer:', err);
+    isRunning = false;
+    return null;
+  }
+
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, quality.pixelRatioCap));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = quality.toneMappingExposure;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+  // Add context loss handler
+  renderer.domElement.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault();
+    console.warn('[WebGL] Context lost');
+    destroyWebgl();
+  }, false);
 
   containerEl = document.querySelector('#background');
   if (!containerEl) {
@@ -470,14 +589,6 @@ export function webgl() {
       modelRoot = glb.scene;
       finalizeModel(modelRoot);
       applyMaterialTuning();
-      // Position model at its fixed scene location (camera moves for page changes, not the model)
-      modelRoot.position.set(tune.modelX, tune.modelY, tune.modelZ);
-      // Set initial camera offset for current page
-      const page = sessionStorage.getItem('webgl-page') || 'home';
-      const offset = getCameraOffset(page);
-      cameraOrbitOffset.x = offset.x;
-      cameraOrbitOffset.y = offset.y;
-      cameraOrbitOffset.z = offset.z;
       scene.add(modelRoot);
     },
     undefined,
@@ -496,12 +607,10 @@ export function webgl() {
       renderer.setSize(width, height);
       composer.setSize(width, height);
       if (ssaoPass && ssaoPass.setSize) ssaoPass.setSize(width, height);
-      if (overlayCamera) {
-        overlayCamera.left = -width / 2;
-        overlayCamera.right = width / 2;
-        overlayCamera.top = height / 2;
-        overlayCamera.bottom = -height / 2;
-        overlayCamera.updateProjectionMatrix();
+      if (bloomPass && bloomPass.setSize) bloomPass.setSize(width, height);
+      if (dofPass && dofPass.setSize) dofPass.setSize(width, height);
+      if (dissolvePass?.uniforms?.uResolution?.value?.set) {
+        dissolvePass.uniforms.uResolution.value.set(width, height);
       }
     }, 100);
   };
@@ -511,24 +620,38 @@ export function webgl() {
     composer = new EffectComposer(renderer);
   } catch {
     composer = {
-      addPass: () => { },
-      insertPass: () => { },
-      setSize: () => { },
-      dispose: () => { },
+      addPass: () => {},
+      insertPass: () => {},
+      setSize: () => {},
+      dispose: () => {},
       render: () => renderer?.render(scene, camera),
     };
   }
   setupPostFX(composer, scene, camera, renderer, quality);
-
-  // Orbital camera setup — orbit around model center
+  setupDebugGui();
+  const BASE_CAMERA_RADIUS = Math.sqrt(50) / 2.5;
+  camera.position.set(0, 1, BASE_CAMERA_RADIUS);
+  camera.lookAt(0, 0, 0);
   cameraTarget.angle = Math.PI / 2;
   cameraTarget.y = 0;
   cameraTarget.tilt = 0;
   cameraCurrent.angle = Math.PI / 2;
   cameraCurrent.y = 0;
   cameraCurrent.tilt = 0;
-
   let lastMouseTime = 0;
+
+  // Read sessionStorage to set initial scene offset (handles re-init after destroyWebgl)
+  if (sessionStorage.getItem('webgl-page') === 'contact') {
+    sceneState.x = 0;
+    sceneState.y = -2;
+    sceneState.z = 0;
+    scene.position.set(sceneState.x, sceneState.y, sceneState.z);
+  } else {
+    sceneState.x = 0;
+    sceneState.y = 0;
+    sceneState.z = 0;
+    scene.position.set(sceneState.x, sceneState.y, sceneState.z);
+  }
 
   mouseHandler = (event) => {
     const now = performance.now();
@@ -556,36 +679,18 @@ export function webgl() {
     cameraCurrent.y += (cameraTarget.y - cameraCurrent.y) * lerpFactor;
     cameraCurrent.tilt += (cameraTarget.tilt - cameraCurrent.tilt) * lerpFactor;
 
-    // Orbit center = model position + page offset (camera moves, model stays)
-    const cx = (modelRoot ? modelRoot.position.x : tune.modelX) + cameraOrbitOffset.x;
-    const cy = (modelRoot ? modelRoot.position.y : tune.modelY) + cameraOrbitOffset.y;
-    const cz = (modelRoot ? modelRoot.position.z : tune.modelZ) + cameraOrbitOffset.z;
-    const radius = parallaxConfig.orbitRadius;
+    camera.position.x = Math.cos(cameraCurrent.angle) * BASE_CAMERA_RADIUS;
+    camera.position.z = Math.sin(cameraCurrent.angle) * BASE_CAMERA_RADIUS;
+    camera.position.y += (cameraCurrent.y + 1 - camera.position.y);
 
-    camera.position.x = cx + Math.cos(cameraCurrent.angle) * radius;
-    camera.position.z = cz + Math.sin(cameraCurrent.angle) * radius;
-    camera.position.y = cy + cameraCurrent.y + 1;
-
-    // Handheld camera drift
-    const driftTime = now * 0.001;
+    const driftTime = performance.now() * 0.001;
     camera.position.x += Math.sin(driftTime * 0.7) * 0.012 + Math.sin(driftTime * 1.3) * 0.008;
     camera.position.y += Math.sin(driftTime * 0.5) * 0.012 + Math.cos(driftTime * 1.1) * 0.008;
     camera.position.z += Math.cos(driftTime * 0.6) * 0.008;
 
-    camera.lookAt(cx, cy, cz);
+    camera.lookAt(0, 0, 0);
     camera.rotation.z += cameraCurrent.tilt;
-
     composer.render();
-
-    // Render text overlay on top of the 3D scene
-    if (overlayScene && overlayCamera && textEntries.length > 0) {
-      const prevAutoClear = renderer.autoClear;
-      renderer.autoClear = false;
-      renderer.clearDepth();
-      renderer.render(overlayScene, overlayCamera);
-      renderer.autoClear = prevAutoClear;
-    }
-
     updateRuntimeQuality(frameDelta);
     rafId = requestAnimationFrame(render);
   };
@@ -618,11 +723,26 @@ export function destroyWebgl() {
     sceneTween = null;
   }
 
-  destroyOverlay();
+  if (heroScrollTrigger) {
+    heroScrollTrigger.kill();
+    heroScrollTrigger = null;
+  }
 
+  if (dissolvePass) {
+    if (dissolvePass.material) dissolvePass.material.dispose();
+    dissolvePass = null;
+  }
   if (ssaoPass) {
     if (ssaoPass.dispose) ssaoPass.dispose();
     ssaoPass = null;
+  }
+  if (bloomPass) {
+    if (bloomPass.dispose) bloomPass.dispose();
+    bloomPass = null;
+  }
+  if (dofPass) {
+    if (dofPass.dispose) dofPass.dispose();
+    dofPass = null;
   }
   if (shadowCatcher) {
     if (shadowCatcher.geometry) shadowCatcher.geometry.dispose();
@@ -636,6 +756,10 @@ export function destroyWebgl() {
   if (pmremGenerator) {
     pmremGenerator.dispose();
     pmremGenerator = null;
+  }
+  if (debugGui) {
+    debugGui.destroy();
+    debugGui = null;
   }
   tunedMaterials.clear();
   if (modelRoot) {
@@ -671,19 +795,13 @@ export function getWebglContext() {
   return { scene, camera, renderer };
 }
 
-function getCameraOffset(page) {
-  if (page === 'contact') return { x: -2, y: 0, z: 0 };
-  return { x: 0, y: 0, z: 0 };
-}
-
 /**
- * Animate (or immediately set) the camera orbit center for the given page.
- * Model and lighting stay completely static.
+ * Animate (or immediately set) the scene to home or contact position.
  * @param {'home'|'contact'} page
  * @param {boolean} immediate — if true, skip the tween
  */
 export function setScenePage(page, immediate = false) {
-  const target = getCameraOffset(page);
+  const target = page === 'contact' ? { x: 0, y: -2, z: 0 } : { x: 0, y: 0, z: 0 };
   sessionStorage.setItem('webgl-page', page);
 
   if (sceneTween) {
@@ -692,64 +810,22 @@ export function setScenePage(page, immediate = false) {
   }
 
   if (immediate) {
-    cameraOrbitOffset.x = target.x;
-    cameraOrbitOffset.y = target.y;
-    cameraOrbitOffset.z = target.z;
+    sceneState.x = target.x;
+    sceneState.y = target.y;
+    sceneState.z = target.z;
+    if (scene) scene.position.set(sceneState.x, sceneState.y, sceneState.z);
   } else {
-    sceneTween = gsap.to(cameraOrbitOffset, {
+    sceneTween = gsap.to(sceneState, {
       x: target.x,
       y: target.y,
       z: target.z,
       duration: 1.2,
       ease: 'power2.inOut',
+      onUpdate: () => {
+        if (scene) scene.position.set(sceneState.x, sceneState.y, sceneState.z);
+      }
     });
   }
-}
-
-// ── Scene text API ────────────────────────────────────────────────
-
-/**
- * Create Troika text meshes for the given page namespace, reading
- * content and styles from the DOM and rendering via the overlay layer.
- * @param {'home'|'contact'} namespace
- */
-export function mountSceneText(namespace) {
-  if (!overlayScene) initOverlay();
-  unmountSceneText();
-
-  const selectors =
-    namespace === 'home'
-      ? [
-        { sel: '.hero-logo-top h1', opts: { stagger: 0.012, direction: 1, key: 'home-logo' } },
-        { sel: '.hero-text-reveal', opts: { stagger: 0.008, direction: 1, key: 'home-text' }, all: true },
-      ]
-      : namespace === 'contact'
-        ? [
-          { sel: '.contact-header', opts: { stagger: 0.02, direction: -1, key: 'contact-header' } },
-          { sel: '.text-reveal-header:not(.contact-header)', opts: { stagger: 0.01, direction: -1, key: 'contact-text' }, all: true },
-        ]
-        : [];
-
-  selectors.forEach(({ sel, opts, all }) => {
-    const els = all ? document.querySelectorAll(sel) : [document.querySelector(sel)];
-    els.forEach((el, i) => {
-      if (!el) return;
-      // Mark element as being handled by 3D text so other scripts (text-reveal) can ignore it
-      el.dataset.has3dText = 'true';
-      const entry = createTextEntry(el, { ...opts, key: `${opts.key}-${i}` });
-      if (entry) textEntries.push(entry);
-    });
-  });
-}
-
-/** Remove all overlay text meshes and restore DOM visibility. */
-export function unmountSceneText() {
-  textEntries.forEach(({ mesh, sourceEl }) => {
-    if (mesh.parent) mesh.parent.remove(mesh);
-    if (typeof mesh.dispose === 'function') mesh.dispose();
-    if (sourceEl) sourceEl.classList.remove('has-3d-text');
-  });
-  textEntries = [];
 }
 
 export default webgl;

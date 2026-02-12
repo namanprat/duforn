@@ -12,6 +12,7 @@ gsap.registerPlugin(Flip);
 
 // Single-ring circle gallery with kokomi-style scroll, grain, and animated effects
 const USE_DOM_WHEEL = false;
+let isWorkInitialized = false;
 
 const CONFIG = {
   RING_RADIUS: 332,
@@ -308,7 +309,7 @@ function setupModelScene() {
   const dirLight = new THREE.DirectionalLight(0xffffff, 3.25);
   dirLight.position.set(4.2, 7.5, 6.2);
   dirLight.castShadow = true;
-  dirLight.shadow.mapSize.set(1024, 1024);
+  dirLight.shadow.mapSize.set(2048, 2048);
   dirLight.shadow.bias = -0.00012;
   dirLight.shadow.normalBias = 0.01;
   dirLight.shadow.camera.near = 1;
@@ -386,11 +387,17 @@ function setupRenderer() {
   const width = window.innerWidth;
   const height = window.innerHeight;
 
-  state.renderer = new THREE.WebGLRenderer({
-    antialias: true,
-    alpha: true,
-    powerPreference: 'high-performance'
-  });
+  try {
+    state.renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: true,
+      powerPreference: 'high-performance'
+    });
+  } catch (err) {
+    console.warn('[WebGL] Failed to create work page renderer:', err);
+    return;
+  }
+
   state.renderer.setSize(width, height);
   state.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   state.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -399,6 +406,14 @@ function setupRenderer() {
   state.renderer.setClearColor(0xf7f7f6, 1);
   state.renderer.shadowMap.enabled = true;
   state.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  // Add context loss handler
+  state.renderer.domElement.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault();
+    console.warn('[WebGL] Work page context lost');
+    destroyWork();
+  }, false);
+
   container.appendChild(state.renderer.domElement);
 
   state.camera = new THREE.OrthographicCamera(
@@ -544,11 +559,6 @@ function applyTextTransform(text, transform) {
 
 function syncCenterTitleFromDom() {
   if (!state.centerTitleMesh || !state.titleEl) return;
-
-  // Throttle: max once per 100ms to prevent layout thrashing
-  const now = performance.now();
-  if (state._lastTitleSync && now - state._lastTitleSync < 100) return;
-  state._lastTitleSync = now;
 
   const style = window.getComputedStyle(state.titleEl);
   const fontSizePx = Number.parseFloat(style.fontSize) || 36;
@@ -1506,7 +1516,11 @@ function removeEventListeners() {
 }
 
 async function initWork() {
-  destroyWork();
+  if (isWorkInitialized) {
+    if (import.meta.env.DEV) console.log('[work] Already initialized, skipping');
+    return;
+  }
+  isWorkInitialized = true;
 
   const mainContainer = document.querySelector("[data-barba-namespace='work']");
   if (!mainContainer) {
@@ -1561,6 +1575,9 @@ async function initWork() {
 }
 
 function destroyWork() {
+  if (!isWorkInitialized) return;
+  isWorkInitialized = false;
+
   if (state.animationFrame !== null) {
     cancelAnimationFrame(state.animationFrame);
     state.animationFrame = null;
