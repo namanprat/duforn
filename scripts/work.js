@@ -1,4 +1,5 @@
 import gsap from 'gsap';
+import { Flip } from 'gsap/flip';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
@@ -7,13 +8,15 @@ import GUI from 'lil-gui';
 import { workItems } from '../data/work-items.js';
 import { CRTShader } from './CRTShader.js';
 
+gsap.registerPlugin(Flip);
+
 // Single-ring circle gallery with kokomi-style scroll, grain, and animated effects
-const USE_DOM_WHEEL = true;
+const USE_DOM_WHEEL = false;
 
 const CONFIG = {
-  RING_RADIUS: 391,
-  IMAGE_WIDTH: 76.5,
-  IMAGE_HEIGHT: 76.5,
+  RING_RADIUS: 332,
+  IMAGE_WIDTH: 65,
+  IMAGE_HEIGHT: 65,
   SCROLL_SPEED: 0.0012,
   SCROLL_LERP: 0.12,
   DRAG_MULTIPLIER: -1.2,
@@ -21,13 +24,18 @@ const CONFIG = {
   GRAIN_INTENSITY: 0.03,
   Z_DEPTH_INTENSITY: 80,
   VELOCITY_DECAY: 0.88,
+  // Cascade animation config
+  CASCADE_SPREAD_RADIUS: 250,
+  CASCADE_PHASE_DURATION: 0.6,
+  CASCADE_STAGGER: 0.06,
+  CASCADE_FALL_DURATION: 0.5,
 };
 
 // CRT post-processing configuration (tunable for work page)
 const CRT_CONFIG = {
-  scanlineIntensity: 0.46,
+  scanlineIntensity: 0.38,
   scanlineCount: 663.0,
-  brightness: 1.32,
+  brightness: 1.48,
   contrast: 1.06,
   saturation: 1.20,
   bloomIntensity: 0.23,
@@ -112,14 +120,18 @@ const state = {
   titleEl: null,
   captionEl: null,
   thumbnailWheelEl: null,
-  
+  toggleBtn: null,
+
+  // View mode
+  viewMode: 'wheel', // 'wheel' | 'list'
+
   // Three.js
   renderer: null,
   scene: null,
   camera: null,
   raycaster: null,
   clock: null,
-  
+
   // CRT post-processing
   renderTarget: null,
   crtScene: null,
@@ -165,7 +177,7 @@ const state = {
   scrollTarget: 0,
   scrollCurrent: 0,
   scrollDelta: 0,
-  
+
   // Parallax offsets for wheel meshes (applied on top of scroll rotation)
   wheelParallaxOffset: { x: 0, y: 0, z: 0, tilt: 0 },
 
@@ -190,12 +202,14 @@ const state = {
     pointerup: null,
     wheel: null,
     mousemove: null,
+    toggleView: null,
+    listScroll: null,
   },
 };
 
 async function loadAllTextures() {
   const loader = new THREE.TextureLoader();
-  
+
   const promises = workItems.map(item => {
     return new Promise((resolve) => {
       loader.load(
@@ -215,7 +229,7 @@ async function loadAllTextures() {
       );
     });
   });
-  
+
   await Promise.all(promises);
 }
 
@@ -291,10 +305,10 @@ function setupModelScene() {
 
   // Lighting matching home page
   const ambient = new THREE.AmbientLight(0xffffff, 0.18);
-  const dirLight = new THREE.DirectionalLight(0xffffff, 3.0);
+  const dirLight = new THREE.DirectionalLight(0xffffff, 3.25);
   dirLight.position.set(4.2, 7.5, 6.2);
   dirLight.castShadow = true;
-  dirLight.shadow.mapSize.set(2048, 2048);
+  dirLight.shadow.mapSize.set(1024, 1024);
   dirLight.shadow.bias = -0.00012;
   dirLight.shadow.normalBias = 0.01;
   dirLight.shadow.camera.near = 1;
@@ -309,7 +323,7 @@ function setupModelScene() {
   state.lights = [ambient, dirLight];
 
   const catcherGeometry = new THREE.PlaneGeometry(24, 24);
-  const catcherMaterial = new THREE.ShadowMaterial({ opacity: 0.2 });
+  const catcherMaterial = new THREE.ShadowMaterial({ opacity: 0.22 });
   state.shadowCatcher = new THREE.Mesh(catcherGeometry, catcherMaterial);
   state.shadowCatcher.rotation.x = -Math.PI / 2;
   state.shadowCatcher.position.y = -1.35;
@@ -366,12 +380,12 @@ function setupRenderer() {
     || document.querySelector("[data-barba-namespace='work'] .slider")
     || document.querySelector("[data-barba-namespace='work']");
   if (!container) return false;
-  
+
   state.container = container;
-  
+
   const width = window.innerWidth;
   const height = window.innerHeight;
-  
+
   state.renderer = new THREE.WebGLRenderer({
     antialias: true,
     alpha: true,
@@ -380,13 +394,13 @@ function setupRenderer() {
   state.renderer.setSize(width, height);
   state.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   state.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  state.renderer.toneMappingExposure = 1.02;
+  state.renderer.toneMappingExposure = 1.15;
   state.renderer.outputColorSpace = THREE.SRGBColorSpace;
   state.renderer.setClearColor(0xf7f7f6, 1);
   state.renderer.shadowMap.enabled = true;
   state.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   container.appendChild(state.renderer.domElement);
-  
+
   state.camera = new THREE.OrthographicCamera(
     -width / 2,
     width / 2,
@@ -396,18 +410,18 @@ function setupRenderer() {
     1000
   );
   state.camera.position.z = 500;
-  
+
   state.scene = new THREE.Scene();
   // No background — transparent so the model scene shows through
-  
+
   state.raycaster = new THREE.Raycaster();
   state.clock = new THREE.Clock();
 
   setupModelEnvironment();
-  
+
   // Setup CRT post-processing
   setupCRTPass(width, height);
-  
+
   return true;
 }
 
@@ -419,34 +433,34 @@ function setupCRTPass(width, height) {
     minFilter: THREE.LinearFilter,
     magFilter: THREE.LinearFilter,
   });
-  
+
   // Create scene and dedicated camera for CRT post-processing
   state.crtScene = new THREE.Scene();
   state.crtCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-  
+
   // Create geometry for CRT pass
   const crtGeometry = new THREE.PlaneGeometry(2, 2);
-  
+
   // Create material from CRTShader
   const crtMaterial = new THREE.ShaderMaterial({
     uniforms: THREE.UniformsUtils.clone(CRTShader.uniforms),
     vertexShader: CRTShader.vertexShader,
     fragmentShader: CRTShader.fragmentShader,
   });
-  
+
   // Set render target texture
   crtMaterial.uniforms.tDiffuse.value = state.renderTarget.texture;
-  
+
   // Apply CRT config values
   Object.keys(CRT_CONFIG).forEach(key => {
     if (crtMaterial.uniforms[key]) {
       crtMaterial.uniforms[key].value = CRT_CONFIG[key];
     }
   });
-  
+
   // Store uniforms for animation updates
   state.crtUniforms = crtMaterial.uniforms;
-  
+
   // Create mesh and add to CRT scene
   state.crtPass = new THREE.Mesh(crtGeometry, crtMaterial);
   state.crtScene.add(state.crtPass);
@@ -531,6 +545,11 @@ function applyTextTransform(text, transform) {
 function syncCenterTitleFromDom() {
   if (!state.centerTitleMesh || !state.titleEl) return;
 
+  // Throttle: max once per 100ms to prevent layout thrashing
+  const now = performance.now();
+  if (state._lastTitleSync && now - state._lastTitleSync < 100) return;
+  state._lastTitleSync = now;
+
   const style = window.getComputedStyle(state.titleEl);
   const fontSizePx = Number.parseFloat(style.fontSize) || 36;
   const letterSpacingPx = Number.parseFloat(style.letterSpacing);
@@ -567,14 +586,14 @@ function syncCenterTitleFromDom() {
 
 function setupGallery() {
   state.sharedGeometry = new THREE.PlaneGeometry(1, 1);
-  
+
   const totalItems = workItems.length;
   const angleStep = (Math.PI * 2) / totalItems;
-  
+
   workItems.forEach((item, index) => {
     const texture = state.textureCache.get(item.image);
     if (!texture) return;
-    
+
     // Create shader material with chromatic aberration, grain, and time-based effects
     const material = new THREE.ShaderMaterial({
       vertexShader: VERTEX_SHADER,
@@ -590,23 +609,23 @@ function setupGallery() {
       transparent: false,
       side: THREE.DoubleSide,
     });
-    
+
     const mesh = new THREE.Mesh(state.sharedGeometry, material);
-    
+
     // Position on single ring
     const angle = index * angleStep;
     mesh.position.x = Math.cos(angle) * CONFIG.RING_RADIUS;
     mesh.position.y = Math.sin(angle) * CONFIG.RING_RADIUS;
     mesh.position.z = 0;
-    
+
     mesh.scale.set(CONFIG.IMAGE_WIDTH, CONFIG.IMAGE_HEIGHT, 1);
-    
+
     mesh.userData = {
       workItem: item,
       baseAngle: angle,
       index,
     };
-    
+
     state.scene.add(mesh);
     state.meshes.push(mesh);
   });
@@ -676,12 +695,270 @@ function getWheelActiveIndex() {
   return activeIndex;
 }
 
+// Get list layout positions for vertical column
+function getListPositions() {
+  const centerX = window.innerWidth * 0.5;
+  const gap = 60; // Space between items
+  const startY = CONFIG.IMAGE_HEIGHT; // Start from top with padding
+
+  return workItems.map((_, index) => ({
+    x: centerX,
+    y: startY + index * (CONFIG.IMAGE_HEIGHT + gap)
+  }));
+}
+
+// Get active index in list mode (closest to viewport center)
+function getListActiveIndex() {
+  if (!state.domThumbnails.length) return 0;
+
+  const viewportCenterY = window.innerHeight * 0.5;
+  let activeIndex = 0;
+  let minDist = Infinity;
+
+  state.domThumbnails.forEach((el, index) => {
+    const rect = el.getBoundingClientRect();
+    const elCenterY = rect.top + rect.height / 2;
+    const dist = Math.abs(elCenterY - viewportCenterY);
+
+    if (dist < minDist) {
+      minDist = dist;
+      activeIndex = index;
+    }
+  });
+
+  return activeIndex;
+}
+
+// Calculate spread positions for cascade animation (based on wheel angles)
+function getCascadeSpreadPositions() {
+  const angleStep = (Math.PI * 2) / state.domThumbnails.length;
+  const centerX = window.innerWidth * 0.5;
+  const centerY = window.innerHeight * 0.5;
+
+  return state.domThumbnails.map((_, index) => {
+    const baseAngle = index * angleStep;
+    const currentAngle = baseAngle + state.rotation;
+
+    // Spread outward from center using wheel angle
+    const spreadX = Math.cos(currentAngle) * CONFIG.CASCADE_SPREAD_RADIUS;
+    const spreadY = -Math.sin(currentAngle) * CONFIG.CASCADE_SPREAD_RADIUS;
+
+    // Add upward offset for the fall animation
+    const fallOffsetY = -150;
+
+    return {
+      x: centerX + spreadX,
+      y: centerY + spreadY + fallOffsetY,
+      spreadX,
+      spreadY
+    };
+  });
+}
+
+// Get current visual positions of elements (from wheel layout)
+function getCurrentWheelPositions() {
+  const angleStep = (Math.PI * 2) / state.domThumbnails.length;
+  const centerX = window.innerWidth * 0.5;
+  const centerY = window.innerHeight * 0.5;
+
+  return state.domThumbnails.map((_, index) => {
+    const baseAngle = index * angleStep;
+    const currentAngle = baseAngle + state.rotation;
+    const x = Math.cos(currentAngle) * CONFIG.RING_RADIUS;
+    const y = -Math.sin(currentAngle) * CONFIG.RING_RADIUS;
+
+    return {
+      x: centerX + x,
+      y: centerY + y
+    };
+  });
+}
+
+// Animate cascade effect: spread from wheel, then fall into vertical list
+function animateCascadeToList(flipState, finalPositions) {
+  const currentPositions = getCurrentWheelPositions();
+  const spreadPositions = getCascadeSpreadPositions();
+
+  const cascadeTl = gsap.timeline();
+
+  // Set initial left/top to current positions and clear transform
+  state.domThumbnails.forEach((el, index) => {
+    const pos = currentPositions[index];
+    gsap.set(el, {
+      left: pos.x,
+      top: pos.y,
+      transform: 'translate(-50%, -50%)',
+      clearProps: 'zIndex'
+    });
+  });
+
+  // Phase 1: Spread outward from center with stagger
+  state.domThumbnails.forEach((el, index) => {
+    const spread = spreadPositions[index];
+
+    cascadeTl.to(el, {
+      left: spread.x,
+      top: spread.y,
+      opacity: 0.8,
+      clearProps: 'transform',
+      duration: CONFIG.CASCADE_PHASE_DURATION,
+      ease: 'power1.out'
+    }, index * CONFIG.CASCADE_STAGGER);
+  });
+
+  // Phase 2: Fall down to final list positions with opacity in
+  state.domThumbnails.forEach((el, index) => {
+    const finalPos = finalPositions[index];
+
+    cascadeTl.to(el, {
+      left: finalPos.x,
+      top: finalPos.y,
+      opacity: 1,
+      duration: CONFIG.CASCADE_FALL_DURATION,
+      ease: 'power1.in'
+    }, CONFIG.CASCADE_PHASE_DURATION + index * CONFIG.CASCADE_STAGGER * 0.5);
+  });
+
+  return cascadeTl;
+}
+
+// Animate reverse cascade effect: rise up from list, converge back to wheel
+function animateCascadeToWheel(flipState) {
+  const angleStep = (Math.PI * 2) / state.domThumbnails.length;
+  const centerX = window.innerWidth * 0.5;
+  const centerY = window.innerHeight * 0.5;
+  const spreadPositions = getCascadeSpreadPositions();
+
+  const cascadeTl = gsap.timeline();
+
+  // Phase 1: Rise upward with spread
+  state.domThumbnails.forEach((el, index) => {
+    const spread = spreadPositions[index];
+
+    cascadeTl.to(el, {
+      left: spread.x,
+      top: spread.y,
+      opacity: 0.8,
+      duration: CONFIG.CASCADE_FALL_DURATION,
+      ease: 'power1.out'
+    }, index * CONFIG.CASCADE_STAGGER * 0.5);
+  });
+
+  // Phase 2: Converge back to wheel positions with transform
+  state.domThumbnails.forEach((el, index) => {
+    const baseAngle = index * angleStep;
+    const currentAngle = baseAngle + state.rotation;
+    const x = Math.cos(currentAngle) * CONFIG.RING_RADIUS;
+    const y = -Math.sin(currentAngle) * CONFIG.RING_RADIUS;
+
+    cascadeTl.to(el, {
+      left: centerX,
+      top: centerY,
+      opacity: 1,
+      transform: `translate(-50%, -50%) translate(${x}px, ${y}px) scale(1)`,
+      duration: CONFIG.CASCADE_PHASE_DURATION,
+      ease: 'power1.in'
+    }, CONFIG.CASCADE_FALL_DURATION + index * CONFIG.CASCADE_STAGGER * 0.5);
+  });
+
+  return cascadeTl;
+}
+
+// Transition from wheel to list view
+function transitionToList() {
+  if (state.viewMode === 'list' || !state.domThumbnails.length) return;
+
+  // Capture current state for Flip
+  const flipState = Flip.getState(state.domThumbnails);
+
+  // Calculate list positions
+  const positions = getListPositions();
+  const centerX = window.innerWidth * 0.5;
+  const centerY = window.innerHeight * 0.5;
+
+  // Calculate total height needed for scrolling
+  const lastPosition = positions[positions.length - 1];
+  const totalHeight = lastPosition.y + CONFIG.IMAGE_HEIGHT + 60; // Add padding at bottom
+
+  // Prepare DOM for list layout (will be positioned by cascade animation)
+  state.domThumbnails.forEach((el) => {
+    el.classList.add('list-mode');
+    el.style.position = 'absolute';
+  });
+
+  // Run cascade animation to final list positions
+  const cascadeTl = animateCascadeToList(flipState, positions);
+
+  // After cascade completes, lock in the positions and enable scrolling
+  cascadeTl.add(() => {
+    state.viewMode = 'list';
+
+    // Lock positions for list mode
+    state.domThumbnails.forEach((el, index) => {
+      const pos = positions[index];
+      el.style.left = `${centerX}px`;
+      el.style.top = `${pos.y}px`;
+      el.style.transform = `translate(-50%, 0) scale(1)`;
+    });
+
+    // Enable scroll on thumbnail container for list mode
+    if (state.thumbnailWheelEl) {
+      state.thumbnailWheelEl.classList.add('list-mode');
+      state.thumbnailWheelEl.style.overflowY = 'auto';
+      state.thumbnailWheelEl.style.pointerEvents = 'auto';
+      state.thumbnailWheelEl.style.minHeight = `${totalHeight}px`; // Force scrollable height
+
+      // Add scroll listener for title updates
+      state.handlers.listScroll = onListScroll;
+      state.thumbnailWheelEl.addEventListener('scroll', state.handlers.listScroll, { passive: true });
+    }
+  });
+}
+
+// Transition from list to wheel view
+function transitionToWheel() {
+  if (state.viewMode === 'wheel' || !state.domThumbnails.length) return;
+
+  // Capture current state for Flip
+  const flipState = Flip.getState(state.domThumbnails);
+
+  // Remove list mode classes
+  state.domThumbnails.forEach(el => {
+    el.classList.remove('list-mode');
+  });
+
+  // Restore wheel layout
+  updateDOMWheel();
+
+  // Run cascade animation back to wheel positions
+  const cascadeTl = animateCascadeToWheel(flipState);
+
+  // After cascade completes, lock in the wheel positions
+  cascadeTl.add(() => {
+    state.viewMode = 'wheel';
+
+    // Disable scroll on thumbnail container
+    if (state.thumbnailWheelEl) {
+      state.thumbnailWheelEl.classList.remove('list-mode');
+      state.thumbnailWheelEl.style.overflowY = 'hidden';
+      state.thumbnailWheelEl.style.pointerEvents = 'none';
+      state.thumbnailWheelEl.style.minHeight = ''; // Reset height
+
+      // Remove scroll listener
+      if (state.handlers.listScroll) {
+        state.thumbnailWheelEl.removeEventListener('scroll', state.handlers.listScroll);
+        state.handlers.listScroll = null;
+      }
+    }
+  });
+}
+
 function updateScroll() {
   // Smooth lerp scroll (kokomi-style but slower)
   const prev = state.scrollCurrent;
   state.scrollCurrent += (state.scrollTarget - state.scrollCurrent) * CONFIG.SCROLL_LERP;
   state.scrollDelta = state.scrollCurrent - prev;
-  
+
   // Update rotation from scroll
   state.targetRotation = state.scrollCurrent * CONFIG.SCROLL_SPEED;
 }
@@ -690,14 +967,14 @@ function updateRotation() {
   // Smooth lerp towards target
   const prevRotation = state.rotation;
   state.rotation += (state.targetRotation - state.rotation) * CONFIG.SCROLL_LERP;
-  
+
   // Calculate velocity for shader effects
   state.scrollVelocity = Math.abs(state.scrollDelta * 0.5);
   state.scrollVelocity *= CONFIG.VELOCITY_DECAY;
-  
+
   // Update time for animated effects
   const time = state.clock ? state.clock.getElapsedTime() : 0;
-  
+
   // Smooth parallax offsets based on camera target (orbital parallax)
   const parallaxParams = state.guiParallax || { angleRange: 0.15, yRange: 0.3, tiltRange: 0.02 };
   state.wheelParallaxOffset.x += (state.cameraTarget.angle * parallaxParams.angleRange * 100 - state.wheelParallaxOffset.x) * CONFIG.SCROLL_LERP;
@@ -709,35 +986,35 @@ function updateRotation() {
     updateDOMWheel();
     return;
   }
-  
+
   // Update all mesh positions and shader uniforms
   state.meshes.forEach(mesh => {
     const { baseAngle } = mesh.userData;
     const currentAngle = baseAngle + state.rotation;
-    
+
     // Base ring position
     mesh.position.x = Math.cos(currentAngle) * CONFIG.RING_RADIUS;
     mesh.position.y = Math.sin(currentAngle) * CONFIG.RING_RADIUS;
-    
+
     // Z-depth motion based on scroll velocity (like kokomi)
     const zDepth = -Math.min(Math.abs(state.scrollDelta) * CONFIG.Z_DEPTH_INTENSITY, 100);
     mesh.position.z = zDepth + Math.sin(currentAngle * 2) * 15;
-    
+
     // Apply parallax offsets (mouse-based depth and tilt as if part of 3D scene)
     mesh.position.x += state.wheelParallaxOffset.x * 0.15;
     mesh.position.y += state.wheelParallaxOffset.y * 0.1;
     mesh.position.z += state.wheelParallaxOffset.z * 0.05;
-    
+
     // Apply tilt rotation to individual mesh based on parallax (pitch and roll)
     mesh.rotation.z = state.wheelParallaxOffset.tilt * 0.5;
     mesh.rotation.x = state.cameraTarget.y * 0.1;
     mesh.rotation.y = state.cameraTarget.angle * 0.08;
-    
+
     // Calculate screen position for edge effects
     const projected = mesh.position.clone().project(state.camera);
     const screenX = (projected.x + 1) * 0.5 * window.innerWidth;
     const screenY = (1 - projected.y) * 0.5 * window.innerHeight;
-    
+
     // Update shader uniforms
     if (mesh.material && mesh.material.uniforms) {
       mesh.material.uniforms.uTime.value = time;
@@ -751,7 +1028,12 @@ function updateTitle() {
 
   if (USE_DOM_WHEEL) {
     if (!workItems.length) return;
-    const activeIndex = getWheelActiveIndex();
+
+    // Use appropriate active index function based on view mode
+    const activeIndex = state.viewMode === 'list'
+      ? getListActiveIndex()
+      : getWheelActiveIndex();
+
     const newTitle = workItems[activeIndex]?.title || '';
     if (state.titleEl.textContent !== newTitle) {
       state.titleEl.textContent = newTitle;
@@ -788,7 +1070,7 @@ function animate() {
   updateScroll();
   updateRotation();
   updateTitle();
-  
+
   // Update CRT shader time uniform
   const time = state.clock ? state.clock.getElapsedTime() : 0;
   if (state.crtUniforms && state.crtUniforms.time) {
@@ -797,7 +1079,7 @@ function animate() {
   const targetBoost = Math.min(state.scrollVelocity * ABERRATION_CONFIG.velocityToBoost, ABERRATION_CONFIG.maxBoost);
   state.crtMotionBoost += (targetBoost - state.crtMotionBoost) * ABERRATION_CONFIG.motionSmoothing;
   updateChromaticAberrationUniform();
-  
+
   // Orbital camera parallax for 3D model (matching home page three.js)
   const lerpFactor = state.guiParallax ? state.guiParallax.lerp : 0.04;
   state.cameraCurrent.angle += (state.cameraTarget.angle - state.cameraCurrent.angle) * lerpFactor;
@@ -833,13 +1115,13 @@ function animate() {
     state.renderer.render(state.scene, state.camera);
     state.renderer.autoClear = true;
   }
-  
+
   // 2. Render CRT post-processing to screen
   if (state.renderer && state.crtScene) {
     state.renderer.setRenderTarget(null);
     state.renderer.render(state.crtScene, state.crtCamera);
   }
-  
+
   if (state.animationFrame !== null) {
     state.animationFrame = requestAnimationFrame(animate);
   }
@@ -867,20 +1149,20 @@ function handleClick(event) {
   }
 
   if (!state.renderer || !state.camera) return;
-  
+
   const rect = state.renderer.domElement.getBoundingClientRect();
   const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-  
+
   const pointer = new THREE.Vector2(x, y);
   state.raycaster.setFromCamera(pointer, state.camera);
-  
+
   const intersects = state.raycaster.intersectObjects(state.meshes);
-  
+
   if (intersects.length > 0) {
     const mesh = intersects[0].object;
     const { workItem } = mesh.userData;
-    
+
     if (workItem && workItem.href) {
       window.location.href = workItem.href;
     }
@@ -888,26 +1170,52 @@ function handleClick(event) {
 }
 
 function onWheel(event) {
-  // Prevent default page scroll
+  // In list mode, don't interfere with natural scrolling
+  if (state.viewMode === 'list') {
+    // Let browser handle scroll naturally - don't prevent default
+    return;
+  }
+
+  // In wheel mode, prevent default page scroll and update rotation
   event.preventDefault();
-  
-  // Update scroll target (kokomi-style)
   state.scrollTarget += event.deltaY;
+}
+
+// Toggle button handler
+function onToggleView() {
+  if (state.viewMode === 'wheel') {
+    transitionToList();
+    if (state.toggleBtn) {
+      state.toggleBtn.querySelector('.view-toggle-text').textContent = 'Wheel View';
+    }
+  } else {
+    transitionToWheel();
+    if (state.toggleBtn) {
+      state.toggleBtn.querySelector('.view-toggle-text').textContent = 'List View';
+    }
+  }
+}
+
+// List scroll handler for updating title
+function onListScroll() {
+  if (state.viewMode === 'list') {
+    updateTitle();
+  }
 }
 
 function onResize() {
   if (!state.renderer || !state.camera) return;
-  
+
   const width = window.innerWidth;
   const height = window.innerHeight;
-  
+
   state.renderer.setSize(width, height);
   state.camera.left = -width / 2;
   state.camera.right = width / 2;
   state.camera.top = height / 2;
   state.camera.bottom = -height / 2;
   state.camera.updateProjectionMatrix();
-  
+
   // Update model camera aspect
   if (state.modelCamera) {
     state.modelCamera.aspect = width / height;
@@ -918,7 +1226,7 @@ function onResize() {
   if (state.renderTarget) {
     state.renderTarget.setSize(width, height);
   }
-  
+
   // Update resolution uniform for all materials
   state.meshes.forEach(mesh => {
     if (mesh.material && mesh.material.uniforms && mesh.material.uniforms.uResolution) {
@@ -958,7 +1266,7 @@ function onPointerDown(event) {
 
 function onPointerMove(event) {
   if (!state.isPointerDown) return;
-  
+
   const deltaY = event.clientY - state.lastPointerY;
   // Update scroll target on drag (like kokomi)
   state.scrollTarget -= deltaY * 2;
@@ -968,9 +1276,9 @@ function onPointerMove(event) {
 function onPointerUp(event) {
   if (!state.isPointerDown) return;
   state.isPointerDown = false;
-  
+
   const dragDistance = Math.abs(event.clientY - state.dragStartY);
-  
+
   if (dragDistance < 5) {
     handleClick(event);
   }
@@ -978,18 +1286,18 @@ function onPointerUp(event) {
 
 function playIntro() {
   const tl = gsap.timeline();
-  
+
   // Rotate in from offset
   tl.fromTo(
     state,
     { rotation: -Math.PI * 0.3 },
-    { 
+    {
       rotation: 0,
       duration: 1.8,
       ease: 'power2.out'
     }
   );
-  
+
   // Scale in DOM thumbnails with stagger
   if (USE_DOM_WHEEL && state.domThumbnails.length > 0) {
     gsap.set(state.domThumbnails, { scale: 0, opacity: 0 });
@@ -1019,7 +1327,7 @@ function playIntro() {
     state.meshes.forEach(mesh => {
       gsap.set(mesh.scale, { x: 0, y: 0 });
     });
-    
+
     state.meshes.forEach((mesh, index) => {
       tl.to(
         mesh.scale,
@@ -1033,7 +1341,7 @@ function playIntro() {
       );
     });
   }
-  
+
   return tl;
 }
 
@@ -1149,6 +1457,7 @@ function attachEventListeners() {
   state.handlers.pointerup = onPointerUp;
   state.handlers.wheel = onWheel;
   state.handlers.mousemove = onMouseMove;
+  state.handlers.toggleView = onToggleView;
 
   window.addEventListener('resize', state.handlers.resize);
   document.addEventListener('mousemove', state.handlers.mousemove, { passive: true });
@@ -1158,6 +1467,10 @@ function attachEventListeners() {
     state.container.addEventListener('wheel', state.handlers.wheel, { passive: false });
     window.addEventListener('pointermove', state.handlers.pointermove);
     window.addEventListener('pointerup', state.handlers.pointerup);
+  }
+
+  if (state.toggleBtn) {
+    state.toggleBtn.addEventListener('click', state.handlers.toggleView);
   }
 }
 
@@ -1180,7 +1493,13 @@ function removeEventListeners() {
   if (state.handlers.mousemove) {
     document.removeEventListener('mousemove', state.handlers.mousemove);
   }
-  
+  if (state.handlers.toggleView && state.toggleBtn) {
+    state.toggleBtn.removeEventListener('click', state.handlers.toggleView);
+  }
+  if (state.handlers.listScroll && state.thumbnailWheelEl) {
+    state.thumbnailWheelEl.removeEventListener('scroll', state.handlers.listScroll);
+  }
+
   Object.keys(state.handlers).forEach(key => {
     state.handlers[key] = null;
   });
@@ -1188,22 +1507,24 @@ function removeEventListeners() {
 
 async function initWork() {
   destroyWork();
-  
+
   const mainContainer = document.querySelector("[data-barba-namespace='work']");
   if (!mainContainer) {
     console.warn('Work page container not found');
     return;
   }
-  
+
+  state.container = mainContainer;
   state.titleEl = document.querySelector('.work-title') || document.querySelector('.slide-title');
   state.captionEl = document.querySelector('.work-caption');
   state.thumbnailWheelEl = document.querySelector('.thumbnail-wheel');
-  
+  state.toggleBtn = document.querySelector('.view-toggle-btn');
+
   if (!setupRenderer()) {
     console.error('Failed to setup renderer');
     return;
   }
-  
+
   await loadAllTextures();
   if (USE_DOM_WHEEL) {
     // DOM wheel mode: keep circle images + title in DOM for now.
@@ -1225,7 +1546,7 @@ async function initWork() {
   loadModel();
   setupGui();
   attachEventListeners();
-  
+
   // Initialize scroll tracking (kokomi-style)
   state.scrollTarget = 0;
   state.scrollCurrent = 0;
@@ -1233,7 +1554,7 @@ async function initWork() {
   state.crtBaseRgbShift = CRT_CONFIG.rgbShift;
   state.crtMotionBoost = 0;
   updateChromaticAberrationUniform();
-  
+
   state.animationFrame = null;
   state.animationFrame = requestAnimationFrame(animate);
   playIntro();
@@ -1244,9 +1565,9 @@ function destroyWork() {
     cancelAnimationFrame(state.animationFrame);
     state.animationFrame = null;
   }
-  
+
   removeEventListeners();
-  
+
   // Dispose meshes
   state.meshes.forEach(mesh => {
     if (mesh.material) {
@@ -1287,12 +1608,12 @@ function destroyWork() {
     state.centerTitleMesh = null;
     state.centerTitleText = '';
   }
-  
+
   if (state.sharedGeometry) {
     state.sharedGeometry.dispose();
     state.sharedGeometry = null;
   }
-  
+
   state.textureCache.forEach(texture => texture.dispose());
   state.textureCache.clear();
 
@@ -1339,7 +1660,7 @@ function destroyWork() {
 
   state.modelScene = null;
   state.modelCamera = null;
-  
+
   // Dispose CRT pass
   if (state.crtPass) {
     if (state.crtPass.geometry) {
@@ -1353,17 +1674,17 @@ function destroyWork() {
     }
     state.crtPass = null;
   }
-  
+
   // Dispose render target
   if (state.renderTarget) {
     state.renderTarget.dispose();
     state.renderTarget = null;
   }
-  
+
   state.crtScene = null;
   state.crtCamera = null;
   state.crtUniforms = null;
-  
+
   if (state.renderer) {
     state.renderer.dispose();
     if (state.renderer.domElement && state.renderer.domElement.parentNode) {
@@ -1371,7 +1692,7 @@ function destroyWork() {
     }
     state.renderer = null;
   }
-  
+
   state.scene = null;
   state.camera = null;
   state.raycaster = null;
@@ -1404,6 +1725,10 @@ function destroyWork() {
   state.wheelParallaxOffset.y = 0;
   state.wheelParallaxOffset.z = 0;
   state.wheelParallaxOffset.tilt = 0;
+
+  // Reset view mode
+  state.viewMode = 'wheel';
+  state.toggleBtn = null;
 }
 
 export { initWork, destroyWork };

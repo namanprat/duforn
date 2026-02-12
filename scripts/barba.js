@@ -6,7 +6,7 @@ import { initIndex, destroyIndex } from './index.js';
 import { initWork, destroyWork } from './work.js';
 import { initArchiveScene, destroyArchiveScene } from './archive/index.js';
 import { animateRevealEnter, initScrollTextReveals, getOrSplit, cleanupScrollTriggers } from './text-reveal.js';
-import webgl, { destroyWebgl, setScenePage, isWebglRunning } from './three.js';
+import webgl, { destroyWebgl, setScenePage, isWebglRunning, mountSceneText } from './three.js';
 import { initLinkHover, destroyLinkHover } from './link-hover.js';
 import { initBtnHover } from './btn-hover.js';
 
@@ -213,6 +213,7 @@ function initPageFeatures(namespace) {
     if (!wasRunning) {
       setScenePage(ns, true);
     }
+    mountSceneText(ns);
     if (ns === 'home') {
       initIndex();
     } else {

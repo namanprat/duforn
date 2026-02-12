@@ -259,8 +259,8 @@ function fadeNodes(nodes, { duration = 0.55, stagger = 0.03, ease = "power2.out"
 
 async function animateRevealEnter(container) {
   if (!container) return;
-  
-  const textRevealHeaders = container.querySelectorAll(".text-reveal-header");
+
+  const textRevealHeaders = container.querySelectorAll(".text-reveal-header:not(.has-3d-text)");
 
   // Early return if no elements found
   if (!textRevealHeaders.length) return;
@@ -277,13 +277,13 @@ async function animateRevealEnter(container) {
     const header = textRevealHeaders[i];
     const isReverse = header.classList.contains('text-reveal-reverse');
     const direction = isReverse ? 'down' : 'up';
-    
-    const tween = revealWords(header, { 
-      direction, 
-      duration: 0.8, 
-      stagger: 0.04 
+
+    const tween = revealWords(header, {
+      direction,
+      duration: 0.8,
+      stagger: 0.04
     });
-    
+
     if (tween) {
       animations.push(tweenToPromise(tween));
     }
@@ -298,13 +298,13 @@ async function animateRevealEnter(container) {
 function initScrollTextReveals() {
   // Clear previous ScrollTriggers
   cleanupScrollTriggers();
-  
+
   // Batch query all types at once - but exclude ones in .hero section
   const regular = document.querySelectorAll(".text-reveal:not(.hero .text-reveal)");
   const reverse = document.querySelectorAll(".text-reveal-reverse:not(.hero .text-reveal-reverse)");
-  const headers = document.querySelectorAll(".text-reveal-header:not(.hero .text-reveal-header)");
+  const headers = document.querySelectorAll(".text-reveal-header:not(.hero .text-reveal-header):not(.contact-contain .text-reveal-header)");
   const bodyReveals = document.querySelectorAll(".body-text-reveal:not(.hero .body-text-reveal):not(.hero-text-reveal)");
-  
+
   // Process regular reveals
   for (let i = 0; i < regular.length; i++) {
     const el = regular[i];
@@ -398,7 +398,7 @@ function initScrollTextReveals() {
     // Use specific config for body text: just lines, mask logic handled in getOrSplit
     const split = getOrSplit(el, { type: "lines" });
     if (!split?.lines?.length) continue;
-    
+
     // Set initial state: y: 100% (slide up from bottom of line height)
     gsap.set(split.lines, { yPercent: 100, opacity: 0 });
 
@@ -414,11 +414,11 @@ function initScrollTextReveals() {
           trigger: el,
           start: "top 90%", // enter 10% into viewport (90% from top)
           // Play on enter, reverse on leave, play on enter back, reverse on leave back
-          toggleActions: "play reverse play reverse" 
+          toggleActions: "play reverse play reverse"
         },
       }
     );
-    
+
     if (tween.scrollTrigger) {
       scrollTriggers.push(tween.scrollTrigger);
     }

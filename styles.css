@@ -2419,3 +2419,9 @@ img {
 #gallery canvas:active {
   cursor: grabbing;
 }
+
+/* ── 3D text overlay: hide source DOM but keep clickable ── */
+.has-3d-text {
+  opacity: 0 !important;
+  pointer-events: auto;
+}

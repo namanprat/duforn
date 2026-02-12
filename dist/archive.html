@@ -1,38 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Archive - Naman Pratulya</title>
-    <link rel="icon" href="/site-icon.png" />
-    <meta name="theme-color" content="#000000" />
-    <meta name="author" content="Naman Pratulya" />
-    <script type="module" crossorigin src="/assets/barba-DVWzVu4J.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/barba-DN9km7TC.css">
-  </head>
-
-  <body data-barba="wrapper" class="page-wrap">
-
-    <!-- page transition -->
-    <div class="transition">
-      <div class="transition-overlay"></div>
-    </div>
-
-    <nav class="nav-wrap u-position-fixed">
-        <div class="nav-contain u-container-full">
-          <a class="u-mobile-hidden" href="/work">work</a>
-          <a href="/" class="link-main">naman pratulya</a>
-          <a class="u-mobile-hidden" href="/contact">contact</a>
-
-          <div class="menu-toggle-btn">
-              <div class="menu-toggle-btn-wrapper">
-              <a>MENU</a>
-            </div>
-          </div>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Archive - Naman Pratulya</title>
+  <link rel="icon" href="/site-icon.png" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="author" content="Naman Pratulya" />
+  <script type="module" crossorigin src="/assets/barba-BVZJkwZ1.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/barba-SHjB_jw_.css">
+</head>
+<body data-barba="wrapper" class="page-wrap">
+  <!-- page transition -->
+  <div class="transition"></div>
+  <nav class="nav-wrap u-position-fixed">
+    <div class="nav-contain u-container-full">
+      <a class="u-mobile-hidden" href="/work">work</a>
+      <a href="/" class="link-main">naman pratulya</a>
+      <a class="u-mobile-hidden" href="/contact">contact</a>
+      <div class="menu-toggle-btn">
+        <div class="menu-toggle-btn-wrapper">
+          <a>MENU</a>
         </div>
-      </nav>
-
-      <!-- <div class="grid-guide">
+      </div>
+    </div>
+  </nav>
+  <!-- <div class="grid-guide">
         <div class="grid-guide__inner">
           <div class="grid-guide__col"></div>
           <div class="grid-guide__col"></div>
@@ -48,62 +41,58 @@
           <div class="grid-guide__col"></div>
         </div>
       </div> -->
-
-    <div class="bottom-nav-wrap u-position-fixed u-container-full u-mobile-hidden">
-      <div class="bottom-nav-contain">
-        <a href="/archive">archive</a>
-        <a id="time">12:34:56 IST</a>
+  <div class="bottom-nav-wrap u-position-fixed u-container-full u-mobile-hidden">
+    <div class="bottom-nav-contain">
+      <a href="/archive">archive</a>
+      <a id="time">12:34:56 IST</a>
+    </div>
+  </div>
+  <div class="menu-wrap">
+    <div class="menu-content u-container-full">
+      <div class="menu-box">
+        <div class="menu-items">
+          <a class="menu-item" href="/work">
+            <h1>Work</h1>
+          </a>
+          <a class="menu-item" href="/archive">
+            <h1>Archive</h1>
+          </a>
+          <a class="menu-item" href="/contact">
+            <h1>Contact</h1>
+          </a>
+        </div>
+        <line></line>
+        <div class="menu-footer">
+          <div class="menu-footer-item">
+            <a href="https://www.instagram.com/namanprat/" target="_blank">Instagram</a>
+            <a href="mailto:npratulya@gmail.com" target="_blank">Email</a>
+          </div>
+        </div>
       </div>
     </div>
-
-    <div class="menu-wrap">
-      <div class="menu-content u-container-full">
-        <div class="menu-box">
-          <div class="menu-items">
-              <a class="menu-item" href="/work"><h1>Work</h1></a>
-              <a class="menu-item" href="/archive"><h1>Archive</h1></a>
-              <a class="menu-item" href="/contact"><h1>Contact</h1></a>
-          </div>
-          <line></line>
-          <div class="menu-footer">
-            <div class="menu-footer-item">
-              <a href="https://www.instagram.com/namanprat/" target="_blank">Instagram</a>
-              <a href="mailto:npratulya@gmail.com" target="_blank">Email</a>
-            </div>
-          </div>
+  </div>
+  <!-- WebGL background container -->
+  <div id="background"></div>
+  <main data-barba="container" data-barba-namespace="archive">
+    <section id="gallery"></section>
+    <!-- Focus mode overlay -->
+    <div id="archive-overlay" class="archive-overlay">
+      <!-- Info panel (slides in from right on desktop, bottom on mobile) -->
+      <div class="archive-focus-panel">
+        <button class="archive-close-btn" aria-label="Close">&times;</button>
+        <div class="archive-focus-content">
+          <h2 class="archive-focus-title"></h2>
+          <p class="archive-focus-year u-text-style-font-secondary"></p>
+          <p class="archive-focus-description"></p>
+          <div class="archive-focus-category u-text-style-font-secondary"></div>
         </div>
+      </div>
+      <!-- Navigation buttons -->
+      <div class="archive-nav-wrap">
+        <button id="archive-prev" class="archive-nav-btn" aria-label="Previous">&larr;</button>
+        <button id="archive-next" class="archive-nav-btn" aria-label="Next">&rarr;</button>
       </div>
     </div>
-
-    <!-- WebGL background container -->
-    <div id="background"></div>
-
-    <main data-barba="container" data-barba-namespace="archive">
-
-      <section id="gallery"></section>
-
-      <!-- Focus mode overlay -->
-      <div id="archive-overlay" class="archive-overlay">
-        <!-- Info panel (slides in from right on desktop, bottom on mobile) -->
-        <div class="archive-focus-panel">
-          <button class="archive-close-btn" aria-label="Close">&times;</button>
-          <div class="archive-focus-content">
-            <h2 class="archive-focus-title"></h2>
-            <p class="archive-focus-year u-text-style-font-secondary"></p>
-            <p class="archive-focus-description"></p>
-            <div class="archive-focus-category u-text-style-font-secondary"></div>
-          </div>
-        </div>
-
-        <!-- Navigation buttons -->
-        <div class="archive-nav-wrap">
-          <button id="archive-prev" class="archive-nav-btn" aria-label="Previous">&larr;</button>
-          <button id="archive-next" class="archive-nav-btn" aria-label="Next">&rarr;</button>
-        </div>
-      </div>
-
-    </main>
-
-
-  </body>
+  </main>
+</body>
 </html>
