@@ -2,11 +2,11 @@ import barba from '@barba/core';
 import gsap from 'gsap';
 import { animateTransition, revealTransition, closeMenuIfOpen } from './transition.js';
 import { initMenu } from './menu.js';
-import { initIndex, destroyIndex } from './index.js';
+
 import { initWork, destroyWork } from './work.js';
 import { initArchiveScene, destroyArchiveScene } from './archive/index.js';
-import { animateRevealEnter, initScrollTextReveals, getOrSplit, cleanupScrollTriggers, cleanupSplits } from './text-reveal.js';
-import webgl, { destroyWebgl, setScenePage, isWebglRunning } from './three.js';
+import { initScrollTextReveals, cleanupScrollTriggers, cleanupSplits } from './text-reveal.js';
+import webgl, { destroyWebgl, setScenePage, isWebglRunning, mountSceneText, unmountSceneText } from './three.js';
 import { initLinkHover, destroyLinkHover } from './link-hover.js';
 import { initBtnHover } from './btn-hover.js';
 
@@ -17,54 +17,15 @@ function tweenToPromise(tween) {
     : Promise.resolve();
 }
 
-function createHomeLeaveTimeline(container) {
-  const tl = gsap.timeline({ defaults: { ease: 'power2.in' } });
-  let hasSteps = false;
-
-  const heroTextReveals = container.querySelectorAll('.hero-text-reveal');
-  for (let i = 0; i < heroTextReveals.length; i++) {
-    const split = getOrSplit(heroTextReveals[i], { type: 'lines' });
-    if (!split?.lines?.length) continue;
-    hasSteps = true;
-    tl.to(split.lines, {
-      yPercent: -100,
-      opacity: 0,
-      duration: 0.3,
-      stagger: 0.03
-    }, 0);
-  }
-
-  const heroLogo = container.querySelector('.hero-logo-top h1');
-  if (heroLogo) {
-    hasSteps = true;
-    tl.to(heroLogo, {
-      y: -30,
-      opacity: 0,
-      duration: 0.3
-    }, 0);
-  }
-
-  return hasSteps ? tl : null;
+function createHomeLeaveTimeline() {
+  // Home hero text is rendered by Troika on the WebGL canvas — no DOM animations needed
+  return null;
 }
 
 function createContactLeaveTimeline(container, nextNamespace) {
+  // Contact text is rendered by Troika on the WebGL canvas — only animate link-main
   const tl = gsap.timeline({ defaults: { ease: 'power2.in' } });
   let hasSteps = false;
-
-  const textRevealHeaders = container.querySelectorAll('.text-reveal-header');
-  for (let i = 0; i < textRevealHeaders.length; i++) {
-    const header = textRevealHeaders[i];
-    const split = getOrSplit(header);
-    if (!split?.words?.length) continue;
-    hasSteps = true;
-    const isReverse = header.classList.contains('text-reveal-reverse');
-    tl.to(split.words, {
-      y: isReverse ? 100 : -100,
-      opacity: 0,
-      duration: 0.25,
-      stagger: 0.015
-    }, 0);
-  }
 
   const linkMain = document.querySelector('.link-main');
   if (linkMain) {
@@ -84,20 +45,8 @@ function createContactLeaveTimeline(container, nextNamespace) {
   return hasSteps ? tl : null;
 }
 
-function primeHomeEnter(container) {
-  const heroTextReveals = container.querySelectorAll('.hero-text-reveal');
-  for (let i = 0; i < heroTextReveals.length; i++) {
-    const split = getOrSplit(heroTextReveals[i], { type: 'lines' });
-    if (split?.lines?.length) {
-      gsap.set(split.lines, { yPercent: 100, opacity: 0 });
-    }
-  }
-
-  const heroLogo = container.querySelector('.hero-logo-top h1');
-  if (heroLogo) {
-    gsap.set(heroLogo, { y: 30, opacity: 0 });
-  }
-
+function primeHomeEnter() {
+  // Home hero text is rendered by Troika — only set link-main state
   const linkMain = document.querySelector('.link-main');
   if (linkMain) {
     gsap.set(linkMain, { autoAlpha: 0 });
@@ -111,34 +60,9 @@ function primeContactEnter() {
   }
 }
 
-function createHomeEnterTimeline(container) {
-  const tl = gsap.timeline({ defaults: { ease: 'power2.out' } });
-  let stepCount = 0;
-
-  const heroTextReveals = container.querySelectorAll('.hero-text-reveal');
-  for (let i = 0; i < heroTextReveals.length; i++) {
-    const split = getOrSplit(heroTextReveals[i], { type: 'lines' });
-    if (!split?.lines?.length) continue;
-    tl.to(split.lines, {
-      yPercent: 0,
-      opacity: 1,
-      duration: 0.6,
-      stagger: 0.08
-    }, stepCount > 0 ? '<0.04' : 0);
-    stepCount += 1;
-  }
-
-  const heroLogo = container.querySelector('.hero-logo-top h1');
-  if (heroLogo) {
-    tl.to(heroLogo, {
-      y: 0,
-      opacity: 1,
-      duration: 0.4
-    }, 0.1);
-    stepCount += 1;
-  }
-
-  return stepCount > 0 ? tl : null;
+function createHomeEnterTimeline() {
+  // Home hero text is rendered by Troika on the WebGL canvas — no DOM animations needed
+  return null;
 }
 
 function createContactEnterTween() {
@@ -195,12 +119,10 @@ function initPageFeatures(namespace) {
     }
   }
   if (ns === 'work') {
-    destroyIndex();
     initWork();
     destroyWebgl();
     destroyArchiveScene();
   } else if (ns === 'archive') {
-    destroyIndex();
     destroyWork();
     destroyWebgl();
     initArchiveScene();
@@ -213,13 +135,9 @@ function initPageFeatures(namespace) {
     if (!wasRunning) {
       setScenePage(ns, true);
     }
-    if (ns === 'home') {
-      initIndex();
-    } else {
-      destroyIndex();
-    }
+    // Mount Troika text overlay after layout settles (next frame)
+    requestAnimationFrame(() => mountSceneText(ns));
   } else {
-    destroyIndex();
     destroyWork();
     destroyArchiveScene();
     destroyWebgl();
@@ -234,10 +152,10 @@ barba.init({
       to: { namespace: ['home', 'contact'] },
       async leave(data) {
         closeMenuIfOpen();
-        cleanupScrollTriggers();
-        cleanupSplits(); // Fix memory leak: revert all splits before transition
         // Start scene shift toward the target page (runs during text-out animation)
         setScenePage(data?.next?.namespace);
+        // Clean up Troika text from current page before transition
+        unmountSceneText();
         const container = data?.current?.container;
         const ns = data?.current?.namespace;
         if (!container) return;
@@ -247,6 +165,10 @@ barba.init({
         } else if (ns === 'contact') {
           await tweenToPromise(createContactLeaveTimeline(container, data?.next?.namespace));
         }
+
+        // Clean up AFTER leave animation so splits are still valid during animation
+        cleanupScrollTriggers();
+        cleanupSplits();
       },
       async enter(data) {
         const container = data?.next?.container;
@@ -254,11 +176,11 @@ barba.init({
         if (!container) return;
 
         if (ns === 'home') {
-          primeHomeEnter(container);
+          primeHomeEnter();
         } else if (ns === 'contact') {
           primeContactEnter();
         }
-        // Contact page text-reveal headers handled by animateRevealEnter
+        // Contact text is rendered by Troika — no DOM text animations needed
       },
       async after(data) {
         const container = data?.next?.container;
@@ -268,15 +190,12 @@ barba.init({
         initPageFeatures(ns);
 
         if (ns === 'home') {
-          await tweenToPromise(createHomeEnterTimeline(container));
           // Ensure nav link-main is hidden on home
           const linkMain = document.querySelector('.link-main');
           if (linkMain) {
             gsap.set(linkMain, { autoAlpha: 0 });
           }
         } else if (ns === 'contact') {
-          // Animate contact text-reveal headers in
-          await animateRevealEnter(container);
           // Animate nav link-main lines in
           await tweenToPromise(createContactEnterTween());
         }
@@ -285,19 +204,21 @@ barba.init({
     {
       name: 'default',
       async leave(data) {
-        if (data?.current?.namespace === 'home') {
-          destroyIndex();
-        }
         if (data?.current?.namespace === 'work') {
           destroyWork();
         }
         if (data?.current?.namespace === 'archive') {
           destroyArchiveScene();
         }
-        cleanupScrollTriggers(); // Clean up ScrollTriggers before transition
-        cleanupSplits(); // Fix memory leak: revert all splits before transition
+        // Clean up Troika text if leaving home/contact
+        if (data?.current?.namespace === 'home' || data?.current?.namespace === 'contact') {
+          unmountSceneText();
+        }
         closeMenuIfOpen();
         await animateTransition();
+        // Clean up AFTER capture/overlay so html2canvas sees correct layout
+        cleanupScrollTriggers();
+        cleanupSplits();
       },
       async enter() {
         await revealTransition();
@@ -312,47 +233,13 @@ barba.init({
         if (!container) return;
 
         if (ns === 'home') {
-          // Animate home hero on initial load
-          const promises = [];
-          const heroTextReveals = container.querySelectorAll('.hero-text-reveal');
-          for (let i = 0; i < heroTextReveals.length; i++) {
-            const el = heroTextReveals[i];
-            const split = getOrSplit(el, { type: 'lines' });
-            if (split?.lines?.length) {
-              gsap.set(split.lines, { yPercent: 100, opacity: 0 });
-              const tween = gsap.to(split.lines, {
-                yPercent: 0,
-                opacity: 1,
-                duration: 0.8,
-                stagger: 0.1,
-                ease: 'power2.out',
-                delay: 0.1
-              });
-              promises.push(new Promise(resolve => tween.eventCallback('onComplete', resolve)));
-            }
-          }
-          // Animate hero logo
-          const heroLogo = container.querySelector('.hero-logo-top h1');
-          if (heroLogo) {
-            gsap.set(heroLogo, { y: 30, opacity: 0 });
-            const tween = gsap.to(heroLogo, {
-              y: 0,
-              opacity: 1,
-              duration: 0.5,
-              ease: 'power2.out',
-              delay: 0.1
-            });
-            promises.push(new Promise(resolve => tween.eventCallback('onComplete', resolve)));
-          }
-          if (promises.length) await Promise.all(promises);
-          // Ensure nav link-main is hidden on home (once)
+          // Home hero text is rendered by Troika — just hide nav link-main
           const linkMainHome = document.querySelector('.link-main');
           if (linkMainHome) {
             gsap.set(linkMainHome, { autoAlpha: 0 });
           }
         } else if (ns === 'contact') {
-          await animateRevealEnter(container);
-          // Animate nav link-main lines in on initial load
+          // Contact text is rendered by Troika — just animate nav link-main
           const linkMain = document.querySelector('.link-main');
           if (linkMain) {
             gsap.set(linkMain, { autoAlpha: 1, y: 20, opacity: 0 });
@@ -374,9 +261,7 @@ barba.init({
         }
 
         if (ns === 'contact') {
-          const container = data?.next?.container;
-          if (!container) return;
-          await animateRevealEnter(container);
+          // Contact text is rendered by Troika — just animate nav link-main
           const linkMain = document.querySelector('.link-main');
           if (linkMain) {
             gsap.set(linkMain, { autoAlpha: 1, y: 20, opacity: 0 });

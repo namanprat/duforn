@@ -2,7 +2,7 @@ import gsap from "gsap";
 import SplitType from "split-type";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
-const splits = new WeakMap();
+const splits = new Map();
 const splitTracking = []; // Track splits so we can revert them
 const scrollTriggers = [];
 
@@ -265,7 +265,8 @@ function cleanupSplits() {
       split.revert();
     }
   }
-  splitTracking.length = 0; // Clear the tracking array
+  splitTracking.length = 0;
+  splits.clear(); // Clear cache so getOrSplit() creates fresh splits
 }
 
 export {
