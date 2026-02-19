@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import html2canvas from "html2canvas";
+import { captureCurrentFrame } from "./three.js";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -12,19 +12,17 @@ void main() {
 }
 `;
 
-// ─── Fragment shader — Ink Reveal Mask ───────────────────
-// Concept: Ink expanding on paper.
-// - Starts opaque (black ink covering screen).
-// - "Water" drops in center, ink dissolves/burns away.
-// - Reveals the page underneath (alpha 0).
-// - Edge is sharp but organic, like wet paper tearing.
+// ─── Fragment shader — Full-Color Ink Mask ────────────────
+// The old page shows in full color where the mask is opaque.
+// As the ink dissolves from the center outward, it becomes
+// transparent, revealing the live new page underneath.
 
 const fragmentShader = /* glsl */ `
 precision highp float;
 
 uniform sampler2D uOldPage;
 uniform float uTime;
-uniform float uProgress;    // 0 = fully opaque (black), 1 = fully transparent
+uniform float uProgress;    // 0 = fully opaque (old page), 1 = fully transparent (new page)
 uniform vec2  uResolution;
 uniform float uOpacity;
 
@@ -62,7 +60,7 @@ float fbm(vec2 p) {
   float total = 0.0;
   float amplitude = 0.5;
   float frequency = 1.0;
-  for (int i = 0; i < 6; i++) {
+  for (int i = 0; i < 4; i++) {
     total += snoise(p * frequency) * amplitude;
     amplitude *= 0.5;
     frequency *= 2.0;
@@ -73,59 +71,34 @@ float fbm(vec2 p) {
 void main() {
   vec2 uv = gl_FragCoord.xy / uResolution;
   float aspect = uResolution.x / uResolution.y;
-  
+
   // Center coordinate system
   vec2 p = uv - 0.5;
   p.x *= aspect;
   float len = length(p);
 
-  // 1. Base organic noise layer (flowing/liquid)
-  float noiseVal = fbm(p * 3.5 + uTime * 0.2); 
-  
-  // 2. Distortion for the ink edge (turbulence)
-  float distort = snoise(p * 10.0 - uTime * 0.5) * 0.05;
+  // Organic noise for irregular dissolve edge
+  float noiseVal = fbm(p * 3.5 + uTime * 0.2);
 
-  // 3. Expansion radius logic
-  // Map progress 0->1 to a radius that covers the corners
+  // Expansion radius — covers corners at progress=1
   float maxDist = length(vec2(aspect * 0.5, 0.5));
-  float radius = uProgress * (maxDist * 2.5); // *2.5 ensures clearing corners
+  float radius = uProgress * (maxDist * 2.5);
 
-  // 4. The Mask
-  // We compare distance (len) to radius, modulated by noise.
-  // "noiseVal" adds organic irregularity to the radius.
-  float edgeRoughness = 0.3; 
+  // Ink mask: noise makes the edge organic
+  float edgeRoughness = 0.3;
   float maskDist = len - (radius + noiseVal * edgeRoughness);
-  
-  // Sharp but smooth edge (ink-like)
-  // Inside the ink hole (mask < 0) -> transparent (alpha 0)
-  // Outside (mask > 0) -> opaque (alpha 1)
-  
-  // Smoothstep for anti-aliasing the edge
-  float alpha = smoothstep(-0.05, 0.05, maskDist);
-  
-  // ── Visuals ────────────────────────────────────────────
-  
-  // Old Page Texture (Greyscale / Darkened)
-  vec4 oldTex = texture2D(uOldPage, uv);
-  float oldLum = dot(oldTex.rgb, vec3(0.299, 0.587, 0.114));
-  vec3 oldGrey = vec3(oldLum * 0.2); // Very dark grey, almost black
-  
-  // Ink Edge Glow (Subtle White/Grey burn line)
-  // Only visible at the transition boundary
-  float edgeGlow = (1.0 - abs(maskDist * 8.0)) * 0.5;
-  edgeGlow = clamp(edgeGlow, 0.0, 1.0);
-  edgeGlow *= (1.0 - alpha); // Only adds to the dark part, not the transparent part purely
-  
-  // Combine:
-  // Base colour is the old page (darkened).
-  // Add a subtle white edge line where the ink disrupts.
-  vec3 col = oldGrey + vec3(edgeGlow * 0.1); 
 
-  // Final Alpha
-  // If alpha is 0 (transparent), we see the new page.
-  // If alpha is 1 (opaque), we see 'col'.
-  // Also fade out globally at the end (uOpacity).
-  
+  // Mask alpha: opaque outside dissolve hole, transparent inside
+  float alpha = smoothstep(-0.05, 0.05, maskDist);
+
+  // Old page in full color
+  vec4 oldTex = texture2D(uOldPage, uv);
+  vec3 col = oldTex.rgb;
+
+  // Subtle edge darkening at the dissolve boundary (adds depth)
+  float edgeBand = 1.0 - smoothstep(0.0, 0.12, abs(maskDist));
+  col *= 1.0 - edgeBand * 0.15;
+
   gl_FragColor = vec4(col, alpha * uOpacity);
 }
 `;
@@ -152,7 +125,6 @@ function init() {
     renderer = new THREE.WebGLRenderer({
       alpha: true,
       premultipliedAlpha: false,
-      antialias: true, // Enable AA for smoother edges
     });
   } catch (err) {
     console.warn('[transition] Failed to create WebGL renderer:', err);
@@ -160,9 +132,8 @@ function init() {
   }
 
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
 
-  // Add context loss handler
   renderer.domElement.addEventListener('webglcontextlost', (e) => {
     e.preventDefault();
     console.warn('[transition] Context lost');
@@ -233,16 +204,10 @@ function stopLoop() {
 }
 
 // ─── Page capture ────────────────────────────────────────
-async function captureOldPage() {
+function captureOldPage() {
   try {
-    const el = document.querySelector('[data-barba="container"]');
-    if (!el) return blackTex;
-    const canvas = await html2canvas(el, {
-      backgroundColor: "#000000",
-      scale: 0.25, // Reduced from 0.5 for faster capture - shader distortion hides quality loss
-      logging: false,
-      useCORS: true,
-    });
+    const canvas = captureCurrentFrame();
+    if (!canvas) return blackTex;
     const tex = new THREE.CanvasTexture(canvas);
     tex.minFilter = THREE.LinearFilter;
     tex.magFilter = THREE.LinearFilter;
@@ -255,34 +220,31 @@ async function captureOldPage() {
 // ─── Public API ──────────────────────────────────────────
 
 /**
- * LEAVE — show overlay IMMEDIATELY, then capture old page behind it.
- * The overlay is fully opaque from frame 1 so the user never sees a
- * content flash when Barba swaps pages.
+ * LEAVE — capture current WebGL frame, then show it as an opaque overlay.
+ * The overlay covers the page instantly so the user never sees content flash.
  */
 export async function animateTransition() {
   init();
   if (!containerEl) return;
 
-  // ── INSTANT cover: fully opaque dark, hide any content swap ──
-  material.uniforms.uProgress.value = 0;    // no portal = fully opaque
+  // Capture the current frame BEFORE showing the overlay
+  // (the shared renderer's canvas still has the current content thanks to preserveDrawingBuffer)
+  oldPageTex = captureOldPage();
+
+  // Show overlay with the captured frame
+  material.uniforms.uProgress.value = 0;    // fully opaque
   material.uniforms.uOpacity.value = 1;
-  material.uniforms.uOldPage.value = blackTex; // solid black until capture done
+  material.uniforms.uOldPage.value = oldPageTex;
   containerEl.style.display = "block";
   containerEl.style.pointerEvents = "auto";
   startLoop();
 
-  // render one frame immediately so the canvas draws the dark overlay
+  // Render one frame immediately so the overlay is visible
   renderer.render(scene, camera);
-
-  // ── now capture old page in the background ──
-  // The overlay is already covering everything, so this is safe
-  oldPageTex = await captureOldPage();
-  material.uniforms.uOldPage.value = oldPageTex;
 }
 
 /**
- * ENTER — portal opens from center, revealing the live new page beneath.
- * Skips on initial page load (once hook).
+ * ENTER — ink dissolves from center outward, revealing the live new page beneath.
  */
 export async function revealTransition() {
   if (!isInit || !containerEl || containerEl.style.display !== "block") return;
@@ -302,20 +264,17 @@ export async function revealTransition() {
       },
     });
 
-    // Ink Reveal Animation
-    // We ease it slightly slower to make it feel premium
     tl.to(material.uniforms.uProgress, {
       value: 1,
-      duration: 1.4,
-      ease: "power2.inOut",
+      duration: 2.2,
+      ease: "power3.inOut",
     });
 
-    // Fade out overlay at the very end to ensure clean cleanup
     tl.to(material.uniforms.uOpacity, {
       value: 0,
-      duration: 0.3,
-      ease: "power1.out",
-    }, "-=0.3"); // Overlap slightly with end of progress
+      duration: 0.5,
+      ease: "power2.out",
+    }, "-=0.5");
   });
 }
 
@@ -324,4 +283,49 @@ export function closeMenuIfOpen() {
   if (btn && btn.classList.contains("menu-open")) btn.click();
 }
 
-export default { animateTransition, revealTransition, closeMenuIfOpen };
+/**
+ * Clean up transition resources
+ */
+function cleanup() {
+  stopLoop();
+  if (renderer) {
+    renderer.dispose();
+    if (renderer.domElement?.parentNode) {
+      renderer.domElement.parentNode.removeChild(renderer.domElement);
+    }
+    renderer = null;
+  }
+  if (material) {
+    material.dispose();
+    material = null;
+  }
+  if (quad) {
+    quad.geometry.dispose();
+    quad = null;
+  }
+  if (blackTex) {
+    blackTex.dispose();
+    blackTex = null;
+  }
+  if (oldPageTex && oldPageTex !== blackTex) {
+    oldPageTex.dispose();
+    oldPageTex = null;
+  }
+  scene = null;
+  camera = null;
+  isInit = false;
+  if (containerEl) {
+    containerEl.innerHTML = '';
+    containerEl = null;
+  }
+  window.removeEventListener('resize', onResize);
+}
+
+/**
+ * Destroy transition module - exported for Barba lifecycle
+ */
+export function destroyTransition() {
+  cleanup();
+}
+
+export default { animateTransition, revealTransition, closeMenuIfOpen, destroyTransition };

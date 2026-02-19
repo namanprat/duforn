@@ -1,48 +1,39 @@
 {
-  "name": "naman-pratulya",
+  "name": "duforn-portfolio",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "High-performance interactive portfolio with WebGL backgrounds and GSAP animations",
+  "type": "module",
   "scripts": {
     "dev": "vite",
+    "host": "vite --host",
     "build": "vite build",
     "preview": "vite preview",
-    "host": "vite --host",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/harrnish/negative-films.git"
-  },
-  "keywords": [],
+  "keywords": [
+    "portfolio",
+    "webgl",
+    "three.js",
+    "gsap",
+    "vite"
+  ],
   "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/harrnish/negative-films/issues"
-  },
-  "homepage": "https://github.com/harrnish/negative-films#readme",
-  "description": "",
+  "license": "MIT",
   "dependencies": {
-    "@barba/core": "^2.10.3",
-    "gsap": "^3.13.0",
-    "html2canvas": "^1.4.1",
-    "lenis": "^1.3.11",
-    "lil-gui": "^0.21.0",
-    "postprocessing": "^6.38.2",
-    "split-type": "^0.3.4",
-    "three": "^0.180.0",
-    "three-stdlib": "^2.36.1",
-    "troika-three-text": "^0.52.4",
-    "ukiyojs": "^4.2.0",
-    "vite": "^7.1.5"
+    "@barba/core": "^2.9.7",
+    "gsap": "^3.14.2",
+    "lenis": "^1.1.13",
+    "lil-gui": "^0.19.2",
+    "three": "^0.183.0",
+    "three-stdlib": "^2.29.9"
   },
   "devDependencies": {
-    "@testing-library/dom": "^10.4.1",
-    "@testing-library/user-event": "^14.6.1",
     "@vitest/coverage-v8": "^4.0.18",
     "@vitest/ui": "^4.0.18",
-    "happy-dom": "^20.4.0",
+    "happy-dom": "^20.6.1",
+    "vite": "^7.3.1",
     "vitest": "^4.0.18"
   }
 }

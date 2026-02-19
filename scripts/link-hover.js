@@ -1,5 +1,7 @@
 import gsap from 'gsap';
-import SplitType from 'split-type';
+import { SplitText } from 'gsap/SplitText';
+
+gsap.registerPlugin(SplitText);
 
 // Shared animation config
 const ANIM_CONFIG = {
@@ -47,8 +49,8 @@ export function initLinkHover() {
     link.appendChild(italicSpan);
 
     // Split once and reuse
-    const originalSplit = new SplitType(originalSpan, { types: 'chars' });
-    const italicSplit = new SplitType(italicSpan, { types: 'chars' });
+    const originalSplit = new SplitText(originalSpan, { type: 'chars' });
+    const italicSplit = new SplitText(italicSpan, { type: 'chars' });
 
     // Initial positions
     gsap.set(originalSplit.chars, { 

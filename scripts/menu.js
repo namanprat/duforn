@@ -1,6 +1,6 @@
 import gsap from "gsap";
 import { SplitText } from "gsap/SplitText";
-import { lenis } from "./lenis-scroll.js";
+import { getLenis } from "./lenis-scroll.js";
 
 gsap.registerPlugin(SplitText);
 
@@ -8,7 +8,10 @@ let isMenuOpen = false;
 let isAnimating = false;
 let menuParent = null;
 let menuInitialized = false;
+let menuOverlayClickHandler = null;
+let menuToggleClickHandler = null;
 const splits = new Map();
+const receiptCloseHandlers = new WeakMap();
 
 function getOrSplit(element) {
   if (splits.has(element)) return splits.get(element);
@@ -43,8 +46,8 @@ function openMenu() {
   if (menuToggleBtn) menuToggleBtn.classList.add("menu-open");
 
   // disable scrolling
-  if (lenis) {
-    lenis.stop();
+  if (getLenis()) {
+    getLenis().stop();
   }
 
   if (menuBoxes.length) {
@@ -70,15 +73,12 @@ function openMenu() {
       const split = getOrSplit(item);
       gsap.fromTo(
         split.chars,
-        {x: 10,
+        {
           y: -100,
-          filter: "blur(5px)",
           opacity: 0,
         },
         {
-          x: 0,
-         y: 0,
-          filter: "blur(0px)",
+          y: 0,
           opacity: 1,
           duration: 1,
           stagger: 0.05,
@@ -107,8 +107,8 @@ function closeMenu() {
   if (menuToggleBtn) menuToggleBtn.classList.remove("menu-open");
 
   // enable scrolling
-  if (lenis) {
-    lenis.start();
+  if (getLenis()) {
+    getLenis().start();
   }
 
   if (menuBoxes.length) {
@@ -144,6 +144,7 @@ function initMenu() {
   const menuToggleBtn = document.querySelector(".menu-toggle-btn");
   const menuBoxes = document.querySelectorAll(".menu-box");
   const menuItems = document.querySelectorAll(".menu-item");
+  const receiptCloseButtons = document.querySelectorAll(".receipt-close");
 
   // reference menu-parent and initialize its state
   menuParent = document.querySelector('.menu-wrap');
@@ -151,15 +152,16 @@ function initMenu() {
     menuParent.style.pointerEvents = 'none';
     gsap.set(menuParent, { autoAlpha: 0 });
     // click on blank space (menuParent itself) closes the popup
-    menuParent.addEventListener('click', (e) => {
+    menuOverlayClickHandler = (e) => {
       if (e.target === menuParent && isMenuOpen && !isAnimating) {
         closeMenu();
       }
-    });
+    };
+    menuParent.addEventListener('click', menuOverlayClickHandler);
   }
 
   if (menuToggleBtn) {
-    menuToggleBtn.addEventListener("click", (e) => {
+    menuToggleClickHandler = (e) => {
       e.preventDefault(); // Prevent navigation if it's a link
       if (isAnimating) {
         gsap.killTweensOf([...menuBoxes, ...menuItems]);
@@ -171,9 +173,78 @@ function initMenu() {
       } else {
         closeMenu();
       }
-    });
+    };
+    menuToggleBtn.addEventListener("click", menuToggleClickHandler);
+  }
+
+  receiptCloseButtons.forEach((button) => {
+    const onClick = (event) => {
+      event.preventDefault();
+      if (isMenuOpen && !isAnimating) {
+        closeMenu();
+      }
+    };
+    button.addEventListener("click", onClick);
+    receiptCloseHandlers.set(button, onClick);
+  });
+
+  // Populate receipt datetime with current time
+  const receiptDatetime = document.getElementById('receipt-datetime');
+  if (receiptDatetime) {
+    const now = new Date();
+    const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+    const day = days[now.getDay()];
+    const dd = String(now.getDate()).padStart(2, '0');
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const yy = String(now.getFullYear()).slice(-2);
+    let hours = now.getHours();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    const hh = String(hours).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    const sec = String(now.getSeconds()).padStart(2, '0');
+    receiptDatetime.textContent = `${day} ${dd}/${mm}/${yy} ${hh}:${min}:${sec} ${ampm}`;
   }
 }
 
-export { initMenu };
+function destroyMenu() {
+  const menuToggleBtn = document.querySelector(".menu-toggle-btn");
+  const menuParentEl = document.querySelector('.menu-wrap');
+  const receiptCloseButtons = document.querySelectorAll(".receipt-close");
+  
+  // Kill any active animations
+  const menuBoxes = document.querySelectorAll(".menu-box");
+  const menuItems = document.querySelectorAll(".menu-item");
+  gsap.killTweensOf([...menuBoxes, ...menuItems, menuParentEl]);
 
+  if (menuToggleBtn && menuToggleClickHandler) {
+    menuToggleBtn.removeEventListener("click", menuToggleClickHandler);
+  }
+  if (menuParentEl && menuOverlayClickHandler) {
+    menuParentEl.removeEventListener("click", menuOverlayClickHandler);
+  }
+  receiptCloseButtons.forEach((button) => {
+    const onClick = receiptCloseHandlers.get(button);
+    if (onClick) {
+      button.removeEventListener("click", onClick);
+      receiptCloseHandlers.delete(button);
+    }
+  });
+  
+  // Revert all SplitText instances
+  splits.forEach(split => {
+    if (split && split.revert) {
+      split.revert();
+    }
+  });
+  splits.clear();
+  
+  // Reset state
+  isMenuOpen = false;
+  isAnimating = false;
+  menuInitialized = false;
+  menuOverlayClickHandler = null;
+  menuToggleClickHandler = null;
+}
+
+export { initMenu, destroyMenu };

@@ -7,7 +7,7 @@ export const archiveItems = [
     year: "2024",
     description: "A glimpse into the creative process.",
     category: "photography",
-    image: "/archive/image-1.png",
+    image: "/archive/image-1.jpg",
   },
   {
     id: 2,
@@ -15,7 +15,7 @@ export const archiveItems = [
     year: "2024",
     description: "Exploring light and shadow.",
     category: "photography",
-    image: "/archive/image-2.png",
+    image: "/archive/image-2.jpg",
   },
   {
     id: 3,
@@ -23,7 +23,7 @@ export const archiveItems = [
     year: "2023",
     description: "Moments captured in time.",
     category: "photography",
-    image: "/archive/image-3.png",
+    image: "/archive/image-3.jpg",
   },
   {
     id: 4,
@@ -31,7 +31,7 @@ export const archiveItems = [
     year: "2023",
     description: "Visual storytelling through imagery.",
     category: "photography",
-    image: "/archive/image-4.png",
+    image: "/archive/image-4.jpg",
   },
   {
     id: 5,
@@ -39,6 +39,6 @@ export const archiveItems = [
     year: "2023",
     description: "The art of observation.",
     category: "photography",
-    image: "/archive/image-5.png",
+    image: "/archive/image-5.jpg",
   },
 ];

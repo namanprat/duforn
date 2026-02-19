@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en"><head>
+    <meta charset="UTF-8">
+    <title>My React App</title>
+    <link href="./styles.css" rel="stylesheet">
+  </head>
+
+  <body>
+      <div class="page_wrap">
+        <div class="page_loader">
+          <div class="loader_1_wrap"><div class="loader_1_ring is-1"></div><div class="loader_1_ring is-2"></div><div class="loader_1_ring is-3"></div></div>
+          <div>Loading variables...</div>
+        </div>
+      <div class="page_main">
+
+      </div>
+      <div class="select_wrap">
+        <div class="select_text">Enable Clamp Scaling</div>
+        <div class="select_field_wrap">
+        <select class="select_field"><option>Select a variable</option><option value="--site--width">--site--width</option><option value="--site--margin">--site--margin</option><option value="--site--gutter">--site--gutter</option><option value="--radius--small">--radius--small</option><option value="--radius--main">--radius--main</option><option value="--radius--round">--radius--round</option><option value="--border-width--main">--border-width--main</option><option value="--focus--width">--focus--width</option><option value="--focus--offset-inner">--focus--offset-inner</option><option value="--focus--offset-outer">--focus--offset-outer</option><option value="--container--small">--container--small</option><option value="--container--main">--container--main</option><option value="--container--full">--container--full</option><option value="--size--0rem">--size--0rem</option><option value="--size--0-125rem">--size--0-125rem</option><option value="--size--0-25rem">--size--0-25rem</option><option value="--size--0-375rem">--size--0-375rem</option><option value="--size--0-5rem">--size--0-5rem</option><option value="--size--0-75rem">--size--0-75rem</option><option value="--size--1rem">--size--1rem</option><option value="--size--1-25rem">--size--1-25rem</option><option value="--size--1-5rem">--size--1-5rem</option><option value="--size--2rem">--size--2rem</option><option value="--size--2-5rem">--size--2-5rem</option><option value="--size--3rem">--size--3rem</option><option value="--size--3-5rem">--size--3-5rem</option><option value="--size--4rem">--size--4rem</option><option value="--size--4-5rem">--size--4-5rem</option><option value="--size--5rem">--size--5rem</option><option value="--size--5-5rem">--size--5-5rem</option><option value="--size--6rem">--size--6rem</option><option value="--size--6-5rem">--size--6-5rem</option><option value="--size--7rem">--size--7rem</option><option value="--size--7-5rem">--size--7-5rem</option><option value="--size--8rem">--size--8rem</option><option value="--size--8-5rem">--size--8-5rem</option><option value="--size--9rem">--size--9rem</option><option value="--size--9-5rem">--size--9-5rem</option><option value="--size--10rem">--size--10rem</option><option value="--size--11rem">--size--11rem</option><option value="--size--12rem">--size--12rem</option><option value="--size--13rem">--size--13rem</option><option value="--size--14rem">--size--14rem</option><option value="--size--15rem">--size--15rem</option><option value="--size--16rem">--size--16rem</option><option value="--column-width--1">--column-width--1</option><option value="--column-width--2">--column-width--2</option><option value="--column-width--3">--column-width--3</option><option value="--column-width--4">--column-width--4</option><option value="--column-width--5">--column-width--5</option><option value="--column-width--6">--column-width--6</option><option value="--column-width--7">--column-width--7</option><option value="--column-width--8">--column-width--8</option><option value="--column-width--9">--column-width--9</option><option value="--column-width--10">--column-width--10</option><option value="--column-width--11">--column-width--11</option><option value="--column-width--12">--column-width--12</option><option value="--column-margin--0">--column-margin--0</option><option value="--column-margin--1">--column-margin--1</option><option value="--column-margin--2">--column-margin--2</option><option value="--column-margin--3">--column-margin--3</option><option value="--column-margin--4">--column-margin--4</option><option value="--column-margin--5">--column-margin--5</option><option value="--column-margin--6">--column-margin--6</option><option value="--column-margin--7">--column-margin--7</option><option value="--column-margin--8">--column-margin--8</option><option value="--column-margin--9">--column-margin--9</option><option value="--column-margin--10">--column-margin--10</option><option value="--column-margin--11">--column-margin--11</option><option value="--column-margin--12">--column-margin--12</option><option value="--align--start">--align--start</option><option value="--align--center">--align--center</option><option value="--align--end">--align--end</option></select>
+        <svg class="select_field_svg" width="100%" height="100%" viewBox="0 0 24 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M1 1L12 10L23 1" stroke="currentColor" stroke-width="2"></path>
+          </svg>          
+        </div>
+      </div>
+      <div class="template" style="display: none;">
+        <div class="group_wrap">
+          <div>
+          <div class="group_item is-header">
+            <div class="group_item_inner">
+            <div class="group_header_wrap">
+              <span class="group_header_text">Max &amp; Min Screen Sizes</span>                           
+            </div>
+            <div data-field="max-width" class="group_field_wrap">
+              <input type="number" title="Max Screen Size" class="group_field_input">
+              <div class="group_field_unit">PX</div>
+            </div>
+            <div data-field="min-width" class="group_field_wrap">
+              <input type="number" title="Min Screen Size" class="group_field_input">
+              <div class="group_field_unit">PX</div>
+            </div>
+          </div>
+          </div>
+          <div class="group_list">
+            <div class="group_item is-item">
+              <div class="group_item_inner">
+              
+                <div class="group_menu_wrap is-position-alt">
+                  <button class="group_menu_button">
+                    <svg width="100%" height="100%" viewBox="0 0 6 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="3" cy="3" r="3" fill="currentColor"></circle>
+                      <circle cx="3" cy="14" r="3" fill="currentColor"></circle>
+                      <circle cx="3" cy="25" r="3" fill="currentColor"></circle>
+                      </svg>                                     
+                  </button>
+                </div>
+              <div data-field="variable-name" class="group_field_wrap">
+                <input type="text" title="Variable Name" class="group_field_input">
+
+                <div class="group_error_wrap is-warning">
+                  <svg class="group_error_icon" width="100%" height="100%" viewBox="0 0 16 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M15.8143 12.7909L9.27191 0.764655C8.8929 0.0571658 8.01627 -0.206719 7.31398 0.174664C7.06572 0.309384 6.86215 0.514659 6.72809 0.764655L0.18568 12.7909C-0.0705767 13.2559 -0.0609222 13.8231 0.210506 14.2792C0.468694 14.7264 0.943969 15.0011 1.45759 15H14.5424C15.056 15.0011 15.5313 14.7264 15.7895 14.2792C16.0609 13.8231 16.0706 13.2559 15.8143 12.7909ZM8.77649 5.01154L8.56272 10.2892C8.55665 10.4381 8.435 10.5556 8.28715 10.5556H7.7134C7.56555 10.5556 7.4439 10.4381 7.43783 10.2892L7.22406 5.01154C7.21771 4.85376 7.34295 4.72237 7.49962 4.72237H8.5012C8.65788 4.72237 8.78312 4.85376 8.77677 5.01154H8.77649ZM8 13.3334C7.54293 13.3334 7.17247 12.9603 7.17247 12.5C7.17247 12.0398 7.54293 11.6667 8 11.6667C8.45707 11.6667 8.82753 12.0398 8.82753 12.5C8.82753 12.9603 8.45707 13.3334 8 13.3334Z" fill="#FFBA17"></path>
+                    </svg>    
+                  <div class="group_error_message">Shrinks when increasing zoom. Increase difference between max and min screen size.</div>
+                </div>
+                <a href="https://www.smashingmagazine.com/2023/11/addressing-accessibility-concerns-fluid-type/#conclusion" target="_blank" class="group_error_wrap is-error">
+                  <svg class="group_error_icon" width="100%" height="100%" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M7.5 0C3.36469 0 0 3.36469 0 7.5C0 11.6353 3.36469 15 7.5 15C11.6353 15 15 11.6353 15 7.5C15 3.36469 11.6353 0 7.5 0ZM6.80063 3.04688C6.80063 2.9175 6.90563 2.8125 7.035 2.8125H7.965C8.09438 2.8125 8.19938 2.9175 8.19938 3.04688V8.67188C8.19938 8.80125 8.09438 8.90625 7.965 8.90625H7.035C6.90563 8.90625 6.80063 8.80125 6.80063 8.67188V3.04688ZM7.5 12.1875C6.98203 12.1875 6.5625 11.768 6.5625 11.25C6.5625 10.732 6.98203 10.3125 7.5 10.3125C8.01797 10.3125 8.4375 10.732 8.4375 11.25C8.4375 11.768 8.01797 12.1875 7.5 12.1875Z" fill="var(--swatch--brand-error)"></path>
+                    </svg>  
+                  <div class="group_error_message">Does not reach 2x of its original size at a 500% zoom. Reduce difference between max and min variable size.</div>
+                  </a> 
+
+              </div>
+              <div data-field="max-size" class="group_field_wrap">
+                <div class="group_field_background_wrap">
+                <div class="group_field_background"></div>
+                </div>
+                <input type="number" title="Max Value" class="group_field_input">
+                <div class="group_field_unit">PX</div>
+              </div>
+              <div data-field="min-size" class="group_field_wrap">
+                <div class="group_field_background_wrap">
+                <div class="group_field_background"></div>
+                </div>
+                <input type="number" title="Min Value" class="group_field_input">
+                <div class="group_field_unit">PX</div>
+              </div>
+
+              <div class="group_action_wrap">
+                <svg class="group_action_icon" width="100%" height="100%" viewBox="0 0 22 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M21 3H14.53L13.969 0.757C13.9149 0.54092 13.7901 0.349098 13.6146 0.211963C13.4391 0.0748271 13.2228 0.000228643 13 0L9 0C8.77694 6.1623e-05 8.5603 0.0747014 8.38454 0.212049C8.20878 0.349398 8.08398 0.541568 8.03 0.758L7.469 3H1C0.734784 3 0.48043 3.10536 0.292893 3.29289C0.105357 3.48043 0 3.73478 0 4V5C0 5.26522 0.105357 5.51957 0.292893 5.70711C0.48043 5.89464 0.734784 6 1 6H21C21.2652 6 21.5196 5.89464 21.7071 5.70711C21.8946 5.51957 22 5.26522 22 5V4C22 3.73478 21.8946 3.48043 21.7071 3.29289C21.5196 3.10536 21.2652 3 21 3Z" fill="currentColor"></path>
+                  <path d="M19 8H3V21C3 21.7956 3.31607 22.5587 3.87868 23.1213C4.44129 23.6839 5.20435 24 6 24H16C16.7956 24 17.5587 23.6839 18.1213 23.1213C18.6839 22.5587 19 21.7956 19 21V8Z" fill="currentColor"></path>
+                  </svg>
+                <div class="group_action_message">Remove clamp scaling</div>
+              </div>
+
+              </div>
+              <div class="group_menu_list">
+                  <div>
+                    <label class="group_menu_label">Max Screen Size</label>
+                    <div data-field="item-max-screen" class="group_field_wrap">
+                      <input type="number" title="Max Screen Size" class="group_field_input">
+                      <div class="group_field_unit">PX</div>
+                    </div>
+                  </div>
+                  <div>
+                    <label class="group_menu_label">Min Screen Size</label>
+                    <div data-field="item-min-screen" class="group_field_wrap">
+                      <input type="number" title="Min Screen Size" class="group_field_input">
+                      <div class="group_field_unit">PX</div>
+                    </div>
+                  </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+    <script src="./bundle.js"></script>
+  
+</body></html>
