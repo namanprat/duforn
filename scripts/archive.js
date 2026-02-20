@@ -51,6 +51,10 @@ const CONFIG = Object.freeze({
 // STATE
 // ─────────────────────────────────────────────────────────────
 
+let isTabVisible = true;
+let visibilityHandler = null;
+let archiveResizeTimeout = null;
+
 const state = {
   running: false,
   initToken: 0,
@@ -285,12 +289,15 @@ async function initArchive() {
   };
 
   state.handlers.onResize = () => {
-    const w = state.renderHost.clientWidth || window.innerWidth;
-    const h = state.renderHost.clientHeight || window.innerHeight;
-    state.camera.aspect = w / h;
-    state.camera.updateProjectionMatrix();
-    state.renderer.setSize(w, h);
-    state.composer.setSize(w, h);
+    if (archiveResizeTimeout) clearTimeout(archiveResizeTimeout);
+    archiveResizeTimeout = setTimeout(() => {
+      const w = state.renderHost.clientWidth || window.innerWidth;
+      const h = state.renderHost.clientHeight || window.innerHeight;
+      state.camera.aspect = w / h;
+      state.camera.updateProjectionMatrix();
+      state.renderer.setSize(w, h);
+      state.composer.setSize(w, h);
+    }, 100);
   };
 
   window.addEventListener('mousemove', state.handlers.onMouseMove);
@@ -299,10 +306,15 @@ async function initArchive() {
 
   state.running = true;
 
+  visibilityHandler = () => { isTabVisible = !document.hidden; };
+  document.addEventListener('visibilitychange', visibilityHandler);
+
   // Animation loop
   function animate() {
     if (state.initToken !== token) return;
     state.rafId = requestAnimationFrame(animate);
+
+    if (!isTabVisible) return;
 
     state.clock.update();
     const dt = Math.min(state.clock.getDelta(), 0.05);
@@ -341,6 +353,17 @@ function destroyArchive() {
   }
 
   // Remove event listeners
+  if (visibilityHandler) {
+    document.removeEventListener('visibilitychange', visibilityHandler);
+    visibilityHandler = null;
+  }
+  isTabVisible = true;
+
+  if (archiveResizeTimeout) {
+    clearTimeout(archiveResizeTimeout);
+    archiveResizeTimeout = null;
+  }
+
   window.removeEventListener('mousemove', state.handlers.onMouseMove);
   window.removeEventListener('wheel', state.handlers.onWheel, { passive: false });
   window.removeEventListener('resize', state.handlers.onResize);

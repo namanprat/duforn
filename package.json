@@ -25,11 +25,11 @@
     "@barba/core": "^2.9.7",
     "gsap": "^3.14.2",
     "lenis": "^1.1.13",
-    "lil-gui": "^0.19.2",
     "three": "^0.183.0",
     "three-stdlib": "^2.29.9"
   },
   "devDependencies": {
+    "lil-gui": "^0.19.2",
     "@vitest/coverage-v8": "^4.0.18",
     "@vitest/ui": "^4.0.18",
     "happy-dom": "^20.6.1",

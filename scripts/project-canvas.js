@@ -4,7 +4,6 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { GrainShader, EdgeDistortionShader, createPostFXUniforms } from './shaders/post-fx.js';
-import GUI from 'lil-gui';
 
 let renderer = null;
 let scene = null;
@@ -16,6 +15,8 @@ let rafId = null;
 let container = null;
 let resizeTimeout = null;
 let isRunning = false;
+let isTabVisible = true;
+let visibilityHandler = null;
 let gui = null;
 const imageTextureCache = new Map();
 
@@ -298,7 +299,8 @@ function createBackground() {
 
 // ─── GUI ──────────────────────────────────────────────────────
 
-function createGUI() {
+async function createGUI() {
+  const { default: GUI } = await import('lil-gui');
   gui = new GUI({ title: 'Shader Controls' });
 
   gui.add(params, 'speed', 0.0, 2.0, 0.01).name('Speed');
@@ -323,6 +325,8 @@ function animate() {
   if (!isRunning || !renderer || !composer || !camera) return;
 
   rafId = requestAnimationFrame(animate);
+
+  if (!isTabVisible) return;
 
   const now = performance.now();
 
@@ -404,6 +408,9 @@ async function initProjectCanvas(containerArg) {
   window.addEventListener('resize', debouncedResize);
   window.addEventListener('scroll', onScrollHandler, { passive: true });
 
+  visibilityHandler = () => { isTabVisible = !document.hidden; };
+  document.addEventListener('visibilitychange', visibilityHandler);
+
   updateImages();
   animate();
 
@@ -428,6 +435,12 @@ export function destroyFilm() {
     cancelAnimationFrame(rafId);
     rafId = null;
   }
+
+  if (visibilityHandler) {
+    document.removeEventListener('visibilitychange', visibilityHandler);
+    visibilityHandler = null;
+  }
+  isTabVisible = true;
 
   window.removeEventListener('resize', debouncedResize);
   window.removeEventListener('scroll', onScrollHandler);

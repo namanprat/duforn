@@ -20,7 +20,6 @@ import webgl, {
 } from './three.js';
 import { destroyTransition } from './transition.js';
 import { initLinkHover } from './link-hover.js';
-import { initBtnHover, destroyBtnHover } from './btn-hover.js';
 
 import { initLenis, destroyLenis } from './lenis-scroll.js';
 
@@ -149,9 +148,7 @@ function initPageFeatures(namespace, { skipWebglSetup = false } = {}) {
   // Menu and link hover target persistent nav elements — only init once
   initMenu();
   initLinkHover();
-  // Btn hover needs rebuild since buttons may be in page content
-  destroyBtnHover();
-  initBtnHover();
+
 
   const ns = namespace || document.querySelector('[data-barba="container"]')?.dataset.barbaNamespace;
   const linkMain = document.querySelector('.link-main');

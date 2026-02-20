@@ -5,6 +5,9 @@ export default defineConfig({
   optimizeDeps: {
     include: ['postprocessing', 'three'],
   },
+  esbuild: {
+    drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
+  },
   build: {
     rollupOptions: {
       input: {
@@ -14,6 +17,13 @@ export default defineConfig({
         contact: resolve(__dirname, "contact.html"),
         film: resolve(__dirname, "film.html"),
       },
+      output: {
+        manualChunks: {
+          three: ['three'],
+          gsap: ['gsap'],
+          barba: ['@barba/core'],
+        },
+      },
     },
     assetsInclude: [
       "**/*.jpeg",
@@ -21,6 +31,10 @@ export default defineConfig({
       "**/*.png",
       "**/*.svg",
       "**/*.gif",
+      "**/*.glb",
+      "**/*.gltf",
+      "**/*.hdr",
+      "**/*.webp",
     ],
     copyPublicDir: true,
   },

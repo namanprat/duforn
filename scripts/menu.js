@@ -10,6 +10,9 @@ let menuParent = null;
 let menuInitialized = false;
 let menuOverlayClickHandler = null;
 let menuToggleClickHandler = null;
+let cachedMenuItems = null;
+let cachedMenuBoxes = null;
+let cachedMenuToggleBtn = null;
 const splits = new Map();
 const receiptCloseHandlers = new WeakMap();
 
@@ -31,27 +34,23 @@ function getOrSplit(element) {
 
 // menu functions
 function openMenu() {
-  const menuBoxes = document.querySelectorAll(".menu-box");
-  const menuToggleBtn = document.querySelector(".menu-toggle-btn");
-  const menuItems = document.querySelectorAll(".menu-item");
-
   isAnimating = true;
 
-  menuBoxes.forEach(box => {
+  cachedMenuBoxes.forEach(box => {
     box.style.pointerEvents = "all";
   });
-  
+
   if (menuParent) menuParent.style.pointerEvents = "all";
   gsap.to(menuParent, { autoAlpha: 1, duration: 0.3 });
-  if (menuToggleBtn) menuToggleBtn.classList.add("menu-open");
+  if (cachedMenuToggleBtn) cachedMenuToggleBtn.classList.add("menu-open");
 
   // disable scrolling
   if (getLenis()) {
     getLenis().stop();
   }
 
-  if (menuBoxes.length) {
-    gsap.to(menuBoxes, {
+  if (cachedMenuBoxes.length) {
+    gsap.to(cachedMenuBoxes, {
       clipPath: "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)",
       duration: 0.3,
       onComplete: () => {
@@ -63,13 +62,12 @@ function openMenu() {
   }
 
   // animate menu items (simple fade in)
-  menuItems.forEach((item) => {
+  cachedMenuItems.forEach((item) => {
     gsap.set(item, { opacity: 1, transform: "translateY(0%)" });
   });
 
   function playMenuReveal() {
-    const menuItems = document.querySelectorAll(".menu-item");
-    menuItems.forEach((item, index) => {
+    cachedMenuItems.forEach((item, index) => {
       const split = getOrSplit(item);
       gsap.fromTo(
         split.chars,
@@ -93,30 +91,26 @@ function openMenu() {
 }
 
 function closeMenu() {
-  const menuBoxes = document.querySelectorAll(".menu-box");
-  const menuToggleBtn = document.querySelector(".menu-toggle-btn");
-  const menuItems = document.querySelectorAll(".menu-item");
-
   isAnimating = true;
-  
-  menuBoxes.forEach(box => {
+
+  cachedMenuBoxes.forEach(box => {
     box.style.pointerEvents = "none";
   });
 
   if (menuParent) menuParent.style.pointerEvents = "none";
-  if (menuToggleBtn) menuToggleBtn.classList.remove("menu-open");
+  if (cachedMenuToggleBtn) cachedMenuToggleBtn.classList.remove("menu-open");
 
   // enable scrolling
   if (getLenis()) {
     getLenis().start();
   }
 
-  if (menuBoxes.length) {
-    gsap.to(menuBoxes, {
+  if (cachedMenuBoxes.length) {
+    gsap.to(cachedMenuBoxes, {
       clipPath: "polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%)",
       duration: 0.3,
       onComplete: () => {
-        gsap.set(menuItems, { opacity: 0, transform: "translateY(100%)" });
+        gsap.set(cachedMenuItems, { opacity: 0, transform: "translateY(100%)" });
         if (menuParent) {
           gsap.to(menuParent, {
             autoAlpha: 0,
@@ -141,9 +135,9 @@ function closeMenu() {
 function initMenu() {
   if (menuInitialized) return;
   menuInitialized = true;
-  const menuToggleBtn = document.querySelector(".menu-toggle-btn");
-  const menuBoxes = document.querySelectorAll(".menu-box");
-  const menuItems = document.querySelectorAll(".menu-item");
+  cachedMenuToggleBtn = document.querySelector(".menu-toggle-btn");
+  cachedMenuBoxes = document.querySelectorAll(".menu-box");
+  cachedMenuItems = document.querySelectorAll(".menu-item");
   const receiptCloseButtons = document.querySelectorAll(".receipt-close");
 
   // reference menu-parent and initialize its state
@@ -160,11 +154,11 @@ function initMenu() {
     menuParent.addEventListener('click', menuOverlayClickHandler);
   }
 
-  if (menuToggleBtn) {
+  if (cachedMenuToggleBtn) {
     menuToggleClickHandler = (e) => {
       e.preventDefault(); // Prevent navigation if it's a link
       if (isAnimating) {
-        gsap.killTweensOf([...menuBoxes, ...menuItems]);
+        gsap.killTweensOf([...cachedMenuBoxes, ...cachedMenuItems]);
         isAnimating = false;
       }
 
@@ -174,7 +168,7 @@ function initMenu() {
         closeMenu();
       }
     };
-    menuToggleBtn.addEventListener("click", menuToggleClickHandler);
+    cachedMenuToggleBtn.addEventListener("click", menuToggleClickHandler);
   }
 
   receiptCloseButtons.forEach((button) => {
@@ -208,20 +202,18 @@ function initMenu() {
 }
 
 function destroyMenu() {
-  const menuToggleBtn = document.querySelector(".menu-toggle-btn");
-  const menuParentEl = document.querySelector('.menu-wrap');
   const receiptCloseButtons = document.querySelectorAll(".receipt-close");
-  
-  // Kill any active animations
-  const menuBoxes = document.querySelectorAll(".menu-box");
-  const menuItems = document.querySelectorAll(".menu-item");
-  gsap.killTweensOf([...menuBoxes, ...menuItems, menuParentEl]);
 
-  if (menuToggleBtn && menuToggleClickHandler) {
-    menuToggleBtn.removeEventListener("click", menuToggleClickHandler);
+  // Kill any active animations
+  if (cachedMenuBoxes && cachedMenuItems) {
+    gsap.killTweensOf([...cachedMenuBoxes, ...cachedMenuItems, menuParent]);
   }
-  if (menuParentEl && menuOverlayClickHandler) {
-    menuParentEl.removeEventListener("click", menuOverlayClickHandler);
+
+  if (cachedMenuToggleBtn && menuToggleClickHandler) {
+    cachedMenuToggleBtn.removeEventListener("click", menuToggleClickHandler);
+  }
+  if (menuParent && menuOverlayClickHandler) {
+    menuParent.removeEventListener("click", menuOverlayClickHandler);
   }
   receiptCloseButtons.forEach((button) => {
     const onClick = receiptCloseHandlers.get(button);
@@ -245,6 +237,9 @@ function destroyMenu() {
   menuInitialized = false;
   menuOverlayClickHandler = null;
   menuToggleClickHandler = null;
+  cachedMenuItems = null;
+  cachedMenuBoxes = null;
+  cachedMenuToggleBtn = null;
 }
 
 export { initMenu, destroyMenu };

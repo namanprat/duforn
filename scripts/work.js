@@ -22,6 +22,8 @@ import { createPostFXUniforms } from './shaders/post-fx.js';
 // Composited by the shared renderer via registerGalleryOverlay().
 
 let isWorkInitialized = false;
+let isTabVisible = true;
+let visibilityHandler = null;
 
 
 function getActiveWorkContainer() {
@@ -1419,6 +1421,9 @@ export function setWorkTransitionVisualState(progress) {
     // Fade out the strip mesh itself as cover takes over
     const stripFadeOut = 1 - clamp01((p - 0.75) / 0.25);
     state.stripMaterial.uniforms.uTransitionOpacity.value = stripFadeOut;
+    if (state.stripMesh) state.stripMesh.visible = stripFadeOut > 0.01;
+  } else if (state.stripMesh) {
+    state.stripMesh.visible = true;
   }
 
   if (state.transitionTargetRect && state.transitionEndComputed) {
@@ -1764,8 +1769,8 @@ function addEventListeners() {
 
   window.addEventListener('wheel', state.handlers.wheel, { passive: false });
   window.addEventListener('pointerdown', state.handlers.pointerdown);
-  window.addEventListener('pointermove', state.handlers.pointermove);
-  window.addEventListener('pointerup', state.handlers.pointerup);
+  window.addEventListener('pointermove', state.handlers.pointermove, { passive: true });
+  window.addEventListener('pointerup', state.handlers.pointerup, { passive: true });
   window.addEventListener('resize', state.handlers.resize);
 }
 
@@ -1787,6 +1792,10 @@ function updateRipple() {
 function updateReveal() {}
 
 function animate() {
+  if (!isTabVisible) {
+    state.animationFrame = requestAnimationFrame(animate);
+    return;
+  }
   if (state.clock) state.clock.update();
   const time = state.clock ? state.clock.getElapsed() : 0;
 
@@ -1850,6 +1859,8 @@ export async function initWork() {
   setupStrip();
   addEventListeners();
 
+  visibilityHandler = () => { isTabVisible = !document.hidden; };
+  document.addEventListener('visibilitychange', visibilityHandler);
 
   state.introComplete = false;
   state.transitionLocked = true;
@@ -1880,6 +1891,12 @@ export function destroyWork({ keepCoverPlane = false, preserveTexture = null } =
     cancelAnimationFrame(state.animationFrame);
     state.animationFrame = null;
   }
+
+  if (visibilityHandler) {
+    document.removeEventListener('visibilitychange', visibilityHandler);
+    visibilityHandler = null;
+  }
+  isTabVisible = true;
 
   removeEventListeners();
   unregisterGalleryOverlay();

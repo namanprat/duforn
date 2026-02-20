@@ -16,7 +16,6 @@ const TRANSFORM_ORIGIN = "50% 50% -10px";
 const linkInstances = new WeakMap();
 
 export function initLinkHover() {
-  // Note: .btn is excluded - it uses custom animation in btn-hover.js
   const navLinks = document.querySelectorAll('.nav-wrap a, .bottom-nav-wrap a');
   
   navLinks.forEach(link => {
@@ -26,9 +25,8 @@ export function initLinkHover() {
     const originalText = (link.textContent || '').trim();
     if (!originalText) return;
     
-    // Setup link structure
-    const display = getComputedStyle(link).display;
-    if (display === 'inline') link.style.display = 'inline-block';
+    // Ensure block-level box model for 3D rotation effect
+    link.style.display = 'inline-block';
 
     gsap.set(link, {
       position: 'relative',

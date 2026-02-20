@@ -4,17 +4,19 @@
 @font-face {
   font-family: OTJubilee-Golden;
   src: url("/CorteseLight.otf") format("opentype");
+  font-display: swap;
 }
 
 @font-face {
   font-family: NeueMontreal;
   src: url("/PPNeueMontreal-Medium.otf") format("opentype");
-
+  font-display: swap;
 }
 
 @font-face {
   font-family: GeistMono;
   src: url("/GeistMono.woff2") format("woff2");
+  font-display: swap;
 }
 
 /* Mobile fix: prevent iOS rubber band effect */
@@ -182,14 +184,6 @@ html {
   --radius-small: 0.5rem;
   --radius-round: 100vw;
 
-  /* Button Variables */
-  --btn-icon-size: clamp(2.5rem, 2.5rem + 0.5vw, 3.25rem);
-  --btn-gap: var(--spacing-space-2);
-  --btn-padding-y: clamp(0.75rem, 0.75rem + 0.25vw, 1rem);
-  --btn-padding-x: clamp(1.25rem, 1.25rem + 0.75vw, 2rem);
-  --btn-animation-duration: 0.5s;
-  --btn-animation-ease: cubic-bezier(0.65, 0, 0.35, 1);
-
   /* Spacing scale */
   /* Spacing scale - Managed in fluid-type.css */
   /*
@@ -301,7 +295,6 @@ a {
   color: var(--swatch-dark);
 }
 
-.btn-text,
 a,
 p {
   font-size: var(--typography-font-size-text-small);
@@ -400,97 +393,6 @@ p {
 #time {
   pointer-events: none;
   width: fit-content;
-}
-
-/* ============================================ */
-/* BUTTON COMPONENT */
-/* ============================================ */
-
-/* Wrapper - Frame 78 */
-.btn {
-  display: inline-flex;
-  flex-direction: row;
-  align-items: stretch;
-  gap: 0;
-  width: fit-content;
-  height: fit-content;
-  overflow: visible;
-  cursor: pointer;
-  text-decoration: none;
-  position: relative;
-  isolation: isolate;
-  min-height: 44px;
-}
-
-/* Pill-shaped text container */
-.btn-container {
-  background-color: var(--swatch-light);
-  border-radius: 100vw;
-  padding: var(--btn-padding-y) var(--btn-padding-x);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  z-index: 2;
-  overflow: visible;
-  user-select: none;
-}
-
-/* Button text */
-.btn-text {
-  color: var(--swatch-dark);
-  white-space: nowrap;
-  pointer-events: none;
-  font-size: var(--typography-font-size-text-small);
-  letter-spacing: var(--typography-letter-spacing);
-  font-weight: var(--typography-font-primary-medium);
-}
-
-/* Shared icon base styles */
-.btn-icon-circle,
-.btn-icon-square {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--btn-icon-size);
-  height: var(--btn-icon-size);
-  flex-shrink: 0;
-  background-color: var(--swatch-dark);
-  color: var(--swatch-light);
-  pointer-events: none;
-  position: relative;
-  z-index: 1;
-}
-
-/* Square icon (left, initially hidden off-screen) */
-.btn-icon-square {
-  position: absolute;
-  left: 0;
-  border-radius: 50%;
-}
-
-/* Circular icon (right, initially visible with gap) */
-.btn-icon-circle {
-  border-radius: 50%;
-}
-
-/* Icon SVG styling */
-.btn-icon-circle svg,
-.btn-icon-square svg {
-  width: clamp(20px, 1.5rem, 28px);
-  height: clamp(20px, 1.5rem, 28px);
-  stroke-width: 2;
-}
-
-/* Touch device optimizations */
-@media (hover: none) and (pointer: coarse) {
-  .btn {
-    min-height: 48px;
-  }
-
-  .btn-container {
-    padding: var(--spacing-space-3) var(--spacing-space-5);
-  }
 }
 
 /* Three.js Canvas */
@@ -928,6 +830,7 @@ section {
 [data-split-text]>div {
   backface-visibility: hidden;
   transform-style: preserve-3d;
+  will-change: transform, opacity;
 }
 
 /* Flexbox & Grid */
@@ -2492,6 +2395,7 @@ section {
   background-color: #00000000;
   pointer-events: none;
   overflow: hidden;
+  will-change: transform, opacity;
 }
 
 .transition-overlay canvas {

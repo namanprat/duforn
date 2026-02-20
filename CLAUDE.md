@@ -31,7 +31,7 @@ Each HTML page (`index.html`, `work.html`, `archive.html`, `film.html`, `contact
 `scripts/barba.js` is the orchestrator. It imports all page modules and manages their lifecycle:
 
 1. **`initPageFeatures(namespace)`** runs on every page load/transition:
-   - Shared modules: `initMenu()`, `initScrollTextReveals()`, `initLinkHover()`, `initBtnHover()`
+   - Shared modules: `initMenu()`, `initScrollTextReveals()`, `initLinkHover()`
    - Per-namespace: initializes the relevant page module and destroys others
 
 2. **Four transition flows** (registered in `barba.init({ transitions: [...] })`):
@@ -53,7 +53,6 @@ Each HTML page (`index.html`, `work.html`, `archive.html`, `film.html`, `contact
 | `scripts/transition.js` | `animateTransition()` / `revealTransition()` / `destroyTransition()` | Ink/shader transition renderer utilities used by transition orchestration and cleanup. |
 | `scripts/text-reveal.js` | `initScrollTextReveals()` / `cleanupScrollTriggers()` / `cleanupSplits()` | SplitText + ScrollTrigger setup/teardown for page/transition-safe text animation. |
 | `scripts/link-hover.js` | `initLinkHover()` / `destroyLinkHover()` | Hover text/character interaction effects for link elements. |
-| `scripts/btn-hover.js` | `initBtnHover()` / `destroyBtnHover()` | Button hover interaction lifecycle; re-initialized per page transition. |
 | `scripts/project-page-data.js` | `bindFilmProjectData()` | Binds selected project content to film/detail DOM from URL or transition state. |
 | `scripts/shared-transition-state.js` | `setProjectTransitionState()` / `getProjectTransitionState()` / `clearProjectTransitionState()` | Session-backed transition payload handoff between work and film flows. |
 

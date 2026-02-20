@@ -150,7 +150,7 @@ function init() {
   blackTex = new THREE.DataTexture(d, 1, 1, THREE.RGBAFormat);
   blackTex.needsUpdate = true;
 
-  const dpr = Math.min(window.devicePixelRatio, 2);
+  const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
 
   material = new THREE.ShaderMaterial({
     uniforms: {
@@ -181,7 +181,7 @@ function init() {
 function onResize() {
   if (!renderer) return;
   renderer.setSize(window.innerWidth, window.innerHeight);
-  const dpr = Math.min(window.devicePixelRatio, 2);
+  const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
   material.uniforms.uResolution.value.set(
     window.innerWidth * dpr,
     window.innerHeight * dpr

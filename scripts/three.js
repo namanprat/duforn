@@ -21,6 +21,8 @@ let mouseHandler = null;
 let rafId = null;
 let containerEl = null;
 let isRunning = false;
+let isTabVisible = true;
+let visibilityHandler = null;
 let keyLight = null;
 let ambientLight = null;
 let shadowCatcher = null;
@@ -222,7 +224,6 @@ function applyMaterialTuning() {
       material.metalness = THREE.MathUtils.clamp((material.userData.baseMetalness ?? material.metalness) * tune.metalnessScale, 0, 1);
     }
     material.envMapIntensity = THREE.MathUtils.clamp((material.userData.baseEnvMapIntensity ?? material.envMapIntensity ?? 1) * tune.envReflection, 0.2, 5);
-    material.needsUpdate = true;
   });
 }
 
@@ -831,6 +832,9 @@ export function webgl() {
   };
   window.addEventListener('resize', resizeHandler);
 
+  visibilityHandler = () => { isTabVisible = !document.hidden; };
+  document.addEventListener('visibilitychange', visibilityHandler);
+
   try {
     composer = new EffectComposer(renderer);
   } catch {
@@ -871,6 +875,11 @@ export function webgl() {
 
   const render = () => {
     if (!isRunning || !camera || !composer) return;
+
+    if (!isTabVisible) {
+      rafId = requestAnimationFrame(render);
+      return;
+    }
 
     // Skip rendering when the base scene is fully hidden and no gallery overlay is active
     if (baseSceneOpacity <= 0 && !galleryScene && !shaderBackgroundRenderer) {
@@ -958,6 +967,12 @@ export function destroyWebgl() {
     cancelAnimationFrame(rafId);
     rafId = null;
   }
+
+  if (visibilityHandler) {
+    document.removeEventListener('visibilitychange', visibilityHandler);
+    visibilityHandler = null;
+  }
+  isTabVisible = true;
 
   if (resizeHandler) {
     window.removeEventListener('resize', resizeHandler);
