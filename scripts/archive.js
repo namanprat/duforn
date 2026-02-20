@@ -246,14 +246,20 @@ async function initArchive() {
     });
 
   // Initialize components
-  state.tube = await createArchiveTube(state.scene);
-  if (state.initToken !== token) { destroyArchive(); return; }
+  try {
+    state.tube = await createArchiveTube(state.scene);
+    if (state.initToken !== token) { destroyArchive(); return; }
 
-  state.helmet = await createArchiveHelmet(state.scene);
-  if (state.initToken !== token) { destroyArchive(); return; }
+    state.helmet = await createArchiveHelmet(state.scene);
+    if (state.initToken !== token) { destroyArchive(); return; }
 
-  state.grid = createArchiveGrid(state.scene, state.shared);
-  state.ui = createArchiveUI(state.shared);
+    state.grid = createArchiveGrid(state.scene, state.shared);
+    state.ui = createArchiveUI(state.shared);
+  } catch (error) {
+    console.error('Archive: Component initialization failed', error);
+    destroyArchive();
+    return;
+  }
 
   // Event handlers
   state.handlers.onMouseMove = (e) => {
@@ -324,7 +330,7 @@ async function initArchive() {
 }
 
 function destroyArchive() {
-  if (!state.running) return;
+  if (!state.renderer && !state.scene) return;
   state.initToken++;
   state.running = false;
 
@@ -336,14 +342,14 @@ function destroyArchive() {
 
   // Remove event listeners
   window.removeEventListener('mousemove', state.handlers.onMouseMove);
-  window.removeEventListener('wheel', state.handlers.onWheel);
+  window.removeEventListener('wheel', state.handlers.onWheel, { passive: false });
   window.removeEventListener('resize', state.handlers.onResize);
 
   // Destroy components
-  destroyArchiveTube(state.tube);
-  destroyArchiveHelmet(state.helmet);
-  destroyArchiveGrid(state.grid);
-  destroyArchiveUI(state.ui);
+  if (state.tube) destroyArchiveTube(state.tube);
+  if (state.helmet) destroyArchiveHelmet(state.helmet);
+  if (state.grid) destroyArchiveGrid(state.grid);
+  if (state.ui) destroyArchiveUI(state.ui);
 
   // Dispose HDRI resources
   if (state.envRenderTarget) {
@@ -357,6 +363,11 @@ function destroyArchive() {
 
   // Dispose composer
   if (state.composer) {
+    state.composer.passes.forEach(pass => {
+      if (pass.dispose) pass.dispose();
+      if (pass.fsQuad && pass.fsQuad.material) pass.fsQuad.material.dispose();
+      if (pass.material) pass.material.dispose();
+    });
     state.composer.dispose();
   }
 
