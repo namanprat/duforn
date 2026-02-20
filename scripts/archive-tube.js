@@ -5,24 +5,7 @@ import * as THREE from 'three';
  * Ported from brev/js/ImageTube.js
  */
 
-const imageUrls = [
-  "/archive/1.png", "/archive/2.jpg", "/archive/3.jpg",
-  "/archive/4.jpg", "/archive/5.jpg", "/archive/6.png",
-  "/archive/7.png", "/archive/8.png", "/archive/9.png",
-  "/archive/10.png", "/archive/11.png", "/archive/12.png",
-  "/archive/13.png", "/archive/14.png", "/archive/15.png"
-];
-
-const fileToName = {
-  "/archive/1.png": "Project 1", "/archive/2.jpg": "Project 2",
-  "/archive/3.jpg": "Project 3", "/archive/4.jpg": "Project 4",
-  "/archive/5.jpg": "Project 5", "/archive/6.png": "Project 6",
-  "/archive/7.png": "Project 7", "/archive/8.png": "Project 8",
-  "/archive/9.png": "Project 9", "/archive/10.png": "Project 10",
-  "/archive/11.png": "Project 11", "/archive/12.png": "Project 12",
-  "/archive/13.png": "Project 13", "/archive/14.png": "Project 14",
-  "/archive/15.png": "Project 15"
-};
+import { archiveItems } from '../data/archive-items.js';
 
 export async function createArchiveTube(scene) {
   const tubeState = {
@@ -56,9 +39,9 @@ export async function createArchiveTube(scene) {
   // Load textures
   const loader = new THREE.TextureLoader();
   tubeState.textures = await Promise.all(
-    imageUrls.map(url =>
+    archiveItems.map(item =>
       new Promise(resolve => {
-        loader.load(url, resolve, undefined, () => {
+        loader.load(item.image, resolve, undefined, () => {
           const canvas = document.createElement('canvas');
           canvas.width = 512;
           canvas.height = 512;
@@ -69,7 +52,7 @@ export async function createArchiveTube(scene) {
           ctx.font = '24px sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(fileToName[url] || url, 256, 256);
+          ctx.fillText(item.title, 256, 256);
           resolve(new THREE.CanvasTexture(canvas));
         });
       })
@@ -83,7 +66,7 @@ export async function createArchiveTube(scene) {
     return 1;
   });
 
-  const projectNames = imageUrls.map(url => fileToName[url] || url);
+  const projectNames = archiveItems.map(item => item.title);
 
   // Build geometry
   const repeatCount = 3;
@@ -107,7 +90,7 @@ export async function createArchiveTube(scene) {
       const z = Math.sin(theta) * tubeState.radius;
       const ry = -(theta - Math.PI / 2);
 
-      const texIndex = (baseRow * tubeState.cols + col) % imageUrls.length;
+      const texIndex = (baseRow * tubeState.cols + col) % archiveItems.length;
       const aspect = aspects[texIndex];
       const planeGeometry = new THREE.PlaneGeometry(tubeState.tileH * aspect, tubeState.tileH);
 
