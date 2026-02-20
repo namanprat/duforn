@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three-stdlib';
 import { preloader } from './preloader.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
@@ -393,28 +392,19 @@ function loadModels() {
   modelLoadPromise = new Promise(async (resolve) => {
     // Run animation and asset load concurrently — init() only resolves when
     // both the progress animation finishes AND assetsLoaded is true.
-    const homeUrl = '/home/scene.glb';
-    const workUrl = '/work.glb';
+    const homeUrl = '/models/scene.glb';
+    const workUrl = '/models/work.glb';
 
     await Promise.all([preloader.init(), preloader.load([homeUrl, workUrl])]);
 
     preloader.hold(); // Wait for actual model insertion
 
-    const loader = new GLTFLoader();
-
-    const loadGLB = (url) => new Promise((resolveModel) => {
-      loader.load(url, (glb) => {
-        resolveModel(glb.scene);
-      }, undefined, (err) => {
-        console.error(`[three.js] Error loading ${url}`, err);
-        resolveModel(null);
-      });
-    });
-
-    const [homeScene, workScene] = await Promise.all([
-      loadGLB(homeUrl),
-      loadGLB(workUrl)
-    ]);
+    // Reuse preloader's parsed GLTF scenes instead of re-parsing
+    const cachedHome = preloader.getAsset(homeUrl);
+    const cachedWork = preloader.getAsset(workUrl);
+    const homeScene = cachedHome ? cachedHome.scene : null;
+    const workScene = cachedWork ? cachedWork.scene : null;
+    preloader.clearAssets();
 
     if (!scene || !isRunning) {
       preloader.release();

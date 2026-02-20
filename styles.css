@@ -2500,6 +2500,13 @@ img {
       rgba(0, 0, 0, 0.4) 100%);
 }
 
+.archive-container {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
 /* --- ARCHIVE OVERLAY --- */
 .archive-overlay {
   position: fixed;

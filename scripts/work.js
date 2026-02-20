@@ -688,7 +688,7 @@ function finalizeModel(model) {
 }
 
 async function loadWorkModel() {
-  const workUrl = '/work.glb';
+  const workUrl = '/models/work.glb';
 
   // Run concurrently — init() only resolves when animation AND assets are both
   // done, so load() must be in-flight at the same time or init() hangs.
@@ -696,46 +696,40 @@ async function loadWorkModel() {
 
   preloader.hold();
 
-  return new Promise((resolve, reject) => {
-    // Fetch cached model
+  // Reuse preloader's parsed GLTF scene instead of re-parsing
+  const cached = preloader.getAsset(workUrl);
+  if (cached) {
+    state.workModel = cached.scene;
+    preloader.clearAssets();
+  } else {
     const loader = new GLTFLoader();
-    loader.load(
-      workUrl,
-      (glb) => {
-        state.workModel = glb.scene;
-        finalizeModel(state.workModel);
+    state.workModel = await new Promise((resolve, reject) => {
+      loader.load(workUrl, (glb) => resolve(glb.scene), undefined, reject);
+    });
+  }
 
-        // Position model behind the ribbon
-        state.workModel.position.set(0, -5.6, -17.3);
-        state.workModel.scale.set(1, 1, 1);
+  finalizeModel(state.workModel);
 
-        state.scene.add(state.workModel);
+  // Position model behind the ribbon
+  state.workModel.position.set(0, -5.6, -17.3);
+  state.workModel.scale.set(1, 1, 1);
 
-        // Apply Fresnel fake-volume glow to the designated volume mesh
-        state.workModel.traverse(child => {
-          if (!child.isMesh) return;
-          const n = child.name.toLowerCase();
-          if (n.includes('volume') || n.includes('glow') || n.includes('light')) {
-            state.workGlowHandle = createFakeVolumeGlow(child, state.camera, {
-              c: 1.5, p: 2.1, glowColor: '#fff8de', op: 0.2,
-            });
-          }
-        });
+  state.scene.add(state.workModel);
 
-        setTimeout(() => {
-          preloader.release();
-        }, 200);
-
-        resolve();
-      },
-      undefined,
-      (err) => {
-        console.error('[work] Model load error:', err);
-        preloader.release();
-        reject(err);
-      }
-    );
+  // Apply Fresnel fake-volume glow to the designated volume mesh
+  state.workModel.traverse(child => {
+    if (!child.isMesh) return;
+    const n = child.name.toLowerCase();
+    if (n.includes('volume') || n.includes('glow') || n.includes('light')) {
+      state.workGlowHandle = createFakeVolumeGlow(child, state.camera, {
+        c: 1.5, p: 2.1, glowColor: '#fff8de', op: 0.2,
+      });
+    }
   });
+
+  setTimeout(() => {
+    preloader.release();
+  }, 200);
 }
 
 // ─── SCENE SETUP ────────────────────────────────────────────────────────────────
@@ -1388,7 +1382,7 @@ function getSlotScreenRect(slotIndex, flatten = state.transitionProgress) {
   };
 }
 
-export function setWorkTransitionVisualState(progress) {
+function setWorkTransitionVisualState(progress) {
   const p = clamp01(progress);
   state.transitionProgress = p;
 
@@ -1485,7 +1479,7 @@ function createCoverPlane(targetRect) {
   state.scene.add(state.coverPlane);
 }
 
-export function removeCoverPlane() {
+function removeCoverPlane() {
   if (state.coverPlane) {
     if (state.coverPlane.parent) state.coverPlane.parent.remove(state.coverPlane);
     if (state.coverPlane.geometry) state.coverPlane.geometry.dispose();
@@ -1501,7 +1495,7 @@ export function removeCoverPlane() {
 
 // ─── EXPORTS FOR TRANSITION ─────────────────────────────────────────────────
 
-export function prepareWorkToProjectTransition(item, { selectedIndex, slotIndex, clickNdc } = {}) {
+function prepareWorkToProjectTransition(item, { selectedIndex, slotIndex, clickNdc } = {}) {
   if (!item) return false;
 
   state.transitionLocked = true;
@@ -1540,11 +1534,7 @@ export function prepareWorkToProjectTransition(item, { selectedIndex, slotIndex,
   return true;
 }
 
-export function clearWorkTransitionOverlay() {
-  // Legacy no-op: geometry-only transition no longer uses DOM overlay.
-}
-
-export function getSelectedStripSegmentHandle() {
+function getSelectedStripSegmentHandle() {
   if (!state.stripMesh || !state.selectedItem) return null;
   const sourceRect = getSlotScreenRect(state.selectedSlotIndex, state.transitionProgress);
   const texture = state.textureCache.get(state.selectedItem.image) || null;
@@ -1561,7 +1551,7 @@ export function getSelectedStripSegmentHandle() {
   };
 }
 
-export function runStripUnwrapToRect(targetRect) {
+function runStripUnwrapToRect(targetRect) {
   return new Promise((resolve) => {
     if (!state.stripMaterial || !state.selectedItem) {
       resolve(false);
@@ -1843,7 +1833,6 @@ export async function initWork() {
     state.transitionTimeline.kill();
     state.transitionTimeline = null;
   }
-  clearWorkTransitionOverlay();
   setBaseSceneOpacity(1);
 
   setupGalleryScene();
@@ -1916,9 +1905,6 @@ export function destroyWork({ keepCoverPlane = false, preserveTexture = null } =
   if (state.transitionTimeline) {
     state.transitionTimeline.kill();
     state.transitionTimeline = null;
-  }
-  if (!preserveOverlay) {
-    clearWorkTransitionOverlay();
   }
 
 

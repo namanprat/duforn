@@ -1,5 +1,5 @@
 import gsap from 'gsap';
-import { GLTFLoader } from 'three-stdlib';
+import { GLTFLoader, DRACOLoader } from 'three-stdlib';
 import * as THREE from 'three';
 
 export class Preloader {
@@ -9,11 +9,18 @@ export class Preloader {
         this.loadingManager = new THREE.LoadingManager();
         this.gltfLoader = new GLTFLoader(this.loadingManager);
 
+        // Setup DRACOLoader for compressed geometry
+        this.dracoLoader = new DRACOLoader(this.loadingManager);
+        // Use jsDelivr CDN for decoder (faster than bundling the ~5MB decoder wasm)
+        this.dracoLoader.setDecoderPath('https://www.jsdelivr.net/npm/draco3d@1.5.7/draco_decoder/');
+        this.gltfLoader.setDRACOLoader(this.dracoLoader);
+
         this.animationComplete = false;
         this.pendingLoadBatches = 0;
         this.runPromise = null;
         this.runResolver = null;
         this.isCompleting = false;
+        this.loadedAssets = new Map();
 
         // Bind methods
         this.init = this.init.bind(this);
@@ -109,7 +116,10 @@ export class Preloader {
 
         const promises = urls.map(url => {
             return new Promise((resolve, reject) => {
-                this.gltfLoader.load(url, resolve, undefined, reject);
+                this.gltfLoader.load(url, (gltf) => {
+                    this.loadedAssets.set(url, gltf);
+                    resolve(gltf);
+                }, undefined, reject);
             });
         });
 
@@ -130,6 +140,14 @@ export class Preloader {
     release() {
         this.pendingLoadBatches = Math.max(0, this.pendingLoadBatches - 1);
         this.checkCompletion();
+    }
+
+    getAsset(url) {
+        return this.loadedAssets.get(url) || null;
+    }
+
+    clearAssets() {
+        this.loadedAssets.clear();
     }
 
     startSequence() {

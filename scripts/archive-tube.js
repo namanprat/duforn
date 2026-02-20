@@ -6,17 +6,22 @@ import * as THREE from 'three';
  */
 
 const imageUrls = [
-  "/tube/im1.jpg", "/tube/im3.jpg", "/tube/im2.jpg",
-  "/tube/im4.jpg", "/tube/im5.jpg", "/tube/im6.jpg",
-  "/tube/im7.jpg", "/tube/im8.jpg", "/tube/im9.jpg"
+  "/archive/1.png", "/archive/2.jpg", "/archive/3.jpg",
+  "/archive/4.jpg", "/archive/5.jpg", "/archive/6.png",
+  "/archive/7.png", "/archive/8.png", "/archive/9.png",
+  "/archive/10.png", "/archive/11.png", "/archive/12.png",
+  "/archive/13.png", "/archive/14.png", "/archive/15.png"
 ];
 
 const fileToName = {
-  "/tube/im1.jpg": "Project 1", "/tube/im2.jpg": "Project 2",
-  "/tube/im3.jpg": "Project 3", "/tube/im4.jpg": "Project 4",
-  "/tube/im5.jpg": "Project 5", "/tube/im6.jpg": "Project 6",
-  "/tube/im7.jpg": "Project 7", "/tube/im8.jpg": "Project 8",
-  "/tube/im9.jpg": "Project 9"
+  "/archive/1.png": "Project 1", "/archive/2.jpg": "Project 2",
+  "/archive/3.jpg": "Project 3", "/archive/4.jpg": "Project 4",
+  "/archive/5.jpg": "Project 5", "/archive/6.png": "Project 6",
+  "/archive/7.png": "Project 7", "/archive/8.png": "Project 8",
+  "/archive/9.png": "Project 9", "/archive/10.png": "Project 10",
+  "/archive/11.png": "Project 11", "/archive/12.png": "Project 12",
+  "/archive/13.png": "Project 13", "/archive/14.png": "Project 14",
+  "/archive/15.png": "Project 15"
 };
 
 export async function createArchiveTube(scene) {
@@ -26,7 +31,7 @@ export async function createArchiveTube(scene) {
     ySpacing: 2.7,
     radius: 4,
     tileW: 0.72,
-    tileH: 1,
+    tileH: 1.1,
 
     scrollCurrent: 0,
     angle: 0,
@@ -100,7 +105,7 @@ export async function createArchiveTube(scene) {
       const theta = ((col + rowOffset) / tubeState.cols) * Math.PI * 2;
       const x = Math.cos(theta) * tubeState.radius;
       const z = Math.sin(theta) * tubeState.radius;
-      const ry = -(theta + Math.PI / 2);
+      const ry = -(theta - Math.PI / 2);
 
       const texIndex = (baseRow * tubeState.cols + col) % imageUrls.length;
       const aspect = aspects[texIndex];

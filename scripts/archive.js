@@ -6,7 +6,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
 import { createArchiveTube, updateArchiveTube, checkArchiveTubeIntersections, updateArchiveTubeMouseMove, destroyArchiveTube } from './archive-tube.js';
-import { createArchiveHelmet, updateArchiveHelmet, destroyArchiveHelmet } from './archive-helmet.js';
+import { GLTFLoader } from 'three-stdlib';
 import { createArchiveGrid, updateArchiveGrid, destroyArchiveGrid } from './archive-grid.js';
 import { createArchiveUI, updateArchiveUI, destroyArchiveUI } from './archive-ui.js';
 import { VignetteShader, GrainShader, EdgeDistortionShader, createPostFXUniforms } from './shaders/post-fx.js';
@@ -73,7 +73,7 @@ const state = {
 
   // Components
   tube: null,
-  helmet: null,
+  logoModel: null,
   grid: null,
   ui: null,
 
@@ -249,21 +249,36 @@ async function initArchive() {
       console.warn('Archive: Failed to load HDRI environment', err);
     });
 
-  // Initialize components
+  // Load Logo
+  const gltfLoader = new GLTFLoader();
   try {
-    state.tube = await createArchiveTube(state.scene);
+    const gltf = await gltfLoader.loadAsync('/models/logo.glb');
     if (state.initToken !== token) { destroyArchive(); return; }
 
-    state.helmet = await createArchiveHelmet(state.scene);
-    if (state.initToken !== token) { destroyArchive(); return; }
+    state.logoModel = gltf.scene;
 
-    state.grid = createArchiveGrid(state.scene, state.shared);
-    state.ui = createArchiveUI(state.shared);
+    // Scale and position the logo appropriately (adjust as needed based on the model's original scale)
+    state.logoModel.scale.set(70, 70, 70);
+    state.logoModel.position.set(0, 0, 0);
+
+    // Ensure the logo uses the environment map for reflections if it has PBR materials
+    state.logoModel.traverse((child) => {
+      if (child.isMesh && child.material) {
+        child.material.envMap = state.scene.environment;
+        child.material.needsUpdate = true;
+      }
+    });
+
+    state.scene.add(state.logoModel);
   } catch (error) {
-    console.error('Archive: Component initialization failed', error);
-    destroyArchive();
-    return;
+    console.warn('Archive: Failed to load logo.glb', error);
   }
+
+  state.tube = await createArchiveTube(state.scene);
+  if (state.initToken !== token) { destroyArchive(); return; }
+
+  state.grid = createArchiveGrid(state.scene, state.shared);
+  state.ui = createArchiveUI(state.shared);
 
   // Event handlers
   state.handlers.onMouseMove = (e) => {
@@ -324,7 +339,18 @@ async function initArchive() {
     // Update components
     updateArchiveTube(state.tube, dt, state.shared);
     checkArchiveTubeIntersections(state.tube, state.camera, state.shared);
-    updateArchiveHelmet(state.helmet, state.shared);
+
+    // Rotate Logo based on tube spinning/time
+    if (state.logoModel) {
+      // Rotate slowly over time + react to scroll velocity
+      state.logoModel.rotation.y = elapsed * 0.2 + (state.shared.tubeAngle * 0.5);
+
+      // Face the camera roughly based on mouse interaction
+      const targetLookX = (state.shared.targetCenterUv.x - 0.5) * 2;
+      const targetLookY = (state.shared.targetCenterUv.y - 0.5) * 2;
+      state.logoModel.rotation.x += (targetLookY * 0.5 - state.logoModel.rotation.x) * 0.05;
+      state.logoModel.rotation.z += (-targetLookX * 0.5 - state.logoModel.rotation.z) * 0.05;
+    }
     updateArchiveGrid(state.grid, elapsed);
     updateArchiveUI(state.ui);
 
@@ -342,7 +368,7 @@ async function initArchive() {
 }
 
 function destroyArchive() {
-  if (!state.renderer && !state.scene) return;
+  if (!state.running) return;
   state.initToken++;
   state.running = false;
 
@@ -365,14 +391,18 @@ function destroyArchive() {
   }
 
   window.removeEventListener('mousemove', state.handlers.onMouseMove);
-  window.removeEventListener('wheel', state.handlers.onWheel, { passive: false });
+  window.removeEventListener('wheel', state.handlers.onWheel);
   window.removeEventListener('resize', state.handlers.onResize);
 
   // Destroy components
-  if (state.tube) destroyArchiveTube(state.tube);
-  if (state.helmet) destroyArchiveHelmet(state.helmet);
-  if (state.grid) destroyArchiveGrid(state.grid);
-  if (state.ui) destroyArchiveUI(state.ui);
+  destroyArchiveTube(state.tube);
+  destroyArchiveGrid(state.grid);
+  destroyArchiveUI(state.ui);
+
+  if (state.logoModel) {
+    state.scene.remove(state.logoModel);
+    state.logoModel = null;
+  }
 
   // Dispose HDRI resources
   if (state.envRenderTarget) {
@@ -386,11 +416,6 @@ function destroyArchive() {
 
   // Dispose composer
   if (state.composer) {
-    state.composer.passes.forEach(pass => {
-      if (pass.dispose) pass.dispose();
-      if (pass.fsQuad && pass.fsQuad.material) pass.fsQuad.material.dispose();
-      if (pass.material) pass.material.dispose();
-    });
     state.composer.dispose();
   }
 
@@ -421,7 +446,7 @@ function destroyArchive() {
   state.crtPass = null;
   state.clock = null;
   state.tube = null;
-  state.helmet = null;
+  state.logoModel = null;
   state.grid = null;
   state.ui = null;
   state.container = null;
