@@ -1,14 +1,28 @@
 import barba from '@barba/core';
 import gsap from 'gsap';
-import { animateTransition, revealTransition, closeMenuIfOpen } from './transition.js';
 import { initMenu } from './menu.js';
-import { initIndex, destroyIndex } from './index.js';
-import { initWork, destroyWork } from './work.js';
-import { initArchiveScene, destroyArchiveScene } from './archive/index.js';
-import { animateRevealEnter, initScrollTextReveals, getOrSplit, cleanupScrollTriggers } from './text-reveal.js';
-import webgl, { destroyWebgl, setScenePage, isWebglRunning, mountSceneText } from './three.js';
-import { initLinkHover, destroyLinkHover } from './link-hover.js';
-import { initBtnHover } from './btn-hover.js';
+import { preloader } from './preloader.js';
+
+import {
+  initWork,
+  destroyWork,
+} from './work.js';
+import { initArchive, destroyArchive } from './archive.js';
+import { initFilm, destroyFilm } from './project-canvas.js';
+import { animateRevealEnter, animateRevealLeave, cleanupSplits } from './text-reveal.js';
+import webgl, {
+  destroyWebgl,
+  setScenePage,
+  isWebglRunning,
+  swapModel,
+  closeMenuIfOpen,
+  setBaseSceneVisibility,
+} from './three.js';
+import { destroyTransition } from './transition.js';
+import { initLinkHover } from './link-hover.js';
+import { initBtnHover, destroyBtnHover } from './btn-hover.js';
+
+import { initLenis, destroyLenis } from './lenis-scroll.js';
 
 
 function tweenToPromise(tween) {
@@ -17,54 +31,34 @@ function tweenToPromise(tween) {
     : Promise.resolve();
 }
 
-function createHomeLeaveTimeline(container) {
-  const tl = gsap.timeline({ defaults: { ease: 'power2.in' } });
-  let hasSteps = false;
+function gsapToPromise(target, vars = {}) {
+  return new Promise((resolve) => {
+    gsap.to(target, {
+      ...vars,
+      onComplete: () => {
+        if (typeof vars.onComplete === 'function') {
+          vars.onComplete();
+        }
+        resolve();
+      },
+    });
+  });
+}
 
-  const heroTextReveals = container.querySelectorAll('.hero-text-reveal');
-  for (let i = 0; i < heroTextReveals.length; i++) {
-    const split = getOrSplit(heroTextReveals[i], { type: 'lines' });
-    if (!split?.lines?.length) continue;
-    hasSteps = true;
-    tl.to(split.lines, {
-      yPercent: -100,
-      opacity: 0,
-      duration: 0.3,
-      stagger: 0.03
-    }, 0);
+function transitionDebug(step, payload = null) {
+  if (!window.__TRANSITION_DEBUG__) return;
+  if (payload !== null) {
+    // eslint-disable-next-line no-console
+    console.log(`[transition] ${step}`, payload);
+  } else {
+    // eslint-disable-next-line no-console
+    console.log(`[transition] ${step}`);
   }
-
-  const heroLogo = container.querySelector('.hero-logo-top h1');
-  if (heroLogo) {
-    hasSteps = true;
-    tl.to(heroLogo, {
-      y: -30,
-      opacity: 0,
-      duration: 0.3
-    }, 0);
-  }
-
-  return hasSteps ? tl : null;
 }
 
 function createContactLeaveTimeline(container, nextNamespace) {
   const tl = gsap.timeline({ defaults: { ease: 'power2.in' } });
   let hasSteps = false;
-
-  const textRevealHeaders = container.querySelectorAll('.text-reveal-header');
-  for (let i = 0; i < textRevealHeaders.length; i++) {
-    const header = textRevealHeaders[i];
-    const split = getOrSplit(header);
-    if (!split?.words?.length) continue;
-    hasSteps = true;
-    const isReverse = header.classList.contains('text-reveal-reverse');
-    tl.to(split.words, {
-      y: isReverse ? 100 : -100,
-      opacity: 0,
-      duration: 0.25,
-      stagger: 0.015
-    }, 0);
-  }
 
   const linkMain = document.querySelector('.link-main');
   if (linkMain) {
@@ -84,20 +78,7 @@ function createContactLeaveTimeline(container, nextNamespace) {
   return hasSteps ? tl : null;
 }
 
-function primeHomeEnter(container) {
-  const heroTextReveals = container.querySelectorAll('.hero-text-reveal');
-  for (let i = 0; i < heroTextReveals.length; i++) {
-    const split = getOrSplit(heroTextReveals[i], { type: 'lines' });
-    if (split?.lines?.length) {
-      gsap.set(split.lines, { yPercent: 100, opacity: 0 });
-    }
-  }
-
-  const heroLogo = container.querySelector('.hero-logo-top h1');
-  if (heroLogo) {
-    gsap.set(heroLogo, { y: 30, opacity: 0 });
-  }
-
+function primeHomeEnter() {
   const linkMain = document.querySelector('.link-main');
   if (linkMain) {
     gsap.set(linkMain, { autoAlpha: 0 });
@@ -109,36 +90,6 @@ function primeContactEnter() {
   if (linkMain) {
     gsap.set(linkMain, { autoAlpha: 1, y: 20, opacity: 0 });
   }
-}
-
-function createHomeEnterTimeline(container) {
-  const tl = gsap.timeline({ defaults: { ease: 'power2.out' } });
-  let stepCount = 0;
-
-  const heroTextReveals = container.querySelectorAll('.hero-text-reveal');
-  for (let i = 0; i < heroTextReveals.length; i++) {
-    const split = getOrSplit(heroTextReveals[i], { type: 'lines' });
-    if (!split?.lines?.length) continue;
-    tl.to(split.lines, {
-      yPercent: 0,
-      opacity: 1,
-      duration: 0.6,
-      stagger: 0.08
-    }, stepCount > 0 ? '<0.04' : 0);
-    stepCount += 1;
-  }
-
-  const heroLogo = container.querySelector('.hero-logo-top h1');
-  if (heroLogo) {
-    tl.to(heroLogo, {
-      y: 0,
-      opacity: 1,
-      duration: 0.4
-    }, 0.1);
-    stepCount += 1;
-  }
-
-  return stepCount > 0 ? tl : null;
 }
 
 function createContactEnterTween() {
@@ -155,16 +106,20 @@ function createContactEnterTween() {
 
 // Update time display
 let cachedTimeElement = null;
+const IST_TIME_FORMATTER = new Intl.DateTimeFormat('en-GB', {
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false,
+  timeZone: 'Asia/Kolkata',
+});
+
 function updateTime() {
   if (!cachedTimeElement) {
     cachedTimeElement = document.getElementById('time');
   }
   if (cachedTimeElement) {
-    const now = new Date();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    cachedTimeElement.textContent = `${hours}:${minutes}:${seconds} IST`;
+    cachedTimeElement.textContent = `${IST_TIME_FORMATTER.format(new Date())} IST`;
   }
 }
 
@@ -178,12 +133,24 @@ function initTime() {
   window.timeInterval = setInterval(updateTime, 1000);
 }
 
-function initPageFeatures(namespace) {
+// One-shot flag: once() fires on initial load and calls animateRevealEnter.
+// after() fires immediately after once() on initial load and must not re-animate.
+let skipNextAfterReveal = false;
+
+// Helper: determine if a namespace uses the shared WebGL canvas
+function isWebglPage(ns) {
+  return ns === 'home' || ns === 'contact' || ns === 'work';
+}
+
+
+
+function initPageFeatures(namespace, { skipWebglSetup = false } = {}) {
   initTime();
+  // Menu and link hover target persistent nav elements — only init once
   initMenu();
-  initScrollTextReveals();
-  destroyLinkHover();
   initLinkHover();
+  // Btn hover needs rebuild since buttons may be in page content
+  destroyBtnHover();
   initBtnHover();
 
   const ns = namespace || document.querySelector('[data-barba="container"]')?.dataset.barbaNamespace;
@@ -194,35 +161,71 @@ function initPageFeatures(namespace) {
       gsap.set(linkMain, { clearProps: 'transform,opacity' });
     }
   }
-  if (ns === 'work') {
-    destroyIndex();
-    initWork();
-    destroyWebgl();
-    destroyArchiveScene();
-  } else if (ns === 'archive') {
-    destroyIndex();
-    destroyWork();
-    destroyWebgl();
-    initArchiveScene();
-  } else if (ns === 'home' || ns === 'contact') {
-    destroyWork();
-    destroyArchiveScene();
-    const wasRunning = isWebglRunning();
-    webgl();
-    // Ensure scene offset matches current page on fresh init (no snap during transitions)
-    if (!wasRunning) {
-      setScenePage(ns, true);
-    }
-    mountSceneText(ns);
-    if (ns === 'home') {
-      initIndex();
+
+  // WebGL setup already handled by transition leave/enter hooks
+  if (skipWebglSetup) {
+    if (ns === 'archive') {
+      destroyWork();
+      destroyTransition();
+      destroyWebgl();
+      initArchive();
     } else {
-      destroyIndex();
+      destroyArchive();
+      if (ns === 'work') {
+        // initWork() already called in enter() hook — skip to avoid double-init
+      } else if (ns === 'home' || ns === 'contact') {
+        setBaseSceneVisibility(true);
+      }
     }
+    return;
+  }
+
+  if (ns === 'film') {
+    document.body.classList.add('page-wrap--scrollable');
+    initLenis();
   } else {
-    destroyIndex();
+    document.body.classList.remove('page-wrap--scrollable');
+  }
+
+  if (ns === 'archive') {
+    document.body.classList.add('page-wrap--archive');
+  } else {
+    document.body.classList.remove('page-wrap--archive');
+  }
+
+  if (ns === 'work') {
+    destroyArchive();
+    destroyFilm();
+    webgl();
+    setBaseSceneVisibility(true);
+    setScenePage('work', true);
+    swapModel('work');
+    initWork();
+  } else if (ns === 'archive') {
     destroyWork();
-    destroyArchiveScene();
+    destroyFilm();
+    destroyTransition();
+    destroyWebgl();
+    initArchive();
+  } else if (ns === 'film') {
+    destroyArchive();
+    destroyWork();
+    destroyTransition();
+    destroyWebgl();
+    initFilm();
+  } else if (ns === 'home' || ns === 'contact') {
+    destroyArchive();
+    destroyWork();
+    destroyFilm();
+    webgl();
+    setBaseSceneVisibility(true);
+    setScenePage(ns, true);
+    swapModel('home');
+  } else {
+    destroyArchive();
+    destroyWork();
+    destroyFilm();
+    destroyTransition();
     destroyWebgl();
   }
 }
@@ -230,54 +233,78 @@ function initPageFeatures(namespace) {
 barba.init({
   transitions: [
     {
-      name: 'home-contact-transition',
-      from: { namespace: ['home', 'contact'] },
-      to: { namespace: ['home', 'contact'] },
+      name: 'webgl-page-transition',
+      from: { namespace: ['home', 'contact', 'work'] },
+      to: { namespace: ['home', 'contact', 'work'] },
       async leave(data) {
-        closeMenuIfOpen();
-        cleanupScrollTriggers();
-        // Start scene shift toward the target page (runs during text-out animation)
-        setScenePage(data?.next?.namespace);
+        const fromNs = data?.current?.namespace;
+        const toNs = data?.next?.namespace;
         const container = data?.current?.container;
-        const ns = data?.current?.namespace;
-        if (!container) return;
 
-        if (ns === 'home') {
-          await tweenToPromise(createHomeLeaveTimeline(container));
-        } else if (ns === 'contact') {
-          await tweenToPromise(createContactLeaveTimeline(container, data?.next?.namespace));
+        closeMenuIfOpen();
+
+        // Animate text out (chars/lines slide down) — must complete before cleanupSplits
+        await animateRevealLeave(container);
+
+        const involvesWork = (fromNs === 'work' || toNs === 'work');
+
+        if (involvesWork) {
+          if (fromNs === 'work') {
+            destroyWork();
+          }
+        } else {
+          if (fromNs === 'contact') {
+            await tweenToPromise(createContactLeaveTimeline(container, toNs));
+          }
         }
+
+        // Clean up AFTER leave animation so splits are still valid during animation
+        cleanupSplits();
       },
       async enter(data) {
+        const fromNs = data?.current?.namespace;
+        const toNs = data?.next?.namespace;
         const container = data?.next?.container;
-        const ns = data?.next?.namespace;
-        if (!container) return;
 
-        if (ns === 'home') {
-          primeHomeEnter(container);
-        } else if (ns === 'contact') {
-          primeContactEnter();
+        const involvesWork = (fromNs === 'work' || toNs === 'work');
+
+        if (involvesWork) {
+          const targetModel = toNs === 'work' ? 'work' : 'home';
+          swapModel(targetModel);
+          setScenePage(toNs, true);
+
+          if (toNs === 'work') {
+            await initWork();
+            // Wait one frame so updateTitle() populates .slide-title before reveal
+            await new Promise(r => requestAnimationFrame(r));
+          }
+        } else {
+          if (toNs === 'home') {
+            primeHomeEnter();
+            setScenePage('home');
+          } else if (toNs === 'contact') {
+            primeContactEnter();
+            setScenePage('contact');
+          }
         }
-        // Contact page text-reveal headers handled by animateRevealEnter
+
+        // Animate text in for all webgl pages (home, contact, work)
+        animateRevealEnter(container);
       },
       async after(data) {
         const container = data?.next?.container;
         const ns = data?.next?.namespace;
         if (!container) return;
 
-        initPageFeatures(ns);
+        // WebGL setup (model swap, camera, etc.) already handled in leave/enter
+        initPageFeatures(ns, { skipWebglSetup: true });
 
         if (ns === 'home') {
-          await tweenToPromise(createHomeEnterTimeline(container));
-          // Ensure nav link-main is hidden on home
           const linkMain = document.querySelector('.link-main');
           if (linkMain) {
             gsap.set(linkMain, { autoAlpha: 0 });
           }
         } else if (ns === 'contact') {
-          // Animate contact text-reveal headers in
-          await animateRevealEnter(container);
-          // Animate nav link-main lines in
           await tweenToPromise(createContactEnterTween());
         }
       }
@@ -285,77 +312,61 @@ barba.init({
     {
       name: 'default',
       async leave(data) {
-        if (data?.current?.namespace === 'home') {
-          destroyIndex();
-        }
-        if (data?.current?.namespace === 'work') {
+        const fromNs = data?.current?.namespace;
+        const toNs = data?.next?.namespace;
+
+        closeMenuIfOpen();
+
+        // Animate text out before any teardown
+        await animateRevealLeave(data?.current?.container);
+
+        if (fromNs === 'work') {
           destroyWork();
         }
-        if (data?.current?.namespace === 'archive') {
-          destroyArchiveScene();
+        if (fromNs === 'archive') {
+          destroyArchive();
         }
-        cleanupScrollTriggers(); // Clean up ScrollTriggers before transition
-        closeMenuIfOpen();
-        await animateTransition();
+        if (fromNs === 'film') {
+          destroyFilm();
+          destroyLenis();
+          document.body.classList.remove('page-wrap--scrollable');
+        }
+
+        const shouldDestroyWebgl = isWebglPage(fromNs)
+          || (fromNs === 'film' && isWebglRunning() && !isWebglPage(toNs));
+        if (shouldDestroyWebgl) {
+          destroyTransition();
+          destroyWebgl();
+        }
+
+        cleanupSplits();
       },
       async enter() {
-        await revealTransition();
+        // Simple page swap — no ink dissolve for non-webgl pages
       },
       async once(data) {
-        initPageFeatures(data?.next?.namespace);
-
-        await revealTransition();
-
         const ns = data?.next?.namespace;
+
+        // Non-webgl pages (archive, film, etc.) don't call webgl() so the
+        // preloader never fires via loadModels(). Run it here instead.
+        if (!isWebglPage(ns)) {
+          await Promise.all([preloader.init(), preloader.load([])]);
+        }
+
+        initPageFeatures(ns);
         const container = data?.next?.container;
         if (!container) return;
 
         if (ns === 'home') {
-          // Animate home hero on initial load
-          const promises = [];
-          const heroTextReveals = container.querySelectorAll('.hero-text-reveal');
-          for (let i = 0; i < heroTextReveals.length; i++) {
-            const el = heroTextReveals[i];
-            const split = getOrSplit(el, { type: 'lines' });
-            if (split?.lines?.length) {
-              gsap.set(split.lines, { yPercent: 100, opacity: 0 });
-              const tween = gsap.to(split.lines, {
-                yPercent: 0,
-                opacity: 1,
-                duration: 0.8,
-                stagger: 0.1,
-                ease: 'power2.out',
-                delay: 0.1
-              });
-              promises.push(new Promise(resolve => tween.eventCallback('onComplete', resolve)));
-            }
-          }
-          // Animate hero logo
-          const heroLogo = container.querySelector('.hero-logo-top h1');
-          if (heroLogo) {
-            gsap.set(heroLogo, { y: 30, opacity: 0 });
-            const tween = gsap.to(heroLogo, {
-              y: 0,
-              opacity: 1,
-              duration: 0.5,
-              ease: 'power2.out',
-              delay: 0.1
-            });
-            promises.push(new Promise(resolve => tween.eventCallback('onComplete', resolve)));
-          }
-          if (promises.length) await Promise.all(promises);
-          // Ensure nav link-main is hidden on home (once)
           const linkMainHome = document.querySelector('.link-main');
           if (linkMainHome) {
             gsap.set(linkMainHome, { autoAlpha: 0 });
           }
         } else if (ns === 'contact') {
-          await animateRevealEnter(container);
-          // Animate nav link-main lines in on initial load
           const linkMain = document.querySelector('.link-main');
           if (linkMain) {
             gsap.set(linkMain, { autoAlpha: 1, y: 20, opacity: 0 });
-            await gsap.to(linkMain, {
+            await gsapToPromise(linkMain, {
               y: 0,
               opacity: 1,
               duration: 0.8,
@@ -364,22 +375,28 @@ barba.init({
             });
           }
         }
+
+        // Reveal text on initial page load for all pages
+        // For work page, wait a frame so initWork's rAF populates .slide-title
+        if (ns === 'work') {
+          await new Promise(r => requestAnimationFrame(r));
+        }
+        skipNextAfterReveal = true;
+        animateRevealEnter(container);
       },
       async after(data) {
-        // Initialize page features after default transitions
         const ns = data?.next?.namespace;
         if (ns) {
           initPageFeatures(ns);
         }
 
+        const container = data?.next?.container;
+
         if (ns === 'contact') {
-          const container = data?.next?.container;
-          if (!container) return;
-          await animateRevealEnter(container);
           const linkMain = document.querySelector('.link-main');
           if (linkMain) {
             gsap.set(linkMain, { autoAlpha: 1, y: 20, opacity: 0 });
-            await gsap.to(linkMain, {
+            await gsapToPromise(linkMain, {
               y: 0,
               opacity: 1,
               duration: 0.6,
@@ -387,6 +404,16 @@ barba.init({
             });
           }
         }
+
+        // Reveal text after a navigation transition (not on initial load — once() handles that)
+        if (container && !skipNextAfterReveal) {
+          // For work page, wait a frame so initWork's rAF populates .slide-title
+          if (ns === 'work') {
+            await new Promise(r => requestAnimationFrame(r));
+          }
+          animateRevealEnter(container);
+        }
+        skipNextAfterReveal = false;
       }
     }
   ]

@@ -1,21 +1,46 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Archive - Naman Pratulya</title>
+  <title>Archive - duforn</title>
   <link rel="icon" href="/site-icon.png" />
   <meta name="theme-color" content="#000000" />
-  <meta name="author" content="Naman Pratulya" />
+  <meta name="author" content="duforn" />
   <link rel="stylesheet" href="/styles.css" />
 </head>
+
 <body data-barba="wrapper" class="page-wrap">
+  <div class="preloader">
+    <div class="preloader-grid">
+      <div class="preloader-block"></div>
+      <div class="preloader-block"></div>
+      <div class="preloader-block"></div>
+      <div class="preloader-block"></div>
+      <div class="preloader-block"></div>
+      <div class="preloader-block"></div>
+      <div class="preloader-block"></div>
+      <div class="preloader-block"></div>
+      <div class="preloader-block"></div>
+      <div class="preloader-block"></div>
+      <div class="preloader-block"></div>
+      <div class="preloader-block"></div>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-bar-indicator"></div>
+      <div class="progress-bar-copy">
+        <p>LOADING...</p>
+        <p><span>0%</span></p>
+      </div>
+    </div>
+  </div>
   <!-- page transition -->
   <div class="transition"></div>
   <nav class="nav-wrap u-position-fixed">
     <div class="nav-contain u-container-full">
       <a class="u-mobile-hidden" href="/work">work</a>
-      <a href="/" class="link-main">naman pratulya</a>
+      <a href="/" class="link-main">duforn</a>
       <a class="u-mobile-hidden" href="/contact">contact</a>
       <div class="menu-toggle-btn">
         <div class="menu-toggle-btn-wrapper">
@@ -48,51 +73,81 @@
   </div>
   <div class="menu-wrap">
     <div class="menu-content u-container-full">
-      <div class="menu-box">
-        <div class="menu-items">
-          <a class="menu-item" href="/work">
-            <h1>Work</h1>
-          </a>
-          <a class="menu-item" href="/archive">
-            <h1>Archive</h1>
-          </a>
-          <a class="menu-item" href="/contact">
-            <h1>Contact</h1>
-          </a>
-        </div>
-        <line></line>
-        <div class="menu-footer">
-          <div class="menu-footer-item">
-            <a href="https://www.instagram.com/namanprat/" target="_blank">Instagram</a>
-            <a href="mailto:npratulya@gmail.com" target="_blank">Email</a>
+      <div class="menu-box u-flex-vertical-nowrap u-justify-content-center">
+        <img src="/menu/bill-top.svg" alt="" class="u-width-full receipt-svg u-object-fit-contain u-height-auto " />
+        <div class="receipt-menu u-flex-vertical-nowrap u-gap-3">
+
+
+
+          <div class="receipt-header">
+            <img src="/menu/bill-logo.svg" alt="bill-logo" class="receipt-logo" />
           </div>
+          <p class="u-text-align-center">
+            Commodo excepteur irure culpa aute<br />
+            laborum sunt non aliqua cillum aute.<br />
+            Tempor ut dolore excepteur proident<br />
+            laboris quis enim irure.
+          </p>
+
+          <div class="u-flex-vertical-nowrap u-gap-3 u-width-full">
+            <div class="receipt-divider"></div>
+            <div class="receipt-meta">
+              <p id="receipt-datetime" class="u-text-align-center">SUN 31/04/24 11:36:49 AM</p>
+              <p class="u-text-align-center">** SHOPPING BAG **</p>
+            </div>
+            <div class="receipt-divider"></div>
+          </div>
+
+          <div class="u-flex-vertical-nowrap u-width-full">
+            <a class="u-flex-horizontal-nowrap u-gap-1 u-width-full u-padding-1" href="/work">
+              <h5 class="">WORK</h5>
+              <div class="receipt-dots" aria-hidden="true"></div>
+              <h5 class="">01</h5>
+            </a>
+            <a class="u-flex-horizontal-nowrap u-gap-1 u-width-full u-padding-1" href="/contact">
+              <h5 class="">CONTACT</h5>
+              <div class="receipt-dots" aria-hidden="true"></div>
+              <h5 class="">02</h5>
+            </a>
+            <a class="u-flex-horizontal-nowrap u-gap-1 u-width-full u-padding-1" href="/archive">
+              <h5 class="">ARCHIVE</h5>
+              <div class="receipt-dots" aria-hidden="true"></div>
+              <h5 class="">03</h5>
+            </a>
+          </div>
+
+          <div class="u-flex-vertical-nowrap u-gap-3 u-width-full">
+            <div class="receipt-star" aria-hidden="true"></div>
+            <div class="receipt-barcode">
+              <img src="/menu/barcode.svg" alt="Barcode" class="receipt-svg" />
+            </div>
+            <div class="receipt-star" aria-hidden="true"></div>
+
+          </div>
+
+
+
+
+
+          <button class="receipt-close" type="button">
+            <h5 class="receipt-close-text">CLOSE</h5>
+            <span class="receipt-close-arrow">→</span>
+          </button>
+
+
         </div>
+        <img src="/menu/bill-top.svg" alt=""
+          class="u-vertical-flip u-width-full receipt-svg u-object-fit-contain u-height-auto " />
+
       </div>
     </div>
   </div>
   <!-- WebGL background container -->
   <div id="background"></div>
-  <main data-barba="container" data-barba-namespace="archive">
-    <section id="gallery"></section>
-    <!-- Focus mode overlay -->
-    <div id="archive-overlay" class="archive-overlay">
-      <!-- Info panel (slides in from right on desktop, bottom on mobile) -->
-      <div class="archive-focus-panel">
-        <button class="archive-close-btn" aria-label="Close">&times;</button>
-        <div class="archive-focus-content">
-          <h2 class="archive-focus-title"></h2>
-          <p class="archive-focus-year u-text-style-font-secondary"></p>
-          <p class="archive-focus-description"></p>
-          <div class="archive-focus-category u-text-style-font-secondary"></div>
-        </div>
-      </div>
-      <!-- Navigation buttons -->
-      <div class="archive-nav-wrap">
-        <button id="archive-prev" class="archive-nav-btn" aria-label="Previous">&larr;</button>
-        <button id="archive-next" class="archive-nav-btn" aria-label="Next">&rarr;</button>
-      </div>
-    </div>
+  <main data-barba="container" data-barba-namespace="archive" class="archive-container" style="position: relative; width: 100%; height: 100vh; overflow: hidden;">
+    <div class="whiteEdgeGradient" aria-hidden="true"></div>
   </main>
   <script type="module" src="/scripts/barba.js"></script>
 </body>
+
 </html>

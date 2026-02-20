@@ -1,0 +1,716 @@
+import * as THREE from 'three';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import gsap from 'gsap';
+
+import { archiveItems } from '../data/archive-items.js';
+import { VignetteShader, GrainShader, EdgeDistortionShader } from './shaders/post-fx.js';
+
+// ─────────────────────────────────────────────────────────────
+// CONFIG
+// ─────────────────────────────────────────────────────────────
+
+const CONFIG = Object.freeze({
+  pixelRatioMax: 1.5,
+
+  tube: Object.freeze({
+    rows: 4,
+    cols: 12,
+    ySpacing: 2.4,
+    radius: 3.8,
+    tileW: 0.68,
+    tileH: 0.95,
+    baseSpeed: 0.8,
+    hoverSlowdownScale: 0.3,
+    rotationSpeedScaleLerp: 0.08,
+    naturalDir: 1,
+    scrollDeltaPerWheel: 0.6,
+    spinVelocityPerWheel: 0.08,
+    spinDamping: 0.92,
+    maxSpinVelocity: 2.0,
+  }),
+
+  postFX: Object.freeze({
+    grain: 0.012,
+    vignette: 0.12,
+    vignetteOffset: 1.0,
+    bloomStrength: 0.1,
+    bloomRadius: 0.35,
+    bloomThreshold: 0.8,
+    edgeShift: 0.004,
+  }),
+
+  grid: Object.freeze({
+    gridScale: 26.0,
+    lineWidth: 0.5,
+    edgeWidth: 0.14,
+    edgeAmp: 1.3,
+    centerRadius: 0.22,
+    centerAmp: 0.85,
+    scrollSpeed: 0.012,
+  }),
+});
+
+// ─────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────
+
+const state = {
+  running: false,
+  initToken: 0,
+  rafId: null,
+
+  container: null,
+  renderHost: null,
+
+  renderer: null,
+  composer: null,
+
+  scene: null,
+  camera: null,
+  clock: null,
+
+  // Tube
+  tube: null,
+
+  // Grid
+  grid: null,
+
+  // Shared reactive state (tube ↔ grid ↔ UI)
+  shared: {
+    tubeScrollTarget: 0,
+    tubeSpinVelocity: 0,
+    tubeAngle: 0,
+    rotationSpeedScaleTarget: 1,
+    hoveredProject: null,
+    targetCenterUv: new THREE.Vector2(0.5, 0.5),
+  },
+
+  // Cursor / tooltip
+  ui: null,
+
+  // Handlers for removal
+  handlers: {},
+};
+
+// ─────────────────────────────────────────────────────────────
+// TUBE
+// ─────────────────────────────────────────────────────────────
+
+async function createTube(scene) {
+  const cfg = CONFIG.tube;
+
+  const tube = {
+    rows: cfg.rows,
+    cols: cfg.cols,
+    ySpacing: cfg.ySpacing,
+    radius: cfg.radius,
+    tileW: cfg.tileW,
+    tileH: cfg.tileH,
+
+    scrollCurrent: 0,
+    angle: 0,
+    rotationSpeedScale: 1,
+    loopHeight: 0,
+
+    raycaster: new THREE.Raycaster(),
+    mouse: new THREE.Vector2(),
+    intersected: null,
+
+    group: new THREE.Group(),
+    rowGroups: [],
+    textures: [],
+    planeGeo: null,
+  };
+
+  // Load textures
+  const loader = new THREE.TextureLoader();
+  tube.textures = await Promise.all(
+    archiveItems.map(
+      item =>
+        new Promise(resolve => {
+          loader.load(item.image, resolve, undefined, () => {
+            // Fallback canvas texture on 404
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(0, 0, 512, 512);
+            ctx.fillStyle = '#444';
+            ctx.font = 'bold 22px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(item.title, 256, 256);
+            resolve(new THREE.CanvasTexture(canvas));
+          });
+        })
+    )
+  );
+
+  // Build geometry
+  const repeatCount = 2;
+  const totalRows = cfg.rows * repeatCount;
+  tube.loopHeight = cfg.rows * cfg.ySpacing;
+  tube.planeGeo = new THREE.PlaneGeometry(cfg.tileW, cfg.tileH);
+
+  for (let rowIndex = 0; rowIndex < totalRows; rowIndex++) {
+    const rowGroup = new THREE.Group();
+    rowGroup.position.y = (rowIndex - (totalRows - 1) / 2) * cfg.ySpacing;
+    tube.group.add(rowGroup);
+    tube.rowGroups[rowIndex] = rowGroup;
+
+    const baseRow = rowIndex % cfg.rows;
+    const rowOffset = baseRow % 2 === 0 ? 0 : 0.5;
+
+    for (let col = 0; col < cfg.cols; col++) {
+      const theta = ((col + rowOffset) / cfg.cols) * Math.PI * 2;
+      const x = Math.cos(theta) * cfg.radius;
+      const z = Math.sin(theta) * cfg.radius;
+      const ry = -(theta + Math.PI / 2);
+
+      const texIndex = (baseRow * cfg.cols + col) % archiveItems.length;
+      const item = archiveItems[texIndex];
+
+      const mesh = new THREE.Mesh(
+        tube.planeGeo,
+        new THREE.MeshBasicMaterial({
+          map: tube.textures[texIndex],
+          side: THREE.DoubleSide,
+          toneMapped: false,
+        })
+      );
+      mesh.position.set(x, 0, z);
+      mesh.rotation.y = ry;
+      mesh.userData = {
+        archiveId: item.id,
+        archiveTitle: item.title,
+        archiveYear: item.year,
+        archiveDescription: item.description,
+        archiveCategory: item.category,
+      };
+      rowGroup.add(mesh);
+    }
+  }
+
+  scene.add(tube.group);
+  return tube;
+}
+
+function updateTube(tube, dt, shared) {
+  const cfg = CONFIG.tube;
+
+  // Scroll
+  tube.scrollCurrent += (shared.tubeScrollTarget - tube.scrollCurrent) * 0.12;
+  const half = tube.loopHeight / 2;
+  if (tube.scrollCurrent > half) {
+    tube.scrollCurrent -= tube.loopHeight;
+    shared.tubeScrollTarget -= tube.loopHeight;
+  } else if (tube.scrollCurrent < -half) {
+    tube.scrollCurrent += tube.loopHeight;
+    shared.tubeScrollTarget += tube.loopHeight;
+  }
+  tube.group.position.y = -tube.scrollCurrent;
+
+  // Spin
+  shared.tubeSpinVelocity *= Math.pow(cfg.spinDamping, dt * 60);
+  shared.tubeSpinVelocity = Math.max(-cfg.maxSpinVelocity, Math.min(cfg.maxSpinVelocity, shared.tubeSpinVelocity));
+
+  tube.rotationSpeedScale += (shared.rotationSpeedScaleTarget - tube.rotationSpeedScale) * cfg.rotationSpeedScaleLerp;
+  const scaledDt = dt * tube.rotationSpeedScale;
+  const baseSpeed = cfg.naturalDir * cfg.baseSpeed;
+  tube.angle += (baseSpeed + shared.tubeSpinVelocity) * scaledDt;
+  shared.tubeAngle = tube.angle;
+
+  // Row rotation with differential speeds
+  const totalRows = tube.rowGroups.length;
+  for (let i = 0; i < totalRows; i++) {
+    const row = tube.rowGroups[i];
+    if (!row) continue;
+    const baseRow = i % tube.rows;
+    const speedFactor = 0.65 + (baseRow / Math.max(1, tube.rows - 1)) * 0.9;
+    row.rotation.y = tube.angle * speedFactor;
+  }
+}
+
+function raycastTube(tube, camera, shared) {
+  tube.raycaster.setFromCamera(tube.mouse, camera);
+  const meshes = [];
+  tube.group.traverse(c => { if (c.isMesh) meshes.push(c); });
+  const hits = tube.raycaster.intersectObjects(meshes);
+
+  if (hits.length > 0) {
+    const obj = hits[0].object;
+    if (tube.intersected !== obj) {
+      tube.intersected = obj;
+      shared.hoveredProject = {
+        title: obj.userData.archiveTitle,
+        id: obj.userData.archiveId,
+        year: obj.userData.archiveYear,
+        description: obj.userData.archiveDescription,
+        category: obj.userData.archiveCategory,
+      };
+      shared.rotationSpeedScaleTarget = CONFIG.tube.hoverSlowdownScale;
+    }
+  } else {
+    if (tube.intersected) {
+      tube.intersected = null;
+      shared.hoveredProject = null;
+      shared.rotationSpeedScaleTarget = 1;
+    }
+  }
+}
+
+function destroyTube(tube) {
+  if (!tube) return;
+  tube.group.traverse(c => {
+    if (c.isMesh) {
+      if (c.geometry) c.geometry.dispose();
+      if (c.material) {
+        (Array.isArray(c.material) ? c.material : [c.material]).forEach(m => m.dispose());
+      }
+    }
+  });
+  if (tube.planeGeo) tube.planeGeo.dispose();
+  tube.textures.forEach(t => t.dispose());
+  if (tube.group.parent) tube.group.parent.remove(tube.group);
+}
+
+// ─────────────────────────────────────────────────────────────
+// GRID
+// ─────────────────────────────────────────────────────────────
+
+function createGrid(scene, shared) {
+  const cfg = CONFIG.grid;
+
+  const uniforms = {
+    uGridScale: { value: cfg.gridScale },
+    uLineWidth: { value: cfg.lineWidth },
+    uEdgeWidth: { value: cfg.edgeWidth },
+    uEdgeAmp: { value: cfg.edgeAmp },
+    uCenterRadius: { value: cfg.centerRadius },
+    uCenterAmp: { value: cfg.centerAmp },
+    uCenter: { value: new THREE.Vector2(0.5, 0.5) },
+    uTime: { value: 0.0 },
+    uScrollSpeed: { value: cfg.scrollSpeed },
+  };
+
+  const material = new THREE.ShaderMaterial({
+    uniforms,
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      uniform float uEdgeWidth;
+      uniform float uEdgeAmp;
+      uniform float uCenterRadius;
+      uniform float uCenterAmp;
+      uniform vec2 uCenter;
+
+      void main() {
+        vUv = uv;
+        vec3 p = position;
+
+        float dEdge = min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y));
+        float edgeMask = 1.0 - smoothstep(0.0, uEdgeWidth, dEdge);
+
+        float dCenter = distance(vUv, uCenter);
+        float centerMask = 1.0 - smoothstep(0.0, uCenterRadius, dCenter);
+
+        p.z += edgeMask * uEdgeAmp + centerMask * uCenterAmp;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      varying vec2 vUv;
+      uniform float uGridScale;
+      uniform float uLineWidth;
+      uniform float uTime;
+      uniform float uScrollSpeed;
+
+      float gridLine(float coord, float width) {
+        float fw = fwidth(coord);
+        float p = abs(fract(coord - 0.5) - 0.5);
+        return 1.0 - smoothstep(width * fw, (width + 1.0) * fw, p);
+      }
+
+      void main() {
+        vec2 uv = (vUv + vec2(uTime * uScrollSpeed, 0.0)) * uGridScale;
+        float gx = gridLine(uv.x, uLineWidth);
+        float gy = gridLine(uv.y, uLineWidth);
+        float g = max(gx, gy);
+
+        vec3 col = mix(vec3(0.0), vec3(0.09), g);
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `,
+    side: THREE.DoubleSide,
+  });
+
+  const geo = new THREE.PlaneGeometry(18, 18, 512, 512);
+  const mesh = new THREE.Mesh(geo, material);
+  mesh.position.set(0, 0, -5.0);
+  scene.add(mesh);
+
+  return { mesh, material, uniforms, shared };
+}
+
+function updateGrid(grid, time) {
+  if (!grid) return;
+  grid.uniforms.uTime.value = time;
+  if (grid.shared?.targetCenterUv) {
+    grid.uniforms.uCenter.value.lerp(grid.shared.targetCenterUv, 0.08);
+  }
+}
+
+function destroyGrid(grid) {
+  if (!grid) return;
+  if (grid.mesh) {
+    if (grid.mesh.geometry) grid.mesh.geometry.dispose();
+    if (grid.material) grid.material.dispose();
+    if (grid.mesh.parent) grid.mesh.parent.remove(grid.mesh);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// UI  (cursor + tooltip)
+// ─────────────────────────────────────────────────────────────
+
+function createUI(container, shared) {
+  const ui = {
+    container,
+    shared,
+    handlers: {},
+
+    tooltipTarget: { x: 0, y: 0 },
+    tooltipCurrent: { x: 0, y: 0 },
+
+    cursorTarget: { x: 0, y: 0 },
+    cursorCurrent: { x: 0, y: 0 },
+    cursorActive: false,
+
+    tooltipEl: null,
+    cursorEl: null,
+  };
+
+  // Tooltip DOM
+  ui.tooltipEl = document.createElement('div');
+  ui.tooltipEl.id = 'archive-tooltip';
+  ui.tooltipEl.style.cssText = `
+    position: fixed;
+    pointer-events: none;
+    color: white;
+    font-size: 13px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 1000;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.9);
+  `;
+  document.body.appendChild(ui.tooltipEl);
+
+  // Cursor DOM
+  ui.cursorEl = document.createElement('div');
+  ui.cursorEl.id = 'archive-cursor';
+  ui.cursorEl.style.cssText = `
+    position: fixed;
+    width: 10px;
+    height: 10px;
+    border: 1.5px solid rgba(255, 255, 255, 0.55);
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 999;
+    mix-blend-mode: screen;
+  `;
+  document.body.appendChild(ui.cursorEl);
+
+  // Handlers
+  ui.handlers.onMouseMove = e => {
+    const rect = container.getBoundingClientRect();
+    const cx = e.clientX, cy = e.clientY;
+
+    ui.tooltipTarget.x = cx;
+    ui.tooltipTarget.y = cy;
+    ui.cursorTarget.x = cx;
+    ui.cursorTarget.y = cy;
+
+    if (rect.width > 0 && rect.height > 0) {
+      const nx = (cx - rect.left) / rect.width;
+      const ny = (cy - rect.top) / rect.height;
+      const strength = 0.4;
+      const tx = 0.5 + (Math.min(1, Math.max(0, nx)) - 0.5) * strength;
+      const ty = 0.5 + ((1 - Math.min(1, Math.max(0, ny))) - 0.5) * strength;
+      shared.targetCenterUv.set(
+        Math.min(1, Math.max(0, tx)),
+        Math.min(1, Math.max(0, ty))
+      );
+    }
+  };
+
+  ui.handlers.onMouseEnter = () => {
+    ui.cursorActive = true;
+    ui.cursorCurrent = { ...ui.cursorTarget };
+  };
+
+  ui.handlers.onMouseLeave = () => {
+    ui.cursorActive = false;
+    shared.targetCenterUv.set(0.5, 0.5);
+    shared.hoveredProject = null;
+  };
+
+  container.addEventListener('mousemove', ui.handlers.onMouseMove);
+  container.addEventListener('mouseenter', ui.handlers.onMouseEnter);
+  container.addEventListener('mouseleave', ui.handlers.onMouseLeave);
+
+  return ui;
+}
+
+function updateUI(ui) {
+  if (!ui) return;
+
+  const lerpT = 0.18;
+  ui.tooltipCurrent.x += (ui.tooltipTarget.x - ui.tooltipCurrent.x) * lerpT;
+  ui.tooltipCurrent.y += (ui.tooltipTarget.y - ui.tooltipCurrent.y) * lerpT;
+
+  if (ui.tooltipEl) {
+    ui.tooltipEl.style.transform = `translate3d(${(ui.tooltipCurrent.x + 14).toFixed(1)}px, ${(ui.tooltipCurrent.y - 22).toFixed(1)}px, 0)`;
+    const p = ui.shared?.hoveredProject;
+    if (p) {
+      ui.tooltipEl.textContent = p.title;
+      ui.tooltipEl.style.opacity = '1';
+    } else {
+      ui.tooltipEl.style.opacity = '0';
+    }
+  }
+
+  const lerpC = 0.14;
+  ui.cursorCurrent.x += (ui.cursorTarget.x - ui.cursorCurrent.x) * lerpC;
+  ui.cursorCurrent.y += (ui.cursorTarget.y - ui.cursorCurrent.y) * lerpC;
+
+  if (ui.cursorEl) {
+    ui.cursorEl.style.transform = `translate3d(${ui.cursorCurrent.x.toFixed(1)}px, ${ui.cursorCurrent.y.toFixed(1)}px, 0) translate(-50%, -50%)`;
+    ui.cursorEl.style.opacity = ui.cursorActive ? '1' : '0';
+  }
+}
+
+function destroyUI(ui) {
+  if (!ui) return;
+  if (ui.container) {
+    ui.container.removeEventListener('mousemove', ui.handlers.onMouseMove);
+    ui.container.removeEventListener('mouseenter', ui.handlers.onMouseEnter);
+    ui.container.removeEventListener('mouseleave', ui.handlers.onMouseLeave);
+  }
+  if (ui.tooltipEl?.parentNode) ui.tooltipEl.parentNode.removeChild(ui.tooltipEl);
+  if (ui.cursorEl?.parentNode) ui.cursorEl.parentNode.removeChild(ui.cursorEl);
+}
+
+// ─────────────────────────────────────────────────────────────
+// INIT / DESTROY
+// ─────────────────────────────────────────────────────────────
+
+async function initArchive() {
+  if (state.running) return;
+  state.initToken++;
+  const token = state.initToken;
+
+  // Find container
+  state.container = document.querySelector('main[data-barba-namespace="archive"]');
+  if (!state.container) {
+    console.error('Archive: container not found');
+    return;
+  }
+
+  // Render host
+  state.renderHost = state.container.querySelector('.archive-webgl-host');
+  if (!state.renderHost) {
+    state.renderHost = document.createElement('div');
+    state.renderHost.className = 'archive-webgl-host';
+    state.renderHost.style.cssText = `
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    `;
+    state.container.insertBefore(state.renderHost, state.container.firstChild);
+  }
+
+  const w = state.renderHost.clientWidth || window.innerWidth;
+  const h = state.renderHost.clientHeight || window.innerHeight;
+
+  // Scene + camera
+  state.scene = new THREE.Scene();
+  state.scene.background = new THREE.Color(0x000000);
+
+  state.camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 100);
+  state.camera.position.set(0, 0, 8);
+
+  // Renderer
+  const pr = Math.min(window.devicePixelRatio || 1, CONFIG.pixelRatioMax);
+  state.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  state.renderer.setPixelRatio(pr);
+  state.renderer.setSize(w, h);
+  state.renderer.outputColorSpace = THREE.SRGBColorSpace;
+  state.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  state.renderHost.appendChild(state.renderer.domElement);
+
+  // Composer
+  state.composer = new EffectComposer(state.renderer);
+  state.composer.addPass(new RenderPass(state.scene, state.camera));
+
+  // Bloom
+  const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(w, h),
+    CONFIG.postFX.bloomStrength,
+    CONFIG.postFX.bloomRadius,
+    CONFIG.postFX.bloomThreshold
+  );
+  state.composer.addPass(bloomPass);
+
+  // Vignette — correct factory call with correct uniform names
+  const vignettePass = new ShaderPass(
+    VignetteShader({ darkness: CONFIG.postFX.vignette, offset: CONFIG.postFX.vignetteOffset })
+  );
+  state.composer.addPass(vignettePass);
+
+  // Grain — correct factory call
+  const grainPass = new ShaderPass(GrainShader({ grain: CONFIG.postFX.grain }));
+  state.composer.addPass(grainPass);
+
+  // Edge distortion — correct factory call
+  const edgePass = new ShaderPass(EdgeDistortionShader({ shift: CONFIG.postFX.edgeShift }));
+  state.composer.addPass(edgePass);
+
+  // Output
+  state.composer.addPass(new OutputPass());
+
+  // Lighting
+  state.scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+  const key = new THREE.DirectionalLight(0xffffff, 2.0);
+  key.position.set(4, 3, 5);
+  state.scene.add(key);
+  const fill = new THREE.PointLight(0xffffff, 0.8);
+  fill.position.set(-5, 2, 3);
+  state.scene.add(fill);
+
+  state.clock = new THREE.Clock();
+
+  // Reset shared state
+  state.shared.tubeScrollTarget = 0;
+  state.shared.tubeSpinVelocity = 0;
+  state.shared.tubeAngle = 0;
+  state.shared.rotationSpeedScaleTarget = 1;
+  state.shared.hoveredProject = null;
+  state.shared.targetCenterUv.set(0.5, 0.5);
+
+  // Components
+  state.tube = await createTube(state.scene);
+  if (state.initToken !== token) { destroyArchive(); return; } // stale init guard
+
+  state.grid = createGrid(state.scene, state.shared);
+  state.ui = createUI(state.container, state.shared);
+
+  // Event handlers
+  state.handlers.onMouseMove = e => {
+    if (state.tube) {
+      state.tube.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      state.tube.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    }
+  };
+
+  state.handlers.onWheel = e => {
+    e.preventDefault();
+    const dir = e.deltaY > 0 ? -1 : 1;
+    state.shared.tubeScrollTarget += dir * CONFIG.tube.scrollDeltaPerWheel;
+    state.shared.tubeSpinVelocity += dir * CONFIG.tube.spinVelocityPerWheel;
+  };
+
+  state.handlers.onResize = () => {
+    const w = state.renderHost.clientWidth || window.innerWidth;
+    const h = state.renderHost.clientHeight || window.innerHeight;
+    state.camera.aspect = w / h;
+    state.camera.updateProjectionMatrix();
+    state.renderer.setSize(w, h);
+    state.composer.setSize(w, h);
+  };
+
+  window.addEventListener('mousemove', state.handlers.onMouseMove);
+  window.addEventListener('wheel', state.handlers.onWheel, { passive: false });
+  window.addEventListener('resize', state.handlers.onResize);
+
+  state.running = true;
+
+  // Animation loop
+  function animate() {
+    if (state.initToken !== token) return;
+    state.rafId = requestAnimationFrame(animate);
+
+    const dt = Math.min(state.clock.getDelta(), 0.05);
+    const elapsed = state.clock.getElapsedTime();
+
+    updateTube(state.tube, dt, state.shared);
+    updateGrid(state.grid, elapsed);
+    raycastTube(state.tube, state.camera, state.shared);
+    updateUI(state.ui);
+
+    state.composer.render();
+  }
+
+  animate();
+}
+
+function destroyArchive() {
+  if (!state.running) return;
+  state.initToken++;
+  state.running = false;
+
+  if (state.rafId) {
+    cancelAnimationFrame(state.rafId);
+    state.rafId = null;
+  }
+
+  window.removeEventListener('mousemove', state.handlers.onMouseMove);
+  window.removeEventListener('wheel', state.handlers.onWheel);
+  window.removeEventListener('resize', state.handlers.onResize);
+
+  destroyTube(state.tube);
+  destroyGrid(state.grid);
+  destroyUI(state.ui);
+
+  if (state.composer) state.composer.dispose();
+
+  if (state.renderer) {
+    state.renderer.dispose();
+    if (state.renderHost && state.renderer.domElement.parentNode === state.renderHost) {
+      state.renderHost.removeChild(state.renderer.domElement);
+    }
+  }
+
+  if (state.scene) {
+    state.scene.traverse(obj => {
+      if (obj.geometry) obj.geometry.dispose();
+      if (obj.material) {
+        (Array.isArray(obj.material) ? obj.material : [obj.material]).forEach(m => m.dispose());
+      }
+    });
+  }
+
+  state.scene = null;
+  state.camera = null;
+  state.renderer = null;
+  state.composer = null;
+  state.clock = null;
+  state.tube = null;
+  state.grid = null;
+  state.ui = null;
+  state.container = null;
+  state.renderHost = null;
+  state.handlers = {};
+}
+
+export { initArchive, destroyArchive };

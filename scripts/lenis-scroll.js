@@ -2,33 +2,45 @@ import Lenis from "lenis";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
-const lenis = new Lenis({
-  // Slightly higher lerp for smoother scrolling with less computation
-  lerp: 0.12,
-  duration: 1.2,
-  smoothWheel: true,
-  touchMultiplier: 1,
-  // Reduce wheel multiplier for smoother performance
-  wheelMultiplier: 0.8,
-});
+gsap.registerPlugin(ScrollTrigger);
 
-// Throttle ScrollTrigger updates for better performance
-let lastScrollTriggerUpdate = 0;
-const SCROLL_TRIGGER_THROTTLE = 16; // ~60fps
+let lenis = null;
+let tickerCallback = null;
 
-lenis.on('scroll', () => {
-  const now = performance.now();
-  if (now - lastScrollTriggerUpdate >= SCROLL_TRIGGER_THROTTLE) {
-    lastScrollTriggerUpdate = now;
+export function initLenis() {
+  if (lenis) return lenis;
+
+  lenis = new Lenis({
+    lerp: 0.12,
+    duration: 1.2,
+    smoothWheel: true,
+    touchMultiplier: 1,
+    wheelMultiplier: 0.8,
+  });
+
+  tickerCallback = (time) => {
+    lenis.raf(time * 1000);
     ScrollTrigger.update();
+  };
+
+  gsap.ticker.add(tickerCallback);
+  gsap.ticker.lagSmoothing(500, 33);
+
+  return lenis;
+}
+
+export function destroyLenis() {
+  if (!lenis) return;
+
+  if (tickerCallback) {
+    gsap.ticker.remove(tickerCallback);
+    tickerCallback = null;
   }
-});
 
-gsap.ticker.add((time) => {
-  lenis.raf(time * 1000);
-});
+  lenis.destroy();
+  lenis = null;
+}
 
-// Enable lag smoothing for consistent frame pacing
-gsap.ticker.lagSmoothing(500, 33);
-
-export { lenis };
+export function getLenis() {
+  return lenis;
+}

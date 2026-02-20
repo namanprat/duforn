@@ -1,337 +1,303 @@
-import gsap from "gsap";
-import { CustomEase } from "gsap/CustomEase";
+import gsap from 'gsap';
+import { GLTFLoader } from 'three-stdlib';
+import * as THREE from 'three';
 
-gsap.registerPlugin(CustomEase);
+export class Preloader {
+    constructor() {
+        this.cacheDom();
 
-CustomEase.create("hop", "0.9, 0, 0.1, 1");
+        this.loadingManager = new THREE.LoadingManager();
+        this.gltfLoader = new GLTFLoader(this.loadingManager);
 
-// Scroll control helpers (no Lenis dependency)
-function disableScroll() {
-  // Prevent page scroll during preloader
-  document.documentElement.style.scrollBehavior = "auto";
-  document.body.style.overflow = "hidden";
-  document.documentElement.style.overflow = "hidden";
-  
-  if (window.lenis) {
-    window.lenis.stop();
-  }
-}
+        this.animationComplete = false;
+        this.pendingLoadBatches = 0;
+        this.runPromise = null;
+        this.runResolver = null;
+        this.isCompleting = false;
 
-function enableScroll() {
-  // Re-enable scroll after preloader
-  document.body.style.overflow = "";
-  document.documentElement.style.overflow = "";
-  
-  if (window.lenis) {
-    window.lenis.start();
-  }
-}
+        // Bind methods
+        this.init = this.init.bind(this);
+        this.load = this.load.bind(this);
+    }
 
-// project data array
-const projectsData = [
-  {
-    name: "Lunar Eclipse",
-    director: "Amelia Crawford",
-    location: "Toronto, ON",
-  },
-  {
-    name: "Visitor Quarters",
-    director: "Marcus Reynolds",
-    location: "Vancouver Studio, BC",
-  },
-  {
-    name: "Celestial",
-    director: "Nina Liu // Weston",
-    location: "Austin, TX",
-  },
-  {
-    name: "Streamwave Original",
-    director: "Dylan Pierce",
-    location: "Sunset Studios - Miami",
-  },
-  {
-    name: "Viewfinder",
-    director: "Javier // Rodriguez",
-    location: "BLANK Studios - Chicago",
-  },
-  {
-    name: "Rhythm Collective",
-    director: "Sophia // Chen",
-    location: "London, UK",
-  },
-  {
-    name: "Urban Odyssey",
-    director: "Leo Thompson",
-    location: "Pioneer Studios - Seattle",
-  },
-  {
-    name: "Prism No. 1",
-    director: "Taylor // McKnight",
-    location: "Private Estate - Sedona",
-  },
-  {
-    name: "Vision Quest",
-    director: "Spencer // Hudson",
-    location: "Elevation - Denver",
-  },
-  {
-    name: "Wavelength",
-    director: "Kai Nakamura",
-    location: "San Francisco, CA",
-  },
-  {
-    name: "Desert Horizon",
-    director: "Olivia",
-    location: "New Mexico",
-  },
-  {
-    name: "Spectrum",
-    director: "Ellis // Moss",
-    location: "Harmony Studio - Montreal",
-  },
-  {
-    name: "Vision Quest II",
-    director: "Hudson // Wright",
-    location: "Elevation Studios - Denver",
-  },
-  {
-    name: "Auteur",
-    director: "Leo Thompson",
-    location: "Berlin, DE",
-  },
-  {
-    name: "Capsule X Design",
-    director: "Sophia // Chen",
-    location: "Neon House - Brooklyn",
-  },
-  {
-    name: "Pulse",
-    director: "Callum // Winters",
-    location: "Echo Pavilion - Portland",
-  },
-];
+    cacheDom() {
+        this.container = document.querySelector('.preloader');
+        this.progressBar = document.querySelector('.progress-bar');
+        this.progressIndicator = document.querySelector('.progress-bar-indicator');
+        this.progressText = document.querySelector('.progress-bar-copy span');
+        // this.preloaderBlocks will be populated after generation
+        this.resizeObserver = null;
+    }
 
-// image sources for rotation
-const allImageSources = Array.from(
-  { length: 20 },
-  (_, i) => `/middle-carousel/spotlight-${i + 1}.jpg`
-);
+    generateGrid() {
+        const gridContainer = document.querySelector('.preloader-grid');
+        if (!gridContainer) return;
 
-// utility functions
-const getRandomImageSet = () => {
-  const shuffled = [...allImageSources].sort(() => 0.5 - Math.random());
-  return shuffled.slice(0, 9);
-};
+        // Calculate columns and rows for ~200 squares while keeping them 1:1
+        const width = window.innerWidth;
+        const height = window.innerHeight;
 
-// create dynamic content from project data
-function initializeDynamicContent() {
-  const projectsContainer = document.querySelector(".projects");
-  const locationsContainer = document.querySelector(".locations");
+        // Target roughly 200 blocks total
+        // area = w * h
+        // blockSize = sqrt(area / 200)
+        const area = width * height;
+        const targetBlockSize = Math.sqrt(area / 200);
 
-  projectsData.forEach((project) => {
-    const projectItem = document.createElement("div");
-    projectItem.className = "project-item";
+        const cols = Math.ceil(width / targetBlockSize);
+        const rows = Math.ceil(height / targetBlockSize);
 
-    const projectName = document.createElement("p");
-    projectName.textContent = project.name;
+        gridContainer.style.setProperty('grid-template-columns', `repeat(${cols}, 1fr)`);
+        gridContainer.style.setProperty('grid-template-rows', `repeat(${rows}, 1fr)`);
 
-    const directorName = document.createElement("p");
-    directorName.textContent = project.director;
+        gridContainer.innerHTML = ''; // Clear existing
+        const totalBlocks = cols * rows;
 
-    projectItem.appendChild(projectName);
-    projectItem.appendChild(directorName);
-    projectsContainer.appendChild(projectItem);
-  });
+        const fragment = document.createDocumentFragment();
+        for (let i = 0; i < totalBlocks; i++) {
+            const block = document.createElement('div');
+            block.classList.add('preloader-block');
+            fragment.appendChild(block);
+        }
+        gridContainer.appendChild(fragment);
 
-  projectsData.forEach((project) => {
-    const locationItem = document.createElement("div");
-    locationItem.className = "location-item";
+        this.preloaderBlocks = document.querySelectorAll('.preloader-block');
+    }
 
-    const locationName = document.createElement("p");
-    locationName.textContent = project.location;
+    init() {
+        this.cacheDom();
+        this.generateGrid();
 
-    locationItem.appendChild(locationName);
-    locationsContainer.appendChild(locationItem);
-  });
-}
+        // Add resize listener
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => this.generateGrid(), 200);
+        });
 
-// rotate images during preloader
-function startImageRotation() {
-  const gridImages = gsap.utils.toArray(".img");
-  const totalCycles = 20;
+        const hasSeenPreloader = sessionStorage.getItem('preloaderSeen') === 'true';
+        // const hasSeenPreloader = false; // FORCE SHOW for debugging
 
-  for (let cycle = 0; cycle < totalCycles; cycle++) {
-    const randomImages = getRandomImageSet();
+        if (!this.container) return Promise.resolve();
+        if (this.runPromise) return this.runPromise;
 
-    gsap.to(
-      {},
-      {
-        duration: 0,
-        delay: cycle * 0.15,
-        onComplete: () => {
-          gridImages.forEach((imgElement, index) => {
-            const img = imgElement.querySelector("img");
-            if (img && randomImages[index]) {
-              img.src = randomImages[index];
+        if (hasSeenPreloader) {
+            this.container.style.display = 'none';
+            return Promise.resolve();
+        }
+
+        this.container.style.display = 'flex';
+        this.animationComplete = false;
+        this.pendingLoadBatches = 0;
+        this.isCompleting = false;
+
+        this.runPromise = new Promise((resolve) => {
+            this.runResolver = resolve;
+            this.startSequence();
+        });
+
+        return this.runPromise;
+    }
+
+    async load(urls) {
+        this.pendingLoadBatches += 1;
+
+        if (!urls || urls.length === 0) {
+            this.pendingLoadBatches = Math.max(0, this.pendingLoadBatches - 1);
+            this.checkCompletion();
+            return;
+        }
+
+        const promises = urls.map(url => {
+            return new Promise((resolve, reject) => {
+                this.gltfLoader.load(url, resolve, undefined, reject);
+            });
+        });
+
+        try {
+            await Promise.all(promises);
+        } catch (error) {
+            console.error('Error loading assets:', error);
+        } finally {
+            this.pendingLoadBatches = Math.max(0, this.pendingLoadBatches - 1);
+            this.checkCompletion();
+        }
+    }
+
+    hold() {
+        this.pendingLoadBatches += 1;
+    }
+
+    release() {
+        this.pendingLoadBatches = Math.max(0, this.pendingLoadBatches - 1);
+        this.checkCompletion();
+    }
+
+    startSequence() {
+        if (!this.progressIndicator || !this.progressText || !this.progressBar) {
+            this.animationComplete = true;
+            this.checkCompletion();
+            return;
+        }
+
+        gsap.set(this.preloaderBlocks, { opacity: 1 });
+        gsap.set(this.progressIndicator, { '--progress': 0 });
+        if (this.progressText) this.progressText.textContent = '0%';
+
+        gsap.to(this.progressBar, {
+            opacity: 1,
+            duration: 0.075,
+            ease: 'power2.inOut',
+            delay: 0.5,
+            repeat: 1,
+            yoyo: true,
+            onComplete: () => {
+                gsap.set(this.progressBar, { opacity: 1 });
+                this.startIncrements();
+            },
+        });
+    }
+
+    startIncrements() {
+        let currentProgress = 0;
+        const totalSteps = 5;
+        let stepCount = 0;
+        const increments = this.generateRandomIncrements(totalSteps);
+
+        const animateNextStep = () => {
+            // If we are at the last step but assets aren't loaded yet, wait
+            if (stepCount >= totalSteps) {
+                this.animationComplete = true;
+                this.checkCompletion();
+                return;
             }
-          });
-        },
-      }
-    );
-  }
+
+            const increment = increments[stepCount];
+            // Cap at 99% until assets are actually loaded? 
+            // User's code goes to 100. Let's stick to user's logic but maybe pause at 99 if needed.
+            // For now, let's just run the animation. 
+            // If animation finishes before assets, it will sit at 100% until pending loads finish.
+
+            const targetProgress = Math.min(currentProgress + increment, 100);
+            const randomDelay = 200 + Math.random() * 400;
+
+            setTimeout(() => {
+                gsap.to(this.progressIndicator, {
+                    '--progress': targetProgress / 100,
+                    duration: 0.5,
+                    ease: 'power2.out',
+                    onUpdate: () => {
+                        // Update text
+                        const val = Math.round(gsap.getProperty(this.progressIndicator, '--progress') * 100);
+                        if (this.progressText) this.progressText.textContent = `${val}%`;
+                    },
+                    onComplete: () => {
+                        currentProgress = targetProgress;
+                        stepCount++;
+                        animateNextStep();
+                    },
+                });
+            }, randomDelay);
+        };
+
+        animateNextStep();
+    }
+
+    generateRandomIncrements(totalSteps) {
+        const increments = [];
+        let remaining = 100;
+        const maxSingleIncrement = 30;
+
+        for (let i = 0; i < totalSteps - 1; i++) {
+            const maxIncrement = Math.min(
+                maxSingleIncrement,
+                remaining - (totalSteps - 1 - i),
+            );
+            const minIncrement = Math.max(
+                5,
+                Math.floor((remaining / (totalSteps - i)) * 0.5),
+            );
+            const increment =
+                Math.floor(Math.random() * (maxIncrement - minIncrement)) + minIncrement;
+            increments.push(increment);
+            remaining -= increment;
+        }
+
+        increments.push(remaining);
+        return increments.sort(() => Math.random() - 0.5);
+    }
+
+    checkCompletion() {
+        if (!this.runPromise) return;
+        if (this.pendingLoadBatches === 0 && this.animationComplete) {
+            this.complete();
+        }
+    }
+
+    resolveRun() {
+        if (this.runResolver) {
+            this.runResolver();
+        }
+        this.runResolver = null;
+        this.runPromise = null;
+        this.isCompleting = false;
+    }
+
+    complete() {
+        if (!this.container) {
+            this.resolveRun();
+            return;
+        }
+        if (this.isCompleting) return;
+        this.isCompleting = true;
+
+        sessionStorage.setItem('preloaderSeen', 'true');
+
+        gsap.to(this.progressBar, {
+            opacity: 0,
+            duration: 0.075,
+            ease: 'power2.inOut',
+            delay: 0.3,
+            repeat: 1,
+            yoyo: true,
+            onComplete: () => {
+                gsap.set(this.progressBar, { opacity: 0 });
+
+                setTimeout(() => {
+                    // If no blocks found (e.g. user didn't add them), just hide container
+                    if (!this.preloaderBlocks || this.preloaderBlocks.length === 0) {
+                        this.container.style.display = 'none';
+                        this.resolveRun();
+                        return;
+                    }
+
+                    // Loop through all blocks and animate them out with random delays
+                    const maxDelay = 0.8; // Speed up: total time window for reveal
+                    let completedAnimations = 0;
+                    const totalBlocks = this.preloaderBlocks.length;
+
+                    this.preloaderBlocks.forEach((block) => {
+                        const randomDelay = Math.random() * maxDelay;
+
+                        gsap.to(block, {
+                            opacity: 0,
+                            duration: 0.1, // Slightly faster fade per block
+                            ease: 'power1.out',
+                            delay: randomDelay,
+                            onComplete: () => {
+                                gsap.set(block, { opacity: 0 });
+                                completedAnimations++;
+                                // Once the last one finishes (or close to it), resolve
+                                if (completedAnimations >= totalBlocks) {
+                                    this.container.style.display = 'none';
+                                    this.resolveRun();
+                                }
+                            },
+                        });
+                    });
+                }, 200);
+            },
+        });
+    }
 }
 
-// cleanup preloader elements and re-enable scrolling
-function cleanupPreloader() {
-  const overlay = document.querySelector(".overlay");
-  const imageGrid = document.querySelector(".image-grid");
-
-  if (overlay) overlay.remove();
-  if (imageGrid) imageGrid.remove();
-
-  gsap.killTweensOf([
-    ".overlay",
-    ".image-grid",
-    ".projects",
-    ".locations",
-    ".loader",
-    ".project-item",
-    ".location-item",
-    ".projects-header",
-    ".locations-header",
-    ".logo-line-1",
-    ".logo-line-2",
-    ".img",
-  ]);
-
-  // Re-enable scroll when preloader completes
-  enableScroll();
-}
-
-// create animation timelines
-function createAnimationTimelines() {
-  const overlayTimeline = gsap.timeline();
-  const imagesTimeline = gsap.timeline();
-
-  // logo text reveal
-  overlayTimeline.to(".logo-line-1", {
-    backgroundPosition: "0% 0%",
-    color: "#e3e4d8",
-    duration: 1,
-    ease: "none",
-    delay: 0.5,
-    onComplete: () => {
-      gsap.to(".logo-line-2", {
-        backgroundPosition: "0% 0%",
-        color: "#e3e4d8",
-        duration: 1,
-        ease: "none",
-      });
-    },
-  });
-
-  // projects appear
-  overlayTimeline.to([".projects-header", ".project-item"], {
-    opacity: 1,
-    duration: 0.05,
-    stagger: 0.075,
-    delay: 1,
-  });
-
-  // locations appear
-  overlayTimeline.to(
-    [".locations-header", ".location-item"],
-    {
-      opacity: 1,
-      duration: 0.05,
-      stagger: 0.075,
-    },
-    "<"
-  );
-
-  // text color change
-  overlayTimeline.to(".project-item", {
-    color: "#e3e4d8",
-    duration: 0.15,
-    stagger: 0.075,
-  });
-
-  overlayTimeline.to(
-    ".location-item",
-    {
-      color: "#e3e4d8",
-      duration: 0.15,
-      stagger: 0.075,
-    },
-    "<"
-  );
-
-  // fade out projects
-  overlayTimeline.to([".projects-header", ".project-item"], {
-    opacity: 0,
-    duration: 0.05,
-    stagger: 0.075,
-  });
-
-  // fade out locations
-  overlayTimeline.to(
-    [".locations-header", ".location-item"],
-    {
-      opacity: 0,
-      duration: 0.05,
-      stagger: 0.075,
-    },
-    "<"
-  );
-
-  // fade out overlay
-  overlayTimeline.to(".overlay", {
-    opacity: 0,
-    duration: 0.5,
-    delay: 1.5,
-  });
-
-  // reveal images
-  imagesTimeline.to(".img", {
-    clipPath: "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)",
-    duration: 1,
-    delay: 2.5,
-    stagger: 0.05,
-    ease: "hop",
-    onStart: () => {
-      setTimeout(() => {
-        startImageRotation();
-        gsap.to(".loader", { opacity: 0, duration: 0.3 });
-      }, 1000);
-    },
-  });
-
-  // hide images and complete
-  imagesTimeline.to(".img", {
-    clipPath: "polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%)",
-    duration: 1,
-    delay: 2.5,
-    stagger: 0.05,
-    ease: "hop",
-    onComplete: () => {
-      setTimeout(() => {
-        cleanupPreloader();
-      }, 500);
-    },
-  });
-}
-
-// initialization
-function init() {
-  initializeDynamicContent();
-  createAnimationTimelines();
-}
-
-// main execution
-document.addEventListener("DOMContentLoaded", () => {
-  // always run the preloader on each visit
-  // Disable scroll during preloader
-  disableScroll();
-
-  init();
-});
+export const preloader = new Preloader();

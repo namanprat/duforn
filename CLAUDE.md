@@ -1,567 +1,147 @@
-# CLAUDE.md - AI Assistant Guide for Duforn Portfolio
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
-High-performance interactive portfolio built as a static multi-page app with SPA-like transitions. Features immersive WebGL backgrounds, smooth animations, and custom UI components.
-
-**Project Name:** naman-pratulya
-**Type:** Creative Portfolio / Multi-page Application
-
-## Tech Stack
-
-| Tool | Version | Purpose |
-|------|---------|---------|
-| Vite | ^7.1.5 | Build tool (multi-page config) |
-| Barba.js | ^2.10.3 | SPA-style page transitions |
-| Three.js | ^0.180.0 | WebGL backgrounds + postprocessing |
-| three-stdlib | ^2.36.1 | Three.js loader/helper utilities |
-| GSAP | ^3.13.0 | Animations + ScrollTrigger + Draggable + SplitText |
-| Lenis | ^1.3.11 | Smooth scrolling |
-| html2canvas | ^1.4.1 | Page capture for transitions |
-| split-type | ^0.3.4 | Text splitting for animations |
-| postprocessing | ^6.38.2 | Three.js post-processing effects |
-| lil-gui | ^0.21.0 | Debug GUI |
-| Vitest | ^4.0.18 | Unit testing framework |
+Creative portfolio site — static multi-page app with SPA-like transitions via Barba.js, WebGL backgrounds (Three.js), and GSAP animations.
 
 ## Commands
 
 ```bash
-npm run dev       # Dev server (localhost:5173)
-npm run host      # Dev server on LAN
-npm run build     # Production build to dist/
-npm run preview   # Preview production build
-npm test          # Run unit tests (Vitest)
-npm run test:ui   # Run tests with browser UI
-npm run test:coverage  # Run tests with coverage
+npm run dev           # Dev server (localhost:5173)
+npm run build         # Production build to dist/
+npm run preview       # Preview production build
+npm run host          # Dev server on LAN
+npm test              # Run unit tests (Vitest)
+npm run test:ui       # Tests with browser UI
+npm run test:coverage # Tests with coverage report
 ```
 
-## Directory Structure
-
-```
-duforn/
-├── index.html              # Home page
-├── work.html               # Work showcase page
-├── archive.html            # Archive page
-├── film.html               # Film showcase page
-├── contact.html            # Contact page
-├── styles.css              # Global styles + utility classes
-├── vite.config.js          # Vite multi-page configuration
-├── package.json
-│
-├── scripts/                # JavaScript modules
-│   ├── barba.js            # Page routing & lifecycle (MAIN ENTRY)
-│   ├── three.js            # WebGL background (home/contact) + camera blending
-│   ├── transition.js       # Page transition shader effects
-│   ├── work.js             # Work page slider + thumbnail wheel
-│   ├── index.js            # Home page hero scroll effects
-│   ├── middle-carousel.js  # WebGL image carousel
-│   ├── lenis-scroll.js     # Smooth scroll setup
-│   ├── text-reveal.js      # SplitText animations
-│   ├── menu.js             # Navigation menu
-│   ├── link-hover.js       # 3D character flip hover effects
-│   ├── btn-hover.js        # Button hover effects
-│   ├── preloader.js        # Asset preloading
-│   └── archive/            # Archive page (modular)
-│       ├── index.js        # Entry point (init/destroy)
-│       ├── state.js        # Shared state management
-│       ├── config.js       # Configuration constants
-│       ├── renderer.js     # WebGL rendering setup
-│       ├── atlas.js        # Texture atlas management
-│       ├── shaders.js      # Archive-specific shaders
-│       ├── input.js        # Mouse, keyboard, touch input
-│       └── focus.js        # Focus mode panel logic
-│
-├── data/
-│   ├── work-items.js       # Project data for work page
-│   └── archive-items.js    # Archive item data (id, title, year, description, category, image)
-│
-├── public/                 # Static assets (served at root)
-│   ├── home/               # 3D models, textures
-│   │   └── scene.glb       # Main 3D scene
-│   ├── work/               # Work page images
-│   ├── canvas/             # Canvas assets
-│   ├── middle-carousel/    # Carousel images
-│   └── *.woff2, *.ttf      # Fonts
-│
-├── dist/                   # Production build output
-│
-└── SlideshowAnimations-main/  # Reference animation demos (not main app)
-```
+**Note:** Test infrastructure (Vitest + happy-dom) is configured in `vite.config.js`. Baseline test files exist in `test/`, including `test/setup.js` and `test/smoke.test.js`.
 
 ## Architecture
 
-### Pages & Entry Points
+### Multi-Page App with SPA Transitions
 
-Each page is a separate HTML entry in `vite.config.js`:
+Each HTML page (`index.html`, `work.html`, `archive.html`, `film.html`, `contact.html`) is a separate Vite entry point (configured in `vite.config.js`). Barba.js intercepts navigation to create SPA-like transitions between them. The single entry script for all pages is `scripts/barba.js`.
 
-| File | Namespace | Features |
-|------|-----------|----------|
-| `index.html` | `home` | Hero section, WebGL background, WebGL carousel |
-| `work.html` | `work` | Infinite slider, thumbnail wheel with Draggable |
-| `archive.html` | `archive` | 3D archive visualization |
-| `film.html` | `film` | Film showcase |
-| `contact.html` | `contact` | Contact info, WebGL background |
+### Page Lifecycle (scripts/barba.js)
 
-### Page Container Structure
+`scripts/barba.js` is the orchestrator. It imports all page modules and manages their lifecycle:
 
-Every page **MUST** follow this structure for Barba.js:
+1. **`initPageFeatures(namespace)`** runs on every page load/transition:
+   - Shared modules: `initMenu()`, `initScrollTextReveals()`, `initLinkHover()`, `initBtnHover()`
+   - Per-namespace: initializes the relevant page module and destroys others
 
-```html
-<body data-barba="wrapper" class="page-wrap">
-  <!-- Transition overlay -->
-  <div class="transition">
-    <div class="transition-overlay"></div>
-  </div>
+2. **Four transition flows** (registered in `barba.init({ transitions: [...] })`):
+   - **`work-detail-unwrap`** (`work` → `film`) — Work-strip unwrap handoff into the film detail scene
+   - **`detail-work-dissolve`** (`film` → `work`) — Detail-to-work dissolve with shared WebGL continuity
+   - **`webgl-page-transition`** (`home`/`contact`/`work` → `home`/`contact`/`work`) — Shared WebGL camera/model transitions
+   - **`default`** (all remaining namespace changes + initial page load)
 
-  <!-- Navigation (shared across pages) -->
-  <nav class="nav-wrap u-position-fixed">...</nav>
+3. **Destroy before init:** When navigating away, the current page's destroy function is called before the new page initializes. This prevents memory leaks from stacked WebGL contexts and event listeners.
 
-  <!-- WebGL background container -->
-  <div id="background"></div>
+### Key Modules
 
-  <!-- Page content -->
-  <main data-barba="container" data-barba-namespace="home">
-    <!-- Page-specific content -->
-  </main>
+| Module | Init / Destroy | Notes |
+|--------|---------------|-------|
+| `scripts/three.js` | `webgl()` / `destroyWebgl()` | Shared base WebGL runtime (home/contact/work). Key controls include `swapModel()` and `setScenePage()`. |
+| `scripts/work.js` | `initWork()` / `destroyWork()` | Work namespace 3D strip scene and transition handoff helpers. |
+| `scripts/archive.js` | `initArchive()` / `destroyArchive()` | Archive namespace 3D atlas scene with dedicated renderer/composer lifecycle. |
+| `scripts/project-canvas.js` | `initFilm()` / `destroyFilm()` | Film/detail namespace WebGL runtime; also exposes shared-scene API (`initProjectSceneShared()` / `destroyProjectSceneShared()`). |
+| `scripts/transition.js` | `animateTransition()` / `revealTransition()` / `destroyTransition()` | Ink/shader transition renderer utilities used by transition orchestration and cleanup. |
+| `scripts/text-reveal.js` | `initScrollTextReveals()` / `cleanupScrollTriggers()` / `cleanupSplits()` | SplitText + ScrollTrigger setup/teardown for page/transition-safe text animation. |
+| `scripts/link-hover.js` | `initLinkHover()` / `destroyLinkHover()` | Hover text/character interaction effects for link elements. |
+| `scripts/btn-hover.js` | `initBtnHover()` / `destroyBtnHover()` | Button hover interaction lifecycle; re-initialized per page transition. |
+| `scripts/project-page-data.js` | `bindFilmProjectData()` | Binds selected project content to film/detail DOM from URL or transition state. |
+| `scripts/shared-transition-state.js` | `setProjectTransitionState()` / `getProjectTransitionState()` / `clearProjectTransitionState()` | Session-backed transition payload handoff between work and film flows. |
 
-  <script type="module" src="/scripts/barba.js"></script>
-</body>
-```
+### Data Files
 
-### Barba.js Lifecycle
+- `data/work-items.js` — Project data for work page
+- `data/archive-items.js` — Archive item metadata (id, title, year, description, category, image)
 
-There are **two transition types**:
+## Module Pattern (Required)
 
-**`home-contact-transition`** (home ↔ contact): Text-based transitions with camera blending, no html2canvas capture.
-```
-once()  → initPageFeatures() → revealTransition() → animateRevealEnter()
-leave() → setCameraPage() → text animations out → Promise.all()
-enter() → set initial text states
-after() → initPageFeatures() → animateRevealEnter() / hero text in
-```
-
-**`default`** (all other navigations): Standard html2canvas shader transitions.
-```
-once()  → initPageFeatures() → revealTransition() → text animations
-leave() → destroy page modules → cleanupScrollTriggers() → animateTransition()
-enter() → revealTransition()
-after() → initPageFeatures()
-```
-
-**Key file:** `scripts/barba.js:77-366`
-
-### initPageFeatures(namespace)
-
-Called on every page load/transition (see `scripts/barba.js:40-75`):
-
-1. `initTime()` — Clock display
-2. `initMenu()` — Navigation
-3. `initScrollTextReveals()` — Text animations
-4. `initLinkHover()` — 3D character flip hover effects
-5. `initBtnHover()` — Button effects
-6. Namespace-specific:
-   - `home` / `contact`: `webgl()` + `setCameraPage(ns, true)`, home also calls `initIndex()`
-   - `work`: `initWork()`, destroys WebGL + archive
-   - `archive`: `initArchiveScene()` (from `./archive/index.js`), destroys WebGL
-
-## Module Pattern
-
-### Standard Structure
-
-Every module **MUST** follow this pattern:
+Every page module **must** expose a matching `init`/`destroy` lifecycle pair. `init` may be async when setup requires async asset loading.
 
 ```javascript
-// State variables at module level
 let rafId = null;
-let resizeHandler = null;
-const elements = {};
 
-export function initModule() {
-  // 1. Query DOM once and cache references
-  elements.container = document.querySelector('.container');
-
-  // 2. Setup event listeners (named functions, not anonymous)
-  addEventListeners();
-
-  // 3. Start animation loop if needed
-  startLoop();
+export async function initModule() {
+  // 1. Cache DOM queries in module-level variables
+  // 2. Add named event listeners (not anonymous — needed for removal)
+  // 3. Initialize async assets/resources when needed
+  // 4. Start animation loops
 }
 
 export function destroyModule() {
-  // 1. Cancel animation frames
-  if (rafId) {
-    cancelAnimationFrame(rafId);
-    rafId = null;
-  }
-
-  // 2. Remove event listeners
-  removeEventListeners();
-
-  // 3. Clear DOM references
-  Object.keys(elements).forEach(k => delete elements[k]);
-}
-
-// Named event handlers (required for proper removal)
-function onResize() { /* ... */ }
-function onScroll() { /* ... */ }
-
-function addEventListeners() {
-  window.addEventListener('resize', onResize);
-  window.addEventListener('scroll', onScroll);
-}
-
-function removeEventListeners() {
-  window.removeEventListener('resize', onResize);
-  window.removeEventListener('scroll', onScroll);
+  // 1. cancelAnimationFrame(rafId)
+  // 2. Remove all event listeners (by named reference)
+  // 3. Dispose Three.js resources (geometries, materials, textures, renderers, composers)
+  // 4. Kill GSAP tweens and ScrollTriggers
+  // 5. Null out DOM references
 }
 ```
 
-### Critical Rules
+**Critical:** Guard against double-init with module flags/tokens (`isRunning`, `isWorkInitialized`, init tokens) before creating new runtimes. See `scripts/three.js`, `scripts/work.js`, and `scripts/archive.js`.
 
-1. **Every `init` MUST have a matching `destroy`**
-2. **Store event handlers as named functions** (not anonymous)
-3. **Cancel ALL animation frames in destroy**
-4. **Clear DOM references to prevent memory leaks**
-5. **Check `isRunning` flag before initialization** (see `scripts/three.js:115-117`)
+## Page HTML Structure
 
-## WebGL Implementation
+Every page must follow this Barba.js structure:
 
-### Background WebGL (`scripts/three.js`)
-
-- Attaches to `#background` element
-- Loads GLTF from `/home/scene.glb`
-- Shared across home and contact pages (not destroyed during home↔contact transitions)
-- Camera blends between home position (polar orbit with scroll zoom) and contact position (fixed with mouse parallax)
-- Uses EffectComposer with custom dissolve shader (chromatic aberration + FBM noise)
-
-```javascript
-// Initialize (checks isRunning flag internally)
-import webgl, { destroyWebgl, setCameraPage } from './three.js';
-webgl();
-
-// Switch camera between home/contact (animated blend, 1.2s)
-setCameraPage('contact');       // smooth tween
-setCameraPage('home', true);    // immediate, no animation
-
-// Cleanup (CRITICAL - prevents memory leaks)
-destroyWebgl();
-```
-
-**Camera blending:** `cameraState.contactBlend` (0 = home, 1 = contact) is animated via GSAP tween. The current page is persisted in `sessionStorage('webgl-page')` so re-initialization after navigation to/from archive/work restores the correct position.
-
-### Transition WebGL (`scripts/transition.js`)
-
-- Uses html2canvas to capture page state
-- Custom shader for portal-style transitions
-- Manages its own WebGL context
-
-```javascript
-import { animateTransition, revealTransition } from './transition.js';
-
-// On leave
-await animateTransition();
-
-// On enter
-await revealTransition();
-```
-
-### Three.js Disposal Pattern
-
-**ALWAYS** dispose resources:
-
-```javascript
-geometry.dispose();
-material.dispose();
-texture.dispose();
-renderer.dispose();
-composer.dispose();
-
-// Remove from DOM
-if (renderer.domElement && renderer.domElement.parentNode) {
-  renderer.domElement.parentNode.removeChild(renderer.domElement);
-}
-```
-
-## Animation Patterns
-
-### GSAP Usage
-
-```javascript
-import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-gsap.registerPlugin(ScrollTrigger);
-
-// Immediate set (no animation)
-gsap.set(element, { opacity: 0 });
-
-// Animate
-gsap.to(element, { opacity: 1, duration: 0.5, ease: 'power2.out' });
-
-// From-to
-gsap.fromTo(element, { y: 100 }, { y: 0, duration: 0.8 });
-
-// With ScrollTrigger
-gsap.to(element, {
-  opacity: 0,
-  scrollTrigger: {
-    trigger: '.section',
-    start: 'top top',
-    end: 'bottom 50%',
-    scrub: true
-  }
-});
-```
-
-### Text Reveal System (`scripts/text-reveal.js`)
-
-```javascript
-import { getOrSplit, initScrollTextReveals, animateRevealEnter } from './text-reveal.js';
-
-// Get or create split (caches result)
-const split = getOrSplit(element);
-
-// Animate words
-gsap.fromTo(split.words,
-  { y: 100, opacity: 0 },
-  { y: 0, opacity: 1, stagger: 0.03 }
-);
-```
-
-**CSS Classes:**
-- `.text-reveal` — Words slide up on scroll
-- `.text-reveal-reverse` — Words slide down on scroll
-- `.text-reveal-header` — Header text with transition animations
-- `.body-text-reveal` — Body text with line-by-line reveal (excludes hero elements)
-- `.hero-text-reveal` — Hero text with line-based splitting (home page, animated in Barba transitions)
-
-### Lenis Smooth Scroll (`scripts/lenis-scroll.js`)
-
-```javascript
-import { lenis } from './lenis-scroll.js';
-
-// Lenis is already configured and connected to GSAP ticker
-// Config: lerp: 0.12, duration: 1.2, smoothWheel: true
-```
-
-## CSS Conventions
-
-### CSS Variables (`:root`)
-
-```css
-/* Colors */
---theme-background: #000;
---theme-primary: #e2e2e2;
---theme-accent: #e2e2e2;
-
-/* Typography */
---text-style-font-primary: "InterVariable", sans-serif;
---text-style-font-secondary: secondary, monospace;
---typography-font-size-display: clamp(4rem, ..., 7rem);
---typography-font-size-h1: clamp(3rem, ..., 5rem);
-/* ... h2-h6, text-main, text-small, large */
-
-/* Spacing */
---site--margin: clamp(1rem, ..., 3rem);
---site--gutter: clamp(1rem, ..., 2rem);
---spacing-space-1 through --spacing-space-8
-
-/* Layout */
---site--column-count: 12;
---column-width: calc(...);
---column-width-1 through --column-width-12
-```
-
-### Utility Classes
-
-The project uses a comprehensive utility class system (BEM-like naming with `u-` prefix):
-
-**Layout:**
-- `.u-container`, `.u-container-small`, `.u-container-full`
-- `.u-position-fixed`, `.u-position-absolute`, `.u-position-relative`
-- `.u-flex-horizontal-wrap`, `.u-flex-vertical-wrap`, `.u-flex-vertical-nowrap`
-- `.u-align-items-center`, `.u-justify-content-between`
-
-**Spacing:**
-- `.u-gap-0` through `.u-gap-8`
-- `.u-margin-top-0` through `.u-margin-top-8`
-- `.u-padding-0` through `.u-padding-8`
-
-**Typography:**
-- `.u-text-style-display`, `.u-text-style-h1` through `.u-text-style-h6`
-- `.u-text-style-large`, `.u-text-style-main`, `.u-text-style-small`
-- `.u-text-style-font-primary`, `.u-text-style-font-secondary`
-
-**Display:**
-- `.u-display-block`, `.u-display-none`, `.u-display-inline-flex`
-- `.u-overflow-hidden`, `.u-overflow-visible`
-
-**Columns:**
-- `.u-column-width-1` through `.u-column-width-12`
-
-**Other:**
-- `.u-zindex-1` through `.u-zindex-3`
-- `.u-pointer-on`, `.u-pointer-off`
-- `.u-mobile-hidden`
-- `.u-background-transparent`
-
-## Asset Paths
-
-### Public Directory
-
-All assets in `public/` are served at root URL:
-
-```javascript
-// Correct
-'/home/scene.glb'
-'/work/work-1.jpg'
-'/middle-carousel/spotlight-1.jpg'
-
-// Wrong
-'./public/home/scene.glb'
-'../public/work/work-1.jpg'
+```html
+<body data-barba="wrapper" class="page-wrap">
+  <div class="transition"><div class="transition-overlay"></div></div>
+  <nav class="nav-wrap u-position-fixed">...</nav>
+  <div id="background"></div>
+  <main data-barba="container" data-barba-namespace="NAMESPACE">
+    <!-- Page content -->
+  </main>
+  <script type="module" src="/scripts/barba.js"></script>
+</body>
 ```
 
 ## Adding a New Page
 
-1. **Create HTML file** (`newpage.html`):
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>New Page</title>
-  <link rel="icon" href="/site-icon.png" />
-  <link rel="stylesheet" href="/styles.css" />
-</head>
-<body data-barba="wrapper" class="page-wrap">
-  <!-- Include transition overlay, nav, menu (copy from existing page) -->
+1. Create a new page HTML entry file following the HTML structure above
+2. Add entry to `vite.config.js` → `rollupOptions.input`
+3. Create a matching page module in `scripts/` with `init`/`destroy` exports (async init is allowed)
+4. Wire into `scripts/barba.js`: import module, add namespace handling in `initPageFeatures()`
+5. Update `barba.init()` transitions: include the new namespace in `from`/`to` rules or add a dedicated transition if needed
 
-  <div id="background"></div>
+## CSS Conventions
 
-  <main data-barba="container" data-barba-namespace="newpage">
-    <!-- Page content -->
-  </main>
+- **Variables** defined on `:root` — colors (`--theme-background`, `--theme-primary`), typography sizes (`--typography-font-size-*`), spacing (`--spacing-space-1` through `--spacing-space-8`), 12-column grid (`--column-width-*`)
+- **Utility classes** use `u-` prefix: `u-container`, `u-flex-horizontal-wrap`, `u-text-style-h1`, `u-margin-top-4`, `u-column-width-6`, `u-mobile-hidden`, etc.
+- **Fonts:** `--text-style-font-primary` (InterVariable), `--text-style-font-secondary` (secondary, monospace)
 
-  <script type="module" src="/scripts/barba.js"></script>
-</body>
-</html>
-```
+## Text Animation Classes
 
-2. **Add to Vite config** (`vite.config.js`):
-```javascript
-rollupOptions: {
-  input: {
-    // ... existing entries
-    newpage: resolve(__dirname, 'newpage.html'),
-  }
-}
-```
+- `.text-reveal` — Words slide up on scroll
+- `.text-reveal-reverse` — Words slide down on scroll
+- `.text-reveal-header` — Header text with transition animations
+- `.body-text-reveal` — Body text line-by-line reveal (excludes hero elements)
+- `.hero-text-reveal` — Hero text (home page), animated in Barba transitions
 
-3. **Create module** (`scripts/newpage.js`):
-```javascript
-let rafId = null;
-// ... state variables
+## Asset Paths
 
-export function initNewpage() {
-  // Setup
-}
+Assets in `public/` are served at root: use `/home/scene.glb`, not `./public/home/scene.glb`.
 
-export function destroyNewpage() {
-  // Cleanup - cancel RAF, remove listeners, clear refs
-}
-```
+## Performance Rules
 
-4. **Wire into Barba** (`scripts/barba.js`):
-```javascript
-import { initNewpage, destroyNewpage } from './newpage.js';
+- Cap pixel ratio: `Math.min(window.devicePixelRatio || 1, 1.5)`
+- Throttle/debounce scroll and resize handlers
+- Use GSAP for animations, not CSS transitions on frequently animated properties
+- Query DOM once, cache references in module-level variables
 
-// In initPageFeatures() — add an else-if branch:
-} else if (ns === 'newpage') {
-  // Destroy other page modules as needed
-  destroyWork();
-  destroyArchiveScene();
-  destroyWebgl();
-  initNewpage();
-}
+## Deployment
 
-// In the default leave transition:
-if (data?.current?.namespace === 'newpage') {
-  destroyNewpage();
-}
-```
+Deployment platform configuration is managed outside this repo. In-repo validation requirement: run `npm run build` before PRs and verify the production build succeeds.
 
-## Performance Best Practices
+## Branch & PR Guidelines
 
-1. **DOM Queries:** Query once, cache references in module-level variables
-2. **Event Handlers:** Use named functions, throttle scroll/resize (see `scripts/three.js:191-201`)
-3. **Animations:** Use GSAP, not CSS transitions on frequently animated properties
-4. **Three.js:**
-   - Dispose ALL resources (geometries, materials, textures, renderers)
-   - Cap pixel ratio: `Math.min(window.devicePixelRatio || 1, 1.5)`
-   - Debounce resize handlers (see `scripts/three.js:159-172`)
-5. **Images:** Use appropriate sizes, assets from `public/` are not processed
-
-### Memory Leak Prevention Checklist
-
-- [ ] Cancel all `requestAnimationFrame` calls
-- [ ] Remove all event listeners (use named handler references)
-- [ ] Dispose Three.js geometries, materials, textures, renderers, composers
-- [ ] Kill all GSAP tweens and ScrollTriggers
-- [ ] Clear object/DOM references
-
-## Debugging
-
-### Common Issues
-
-| Problem | Check |
-|---------|-------|
-| Blank after transition | `transition-overlay` exists, html2canvas CORS settings |
-| WebGL not rendering | Asset path (must start with `/`), console errors, check if `destroyWebgl()` was called |
-| Memory leak | Destroy functions called, listeners removed, Three.js disposed |
-| Animation jank | Layout thrashing, unthrottled handlers |
-| Scroll not smooth | Lenis initialized, GSAP ticker connected |
-| Text not animating | Check class names (`.text-reveal`, `.body-text-reveal`) |
-
-### DevTools Tips
-
-```javascript
-// Check Three.js memory
-console.log(renderer.info.memory);
-console.log(renderer.info.render);
-
-// Verify Lenis
-import { lenis } from './lenis-scroll.js';
-console.log(lenis);
-
-// Check active ScrollTriggers
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-console.log(ScrollTrigger.getAll());
-
-// Check split text cache
-// (WeakMap in text-reveal.js - not directly inspectable)
-```
-
-## Key Files Quick Reference
-
-| File | Purpose | Key Exports |
-|------|---------|-------------|
-| `scripts/barba.js` | Page routing & lifecycle | `initPageFeatures()` |
-| `scripts/three.js` | WebGL background + camera | `webgl()`, `destroyWebgl()`, `setCameraPage()` |
-| `scripts/transition.js` | Page transitions | `animateTransition()`, `revealTransition()`, `closeMenuIfOpen()` |
-| `scripts/work.js` | Work page | `initWork()`, `destroyWork()` |
-| `scripts/archive/index.js` | Archive page | `initArchiveScene()`, `destroyArchiveScene()` |
-| `scripts/index.js` | Home page hero scroll | `initIndex()`, `destroyIndex()` |
-| `scripts/text-reveal.js` | Text animations | `getOrSplit()`, `initScrollTextReveals()`, `animateRevealEnter()`, `cleanupScrollTriggers()` |
-| `scripts/link-hover.js` | 3D char flip hover | `initLinkHover()`, `destroyLinkHover()` |
-| `scripts/lenis-scroll.js` | Smooth scroll | `lenis` |
-| `data/work-items.js` | Work data | `workItems` |
-| `data/archive-items.js` | Archive data | `archiveItems` |
-
-## External Resources
-
-- [Barba.js Docs](https://barba.js.org/)
-- [GSAP Docs](https://greensock.com/docs/)
-- [Three.js Docs](https://threejs.org/docs/)
-- [Lenis GitHub](https://github.com/darkroomengineering/lenis)
-- [Vite MPA Guide](https://vitejs.dev/guide/build.html#multi-page-app)
+- Create feature branches from `main`
+- Run `npm test` and `npm run build` before opening a PR
+- Verify no memory leaks in new modules (check destroy functions)

@@ -1,1734 +1,2050 @@
 import gsap from 'gsap';
-import { Flip } from 'gsap/flip';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
-import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
-import { Text as TroikaText } from 'troika-three-text';
-import GUI from 'lil-gui';
+import barba from '@barba/core';
 import { workItems } from '../data/work-items.js';
-import { CRTShader } from './CRTShader.js';
+import { GLTFLoader } from 'three-stdlib';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import {
+  registerGalleryOverlay,
+  unregisterGalleryOverlay,
+  getRenderer,
+  createFakeVolumeGlow,
+  setBaseSceneOpacity,
+} from './three.js';
+import { preloader } from './preloader.js';
 
-gsap.registerPlugin(Flip);
+import { applyWorkSignaturePostFX } from './postfx-work-signature.js';
+import { createPostFXUniforms } from './shaders/post-fx.js';
 
-// Single-ring circle gallery with kokomi-style scroll, grain, and animated effects
-const USE_DOM_WHEEL = false;
+
+// Cinematic 3D strip carousel — one continuous curved mesh wrapping an arc,
+// with UV-scrolled image segments, wave displacement, and parallax.
+// Composited by the shared renderer via registerGalleryOverlay().
+
+let isWorkInitialized = false;
+
+
+function getActiveWorkContainer() {
+  const containers = document.querySelectorAll('[data-barba="container"][data-barba-namespace="work"]');
+  if (!containers.length) return null;
+  return containers[containers.length - 1];
+}
 
 const CONFIG = {
-  RING_RADIUS: 332,
-  IMAGE_WIDTH: 65,
-  IMAGE_HEIGHT: 65,
-  SCROLL_SPEED: 0.0012,
-  SCROLL_LERP: 0.12,
-  DRAG_MULTIPLIER: -1.2,
-  EDGE_DISTORTION: 0.15,
-  GRAIN_INTENSITY: 0.03,
-  Z_DEPTH_INTENSITY: 80,
-  VELOCITY_DECAY: 0.88,
-  // Cascade animation config
-  CASCADE_SPREAD_RADIUS: 250,
-  CASCADE_PHASE_DURATION: 0.6,
-  CASCADE_STAGGER: 0.06,
-  CASCADE_FALL_DURATION: 0.5,
+  // Strip geometry
+  ARC_RADIUS: 14,            // cylinder radius
+  ARC_SPAN: 3.5,             // Wider arc (~200 degrees)
+  STRIP_HEIGHT: 5.5,         // Taller strip for 5:4 aspect ratio
+  STRIP_Y_OFFSET: -1.2,      // vertical center of strip (pushes below title)
+  WIDTH_SEGMENTS: 96,
+  HEIGHT_SEGMENTS: 24,
+
+  // How many image slots are visible across the strip
+  ITEMS_ON_STRIP: 11,         // Increased to maintain density with wider arc/taller items
+  GAP_SIZE: 0.03,             // normalized gap between images
+  NUM_UNIQUE: 6,              // unique textures
+
+  // Camera
+  CAMERA_FOV: 50,
+  CAMERA_Z: 12,
+
+  // Scroll / drag (scroll is in "item units" — 1.0 = one image width)
+  SCROLL_SPEED: 0.004,
+  SCROLL_LERP: 0.08,
+  DRAG_MULTIPLIER: 0.008,
+
+  // Parallax
+  PARALLAX_ROTATION_X: 0.018,
+  PARALLAX_ROTATION_Y: 0.03,
+  PARALLAX_CAMERA_X: 0.09,
+  PARALLAX_CAMERA_Y: 0.05,
+  PARALLAX_LERP: 0.06,
+
+  // Use same parallax config as three.js
+  PARALLAX_ANGLE_RANGE: 0.2,
+  PARALLAX_Y_RANGE: 0.3,
+  PARALLAX_TILT_RANGE: 0.04,
+  PARALLAX_CONFIG_LERP: 0.05,
+  PARALLAX_ORBIT_RADIUS: 5,
+
+  // Wave shader (Simplex Noise)
+  WAVE_AMPLITUDE: 0.6,
+  WAVE_FREQUENCY: 0.5,
+  WAVE_SPEED: 0.2,
+  WAVE_FLOW_X: 0.9,
+  WAVE_FLOW_Y: 0.05,
+  WAVE_FLOW_TURBULENCE: 0.08,
+  WAVE_LAYER_FLOW_1: 0.45,
+  WAVE_LAYER_FLOW_2: 0.9,
+  WAVE_LAYER_FLOW_3: 1.35,
+  WIND_BASE_STRENGTH: 0.16,
+  WIND_GUST_SCALE: 0.22,
+  WIND_GUST_FREQ_1: 0.7,
+  WIND_GUST_FREQ_2: 2.3,
+  WIND_PIN_POWER: 1.8,
+  REVEAL_DURATION: 0.95,
+  REVEAL_SOFTNESS: 0.06,
+  REVEAL_EASE: 'power2.out',
+
+  // Lighting
+  POINT_LIGHT_INTENSITY: 3.5,
+  POINT_LIGHT_Z: 10,
+  AMBIENT_INTENSITY: 1.2,
+  DIRECTIONAL_LIGHT_INTENSITY: 2.0,
+
+  // Particles
+  PARTICLE_COUNT: 200,
+  PARTICLE_BOUNDS: { xHalf: 8, yMin: -3, yMax: 5, zMin: -16, zMax: 2 },
+
+  // Scroll tilt
+  SCROLL_TILT_AMOUNT: 0.08,
+  SCROLL_TILT_LERP: 0.04,
+  SCROLL_TILT_MAX: 0.15,
 };
 
-// CRT post-processing configuration (tunable for work page)
-const CRT_CONFIG = {
-  scanlineIntensity: 0.38,
-  scanlineCount: 663.0,
-  brightness: 1.48,
-  contrast: 1.06,
-  saturation: 1.20,
-  bloomIntensity: 0.23,
-  bloomThreshold: 0.35,
-  rgbShift: 0.12,
-  adaptiveIntensity: 1.0,
-  vignetteStrength: 0.0,
-  curvature: 0.65,
-  flickerStrength: 0.0,
-};
+// ─── SHADERS ────────────────────────────────────────────────────────────────────
 
-const ABERRATION_CONFIG = {
-  motionSmoothing: 0.14,
-  velocityToBoost: 0.42,
-  maxBoost: 0.85,
-  additiveBoost: 0.06,
-  multiplicativeBoost: 1.8,
-};
+const STRIP_VERTEX_SHADER = /* glsl */ `
+  uniform float uTime;
+  uniform float uWaveAmp;
+  uniform float uWaveFreq;
+  uniform float uWaveSpeed;
+  uniform vec2 uWaveFlow;
+  uniform float uWaveFlowTurbulence;
+  uniform vec3 uWaveLayerFlow;
+  uniform float uWindStrength;
+  uniform float uWindPinPower;
+  uniform float uFlatten;
+  uniform float uArcRadius;
+  uniform float uArcSpan;
 
-// Scroll distortion and grain shader (chromatic aberration handled by CRT post-processing)
-const VERTEX_SHADER = `
   varying vec2 vUv;
-  
+  varying vec3 vViewPosition;
+  varying vec3 vNormal;
+
+  // ─── SIMPLEX NOISE 3D (Ashima/McEwan) ───
+  vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+  vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+  vec4 permute(vec4 x) { return mod289(((x * 34.0) + 1.0) * x); }
+  vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+
+  float snoise(vec3 v) {
+    const vec2 C = vec2(1.0/6.0, 1.0/3.0);
+    const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+
+    // First corner
+    vec3 i  = floor(v + dot(v, C.yyy));
+    vec3 x0 = v - i + dot(i, C.xxx);
+
+    // Other corners
+    vec3 g = step(x0.yzx, x0.xyz);
+    vec3 l = 1.0 - g;
+    vec3 i1 = min( g.xyz, l.zxy );
+    vec3 i2 = max( g.xyz, l.zxy );
+
+    vec3 x1 = x0 - i1 + C.xxx;
+    vec3 x2 = x0 - i2 + C.yyy; // 2.0*C.x = 1/3 = C.y
+    vec3 x3 = x0 - D.yyy;      // -1.0+3.0*C.x = -0.5 = -D.y
+
+    // Permutations
+    i = mod289(i);
+    vec4 p = permute( permute( permute(
+              i.z + vec4(0.0, i1.z, i2.z, 1.0 ))
+            + i.y + vec4(0.0, i1.y, i2.y, 1.0 ))
+            + i.x + vec4(0.0, i1.x, i2.x, 1.0 ));
+
+    // Gradients: 7x7 points over a square, mapped onto an octahedron.
+    // The ring size 17*17 = 289 is close to a multiple of 49 (49*6 = 294)
+    float n_ = 0.142857142857; // 1.0/7.0
+    vec3  ns = n_ * D.wyz - D.xzx;
+
+    vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+
+    vec4 x_ = floor(j * ns.z);
+    vec4 y_ = floor(j - 7.0 * x_ );
+
+    vec4 x = x_ *ns.x + ns.yyyy;
+    vec4 y = y_ *ns.x + ns.yyyy;
+    vec4 h = 1.0 - abs(x) - abs(y);
+
+    vec4 b0 = vec4( x.xy, y.xy );
+    vec4 b1 = vec4( x.zw, y.zw );
+
+    vec4 s0 = floor(b0)*2.0 + 1.0;
+    vec4 s1 = floor(b1)*2.0 + 1.0;
+    vec4 sh = -step(h, vec4(0.0));
+
+    vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ;
+    vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ;
+
+    vec3 p0 = vec3(a0.xy,h.x);
+    vec3 p1 = vec3(a0.zw,h.y);
+    vec3 p2 = vec3(a1.xy,h.z);
+    vec3 p3 = vec3(a1.zw,h.w);
+
+    // Normalise gradients
+    vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+    p0 *= norm.x;
+    p1 *= norm.y;
+    p2 *= norm.z;
+    p3 *= norm.w;
+
+    // Mix final noise value
+    vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+    m = m * m;
+    return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1),
+                                  dot(p2,x2), dot(p3,x3) ) );
+  }
+
   void main() {
     vUv = uv;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    vec3 pos = position;
+    float flatten = clamp(uFlatten, 0.0, 1.0);
+
+    // Arc -> flat unwrapping.
+    float angle = (vUv.x - 0.5) * uArcSpan;
+    float xFlat = angle * uArcRadius;
+    pos.x = mix(pos.x, xFlat, flatten);
+    pos.z = mix(pos.z, 0.0, flatten);
+
+    float t = uTime * uWaveSpeed;
+
+    // ─── CLOTH SIMULATION ───
+    // Pin top edge and increase motion toward loose edge.
+    float looseFactor = 1.0 - vUv.y;
+    float pinInfluence = pow(looseFactor, uWindPinPower);
+    
+    // Scale UVs for noise space
+    // x is long (ribbon length), y is short (ribbon height)
+    vec2 noiseUV = vUv * vec2(2.0, 1.0) * uWaveFreq; 
+    vec2 flow = uWaveFlow * t;
+
+    // Layer 1: Large folds with subtle left->right advection.
+    float n1 = snoise(vec3(
+      noiseUV.x - flow.x * uWaveLayerFlow.x,
+      noiseUV.y - flow.y * uWaveLayerFlow.x,
+      t * uWaveFlowTurbulence
+    ));
+
+    // Layer 2: Smaller details/wrinkles
+    float n2 = snoise(vec3(
+      noiseUV.x * 2.5 - flow.x * uWaveLayerFlow.y,
+      noiseUV.y * 2.5 - flow.y * uWaveLayerFlow.y,
+      t * (uWaveFlowTurbulence * 1.8)
+    ));
+
+    // Layer 3: Fine flutter (mostly at edges)
+    float n3 = snoise(vec3(
+      noiseUV.x * 6.0 - flow.x * uWaveLayerFlow.z,
+      noiseUV.y * 6.0 - flow.y * uWaveLayerFlow.z,
+      t * (uWaveFlowTurbulence * 3.0)
+    ));
+
+    // Edge constraint: center is more constrained, edges flutter more
+    float edgeDist = abs(vUv.y - 0.5) * 2.0; // 0 at center, 1 at edge
+    float flutter = smoothstep(0.2, 1.0, edgeDist); 
+
+    // Wind-driven gust logic (ported from cloth prototype)
+    float wave1 = sin(vUv.x * 5.0 + t * 2.0);
+    float wave2 = sin(vUv.x * 12.0 + t * 4.0 + vUv.y * 5.0);
+    float wave3 = sin(t * 1.5);
+    float ripples = wave1 * 0.5 + wave2 * 0.2 + wave3 * 0.3;
+
+    float noiseDisplacement = (n1 * 1.0 + n2 * 0.4 + n3 * 0.15 * flutter) * uWaveAmp;
+    float windDisplacement = (uWindStrength * 2.0 + ripples * uWaveFreq) * pinInfluence;
+
+    // Combine layers:
+    // Keep the existing look, but drive motion with cloth pin/gust behavior.
+    float displacement = mix(noiseDisplacement, windDisplacement, 0.42) * (1.0 - flatten);
+
+    // Apply displacement along normal
+    pos += normal * displacement;
+
+
+
+    vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+    gl_Position = projectionMatrix * mvPosition;
+    
+    // Pass view position for recomputing normal in fragment shader
+    vViewPosition = -mvPosition.xyz;
+    vNormal = normalize(normalMatrix * normal);
   }
 `;
 
-const FRAGMENT_SHADER = `
-  uniform sampler2D uTexture;
+
+const STRIP_FRAGMENT_SHADER = /* glsl */ `
+  uniform sampler2D uTex0;
+  uniform sampler2D uTex1;
+  uniform sampler2D uTex2;
+  uniform sampler2D uTex3;
+  uniform sampler2D uTex4;
+  uniform sampler2D uTex5;
+  uniform float uScrollOffset;
+  uniform float uItemsOnStrip;
+  uniform float uNumUnique;
+  uniform float uGapSize;
   uniform float uTime;
-  uniform float uEdgeDistortion;
-  uniform float uGrainIntensity;
-  uniform vec2 uScreenPos;
-  uniform vec2 uResolution;
-  
+  uniform float uSelectedIndex;
+  uniform float uNonSelectedFade;
+  uniform float uFocusSlot;
+  uniform float uIsolateSlot;
+  uniform float uTransitionOpacity;
+  uniform float uRevealProgress;
+  uniform float uRevealSoftness;
+  uniform float uArcSpan;
+
   varying vec2 vUv;
-  
-  highp float random(vec2 co) {
-    highp float a = 12.9898;
-    highp float b = 78.233;
-    highp float c = 43758.5453;
-    highp float dt = dot(co.xy, vec2(a, b));
-    highp float sn = mod(dt, 3.14);
-    return fract(sin(sn) * c);
+  varying vec3 vViewPosition;
+  varying vec3 vNormal;
+
+  // Film grain hash
+  float hash(vec2 p) {
+    p = fract(p * vec2(443.897, 441.423));
+    p += dot(p, p + 19.19);
+    return fract(p.x * p.y);
   }
-  
-  vec3 grain(vec2 uv, vec3 col, float amount) {
-    float noise = random(uv + uTime);
-    col += (noise - 0.5) * amount;
-    return col;
-  }
-  
+
   void main() {
-    vec2 uv = vUv;
-    
-    // Calculate screen position for edge effects
-    vec2 screenUV = uScreenPos / uResolution;
-    vec2 screenCenter = vec2(0.5);
-    vec2 toCenter = screenUV - screenCenter;
-    float distFromCenter = length(toCenter);
-    float edgeFactor = distFromCenter * distFromCenter;
-    
-    // Edge-based fisheye distortion
-    float distortion = 1.0 + uEdgeDistortion * edgeFactor;
-    vec2 centeredUV = uv - vec2(0.5);
-    uv = vec2(0.5) + centeredUV * distortion;
-    
-    vec3 col = texture2D(uTexture, uv).rgb;
+    // ─── RECOMPUTE NORMAL ───
+    // Fallback to standard normal for now to debug
+    vec3 normal = normalize(vNormal);
 
-    // Add grain effect
-    col = grain(uv, col, uGrainIntensity);
+    // ─── TEXTURE MAPPING ───
+    float totalU = vUv.x * uItemsOnStrip + uScrollOffset;
+    float itemFract = fract(totalU);
+    float itemIndex = floor(totalU);
 
-    gl_FragColor = vec4(col, 1.0);
+    float wrappedIndex = mod(itemIndex, uNumUnique);
+    if (wrappedIndex < 0.0) wrappedIndex += uNumUnique;
+
+    float halfGap = uGapSize * 0.5;
+    if (itemFract < halfGap || itemFract > 1.0 - halfGap) discard;
+
+    float texU = (itemFract - halfGap) / (1.0 - uGapSize);
+    vec2 texCoord = vec2(texU, vUv.y);
+
+    vec3 col;
+    int idx = int(wrappedIndex);
+    if (idx == 0) col = texture2D(uTex0, texCoord).rgb;
+    else if (idx == 1) col = texture2D(uTex1, texCoord).rgb;
+    else if (idx == 2) col = texture2D(uTex2, texCoord).rgb;
+    else if (idx == 3) col = texture2D(uTex3, texCoord).rgb;
+    else if (idx == 4) col = texture2D(uTex4, texCoord).rgb;
+    else col = texture2D(uTex5, texCoord).rgb;
+
+    // ─── CLOTH LIGHTING (SHEEN) ───
+    
+    // View vector is simply opposite of view position (camera at 0,0,0 in view space)
+    vec3 viewDir = normalize(vViewPosition); 
+    
+    // Fresnel / Sheen
+    // Cloth looks brighter at glancing angles (sheen)
+    float NdotV = abs(dot(normal, viewDir));
+    float sheen = pow(1.0 - NdotV, 2.0); // Broad falloff for softness
+    
+    // Iridescence / Specular
+    // Mix a warm golden tone into the sheen
+    vec3 sheenColor = mix(vec3(0.5), vec3(1.0, 0.9, 0.7), 0.5);
+    col = mix(col, col + sheenColor * 0.4, sheen);
+
+    // Highlight wrinkles
+    // Direct lighting simulation (assuming light from top-front)
+    vec3 lightDir = normalize(vec3(0.2, 0.8, 1.0));
+    float NdotL = max(0.0, dot(normal, lightDir));
+    col *= (0.7 + 0.3 * NdotL); // Ambient + Diffuse
+
+
+
+    // Film grain
+    float grain = (hash(vUv * 1000.0 + uTime * 100.0) - 0.5) * 0.05;
+    col += grain;
+
+    float slotFloor = floor(totalU);
+    float isSelectedSlot = 1.0 - step(0.5, abs(slotFloor - uFocusSlot));
+
+    if (uIsolateSlot > 0.5 && isSelectedSlot < 0.5) discard;
+
+    float nonSelectedFade = clamp(uNonSelectedFade, 0.0, 1.0);
+    float alpha = 1.0;
+    if (uFocusSlot > -0.5) {
+      alpha -= (1.0 - isSelectedSlot) * nonSelectedFade;
+    }
+
+    // Sweep in arc-angle space (right -> left) so reveal starts on the visible edge.
+    float progress = clamp(uRevealProgress, 0.0, 1.0);
+    float angle = (vUv.x - 0.5) * uArcSpan;
+    float startAngle = uArcSpan * 0.52;
+    float endAngle = -uArcSpan * 0.52;
+    float revealHead = mix(startAngle, endAngle, progress);
+    float revealSoft = max(0.0001, uRevealSoftness * uArcSpan);
+    float revealMask = smoothstep(revealHead, revealHead + revealSoft, angle);
+    if (revealMask <= 0.001) discard;
+
+    gl_FragColor = vec4(col, alpha * uTransitionOpacity * revealMask);
   }
 `;
+
+// ─── STATE ──────────────────────────────────────────────────────────────────────
 
 const state = {
-  // DOM
   container: null,
   titleEl: null,
-  captionEl: null,
-  thumbnailWheelEl: null,
-  toggleBtn: null,
-
-  // View mode
-  viewMode: 'wheel', // 'wheel' | 'list'
-
-  // Three.js
-  renderer: null,
   scene: null,
   camera: null,
-  raycaster: null,
   clock: null,
 
-  // CRT post-processing
-  renderTarget: null,
-  crtScene: null,
-  crtCamera: null,
-  crtPass: null,
-  crtUniforms: null,
-
-  // Gallery
-  meshes: [],
-  domThumbnails: [],
-  sharedGeometry: null,
+  // Strip mesh
+  stripGroup: null,     // parent group for parallax
+  stripMesh: null,      // the single curved mesh
+  stripGeometry: null,
+  stripMaterial: null,
   textureCache: new Map(),
-  centerTitleMesh: null,
-  centerTitleText: '',
-  centerTitleMutationObserver: null,
-  centerTitleResizeObserver: null,
-  centerTitleSyncRaf: null,
+  textures: [],         // ordered array [tex0, tex1, tex2, tex3]
 
-  // 3D model (separate perspective scene)
-  modelScene: null,
-  modelCamera: null,
-  model: null,
-  modelMaterials: new Set(),
-  pmremGenerator: null,
-  envRenderTarget: null,
-  shadowCatcher: null,
-  lights: [],
+  // Particles
+  particleSystem: null,
 
-  // Debug
-  gui: null,
-  materialResponse: {
-    roughnessScale: 1,
-    metalnessScale: 1,
-    envMapIntensity: 1,
-  },
+  // Post-processing
+  composer: null,
+  workGlowHandle: null,
 
-  // Mouse parallax (orbital camera, matching home page)
-  cameraTarget: { angle: Math.PI / 2, y: 0, tilt: 0 },
-  cameraCurrent: { angle: Math.PI / 2, y: 0, tilt: 0 },
-  lastMouseTime: 0,
+  // 3D model
+  workModel: null,
+  workModelMaterials: [],
+  tunedMaterials: new Set(),
 
-  // Scroll tracking (kokomi-style)
+  // Lighting
+  pointLight: null,
+  ambientLight: null,
+  directionalLight: null,
+  shadowPlane: null,
+
+  // Scroll state (in item units — 1.0 = one image slot)
   scrollTarget: 0,
   scrollCurrent: 0,
-  scrollDelta: 0,
-
-  // Parallax offsets for wheel meshes (applied on top of scroll rotation)
-  wheelParallaxOffset: { x: 0, y: 0, z: 0, tilt: 0 },
-
-  // Interaction
-  rotation: 0,
-  targetRotation: 0,
   scrollVelocity: 0,
-  crtBaseRgbShift: CRT_CONFIG.rgbShift,
-  crtMotionBoost: 0,
-  isPointerDown: false,
-  lastPointerY: 0,
-  dragStartY: 0,
+  lastDragTime: 0,
+  activeIndex: 0,
+  lastActiveTitle: '',
+
+  // Mouse parallax
+  mouseX: 0,
+  mouseY: 0,
+  parallaxCurrent: { rx: 0, ry: 0, cx: 0, cy: 0 },
+
+  // Scroll tilt
+  scrollTilt: 0,
+
+  // Hover ripple
+  raycaster: new THREE.Raycaster(),
+  rayMouse: new THREE.Vector2(),
+  hoverUV: null,
+  hoverActive: false,
+  rippleStrength: 0,
 
   // Animation
   animationFrame: null,
 
+  // Debug UI
+
+
+  // Intro reveal
+  revealProgress: { value: 1 },
+  introTimeline: null,
+  introComplete: false,
+
+  // Interaction
+  isPointerDown: false,
+  lastPointerX: 0,
+  dragStartX: 0,
+  dragStartY: 0,
+  transitionLocked: false,
+  transitionProgress: 0,
+  selectedItemIndex: -1,
+  selectedSlotIndex: 0,
+  selectedItem: null,
+  clickNdc: new THREE.Vector2(0, 0),
+  transitionTimeline: null,
+  cinematicExitTimeline: null,
+  cinematicExitSnapshot: null,
+  transitionTargetRect: null,
+  stripStart: {
+    position: new THREE.Vector3(0, 0, -1.5),
+    scale: new THREE.Vector3(0.35, 0.35, 0.35),
+    rotationZ: 0,
+  },
+  transitionEnd: {
+    position: new THREE.Vector3(),
+    scale: new THREE.Vector3(),
+    rotationZ: 0,
+  },
+  transitionEndComputed: false,
+
+  // Cover plane for same-canvas morph
+  coverPlane: null,
+  coverPlaneMaterial: null,
+  coverPlaneTexture: null,
+
   // Event handlers
   handlers: {
     resize: null,
-    pointerdown: null,
-    pointermove: null,
-    pointerup: null,
     wheel: null,
-    mousemove: null,
-    toggleView: null,
-    listScroll: null,
+    pointermove: null,
+    pointerdown: null,
+    pointerup: null,
   },
 };
 
-async function loadAllTextures() {
-  const loader = new THREE.TextureLoader();
+// ─── TEXTURE LOADING ────────────────────────────────────────────────────────────
 
-  const promises = workItems.map(item => {
+function loadAllTextures() {
+  const loader = new THREE.TextureLoader();
+  const uniqueImages = [...new Set(workItems.map(item => item.image).filter(Boolean))];
+
+  const promises = uniqueImages.map(src => {
+    if (state.textureCache.has(src)) return Promise.resolve();
     return new Promise((resolve) => {
       loader.load(
-        item.image,
+        src,
         (texture) => {
           texture.colorSpace = THREE.SRGBColorSpace;
-          texture.minFilter = THREE.LinearFilter;
+          texture.minFilter = THREE.LinearMipmapLinearFilter;
           texture.magFilter = THREE.LinearFilter;
-          state.textureCache.set(item.image, texture);
+          texture.generateMipmaps = true;
+          state.textureCache.set(src, texture);
           resolve();
         },
         undefined,
-        (error) => {
-          console.warn(`Failed to load: ${item.image}`, error);
+        () => {
+          console.warn(`[work] Failed to load texture: ${src}`);
           resolve();
         }
       );
     });
   });
 
-  await Promise.all(promises);
+  return Promise.all(promises);
 }
 
-function tunePBRMaterial(material) {
-  if (!material) return material;
+// ─── CURVED STRIP GEOMETRY ──────────────────────────────────────────────────────
+
+function buildStripGeometry() {
+  const R = CONFIG.ARC_RADIUS;
+  const span = CONFIG.ARC_SPAN;
+  const h = CONFIG.STRIP_HEIGHT;
+  const wSeg = CONFIG.WIDTH_SEGMENTS;
+  const hSeg = CONFIG.HEIGHT_SEGMENTS;
+
+  const vertCount = (wSeg + 1) * (hSeg + 1);
+  const positions = new Float32Array(vertCount * 3);
+  const normals = new Float32Array(vertCount * 3);
+  const uvs = new Float32Array(vertCount * 2);
+
+  let vi = 0;
+  let ni = 0;
+  let ui = 0;
+
+  for (let j = 0; j <= hSeg; j++) {
+    const v = j / hSeg;
+    const y = (v - 0.5) * h + CONFIG.STRIP_Y_OFFSET;
+
+    for (let i = 0; i <= wSeg; i++) {
+      const u = i / wSeg;
+      // Angle from -span/2 to +span/2 (centered on camera)
+      const angle = (u - 0.5) * span;
+
+      // Position on cylinder surface, shifted so center is at z=0
+      const x = Math.sin(angle) * R;
+      const z = (Math.cos(angle) - 1) * R;
+
+      positions[vi++] = x;
+      positions[vi++] = y;
+      positions[vi++] = z;
+
+      // Normal points outward from cylinder (away from center at 0,y,-R)
+      const nx = Math.sin(angle);
+      const nz = Math.cos(angle);
+      normals[ni++] = nx;
+      normals[ni++] = 0;
+      normals[ni++] = nz;
+
+      uvs[ui++] = u;
+      uvs[ui++] = v;
+    }
+  }
+
+  // Build index buffer
+  const indices = [];
+  for (let j = 0; j < hSeg; j++) {
+    for (let i = 0; i < wSeg; i++) {
+      const a = j * (wSeg + 1) + i;
+      const b = a + 1;
+      const c = a + (wSeg + 1);
+      const d = c + 1;
+      indices.push(a, b, c);
+      indices.push(b, d, c);
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+  geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+  geometry.setIndex(indices);
+
+  return geometry;
+}
+
+// ─── 3D MODEL LOADING ───────────────────────────────────────────────────────────
+
+function tuneMaterialMaps(material) {
   if (material.map) material.map.colorSpace = THREE.SRGBColorSpace;
   if (material.emissiveMap) material.emissiveMap.colorSpace = THREE.SRGBColorSpace;
-  material.envMapIntensity = Math.max(material.envMapIntensity || 0.5, 0.9);
-  if (material.roughness !== undefined) material.roughness = Math.min(material.roughness, 0.92);
-  if (material.metalness !== undefined) material.metalness = Math.max(material.metalness, 0.02);
   material.needsUpdate = true;
-  return material;
 }
 
-function applyMaterialResponse() {
-  state.modelMaterials.forEach((material) => {
-    if (!material) return;
-    if (material.roughness !== undefined) {
-      material.roughness = THREE.MathUtils.clamp(material.userData.baseRoughness * state.materialResponse.roughnessScale, 0.03, 1);
-    }
-    if (material.metalness !== undefined) {
-      material.metalness = THREE.MathUtils.clamp(material.userData.baseMetalness * state.materialResponse.metalnessScale, 0, 1);
-    }
-    material.envMapIntensity = THREE.MathUtils.clamp(material.userData.baseEnvMapIntensity * state.materialResponse.envMapIntensity, 0.2, 4);
-    material.needsUpdate = true;
+function getFallbackPhysicalMaterial(sourceMaterial) {
+  return new THREE.MeshPhysicalMaterial({
+    color: sourceMaterial?.color?.clone ? sourceMaterial.color.clone() : new THREE.Color(0xffffff),
+    map: sourceMaterial?.map || null,
+    normalMap: sourceMaterial?.normalMap || null,
+    roughnessMap: sourceMaterial?.roughnessMap || null,
+    metalnessMap: sourceMaterial?.metalnessMap || null,
+    aoMap: sourceMaterial?.aoMap || null,
+    roughness: sourceMaterial?.roughness ?? 0.65,
+    metalness: sourceMaterial?.metalness ?? 0.2,
+    clearcoat: 0.12,
+    clearcoatRoughness: 0.16,
+    envMapIntensity: 1.35,
   });
 }
 
-function setupModelEnvironment() {
-  if (!state.renderer || !state.modelScene) return;
-  state.pmremGenerator = new THREE.PMREMGenerator(state.renderer);
-  state.pmremGenerator.compileEquirectangularShader();
+function tuneMeshMaterial(mesh) {
+  const apply = (sourceMaterial) => {
+    if (!sourceMaterial) return sourceMaterial;
+    let material = sourceMaterial;
 
-  const loader = new HDRLoader();
-  loader.load(
-    '/env.hdr',
-    (hdrTexture) => {
-      if (!state.modelScene || !state.pmremGenerator) {
-        hdrTexture.dispose();
-        return;
-      }
-      if (state.envRenderTarget) state.envRenderTarget.dispose();
-      state.envRenderTarget = state.pmremGenerator.fromEquirectangular(hdrTexture);
-      state.modelScene.environment = state.envRenderTarget.texture;
-      state.modelScene.background = state.envRenderTarget.texture;
-      state.modelScene.backgroundBlurriness = 0.56;
-      state.modelScene.backgroundIntensity = 0.45;
-      hdrTexture.dispose();
-      applyMaterialResponse();
-    },
-    undefined,
-    () => {
-      if (state.modelScene) {
-        state.modelScene.environment = null;
-        state.modelScene.background = new THREE.Color(0xf7f7f6);
-      }
+    if (!material.isMeshStandardMaterial && !material.isMeshPhysicalMaterial) {
+      material = getFallbackPhysicalMaterial(sourceMaterial);
     }
-  );
+
+    tuneMaterialMaps(material);
+    material.userData.baseRoughness = material.roughness ?? 0.8;
+    material.userData.baseMetalness = material.metalness ?? 0.0;
+    material.userData.baseEnvMapIntensity = material.envMapIntensity ?? 1;
+    state.tunedMaterials.add(material);
+    return material;
+  };
+
+  if (Array.isArray(mesh.material)) {
+    mesh.material = mesh.material.map(apply);
+  } else {
+    mesh.material = apply(mesh.material);
+  }
 }
 
-function setupModelScene() {
-  const width = window.innerWidth;
-  const height = window.innerHeight;
+function normalizeModelBounds(model) {
+  const box = new THREE.Box3().setFromObject(model);
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
 
-  // Separate perspective scene matching home page (#background) settings
-  state.modelScene = new THREE.Scene();
-  state.modelScene.background = new THREE.Color(0xf7f7f6);
-
-  state.modelCamera = new THREE.PerspectiveCamera(100, width / height, 0.1, 1000);
-  const radius = Math.sqrt(50) / 2.5; // BASE_CAMERA_RADIUS from three.js
-  state.modelCamera.position.set(0, 1, radius);
-  state.modelCamera.lookAt(0, 0, 0);
-
-  // Lighting matching home page
-  const ambient = new THREE.AmbientLight(0xffffff, 0.18);
-  const dirLight = new THREE.DirectionalLight(0xffffff, 3.25);
-  dirLight.position.set(4.2, 7.5, 6.2);
-  dirLight.castShadow = true;
-  dirLight.shadow.mapSize.set(1024, 1024);
-  dirLight.shadow.bias = -0.00012;
-  dirLight.shadow.normalBias = 0.01;
-  dirLight.shadow.camera.near = 1;
-  dirLight.shadow.camera.far = 30;
-  dirLight.shadow.camera.left = -8;
-  dirLight.shadow.camera.right = 8;
-  dirLight.shadow.camera.top = 8;
-  dirLight.shadow.camera.bottom = -8;
-
-  state.modelScene.add(ambient);
-  state.modelScene.add(dirLight);
-  state.lights = [ambient, dirLight];
-
-  const catcherGeometry = new THREE.PlaneGeometry(24, 24);
-  const catcherMaterial = new THREE.ShadowMaterial({ opacity: 0.22 });
-  state.shadowCatcher = new THREE.Mesh(catcherGeometry, catcherMaterial);
-  state.shadowCatcher.rotation.x = -Math.PI / 2;
-  state.shadowCatcher.position.y = -1.35;
-  state.shadowCatcher.receiveShadow = true;
-  state.modelScene.add(state.shadowCatcher);
-}
-
-function loadModel() {
-  const loader = new GLTFLoader();
-  loader.load(
-    '/brev.glb',
-    (glb) => {
-      const model = glb.scene;
-      const box = new THREE.Box3().setFromObject(model);
-      const center = box.getCenter(new THREE.Vector3());
-      const minY = box.min.y;
-      model.position.sub(center);
-      model.position.y -= minY;
-
-      model.traverse((child) => {
-        if (!child.isMesh) return;
-        child.castShadow = true;
-        child.receiveShadow = true;
-
-        if (Array.isArray(child.material)) {
-          child.material = child.material.map((material) => {
-            const tuned = tunePBRMaterial(material);
-            tuned.userData.baseRoughness = tuned.roughness ?? 0.75;
-            tuned.userData.baseMetalness = tuned.metalness ?? 0.05;
-            tuned.userData.baseEnvMapIntensity = tuned.envMapIntensity ?? 1;
-            state.modelMaterials.add(tuned);
-            return tuned;
-          });
-        } else if (child.material) {
-          child.material = tunePBRMaterial(child.material);
-          child.material.userData.baseRoughness = child.material.roughness ?? 0.75;
-          child.material.userData.baseMetalness = child.material.metalness ?? 0.05;
-          child.material.userData.baseEnvMapIntensity = child.material.envMapIntensity ?? 1;
-          state.modelMaterials.add(child.material);
-        }
-      });
-
-      applyMaterialResponse();
-      state.modelScene.add(model);
-      state.model = model;
-    },
-    undefined,
-    (err) => console.error('Work model load error:', err)
-  );
-}
-
-function setupRenderer() {
-  const container = document.getElementById('work-gallery')
-    || document.querySelector("[data-barba-namespace='work'] .slider")
-    || document.querySelector("[data-barba-namespace='work']");
-  if (!container) return false;
-
-  state.container = container;
-
-  const width = window.innerWidth;
-  const height = window.innerHeight;
-
-  state.renderer = new THREE.WebGLRenderer({
-    antialias: true,
-    alpha: true,
-    powerPreference: 'high-performance'
+  model.children.forEach(child => {
+    child.position.x -= center.x;
+    child.position.y -= box.min.y;
+    child.position.z -= center.z;
   });
-  state.renderer.setSize(width, height);
-  state.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  state.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  state.renderer.toneMappingExposure = 1.15;
-  state.renderer.outputColorSpace = THREE.SRGBColorSpace;
-  state.renderer.setClearColor(0xf7f7f6, 1);
-  state.renderer.shadowMap.enabled = true;
-  state.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  container.appendChild(state.renderer.domElement);
 
-  state.camera = new THREE.OrthographicCamera(
-    -width / 2,
-    width / 2,
-    height / 2,
-    -height / 2,
-    -1000,
-    1000
+  return size;
+}
+
+function finalizeModel(model) {
+  const size = normalizeModelBounds(model);
+
+  // Scale model to fit in scene (10x larger)
+  const maxDim = Math.max(size.x, size.y, size.z);
+  if (maxDim > 0) {
+    const targetSize = 40;
+    const s = targetSize / maxDim;
+    model.scale.set(s, s, s);
+  }
+
+  state.workModelMaterials = [];
+  model.traverse((child) => {
+    if (!child.isMesh) return;
+    child.castShadow = true;
+    child.receiveShadow = true;
+    tuneMeshMaterial(child);
+    const mats = Array.isArray(child.material) ? child.material : [child.material];
+    mats.forEach((mat) => {
+      if (!mat) return;
+      if (mat.userData.__baseOpacity === undefined) {
+        mat.userData.__baseOpacity = mat.opacity ?? 1;
+      }
+      state.workModelMaterials.push(mat);
+    });
+  });
+}
+
+async function loadWorkModel() {
+  const workUrl = '/work.glb';
+
+  // Run concurrently — init() only resolves when animation AND assets are both
+  // done, so load() must be in-flight at the same time or init() hangs.
+  await Promise.all([preloader.init(), preloader.load([workUrl])]);
+
+  preloader.hold();
+
+  return new Promise((resolve, reject) => {
+    // Fetch cached model
+    const loader = new GLTFLoader();
+    loader.load(
+      workUrl,
+      (glb) => {
+        state.workModel = glb.scene;
+        finalizeModel(state.workModel);
+
+        // Position model behind the ribbon
+        state.workModel.position.set(0, -5.6, -17.3);
+        state.workModel.scale.set(1, 1, 1);
+
+        state.scene.add(state.workModel);
+
+        // Apply Fresnel fake-volume glow to the designated volume mesh
+        state.workModel.traverse(child => {
+          if (!child.isMesh) return;
+          const n = child.name.toLowerCase();
+          if (n.includes('volume') || n.includes('glow') || n.includes('light')) {
+            state.workGlowHandle = createFakeVolumeGlow(child, state.camera, {
+              c: 1.5, p: 2.1, glowColor: '#fff8de', op: 0.2,
+            });
+          }
+        });
+
+        setTimeout(() => {
+          preloader.release();
+        }, 200);
+
+        resolve();
+      },
+      undefined,
+      (err) => {
+        console.error('[work] Model load error:', err);
+        preloader.release();
+        reject(err);
+      }
+    );
+  });
+}
+
+// ─── SCENE SETUP ────────────────────────────────────────────────────────────────
+
+function setupGalleryScene() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+
+  state.camera = new THREE.PerspectiveCamera(
+    CONFIG.CAMERA_FOV,
+    w / h,
+    0.1,
+    100
   );
-  state.camera.position.z = 500;
+  state.camera.position.set(0, 0, CONFIG.PARALLAX_ORBIT_RADIUS);
 
   state.scene = new THREE.Scene();
-  // No background — transparent so the model scene shows through
 
-  state.raycaster = new THREE.Raycaster();
-  state.clock = new THREE.Clock();
+  // Fog - Deep, dreamy atmospheric fog
+  state.scene.fog = new THREE.FogExp2(0xe6e4dc, 0.055); // Slightly denser, warmer/softer
 
-  setupModelEnvironment();
+  // ── Cinematic 3-Point Lighting ──
 
-  // Setup CRT post-processing
-  setupCRTPass(width, height);
+  // 1. KEY LIGHT: Warm, creating main shadows and form
+  // Using Spotlight for focused, dramatic illumination
+  const keyLight = new THREE.SpotLight(0xfff5e6, 1260); // 10% reduction (1400 -> 1260)
+  keyLight.position.set(10, 15, 12);
+  keyLight.angle = Math.PI / 5;
+  keyLight.penumbra = 0.5; // Softer edges
+  keyLight.decay = 1.6;
+  keyLight.distance = 3;
+  keyLight.castShadow = true;
+  keyLight.shadow.bias = -0.0001;
+  keyLight.shadow.mapSize.width = 2048;
+  keyLight.shadow.mapSize.height = 2048;
+  // Increase shadow softness
+  keyLight.shadow.radius = 4;
+  state.scene.add(keyLight);
+  state.pointLight = keyLight; // Keep reference for potential updates
 
+  // 2. FILL LIGHT: Neutral white to lift shadows without tint
+  const fillLight = new THREE.PointLight(0xffffff, 0.9); // 10% reduction (1 -> 0.9)
+  fillLight.position.set(-15, 0, 10);
+  fillLight.decay = 2;
+  fillLight.distance = 30;
+  state.scene.add(fillLight);
+
+  // 3. RIM LIGHT: Sharp, bright backlight to separate ribbon from background
+  const rimLight = new THREE.SpotLight(0xffffff, 1080); // 10% reduction (1200 -> 1080)
+  rimLight.position.set(0, 10, -15);
+  rimLight.target.position.set(0, 0, -5);
+  rimLight.angle = Math.PI / 4;
+  rimLight.penumbra = 0.6; // Softer rim
+  rimLight.decay = 1.5;
+  rimLight.distance = 40;
+  state.scene.add(rimLight);
+  state.scene.add(rimLight.target);
+
+  // Ambient: Low base level
+  state.ambientLight = new THREE.AmbientLight(0xffffff, 0.54); // 10% reduction (0.6 -> 0.54)
+  state.scene.add(state.ambientLight);
+
+  // Enable shadows on the shared renderer
+  const renderer = getRenderer();
+  if (renderer) {
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
+  }
+
+  // Strip group for collective parallax rotation
+  state.stripGroup = new THREE.Group();
+  state.stripGroup.position.set(0, 0, -1.5);
+  state.stripGroup.scale.set(0.35, 0.35, 0.35);
+  state.scene.add(state.stripGroup);
+  captureStripStartTransform();
+
+  // Shadow catcher — Invisible plane to receive shadows
+  const planeGeo = new THREE.PlaneGeometry(60, 60);
+  const planeMat = new THREE.ShadowMaterial({
+    opacity: 0.15, // Subtle shadow
+    color: 0x000000,
+  });
+  state.shadowPlane = new THREE.Mesh(planeGeo, planeMat);
+  state.shadowPlane.rotation.x = -Math.PI / 2;
+  state.shadowPlane.position.set(0, -6, 0); // Positioned below strip (-5.6 model y, so -6 is good)
+  state.shadowPlane.receiveShadow = true;
+  state.shadowPlane.castShadow = false;
+  state.scene.add(state.shadowPlane);
+
+  // Create floating background particles in the work scene
+  createParticles();
+
+  state.clock = new THREE.Timer();
+
+  // Setup post-processing composer
+  setupPostProcessing();
+
+  registerGalleryOverlay(state.scene, state.camera);
+}
+
+// ─── STRIP MESH CREATION ────────────────────────────────────────────────────────
+
+function setupStrip() {
+  // Build ordered texture array from unique images
+  const uniqueImages = [...new Set(workItems.map(item => item.image))];
+  state.textures = uniqueImages.map(src => state.textureCache.get(src)).filter(Boolean);
+
+  // Pad to 6 if needed (shader expects exactly 6)
+  while (state.textures.length < 6) {
+    state.textures.push(state.textures[0] || new THREE.Texture());
+  }
+
+  state.stripGeometry = buildStripGeometry();
+
+  state.stripMaterial = new THREE.ShaderMaterial({
+    vertexShader: STRIP_VERTEX_SHADER,
+    fragmentShader: STRIP_FRAGMENT_SHADER,
+    uniforms: {
+      uTex0: { value: state.textures[0] },
+      uTex1: { value: state.textures[1] },
+      uTex2: { value: state.textures[2] },
+      uTex3: { value: state.textures[3] },
+      uTex4: { value: state.textures[4] },
+      uTex5: { value: state.textures[5] },
+      uScrollOffset: { value: 0 },
+      uItemsOnStrip: { value: CONFIG.ITEMS_ON_STRIP },
+      uNumUnique: { value: CONFIG.NUM_UNIQUE },
+      uGapSize: { value: CONFIG.GAP_SIZE },
+      uTime: { value: 0 },
+      uWaveAmp: { value: CONFIG.WAVE_AMPLITUDE },
+      uWaveFreq: { value: CONFIG.WAVE_FREQUENCY },
+      uWaveSpeed: { value: CONFIG.WAVE_SPEED },
+      uWaveFlow: { value: new THREE.Vector2(CONFIG.WAVE_FLOW_X, CONFIG.WAVE_FLOW_Y) },
+      uWaveFlowTurbulence: { value: CONFIG.WAVE_FLOW_TURBULENCE },
+      uWaveLayerFlow: { value: new THREE.Vector3(CONFIG.WAVE_LAYER_FLOW_1, CONFIG.WAVE_LAYER_FLOW_2, CONFIG.WAVE_LAYER_FLOW_3) },
+      uWindStrength: { value: CONFIG.WIND_BASE_STRENGTH },
+      uWindPinPower: { value: CONFIG.WIND_PIN_POWER },
+      uHoverUV: { value: new THREE.Vector2(-1, -1) },
+      uFlatten: { value: 0 },
+      uSelectedIndex: { value: -1 },
+      uNonSelectedFade: { value: 0 },
+      uFocusSlot: { value: -1 },
+      uIsolateSlot: { value: 0 },
+      uTransitionOpacity: { value: 1.0 },
+      uRevealProgress: { value: 1.0 },
+      uRevealSoftness: { value: CONFIG.REVEAL_SOFTNESS },
+      uArcRadius: { value: CONFIG.ARC_RADIUS },
+      uArcSpan: { value: CONFIG.ARC_SPAN },
+    },
+    extensions: {
+      derivatives: true,
+    },
+    transparent: true,
+    side: THREE.FrontSide,
+    depthWrite: true,
+  });
+
+  state.stripMesh = new THREE.Mesh(state.stripGeometry, state.stripMaterial);
+  state.stripMesh.frustumCulled = false;
+  state.stripMesh.castShadow = true;
+  state.stripMesh.receiveShadow = false;
+
+  state.stripGroup.add(state.stripMesh);
+}
+
+// ─── PARTICLES ON RIBBON ─────────────────────────────────────────────────────────
+
+// ─── PARTICLES ON RIBBON (REMOVED - using three.js shared particles) ─────────────────────────────────────
+
+// Removed in favor of shared three.js particles
+
+// ─── TITLE (DOM) ────────────────────────────────────────────────────────────────
+
+function updateTitle() {
+  if (!state.titleEl || !state.titleEl.isConnected) {
+    const activeContainer = getActiveWorkContainer();
+    if (activeContainer) {
+      state.container = activeContainer;
+      state.titleEl = activeContainer.querySelector('.slide-title');
+    }
+  }
+  if (!state.titleEl) return;
+
+  const centerItem = 0.5 * CONFIG.ITEMS_ON_STRIP + state.scrollCurrent;
+  const idx = ((Math.floor(centerItem) % CONFIG.NUM_UNIQUE) + CONFIG.NUM_UNIQUE) % CONFIG.NUM_UNIQUE;
+  state.activeIndex = idx;
+
+  const item = workItems[idx];
+  if (!item) return;
+
+  if (state.lastActiveTitle !== item.title) {
+    state.lastActiveTitle = item.title;
+    state.titleEl.textContent = item.title;
+  }
+}
+
+function setStripRevealProgress(progress) {
+  const clamped = clamp01(progress);
+  state.revealProgress.value = clamped;
+  if (state.stripMaterial?.uniforms?.uRevealProgress) {
+    state.stripMaterial.uniforms.uRevealProgress.value = clamped;
+  }
+}
+
+function resetStripRevealState({ progress = 1 } = {}) {
+  if (state.introTimeline) {
+    state.introTimeline.kill();
+    state.introTimeline = null;
+  }
+  setStripRevealProgress(progress);
+}
+
+function startStripSweepReveal() {
+  if (!state.stripMaterial) {
+    state.introComplete = true;
+    state.transitionLocked = false;
+    return;
+  }
+
+  resetStripRevealState({ progress: 0 });
+  state.transitionLocked = true;
+  state.introComplete = false;
+
+  const revealState = state.revealProgress;
+  const finalizeReveal = () => {
+    setStripRevealProgress(1);
+    state.introComplete = true;
+    state.transitionLocked = false;
+    state.introTimeline = null;
+  };
+  state.introTimeline = gsap.timeline({
+    onComplete: finalizeReveal,
+    onInterrupt: finalizeReveal,
+  });
+
+  state.introTimeline.to(revealState, {
+    value: 1,
+    duration: CONFIG.REVEAL_DURATION,
+    ease: CONFIG.REVEAL_EASE,
+    onUpdate: () => {
+      setStripRevealProgress(revealState.value);
+    },
+  });
+}
+
+// ─── UPDATE STRIP ───────────────────────────────────────────────────────────────
+
+function updateStrip(time) {
+  if (!state.stripMaterial) return;
+
+  const u = state.stripMaterial.uniforms;
+  const gust =
+    (Math.sin(time * CONFIG.WIND_GUST_FREQ_1) +
+      Math.sin(time * CONFIG.WIND_GUST_FREQ_2) * 0.5) +
+    0.5;
+  const clampedGust = Math.max(0, gust);
+  u.uScrollOffset.value = state.scrollCurrent;
+  u.uTime.value = time;
+  u.uWindStrength.value = CONFIG.WIND_BASE_STRENGTH + clampedGust * CONFIG.WIND_GUST_SCALE;
+}
+
+// ─── FLOATING PARTICLES ─────────────────────────────────────────────────────────
+
+// ─── FLOATING PARTICLES (REMOVED - using three.js shared particles) ──────────────────────────────────
+
+// Removed in favor of shared three.js particles
+
+// ─── POST-PROCESSING ────────────────────────────────────────────────────────────
+
+const postFXUniforms = createPostFXUniforms();
+postFXUniforms.uResolution = { value: new THREE.Vector2(window.innerWidth, window.innerHeight) };
+
+function setupPostProcessing() {
+  const renderer = getRenderer();
+  if (!renderer) return;
+
+  state.composer = new EffectComposer(renderer);
+  applyWorkSignaturePostFX(state.composer, state.scene, state.camera, postFXUniforms, {
+    includeBloom: true,
+    bloomStrength: 0.05,
+    bloomRadius: 0.3,
+    bloomThreshold: 0.7,
+    includeVignette: false,
+  });
+
+  // Attach composer to scene userData for three.js render integration
+  state.scene.userData.composer = state.composer;
+}
+
+// ─── PARALLAX ───────────────────────────────────────────────────────────────────
+
+// Orbital parallax state (mirrors three.js home page pattern)
+const orbitTarget = { angle: Math.PI / 2, y: 0, tilt: 0 };
+const orbitCurrent = { angle: Math.PI / 2, y: 0, tilt: 0 };
+
+function updateParallax() {
+  // Freeze camera orbit during transition to prevent positional drift
+  if (state.transitionLocked) return;
+
+  const driftTime = state.clock ? state.clock.getElapsed() : 0;
+
+  // Set orbital targets from mouse position (same approach as three.js)
+  orbitTarget.angle = Math.PI / 2 + state.mouseX * CONFIG.PARALLAX_ANGLE_RANGE;
+  orbitTarget.y = -state.mouseY * CONFIG.PARALLAX_Y_RANGE;
+  orbitTarget.tilt = state.mouseX * CONFIG.PARALLAX_TILT_RANGE;
+
+  // Lerp toward targets
+  const l = CONFIG.PARALLAX_CONFIG_LERP;
+  orbitCurrent.angle += (orbitTarget.angle - orbitCurrent.angle) * l;
+  orbitCurrent.y += (orbitTarget.y - orbitCurrent.y) * l;
+  orbitCurrent.tilt += (orbitTarget.tilt - orbitCurrent.tilt) * l;
+
+  if (state.camera) {
+    // Orbit center = ribbon position (match home parallax feel)
+    const center = state.stripGroup
+      ? state.stripGroup.position
+      : { x: 0, y: -0.7, z: -13.4 };
+    const cx = center.x;
+    const cy = center.y;
+    const cz = center.z;
+    const radius = CONFIG.PARALLAX_ORBIT_RADIUS;
+
+    state.camera.position.x = cx + Math.cos(orbitCurrent.angle) * radius;
+    state.camera.position.z = cz + Math.sin(orbitCurrent.angle) * radius;
+    state.camera.position.y = cy + orbitCurrent.y + 1;
+
+    // Handheld micro-drift — subtle oscillations keep scene alive when idle
+    const driftX = Math.sin(driftTime * 0.7) * 0.012 + Math.sin(driftTime * 1.3) * 0.008;
+    const driftY = Math.sin(driftTime * 0.5) * 0.012 + Math.cos(driftTime * 1.1) * 0.008;
+    const driftZ = Math.cos(driftTime * 0.6) * 0.008;
+    state.camera.position.x += driftX;
+    state.camera.position.y += driftY;
+    state.camera.position.z += driftZ;
+
+    // Look at the strip center
+    state.camera.lookAt(cx, cy, cz);
+
+    // Handheld tilt from mouse
+    state.camera.rotation.z += orbitCurrent.tilt;
+
+    // Point light loosely follows camera — reinforces 3D curvature
+    if (state.pointLight) {
+      state.pointLight.position.x = state.camera.position.x * 0.5;
+      state.pointLight.position.y = 0.5 + state.camera.position.y * 0.3;
+    }
+  }
+}
+
+// ─── SCROLL TILT ────────────────────────────────────────────────────────────────
+
+function updateScrollTilt() {
+  if (!state.stripGroup) return;
+  const targetTilt = Math.max(-CONFIG.SCROLL_TILT_MAX,
+    Math.min(CONFIG.SCROLL_TILT_MAX, state.scrollVelocity * CONFIG.SCROLL_TILT_AMOUNT));
+  state.scrollTilt += (targetTilt - state.scrollTilt) * CONFIG.SCROLL_TILT_LERP;
+  state.stripGroup.rotation.z = state.scrollTilt;
+}
+
+// ─── PARTICLES ──────────────────────────────────────────────────────────────────
+
+function createParticles() {
+  const { PARTICLE_COUNT, PARTICLE_BOUNDS } = CONFIG;
+  const { xHalf, yMin, yMax, zMin, zMax } = PARTICLE_BOUNDS;
+  const geo = new THREE.BufferGeometry();
+  const positions = new Float32Array(PARTICLE_COUNT * 3);
+  const sizes = new Float32Array(PARTICLE_COUNT);
+  const opacities = new Float32Array(PARTICLE_COUNT);
+
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    positions[i * 3] = (Math.random() - 0.5) * 2 * xHalf;
+    positions[i * 3 + 1] = yMin + Math.random() * (yMax - yMin);
+    positions[i * 3 + 2] = zMin + Math.random() * (zMax - zMin);
+    sizes[i] = 0.012 + Math.random() * 0.02;
+    opacities[i] = 0.5 + Math.random() * 0.4;
+  }
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
+  geo.setAttribute('aOpacity', new THREE.BufferAttribute(opacities, 1));
+
+  const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+  const mat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.NormalBlending,
+    uniforms: { uPixelRatio: { value: dpr } },
+    vertexShader: /* glsl */ `
+      attribute float aSize;
+      attribute float aOpacity;
+      varying float vOpacity;
+      uniform float uPixelRatio;
+      void main() {
+        vOpacity = aOpacity;
+        vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = aSize * uPixelRatio * (420.0 / -mvPos.z);
+        gl_Position = projectionMatrix * mvPos;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      varying float vOpacity;
+      void main() {
+        float d = length(gl_PointCoord - 0.5) * 2.0;
+        if (d > 1.0) discard;
+        float alpha = smoothstep(1.0, 0.3, d) * vOpacity;
+        gl_FragColor = vec4(vec3(0.85), alpha);
+      }
+    `,
+  });
+
+  state.particleSystem = new THREE.Points(geo, mat);
+  state.particleSystem.frustumCulled = false;
+  state.particleSystem.renderOrder = 10;
+  state.scene.add(state.particleSystem);
+}
+
+function animateParticles(time) {
+  if (!state.particleSystem) return;
+  const positions = state.particleSystem.geometry.attributes.position.array;
+  const { xHalf, yMin, yMax, zMin, zMax } = CONFIG.PARTICLE_BOUNDS;
+
+  for (let i = 0; i < CONFIG.PARTICLE_COUNT; i++) {
+    const i3 = i * 3;
+    positions[i3 + 1] += 0.001;
+    positions[i3] += Math.sin(time * 0.3 + i * 0.5) * 0.0004;
+    positions[i3 + 2] += Math.cos(time * 0.25 + i * 0.7) * 0.0003;
+    if (positions[i3 + 1] > yMax) {
+      positions[i3 + 1] = yMin;
+      positions[i3] = (Math.random() - 0.5) * 2 * xHalf;
+      positions[i3 + 2] = zMin + Math.random() * (zMax - zMin);
+    }
+  }
+  state.particleSystem.geometry.attributes.position.needsUpdate = true;
+}
+
+// ─── SCROLL ─────────────────────────────────────────────────────────────────────
+
+function updateScroll() {
+  if (state.transitionLocked) {
+    state.scrollVelocity = 0;
+    state.scrollTarget = state.scrollCurrent;
+    return;
+  }
+
+  // Apply momentum friction when not dragging
+  if (!state.isPointerDown && Math.abs(state.scrollVelocity) > 0.0001) {
+    state.scrollTarget += state.scrollVelocity;
+    state.scrollVelocity *= 0.95;
+  } else if (!state.isPointerDown) {
+    state.scrollVelocity = 0;
+  }
+
+  state.scrollCurrent += (state.scrollTarget - state.scrollCurrent) * CONFIG.SCROLL_LERP;
+}
+
+// ─── WORK -> FILM TRANSITION HELPERS ───────────────────────────────────────────
+
+function clamp01(value) {
+  return Math.max(0, Math.min(1, value));
+}
+
+function normalizeRect(rect) {
+  const vw = window.innerWidth || 1;
+  const vh = window.innerHeight || 1;
+  if (!rect) {
+    const width = Math.min(vw * 0.35, 420);
+    const height = width * 1.25;
+    return {
+      x: (vw - width) * 0.5,
+      y: (vh - height) * 0.5,
+      width,
+      height,
+    };
+  }
+  return {
+    x: rect.left ?? rect.x ?? 0,
+    y: rect.top ?? rect.y ?? 0,
+    width: Math.max(1, rect.width ?? 1),
+    height: Math.max(1, rect.height ?? 1),
+  };
+}
+
+function captureStripStartTransform() {
+  if (!state.stripGroup) return;
+  state.stripStart.position.copy(state.stripGroup.position);
+  state.stripStart.scale.copy(state.stripGroup.scale);
+  state.stripStart.rotationZ = state.stripGroup.rotation.z;
+}
+
+function restoreStripStartTransform() {
+  if (!state.stripGroup) return;
+  state.stripGroup.position.copy(state.stripStart.position);
+  state.stripGroup.scale.copy(state.stripStart.scale);
+  state.stripGroup.rotation.z = state.stripStart.rotationZ;
+}
+
+function getSlotCenterWorld(slotIndex, flatten) {
+  const u = (slotIndex + 0.5 - state.scrollCurrent) / CONFIG.ITEMS_ON_STRIP;
+  return getStripPointForUv(u, 0.5, flatten);
+}
+
+function computeTransitionEndTransform(targetRect) {
+  if (!state.stripGroup || !state.camera || !targetRect) return;
+
+  // Save current transform, temporarily set to start transform
+  const savedPos = state.stripGroup.position.clone();
+  const savedScale = state.stripGroup.scale.clone();
+  const savedRotZ = state.stripGroup.rotation.z;
+
+  state.stripGroup.position.copy(state.stripStart.position);
+  state.stripGroup.scale.copy(state.stripStart.scale);
+  state.stripGroup.rotation.z = 0; // Target has no tilt
+
+  // Get where the slot would appear on screen when fully flattened with start transform
+  const flatRect = getSlotScreenRect(state.selectedSlotIndex, 1);
+
+  // Restore
+  state.stripGroup.position.copy(savedPos);
+  state.stripGroup.scale.copy(savedScale);
+  state.stripGroup.rotation.z = savedRotZ;
+
+  if (!flatRect) return;
+
+  // Compute scale ratio needed
+  const sx = targetRect.width / Math.max(flatRect.width, 1);
+  const sy = targetRect.height / Math.max(flatRect.height, 1);
+  const s = Math.max(sx, sy); // uniform scale — cover the target rect
+
+  state.transitionEnd.scale.set(
+    state.stripStart.scale.x * s,
+    state.stripStart.scale.y * s,
+    state.stripStart.scale.z * s
+  );
+
+  // Now compute the position offset needed to center the slot on targetRect
+  // Apply the end scale temporarily to measure the slot position
+  state.stripGroup.position.copy(state.stripStart.position);
+  state.stripGroup.scale.copy(state.transitionEnd.scale);
+  state.stripGroup.rotation.z = 0;
+
+  const scaledRect = getSlotScreenRect(state.selectedSlotIndex, 1);
+  state.stripGroup.position.copy(savedPos);
+  state.stripGroup.scale.copy(savedScale);
+  state.stripGroup.rotation.z = savedRotZ;
+
+  if (!scaledRect) return;
+
+  const targetCenterX = targetRect.x + targetRect.width * 0.5;
+  const targetCenterY = targetRect.y + targetRect.height * 0.5;
+  const scaledCenterX = scaledRect.x + scaledRect.width * 0.5;
+  const scaledCenterY = scaledRect.y + scaledRect.height * 0.5;
+
+  // Convert pixel offset to world units
+  const centerWorld = getSlotCenterWorld(state.selectedSlotIndex, 1);
+  const depth = Math.max(0.1, state.camera.position.distanceTo(centerWorld));
+  const fovRad = THREE.MathUtils.degToRad(state.camera.fov);
+  const worldPerPixelY = (2 * Math.tan(fovRad * 0.5) * depth) / Math.max(window.innerHeight, 1);
+  const worldPerPixelX = worldPerPixelY * state.camera.aspect;
+
+  const dxPixels = targetCenterX - scaledCenterX;
+  const dyPixels = targetCenterY - scaledCenterY;
+
+  state.transitionEnd.position.set(
+    state.stripStart.position.x + dxPixels * worldPerPixelX,
+    state.stripStart.position.y - dyPixels * worldPerPixelY,
+    state.stripStart.position.z
+  );
+  state.transitionEnd.rotationZ = 0;
+  state.transitionEndComputed = true;
+}
+
+function applyTransitionTransform(progress) {
+  if (!state.stripGroup || !state.transitionEndComputed) return;
+  const p = progress;
+
+  // Ease for position/scale uses a slightly leading curve so it settles early
+  const posP = p;
+
+  state.stripGroup.position.lerpVectors(
+    state.stripStart.position,
+    state.transitionEnd.position,
+    posP
+  );
+  state.stripGroup.scale.lerpVectors(
+    state.stripStart.scale,
+    state.transitionEnd.scale,
+    posP
+  );
+  state.stripGroup.rotation.z = THREE.MathUtils.lerp(
+    state.stripStart.rotationZ,
+    state.transitionEnd.rotationZ,
+    posP
+  );
+}
+
+function getStripPointForUv(u, v, flatten) {
+  const angle = (u - 0.5) * CONFIG.ARC_SPAN;
+  const xCurve = Math.sin(angle) * CONFIG.ARC_RADIUS;
+  const zCurve = (Math.cos(angle) - 1) * CONFIG.ARC_RADIUS;
+  const xFlat = angle * CONFIG.ARC_RADIUS;
+  const y = (v - 0.5) * CONFIG.STRIP_HEIGHT + CONFIG.STRIP_Y_OFFSET;
+
+  const local = new THREE.Vector3(
+    THREE.MathUtils.lerp(xCurve, xFlat, flatten),
+    y,
+    THREE.MathUtils.lerp(zCurve, 0, flatten)
+  );
+
+  if (!state.stripGroup) return local;
+  state.stripGroup.updateMatrixWorld(true);
+  return local.applyMatrix4(state.stripGroup.matrixWorld);
+}
+
+function projectWorldPointToScreen(point) {
+  const projected = point.clone().project(state.camera);
+  return {
+    x: (projected.x * 0.5 + 0.5) * window.innerWidth,
+    y: (-projected.y * 0.5 + 0.5) * window.innerHeight,
+  };
+}
+
+function getSlotScreenRect(slotIndex, flatten = state.transitionProgress) {
+  if (!state.camera || !Number.isFinite(slotIndex)) return null;
+
+  const gapInset = (CONFIG.GAP_SIZE * 0.5) / CONFIG.ITEMS_ON_STRIP;
+  const uStart = (slotIndex - state.scrollCurrent) / CONFIG.ITEMS_ON_STRIP + gapInset;
+  const uEnd = (slotIndex + 1 - state.scrollCurrent) / CONFIG.ITEMS_ON_STRIP - gapInset;
+  const corners = [
+    getStripPointForUv(uStart, 0, flatten),
+    getStripPointForUv(uEnd, 0, flatten),
+    getStripPointForUv(uStart, 1, flatten),
+    getStripPointForUv(uEnd, 1, flatten),
+  ];
+
+  const projected = corners.map(projectWorldPointToScreen);
+  const xs = projected.map((p) => p.x);
+  const ys = projected.map((p) => p.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+
+  if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+    return null;
+  }
+
+  return {
+    x: minX,
+    y: minY,
+    width: Math.max(1, maxX - minX),
+    height: Math.max(1, maxY - minY),
+  };
+}
+
+export function setWorkTransitionVisualState(progress) {
+  const p = clamp01(progress);
+  state.transitionProgress = p;
+
+  if (state.stripMaterial?.uniforms) {
+    state.stripMaterial.uniforms.uFlatten.value = p;
+    state.stripMaterial.uniforms.uSelectedIndex.value = state.selectedItemIndex;
+    state.stripMaterial.uniforms.uNonSelectedFade.value = clamp01((p - 0.18) / 0.55);
+    state.stripMaterial.uniforms.uFocusSlot.value = state.selectedSlotIndex;
+    state.stripMaterial.uniforms.uIsolateSlot.value = 0;
+  }
+
+  if (state.titleEl) {
+    state.titleEl.style.opacity = `${1 - clamp01(p * 1.5)}`;
+  }
+
+  if (state.workModel) {
+    const alpha = 1 - clamp01((p - 0.05) / 0.45);
+    setWorkModelOpacity(alpha);
+  }
+
+  setWorkParticlesOpacity(1 - clamp01(p * 1.4));
+
+  // Cover plane cross-dissolve: fade in cover at 65-95%, fade out strip at 75-100%
+  if (state.coverPlane) {
+    const coverFadeIn = clamp01((p - 0.65) / 0.30);
+    state.coverPlaneMaterial.opacity = coverFadeIn;
+    state.coverPlane.visible = coverFadeIn > 0.01;
+  }
+  if (state.stripMaterial?.uniforms && p > 0.75) {
+    // Fade out the strip mesh itself as cover takes over
+    const stripFadeOut = 1 - clamp01((p - 0.75) / 0.25);
+    state.stripMaterial.uniforms.uTransitionOpacity.value = stripFadeOut;
+  }
+
+  if (state.transitionTargetRect && state.transitionEndComputed) {
+    applyTransitionTransform(p);
+  }
+}
+
+// ─── COVER PLANE (same-canvas morph target) ─────────────────────────────────
+
+function createCoverPlane(targetRect) {
+  if (!state.scene || !state.camera || !state.selectedItem) return;
+  removeCoverPlane();
+
+  // Use the already-cached texture for the selected item
+  const tex = state.textureCache.get(state.selectedItem.image);
+  if (tex) {
+    state.coverPlaneTexture = tex; // reference only, don't clone — don't dispose on remove
+  }
+
+  const mat = new THREE.MeshBasicMaterial({
+    map: state.coverPlaneTexture || null,
+    transparent: true,
+    opacity: 0,
+    depthTest: false,
+    depthWrite: false,
+    toneMapped: false,
+  });
+  state.coverPlaneMaterial = mat;
+
+  const geo = new THREE.PlaneGeometry(1, 1);
+  state.coverPlane = new THREE.Mesh(geo, mat);
+  state.coverPlane.frustumCulled = false;
+  state.coverPlane.visible = false;
+  state.coverPlane.renderOrder = 999;
+
+  // Position the cover plane so it appears at targetRect on screen.
+  // Convert screen-space rect to world-space position & scale
+  // using the perspective camera.
+  const fovRad = THREE.MathUtils.degToRad(state.camera.fov);
+  // Place it at a z in front of the strip so it floors over it
+  const planeZ = state.camera.position.z - 2; // 2 units in front of camera
+  const depth = Math.abs(state.camera.position.z - planeZ);
+  const halfH = Math.tan(fovRad * 0.5) * depth;
+  const halfW = halfH * state.camera.aspect;
+  const vw = window.innerWidth || 1;
+  const vh = window.innerHeight || 1;
+
+  const ndcX = ((targetRect.x + targetRect.width * 0.5) / vw) * 2 - 1;
+  const ndcY = -(((targetRect.y + targetRect.height * 0.5) / vh) * 2 - 1);
+  const worldX = ndcX * halfW;
+  const worldY = ndcY * halfH;
+
+  const worldW = (targetRect.width / vw) * halfW * 2;
+  const worldH = (targetRect.height / vh) * halfH * 2;
+
+  state.coverPlane.position.set(worldX, worldY, planeZ);
+  state.coverPlane.scale.set(worldW, worldH, 1);
+
+  state.scene.add(state.coverPlane);
+}
+
+export function removeCoverPlane() {
+  if (state.coverPlane) {
+    if (state.coverPlane.parent) state.coverPlane.parent.remove(state.coverPlane);
+    if (state.coverPlane.geometry) state.coverPlane.geometry.dispose();
+    state.coverPlane = null;
+  }
+  if (state.coverPlaneMaterial) {
+    state.coverPlaneMaterial.dispose();
+    state.coverPlaneMaterial = null;
+  }
+  // Don't dispose coverPlaneTexture — it's a reference to the texture cache
+  state.coverPlaneTexture = null;
+}
+
+// ─── EXPORTS FOR TRANSITION ─────────────────────────────────────────────────
+
+export function prepareWorkToProjectTransition(item, { selectedIndex, slotIndex, clickNdc } = {}) {
+  if (!item) return false;
+
+  state.transitionLocked = true;
+  state.isPointerDown = false;
+  state.scrollVelocity = 0;
+  state.scrollTarget = state.scrollCurrent;
+  state.selectedItem = item;
+  state.selectedItemIndex = Number.isFinite(selectedIndex)
+    ? selectedIndex
+    : Math.max(0, workItems.findIndex((entry) => entry?.id === item.id));
+  state.selectedSlotIndex = Number.isFinite(slotIndex)
+    ? slotIndex
+    : Math.floor(state.scrollCurrent + CONFIG.ITEMS_ON_STRIP * 0.5);
+
+  if (clickNdc && Number.isFinite(clickNdc.x) && Number.isFinite(clickNdc.y)) {
+    state.clickNdc.set(clickNdc.x, clickNdc.y);
+  }
+
+  if (state.transitionTimeline) {
+    state.transitionTimeline.kill();
+    state.transitionTimeline = null;
+  }
+
+  captureStripStartTransform();
+  state.transitionTargetRect = null;
+  state.transitionEndComputed = false;
+
+  if (state.stripMaterial?.uniforms) {
+    state.stripMaterial.uniforms.uSelectedIndex.value = state.selectedItemIndex;
+    state.stripMaterial.uniforms.uNonSelectedFade.value = 0;
+    state.stripMaterial.uniforms.uFocusSlot.value = state.selectedSlotIndex;
+    state.stripMaterial.uniforms.uIsolateSlot.value = 0;
+  }
+
+  setWorkTransitionVisualState(0);
   return true;
 }
 
-function setupCRTPass(width, height) {
-  // Create render target for initial gallery render
-  state.renderTarget = new THREE.WebGLRenderTarget(width, height, {
-    format: THREE.RGBAFormat,
-    type: THREE.UnsignedByteType,
-    minFilter: THREE.LinearFilter,
-    magFilter: THREE.LinearFilter,
-  });
-
-  // Create scene and dedicated camera for CRT post-processing
-  state.crtScene = new THREE.Scene();
-  state.crtCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-
-  // Create geometry for CRT pass
-  const crtGeometry = new THREE.PlaneGeometry(2, 2);
-
-  // Create material from CRTShader
-  const crtMaterial = new THREE.ShaderMaterial({
-    uniforms: THREE.UniformsUtils.clone(CRTShader.uniforms),
-    vertexShader: CRTShader.vertexShader,
-    fragmentShader: CRTShader.fragmentShader,
-  });
-
-  // Set render target texture
-  crtMaterial.uniforms.tDiffuse.value = state.renderTarget.texture;
-
-  // Apply CRT config values
-  Object.keys(CRT_CONFIG).forEach(key => {
-    if (crtMaterial.uniforms[key]) {
-      crtMaterial.uniforms[key].value = CRT_CONFIG[key];
-    }
-  });
-
-  // Store uniforms for animation updates
-  state.crtUniforms = crtMaterial.uniforms;
-
-  // Create mesh and add to CRT scene
-  state.crtPass = new THREE.Mesh(crtGeometry, crtMaterial);
-  state.crtScene.add(state.crtPass);
+export function clearWorkTransitionOverlay() {
+  // Legacy no-op: geometry-only transition no longer uses DOM overlay.
 }
 
-function updateChromaticAberrationUniform() {
-  if (!state.crtUniforms?.rgbShift) return;
-
-  const baseShift = Math.max(0, state.crtBaseRgbShift);
-  const motionBoost = Math.max(0, state.crtMotionBoost);
-  const combinedShift = baseShift * (1 + motionBoost * ABERRATION_CONFIG.multiplicativeBoost)
-    + motionBoost * ABERRATION_CONFIG.additiveBoost;
-
-  state.crtUniforms.rgbShift.value = combinedShift;
-}
-
-async function setupCenterTitle() {
-  if (!state.scene || !state.titleEl || !workItems.length) return;
-
-  const title = new TroikaText();
-  title.text = workItems[0].title || '';
-  title.anchorX = 'center';
-  title.anchorY = 'middle';
-  title.position.set(0, 0, 190);
-  title.maxWidth = window.innerWidth * 0.7;
-  title.material.depthTest = false;
-  title.material.depthWrite = false;
-  title.frustumCulled = false;
-
-  state.scene.add(title);
-  state.centerTitleMesh = title;
-  state.centerTitleText = title.text;
-
-  const queueCenterTitleSync = () => {
-    if (state.centerTitleSyncRaf !== null) return;
-    state.centerTitleSyncRaf = requestAnimationFrame(() => {
-      state.centerTitleSyncRaf = null;
-      syncCenterTitleFromDom();
-    });
+export function getSelectedStripSegmentHandle() {
+  if (!state.stripMesh || !state.selectedItem) return null;
+  const sourceRect = getSlotScreenRect(state.selectedSlotIndex, state.transitionProgress);
+  const texture = state.textureCache.get(state.selectedItem.image) || null;
+  return {
+    mesh: state.stripMesh,
+    material: state.stripMaterial,
+    selectedSlotIndex: state.selectedSlotIndex,
+    selectedItemIndex: state.selectedItemIndex,
+    sourceRect: sourceRect ? { ...sourceRect } : null,
+    imageSrc: state.selectedItem.image,
+    title: state.selectedItem.title,
+    texture,
+    item: state.selectedItem,
   };
-
-  state.centerTitleMutationObserver = new MutationObserver(queueCenterTitleSync);
-  state.centerTitleMutationObserver.observe(state.titleEl, {
-    attributes: true,
-    attributeFilter: ['class', 'style'],
-    childList: true,
-    characterData: true,
-    subtree: true,
-  });
-
-  if ('ResizeObserver' in window) {
-    state.centerTitleResizeObserver = new ResizeObserver(queueCenterTitleSync);
-    state.centerTitleResizeObserver.observe(state.titleEl);
-  }
-
-  state.titleEl.style.opacity = '0';
-  state.titleEl.style.pointerEvents = 'none';
-  syncCenterTitleFromDom();
 }
 
-function resolveTroikaFontPath(fontFamily) {
-  const families = fontFamily
-    .split(',')
-    .map(part => part.trim().replace(/^['"]|['"]$/g, '').toLowerCase());
+export function runStripUnwrapToRect(targetRect) {
+  return new Promise((resolve) => {
+    if (!state.stripMaterial || !state.selectedItem) {
+      resolve(false);
+      return;
+    }
 
-  for (const family of families) {
-    if (family.includes('otjubilee')) return '/OTJubilee-Golden.otf';
-    if (family.includes('neuemontreal') || family.includes('ppneuemontreal')) return '/PPNeueMontreal-Medium.otf';
-  }
-  return '/OTJubilee-Golden.otf';
-}
+    restoreStripStartTransform();
+    state.transitionTargetRect = normalizeRect(targetRect);
 
-function applyTextTransform(text, transform) {
-  if (transform === 'uppercase') return text.toUpperCase();
-  if (transform === 'lowercase') return text.toLowerCase();
-  if (transform === 'capitalize') {
-    return text.replace(/\b\p{L}/gu, m => m.toUpperCase());
-  }
-  return text;
-}
+    // Compute the deterministic end transform once, up-front
+    computeTransitionEndTransform(state.transitionTargetRect);
 
-function syncCenterTitleFromDom() {
-  if (!state.centerTitleMesh || !state.titleEl) return;
+    // Create the cover plane in the same scene for cross-dissolve
+    createCoverPlane(state.transitionTargetRect);
 
-  // Throttle: max once per 100ms to prevent layout thrashing
-  const now = performance.now();
-  if (state._lastTitleSync && now - state._lastTitleSync < 100) return;
-  state._lastTitleSync = now;
+    if (state.transitionTimeline) {
+      state.transitionTimeline.kill();
+      state.transitionTimeline = null;
+    }
 
-  const style = window.getComputedStyle(state.titleEl);
-  const fontSizePx = Number.parseFloat(style.fontSize) || 36;
-  const letterSpacingPx = Number.parseFloat(style.letterSpacing);
-  const lineHeightPx = Number.parseFloat(style.lineHeight);
-  const textAlign = style.textAlign || 'center';
-  const rawText = state.titleEl.textContent?.trim() || state.centerTitleText || '';
-  const transformedText = applyTextTransform(rawText, style.textTransform);
+    // Reset strip material opacity (may have been faded by previous transition)
+    if (state.stripMaterial) {
+      state.stripMaterial.opacity = 1;
+      if (state.stripMaterial.uniforms?.uTransitionOpacity) {
+        state.stripMaterial.uniforms.uTransitionOpacity.value = 1;
+      }
+    }
 
-  const mesh = state.centerTitleMesh;
-  mesh.text = transformedText;
-  mesh.font = resolveTroikaFontPath(style.fontFamily || '');
-  mesh.fontSize = fontSizePx;
-  mesh.fontStyle = style.fontStyle || 'normal';
-  mesh.fontWeight = style.fontWeight || '400';
-  mesh.textAlign = textAlign;
-  mesh.letterSpacing = Number.isFinite(letterSpacingPx) ? (letterSpacingPx / fontSizePx) : 0;
-  mesh.lineHeight = Number.isFinite(lineHeightPx) ? (lineHeightPx / fontSizePx) : 'normal';
-  mesh.maxWidth = window.innerWidth * 0.7;
+    const animState = { progress: 0 };
 
-  const color = new THREE.Color();
-  color.setStyle(style.color || '#111111');
-  mesh.color = color.getHex();
+    const focusTargets = state.container
+      ? state.container.querySelectorAll('.slide-title, .slider, .u-section-spacer-large')
+      : [];
 
-  const rect = state.titleEl.getBoundingClientRect();
-  mesh.position.set(
-    rect.left + rect.width * 0.5 - window.innerWidth * 0.5,
-    window.innerHeight * 0.5 - (rect.top + rect.height * 0.5),
-    190
-  );
-
-  mesh.sync();
-  state.centerTitleText = transformedText;
-}
-
-function setupGallery() {
-  state.sharedGeometry = new THREE.PlaneGeometry(1, 1);
-
-  const totalItems = workItems.length;
-  const angleStep = (Math.PI * 2) / totalItems;
-
-  workItems.forEach((item, index) => {
-    const texture = state.textureCache.get(item.image);
-    if (!texture) return;
-
-    // Create shader material with chromatic aberration, grain, and time-based effects
-    const material = new THREE.ShaderMaterial({
-      vertexShader: VERTEX_SHADER,
-      fragmentShader: FRAGMENT_SHADER,
-      uniforms: {
-        uTexture: { value: texture },
-        uTime: { value: 0 },
-        uEdgeDistortion: { value: CONFIG.EDGE_DISTORTION },
-        uGrainIntensity: { value: CONFIG.GRAIN_INTENSITY },
-        uScreenPos: { value: new THREE.Vector2(0, 0) },
-        uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+    state.transitionTimeline = gsap.timeline({
+      onComplete: () => {
+        setWorkTransitionVisualState(1);
+        if (state.stripMaterial?.uniforms) {
+          state.stripMaterial.uniforms.uIsolateSlot.value = 1;
+        }
+        state.transitionTimeline = null;
+        resolve(true);
       },
-      transparent: false,
-      side: THREE.DoubleSide,
     });
 
-    const mesh = new THREE.Mesh(state.sharedGeometry, material);
+    state.transitionTimeline.to(animState, {
+      progress: 1,
+      duration: 1.2,
+      ease: 'power2.inOut',
+      onUpdate: () => {
+        setWorkTransitionVisualState(animState.progress);
+      },
+    }, 0);
 
-    // Position on single ring
-    const angle = index * angleStep;
-    mesh.position.x = Math.cos(angle) * CONFIG.RING_RADIUS;
-    mesh.position.y = Math.sin(angle) * CONFIG.RING_RADIUS;
-    mesh.position.z = 0;
-
-    mesh.scale.set(CONFIG.IMAGE_WIDTH, CONFIG.IMAGE_HEIGHT, 1);
-
-    mesh.userData = {
-      workItem: item,
-      baseAngle: angle,
-      index,
-    };
-
-    state.scene.add(mesh);
-    state.meshes.push(mesh);
-  });
-}
-
-function setupDOMWheel() {
-  if (!state.thumbnailWheelEl) return;
-  state.thumbnailWheelEl.innerHTML = '';
-  state.domThumbnails = [];
-
-  const fragment = document.createDocumentFragment();
-  workItems.forEach((item, index) => {
-    const card = document.createElement('div');
-    card.className = 'thumbnail-item';
-    card.dataset.index = String(index);
-    card.dataset.href = item.href || '';
-    card.dataset.title = item.title || '';
-
-    const img = document.createElement('img');
-    img.src = item.image;
-    img.alt = item.title || `Work item ${index + 1}`;
-    card.appendChild(img);
-
-    fragment.appendChild(card);
-    state.domThumbnails.push(card);
-  });
-
-  state.thumbnailWheelEl.appendChild(fragment);
-}
-
-function updateDOMWheel() {
-  if (!state.domThumbnails.length) return;
-
-  const angleStep = (Math.PI * 2) / state.domThumbnails.length;
-  const activeIndex = getWheelActiveIndex();
-  const centerX = window.innerWidth * 0.5;
-  const centerY = window.innerHeight * 0.5;
-
-  state.domThumbnails.forEach((el, index) => {
-    const baseAngle = index * angleStep;
-    const currentAngle = baseAngle + state.rotation;
-    const x = Math.cos(currentAngle) * CONFIG.RING_RADIUS;
-    const y = -Math.sin(currentAngle) * CONFIG.RING_RADIUS;
-    const scale = 1;
-
-    el.style.left = `${centerX}px`;
-    el.style.top = `${centerY}px`;
-    el.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px) scale(${scale})`;
-    el.style.zIndex = String(Math.round(1000 + Math.cos(currentAngle) * 200));
-    el.classList.toggle('is-active', index === activeIndex);
-  });
-}
-
-function getWheelActiveIndex() {
-  if (!workItems.length) return 0;
-  const angleStep = (Math.PI * 2) / workItems.length;
-  let activeIndex = 0;
-  let minDiff = Infinity;
-  for (let index = 0; index < workItems.length; index++) {
-    const currentAngle = ((index * angleStep + state.rotation) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
-    const diff = Math.abs(currentAngle - Math.PI / 2);
-    if (diff < minDiff) {
-      minDiff = diff;
-      activeIndex = index;
-    }
-  }
-  return activeIndex;
-}
-
-// Get list layout positions for vertical column
-function getListPositions() {
-  const centerX = window.innerWidth * 0.5;
-  const gap = 60; // Space between items
-  const startY = CONFIG.IMAGE_HEIGHT; // Start from top with padding
-
-  return workItems.map((_, index) => ({
-    x: centerX,
-    y: startY + index * (CONFIG.IMAGE_HEIGHT + gap)
-  }));
-}
-
-// Get active index in list mode (closest to viewport center)
-function getListActiveIndex() {
-  if (!state.domThumbnails.length) return 0;
-
-  const viewportCenterY = window.innerHeight * 0.5;
-  let activeIndex = 0;
-  let minDist = Infinity;
-
-  state.domThumbnails.forEach((el, index) => {
-    const rect = el.getBoundingClientRect();
-    const elCenterY = rect.top + rect.height / 2;
-    const dist = Math.abs(elCenterY - viewportCenterY);
-
-    if (dist < minDist) {
-      minDist = dist;
-      activeIndex = index;
-    }
-  });
-
-  return activeIndex;
-}
-
-// Calculate spread positions for cascade animation (based on wheel angles)
-function getCascadeSpreadPositions() {
-  const angleStep = (Math.PI * 2) / state.domThumbnails.length;
-  const centerX = window.innerWidth * 0.5;
-  const centerY = window.innerHeight * 0.5;
-
-  return state.domThumbnails.map((_, index) => {
-    const baseAngle = index * angleStep;
-    const currentAngle = baseAngle + state.rotation;
-
-    // Spread outward from center using wheel angle
-    const spreadX = Math.cos(currentAngle) * CONFIG.CASCADE_SPREAD_RADIUS;
-    const spreadY = -Math.sin(currentAngle) * CONFIG.CASCADE_SPREAD_RADIUS;
-
-    // Add upward offset for the fall animation
-    const fallOffsetY = -150;
-
-    return {
-      x: centerX + spreadX,
-      y: centerY + spreadY + fallOffsetY,
-      spreadX,
-      spreadY
-    };
-  });
-}
-
-// Get current visual positions of elements (from wheel layout)
-function getCurrentWheelPositions() {
-  const angleStep = (Math.PI * 2) / state.domThumbnails.length;
-  const centerX = window.innerWidth * 0.5;
-  const centerY = window.innerHeight * 0.5;
-
-  return state.domThumbnails.map((_, index) => {
-    const baseAngle = index * angleStep;
-    const currentAngle = baseAngle + state.rotation;
-    const x = Math.cos(currentAngle) * CONFIG.RING_RADIUS;
-    const y = -Math.sin(currentAngle) * CONFIG.RING_RADIUS;
-
-    return {
-      x: centerX + x,
-      y: centerY + y
-    };
-  });
-}
-
-// Animate cascade effect: spread from wheel, then fall into vertical list
-function animateCascadeToList(flipState, finalPositions) {
-  const currentPositions = getCurrentWheelPositions();
-  const spreadPositions = getCascadeSpreadPositions();
-
-  const cascadeTl = gsap.timeline();
-
-  // Set initial left/top to current positions and clear transform
-  state.domThumbnails.forEach((el, index) => {
-    const pos = currentPositions[index];
-    gsap.set(el, {
-      left: pos.x,
-      top: pos.y,
-      transform: 'translate(-50%, -50%)',
-      clearProps: 'zIndex'
-    });
-  });
-
-  // Phase 1: Spread outward from center with stagger
-  state.domThumbnails.forEach((el, index) => {
-    const spread = spreadPositions[index];
-
-    cascadeTl.to(el, {
-      left: spread.x,
-      top: spread.y,
-      opacity: 0.8,
-      clearProps: 'transform',
-      duration: CONFIG.CASCADE_PHASE_DURATION,
-      ease: 'power1.out'
-    }, index * CONFIG.CASCADE_STAGGER);
-  });
-
-  // Phase 2: Fall down to final list positions with opacity in
-  state.domThumbnails.forEach((el, index) => {
-    const finalPos = finalPositions[index];
-
-    cascadeTl.to(el, {
-      left: finalPos.x,
-      top: finalPos.y,
-      opacity: 1,
-      duration: CONFIG.CASCADE_FALL_DURATION,
-      ease: 'power1.in'
-    }, CONFIG.CASCADE_PHASE_DURATION + index * CONFIG.CASCADE_STAGGER * 0.5);
-  });
-
-  return cascadeTl;
-}
-
-// Animate reverse cascade effect: rise up from list, converge back to wheel
-function animateCascadeToWheel(flipState) {
-  const angleStep = (Math.PI * 2) / state.domThumbnails.length;
-  const centerX = window.innerWidth * 0.5;
-  const centerY = window.innerHeight * 0.5;
-  const spreadPositions = getCascadeSpreadPositions();
-
-  const cascadeTl = gsap.timeline();
-
-  // Phase 1: Rise upward with spread
-  state.domThumbnails.forEach((el, index) => {
-    const spread = spreadPositions[index];
-
-    cascadeTl.to(el, {
-      left: spread.x,
-      top: spread.y,
-      opacity: 0.8,
-      duration: CONFIG.CASCADE_FALL_DURATION,
-      ease: 'power1.out'
-    }, index * CONFIG.CASCADE_STAGGER * 0.5);
-  });
-
-  // Phase 2: Converge back to wheel positions with transform
-  state.domThumbnails.forEach((el, index) => {
-    const baseAngle = index * angleStep;
-    const currentAngle = baseAngle + state.rotation;
-    const x = Math.cos(currentAngle) * CONFIG.RING_RADIUS;
-    const y = -Math.sin(currentAngle) * CONFIG.RING_RADIUS;
-
-    cascadeTl.to(el, {
-      left: centerX,
-      top: centerY,
-      opacity: 1,
-      transform: `translate(-50%, -50%) translate(${x}px, ${y}px) scale(1)`,
-      duration: CONFIG.CASCADE_PHASE_DURATION,
-      ease: 'power1.in'
-    }, CONFIG.CASCADE_FALL_DURATION + index * CONFIG.CASCADE_STAGGER * 0.5);
-  });
-
-  return cascadeTl;
-}
-
-// Transition from wheel to list view
-function transitionToList() {
-  if (state.viewMode === 'list' || !state.domThumbnails.length) return;
-
-  // Capture current state for Flip
-  const flipState = Flip.getState(state.domThumbnails);
-
-  // Calculate list positions
-  const positions = getListPositions();
-  const centerX = window.innerWidth * 0.5;
-  const centerY = window.innerHeight * 0.5;
-
-  // Calculate total height needed for scrolling
-  const lastPosition = positions[positions.length - 1];
-  const totalHeight = lastPosition.y + CONFIG.IMAGE_HEIGHT + 60; // Add padding at bottom
-
-  // Prepare DOM for list layout (will be positioned by cascade animation)
-  state.domThumbnails.forEach((el) => {
-    el.classList.add('list-mode');
-    el.style.position = 'absolute';
-  });
-
-  // Run cascade animation to final list positions
-  const cascadeTl = animateCascadeToList(flipState, positions);
-
-  // After cascade completes, lock in the positions and enable scrolling
-  cascadeTl.add(() => {
-    state.viewMode = 'list';
-
-    // Lock positions for list mode
-    state.domThumbnails.forEach((el, index) => {
-      const pos = positions[index];
-      el.style.left = `${centerX}px`;
-      el.style.top = `${pos.y}px`;
-      el.style.transform = `translate(-50%, 0) scale(1)`;
-    });
-
-    // Enable scroll on thumbnail container for list mode
-    if (state.thumbnailWheelEl) {
-      state.thumbnailWheelEl.classList.add('list-mode');
-      state.thumbnailWheelEl.style.overflowY = 'auto';
-      state.thumbnailWheelEl.style.pointerEvents = 'auto';
-      state.thumbnailWheelEl.style.minHeight = `${totalHeight}px`; // Force scrollable height
-
-      // Add scroll listener for title updates
-      state.handlers.listScroll = onListScroll;
-      state.thumbnailWheelEl.addEventListener('scroll', state.handlers.listScroll, { passive: true });
+    if (focusTargets.length) {
+      state.transitionTimeline.to(focusTargets, {
+        opacity: 0,
+        duration: 0.45,
+        ease: 'power2.out',
+        stagger: 0.04,
+      }, 0);
     }
   });
 }
 
-// Transition from list to wheel view
-function transitionToWheel() {
-  if (state.viewMode === 'wheel' || !state.domThumbnails.length) return;
-
-  // Capture current state for Flip
-  const flipState = Flip.getState(state.domThumbnails);
-
-  // Remove list mode classes
-  state.domThumbnails.forEach(el => {
-    el.classList.remove('list-mode');
-  });
-
-  // Restore wheel layout
-  updateDOMWheel();
-
-  // Run cascade animation back to wheel positions
-  const cascadeTl = animateCascadeToWheel(flipState);
-
-  // After cascade completes, lock in the wheel positions
-  cascadeTl.add(() => {
-    state.viewMode = 'wheel';
-
-    // Disable scroll on thumbnail container
-    if (state.thumbnailWheelEl) {
-      state.thumbnailWheelEl.classList.remove('list-mode');
-      state.thumbnailWheelEl.style.overflowY = 'hidden';
-      state.thumbnailWheelEl.style.pointerEvents = 'none';
-      state.thumbnailWheelEl.style.minHeight = ''; // Reset height
-
-      // Remove scroll listener
-      if (state.handlers.listScroll) {
-        state.thumbnailWheelEl.removeEventListener('scroll', state.handlers.listScroll);
-        state.handlers.listScroll = null;
-      }
+function setWorkModelOpacity(alpha) {
+  if (!state.workModel) return;
+  const clamped = clamp01(alpha);
+  state.workModel.visible = clamped > 0.01;
+  const mats = state.workModelMaterials?.length
+    ? state.workModelMaterials
+    : null;
+  if (!mats) return;
+  mats.forEach((mat) => {
+    if (!mat) return;
+    if (mat.userData.__baseOpacity === undefined) {
+      mat.userData.__baseOpacity = mat.opacity ?? 1;
     }
+    mat.transparent = true;
+    mat.opacity = mat.userData.__baseOpacity * clamped;
   });
 }
 
-function updateScroll() {
-  // Smooth lerp scroll (kokomi-style but slower)
-  const prev = state.scrollCurrent;
-  state.scrollCurrent += (state.scrollTarget - state.scrollCurrent) * CONFIG.SCROLL_LERP;
-  state.scrollDelta = state.scrollCurrent - prev;
-
-  // Update rotation from scroll
-  state.targetRotation = state.scrollCurrent * CONFIG.SCROLL_SPEED;
+function setWorkParticlesOpacity(alpha) {
+  if (!state.particleSystem?.material || !('opacity' in state.particleSystem.material)) return;
+  const clamped = clamp01(alpha);
+  state.particleSystem.material.transparent = true;
+  state.particleSystem.material.opacity = clamped;
+  state.particleSystem.visible = clamped > 0.01;
 }
 
-function updateRotation() {
-  // Smooth lerp towards target
-  const prevRotation = state.rotation;
-  state.rotation += (state.targetRotation - state.rotation) * CONFIG.SCROLL_LERP;
+// runWorkCinematicExit and resetWorkCinematicExit removed — no transition animation between work/film
 
-  // Calculate velocity for shader effects
-  state.scrollVelocity = Math.abs(state.scrollDelta * 0.5);
-  state.scrollVelocity *= CONFIG.VELOCITY_DECAY;
-
-  // Update time for animated effects
-  const time = state.clock ? state.clock.getElapsedTime() : 0;
-
-  // Smooth parallax offsets based on camera target (orbital parallax)
-  const parallaxParams = state.guiParallax || { angleRange: 0.15, yRange: 0.3, tiltRange: 0.02 };
-  state.wheelParallaxOffset.x += (state.cameraTarget.angle * parallaxParams.angleRange * 100 - state.wheelParallaxOffset.x) * CONFIG.SCROLL_LERP;
-  state.wheelParallaxOffset.y += (state.cameraTarget.y * parallaxParams.yRange * 100 - state.wheelParallaxOffset.y) * CONFIG.SCROLL_LERP;
-  state.wheelParallaxOffset.tilt += (state.cameraTarget.tilt - state.wheelParallaxOffset.tilt) * CONFIG.SCROLL_LERP;
-  state.wheelParallaxOffset.z += (-state.cameraTarget.angle * 50 - state.wheelParallaxOffset.z) * CONFIG.SCROLL_LERP;
-
-  if (USE_DOM_WHEEL) {
-    updateDOMWheel();
-    return;
-  }
-
-  // Update all mesh positions and shader uniforms
-  state.meshes.forEach(mesh => {
-    const { baseAngle } = mesh.userData;
-    const currentAngle = baseAngle + state.rotation;
-
-    // Base ring position
-    mesh.position.x = Math.cos(currentAngle) * CONFIG.RING_RADIUS;
-    mesh.position.y = Math.sin(currentAngle) * CONFIG.RING_RADIUS;
-
-    // Z-depth motion based on scroll velocity (like kokomi)
-    const zDepth = -Math.min(Math.abs(state.scrollDelta) * CONFIG.Z_DEPTH_INTENSITY, 100);
-    mesh.position.z = zDepth + Math.sin(currentAngle * 2) * 15;
-
-    // Apply parallax offsets (mouse-based depth and tilt as if part of 3D scene)
-    mesh.position.x += state.wheelParallaxOffset.x * 0.15;
-    mesh.position.y += state.wheelParallaxOffset.y * 0.1;
-    mesh.position.z += state.wheelParallaxOffset.z * 0.05;
-
-    // Apply tilt rotation to individual mesh based on parallax (pitch and roll)
-    mesh.rotation.z = state.wheelParallaxOffset.tilt * 0.5;
-    mesh.rotation.x = state.cameraTarget.y * 0.1;
-    mesh.rotation.y = state.cameraTarget.angle * 0.08;
-
-    // Calculate screen position for edge effects
-    const projected = mesh.position.clone().project(state.camera);
-    const screenX = (projected.x + 1) * 0.5 * window.innerWidth;
-    const screenY = (1 - projected.y) * 0.5 * window.innerHeight;
-
-    // Update shader uniforms
-    if (mesh.material && mesh.material.uniforms) {
-      mesh.material.uniforms.uTime.value = time;
-      mesh.material.uniforms.uScreenPos.value.set(screenX, screenY);
-    }
-  });
-}
-
-function updateTitle() {
-  if (!state.titleEl) return;
-
-  if (USE_DOM_WHEEL) {
-    if (!workItems.length) return;
-
-    // Use appropriate active index function based on view mode
-    const activeIndex = state.viewMode === 'list'
-      ? getListActiveIndex()
-      : getWheelActiveIndex();
-
-    const newTitle = workItems[activeIndex]?.title || '';
-    if (state.titleEl.textContent !== newTitle) {
-      state.titleEl.textContent = newTitle;
-    }
-    return;
-  }
-
-  // Find closest mesh to top (90 degrees / PI/2)
-  let closestMesh = null;
-  let minDiff = Infinity;
-
-  state.meshes.forEach(mesh => {
-    const { baseAngle } = mesh.userData;
-    const currentAngle = (baseAngle + state.rotation) % (Math.PI * 2);
-    const normalized = currentAngle < 0 ? currentAngle + Math.PI * 2 : currentAngle;
-    const diff = Math.abs(normalized - Math.PI / 2);
-
-    if (diff < minDiff) {
-      minDiff = diff;
-      closestMesh = mesh;
-    }
-  });
-
-  if (closestMesh) {
-    const newTitle = closestMesh.userData.workItem.title;
-    if (state.titleEl.textContent !== newTitle) {
-      state.titleEl.textContent = newTitle;
-      syncCenterTitleFromDom();
-    }
-  }
-}
-
-function animate() {
-  updateScroll();
-  updateRotation();
-  updateTitle();
-
-  // Update CRT shader time uniform
-  const time = state.clock ? state.clock.getElapsedTime() : 0;
-  if (state.crtUniforms && state.crtUniforms.time) {
-    state.crtUniforms.time.value = time;
-  }
-  const targetBoost = Math.min(state.scrollVelocity * ABERRATION_CONFIG.velocityToBoost, ABERRATION_CONFIG.maxBoost);
-  state.crtMotionBoost += (targetBoost - state.crtMotionBoost) * ABERRATION_CONFIG.motionSmoothing;
-  updateChromaticAberrationUniform();
-
-  // Orbital camera parallax for 3D model (matching home page three.js)
-  const lerpFactor = state.guiParallax ? state.guiParallax.lerp : 0.04;
-  state.cameraCurrent.angle += (state.cameraTarget.angle - state.cameraCurrent.angle) * lerpFactor;
-  state.cameraCurrent.y += (state.cameraTarget.y - state.cameraCurrent.y) * lerpFactor;
-  state.cameraCurrent.tilt += (state.cameraTarget.tilt - state.cameraCurrent.tilt) * lerpFactor;
-
-  if (state.modelCamera) {
-    const radius = Math.sqrt(50) / 2.5;
-    state.modelCamera.position.x = Math.cos(state.cameraCurrent.angle) * radius;
-    state.modelCamera.position.z = Math.sin(state.cameraCurrent.angle) * radius;
-    state.modelCamera.position.y += (state.cameraCurrent.y + 1 - state.modelCamera.position.y);
-
-    // Handheld camera drift
-    const driftTime = performance.now() * 0.001;
-    state.modelCamera.position.x += Math.sin(driftTime * 0.7) * 0.012 + Math.sin(driftTime * 1.3) * 0.008;
-    state.modelCamera.position.y += Math.sin(driftTime * 0.5) * 0.012 + Math.cos(driftTime * 1.1) * 0.008;
-    state.modelCamera.position.z += Math.cos(driftTime * 0.6) * 0.008;
-
-    state.modelCamera.lookAt(0, 0, 0);
-    state.modelCamera.rotation.z += state.cameraCurrent.tilt;
-  }
-
-  // Three-pass rendering:
-  // 1. Render 3D model scene to render target (background)
-  if (state.renderer && state.modelScene && state.modelCamera && state.renderTarget) {
-    state.renderer.setRenderTarget(state.renderTarget);
-    state.renderer.render(state.modelScene, state.modelCamera);
-  }
-
-  // 2. Render gallery overlay on top (no clear, transparent backgrounds blend)
-  if (state.renderer && state.scene && state.camera && state.renderTarget) {
-    state.renderer.autoClear = false;
-    state.renderer.render(state.scene, state.camera);
-    state.renderer.autoClear = true;
-  }
-
-  // 2. Render CRT post-processing to screen
-  if (state.renderer && state.crtScene) {
-    state.renderer.setRenderTarget(null);
-    state.renderer.render(state.crtScene, state.crtCamera);
-  }
-
-  if (state.animationFrame !== null) {
-    state.animationFrame = requestAnimationFrame(animate);
-  }
-}
-
-function handleClick(event) {
-  if (USE_DOM_WHEEL) {
-    let bestEl = null;
-    let bestDist = Infinity;
-    state.domThumbnails.forEach(el => {
-      const rect = el.getBoundingClientRect();
-      const cx = rect.left + rect.width * 0.5;
-      const cy = rect.top + rect.height * 0.5;
-      const dist = Math.hypot(event.clientX - cx, event.clientY - cy);
-      if (dist < bestDist) {
-        bestDist = dist;
-        bestEl = el;
-      }
-    });
-    if (bestEl && bestDist < 180) {
-      const href = bestEl.dataset.href;
-      if (href) window.location.href = href;
-    }
-    return;
-  }
-
-  if (!state.renderer || !state.camera) return;
-
-  const rect = state.renderer.domElement.getBoundingClientRect();
-  const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-  const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-  const pointer = new THREE.Vector2(x, y);
-  state.raycaster.setFromCamera(pointer, state.camera);
-
-  const intersects = state.raycaster.intersectObjects(state.meshes);
-
-  if (intersects.length > 0) {
-    const mesh = intersects[0].object;
-    const { workItem } = mesh.userData;
-
-    if (workItem && workItem.href) {
-      window.location.href = workItem.href;
-    }
-  }
-}
+// ─── EVENT HANDLERS ─────────────────────────────────────────────────────────────
 
 function onWheel(event) {
-  // In list mode, don't interfere with natural scrolling
-  if (state.viewMode === 'list') {
-    // Let browser handle scroll naturally - don't prevent default
-    return;
-  }
-
-  // In wheel mode, prevent default page scroll and update rotation
+  if (state.transitionLocked || !state.introComplete) return;
   event.preventDefault();
-  state.scrollTarget += event.deltaY;
-}
-
-// Toggle button handler
-function onToggleView() {
-  if (state.viewMode === 'wheel') {
-    transitionToList();
-    if (state.toggleBtn) {
-      state.toggleBtn.querySelector('.view-toggle-text').textContent = 'Wheel View';
-    }
-  } else {
-    transitionToWheel();
-    if (state.toggleBtn) {
-      state.toggleBtn.querySelector('.view-toggle-text').textContent = 'List View';
-    }
-  }
-}
-
-// List scroll handler for updating title
-function onListScroll() {
-  if (state.viewMode === 'list') {
-    updateTitle();
-  }
-}
-
-function onResize() {
-  if (!state.renderer || !state.camera) return;
-
-  const width = window.innerWidth;
-  const height = window.innerHeight;
-
-  state.renderer.setSize(width, height);
-  state.camera.left = -width / 2;
-  state.camera.right = width / 2;
-  state.camera.top = height / 2;
-  state.camera.bottom = -height / 2;
-  state.camera.updateProjectionMatrix();
-
-  // Update model camera aspect
-  if (state.modelCamera) {
-    state.modelCamera.aspect = width / height;
-    state.modelCamera.updateProjectionMatrix();
-  }
-
-  // Update render target size
-  if (state.renderTarget) {
-    state.renderTarget.setSize(width, height);
-  }
-
-  // Update resolution uniform for all materials
-  state.meshes.forEach(mesh => {
-    if (mesh.material && mesh.material.uniforms && mesh.material.uniforms.uResolution) {
-      mesh.material.uniforms.uResolution.value.set(width, height);
-    }
-  });
-
-  if (USE_DOM_WHEEL) {
-    updateDOMWheel();
-  }
-
-  if (state.centerTitleMesh) {
-    syncCenterTitleFromDom();
-  }
-}
-
-function onMouseMove(event) {
-  const now = performance.now();
-  if (now - state.lastMouseTime < 16) return;
-  state.lastMouseTime = now;
-
-  const mx = (event.clientX / window.innerWidth) * 2 - 1;
-  const my = -(event.clientY / window.innerHeight) * 2 + 1;
-
-  // Orbital camera targeting (matching home page three.js)
-  const p = state.guiParallax || { angleRange: 0.15, yRange: 0.3, tiltRange: 0.02 };
-  state.cameraTarget.angle = Math.PI / 2 + mx * p.angleRange;
-  state.cameraTarget.y = -my * p.yRange;
-  state.cameraTarget.tilt = mx * p.tiltRange;
+  const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY)
+    ? event.deltaX
+    : event.deltaY;
+  state.scrollTarget += delta * CONFIG.SCROLL_SPEED;
 }
 
 function onPointerDown(event) {
+  if (state.transitionLocked || !state.introComplete) return;
   state.isPointerDown = true;
-  state.lastPointerY = event.clientY;
+  state.lastPointerX = event.clientX;
+  state.dragStartX = event.clientX;
   state.dragStartY = event.clientY;
+  state.scrollVelocity = 0;
+  state.lastDragTime = performance.now();
 }
 
-function onPointerMove(event) {
-  if (!state.isPointerDown) return;
+let lastPointerMoveTime = 0;
 
-  const deltaY = event.clientY - state.lastPointerY;
-  // Update scroll target on drag (like kokomi)
-  state.scrollTarget -= deltaY * 2;
-  state.lastPointerY = event.clientY;
+function onPointerMove(event) {
+  if (state.transitionLocked) return;
+
+  // Drag always updates (unthrottled for smooth scrolling)
+  if (state.isPointerDown) {
+    const now = performance.now();
+    const deltaX = event.clientX - state.lastPointerX;
+    const dt = now - state.lastDragTime;
+    state.scrollTarget -= deltaX * CONFIG.DRAG_MULTIPLIER;
+    // Track instantaneous velocity for momentum on release
+    if (dt > 0) state.scrollVelocity = -deltaX * CONFIG.DRAG_MULTIPLIER / (dt / 16);
+    state.lastPointerX = event.clientX;
+    state.lastDragTime = now;
+  }
+
+  const mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+  const mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+
+  // Update parallax tracking
+  state.mouseX = mouseX;
+  state.mouseY = mouseY;
 }
 
 function onPointerUp(event) {
+  if (state.transitionLocked) return;
   if (!state.isPointerDown) return;
   state.isPointerDown = false;
 
-  const dragDistance = Math.abs(event.clientY - state.dragStartY);
-
-  if (dragDistance < 5) {
+  const dx = Math.abs(event.clientX - state.dragStartX);
+  const dy = Math.abs(event.clientY - state.dragStartY);
+  if (dx < 5 && dy < 5) {
     handleClick(event);
   }
 }
 
-function playIntro() {
-  const tl = gsap.timeline();
+function handleClick(event) {
+  if (state.transitionLocked || !state.camera || !state.stripMesh) return;
 
-  // Rotate in from offset
-  tl.fromTo(
-    state,
-    { rotation: -Math.PI * 0.3 },
-    {
-      rotation: 0,
-      duration: 1.8,
-      ease: 'power2.out'
-    }
+  state.rayMouse.set(
+    (event.clientX / window.innerWidth) * 2 - 1,
+    -(event.clientY / window.innerHeight) * 2 + 1
   );
+  state.raycaster.setFromCamera(state.rayMouse, state.camera);
+  const intersects = state.raycaster.intersectObject(state.stripMesh, false);
 
-  // Scale in DOM thumbnails with stagger
-  if (USE_DOM_WHEEL && state.domThumbnails.length > 0) {
-    gsap.set(state.domThumbnails, { scale: 0, opacity: 0 });
-    tl.to(
-      state.domThumbnails,
-      {
-        scale: 1,
-        opacity: 1,
-        duration: 0.9,
-        ease: 'power2.out',
-        stagger: 0.04,
-      },
-      0.2
-    );
-    if (state.titleEl) {
-      tl.fromTo(
-        state.titleEl,
-        { opacity: 0, y: 24 },
-        { opacity: 1, y: 0, duration: 0.8, ease: 'power2.out' },
-        0.15
-      );
+  if (intersects.length > 0) {
+    const uv = intersects[0].uv;
+    if (uv) {
+      // Determine which item was clicked from UV.x + scroll
+      const totalU = uv.x * CONFIG.ITEMS_ON_STRIP + state.scrollCurrent;
+      const itemIdx = ((Math.floor(totalU) % CONFIG.NUM_UNIQUE) + CONFIG.NUM_UNIQUE) % CONFIG.NUM_UNIQUE;
+      const item = workItems[itemIdx];
+      if (item?.href) {
+        if (barba?.go) {
+          barba.go(item.href);
+        } else {
+          window.location.href = item.href;
+        }
+      }
     }
   }
-
-  // Scale in meshes with stagger
-  if (!USE_DOM_WHEEL && state.meshes.length > 0) {
-    state.meshes.forEach(mesh => {
-      gsap.set(mesh.scale, { x: 0, y: 0 });
-    });
-
-    state.meshes.forEach((mesh, index) => {
-      tl.to(
-        mesh.scale,
-        {
-          x: CONFIG.IMAGE_WIDTH,
-          y: CONFIG.IMAGE_HEIGHT,
-          duration: 1.2,
-          ease: 'back.out(1.4)'
-        },
-        0.3 + index * 0.08
-      );
-    });
-  }
-
-  return tl;
 }
 
-function setupGui() {
-  if (state.gui) { state.gui.destroy(); state.gui = null; }
+let resizeTimeout = null;
 
-  const gui = new GUI({ title: 'Work Page Debug' });
-  state.gui = gui;
+function onResize() {
+  if (resizeTimeout) clearTimeout(resizeTimeout);
+  resizeTimeout = setTimeout(() => {
+    if (!state.camera) return;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    state.camera.aspect = w / h;
+    state.camera.updateProjectionMatrix();
 
-  // --- Model Transform ---
-  const modelFolder = gui.addFolder('Model Transform');
-  const pos = { x: 0, y: 0, z: -200 };
-  const rot = { x: 0, y: 0, z: 0 };
-  const scaleVal = { scale: 80 };
-
-  modelFolder.add(pos, 'x', -500, 500, 1).name('Position X').onChange(v => { if (state.model) state.model.position.x = v; });
-  modelFolder.add(pos, 'y', -500, 500, 1).name('Position Y').onChange(v => { if (state.model) state.model.position.y = v; });
-  modelFolder.add(pos, 'z', -500, 100, 1).name('Position Z').onChange(v => { if (state.model) state.model.position.z = v; });
-  modelFolder.add(rot, 'x', -Math.PI, Math.PI, 0.01).name('Rotation X').onChange(v => { if (state.model) state.model.rotation.x = v; });
-  modelFolder.add(rot, 'y', -Math.PI, Math.PI, 0.01).name('Rotation Y').onChange(v => { if (state.model) state.model.rotation.y = v; });
-  modelFolder.add(rot, 'z', -Math.PI, Math.PI, 0.01).name('Rotation Z').onChange(v => { if (state.model) state.model.rotation.z = v; });
-  modelFolder.add(scaleVal, 'scale', 1, 300, 1).name('Scale').onChange(v => { if (state.model) state.model.scale.setScalar(v); });
-  modelFolder.close();
-
-  // --- Material ---
-  const matFolder = gui.addFolder('PBR Response');
-  const matParams = {
-    roughnessScale: state.materialResponse.roughnessScale,
-    metalnessScale: state.materialResponse.metalnessScale,
-    envMapIntensity: state.materialResponse.envMapIntensity,
-  };
-
-  matFolder.add(matParams, 'roughnessScale', 0.4, 1.6, 0.01).name('Roughness Scale').onChange(v => {
-    state.materialResponse.roughnessScale = v;
-    applyMaterialResponse();
-  });
-  matFolder.add(matParams, 'metalnessScale', 0.25, 2.5, 0.01).name('Metalness Scale').onChange(v => {
-    state.materialResponse.metalnessScale = v;
-    applyMaterialResponse();
-  });
-  matFolder.add(matParams, 'envMapIntensity', 0.2, 3, 0.01).name('IBL Intensity').onChange(v => {
-    state.materialResponse.envMapIntensity = v;
-    applyMaterialResponse();
-  });
-  matFolder.close();
-
-  // --- Lighting ---
-  const lightFolder = gui.addFolder('Lighting');
-  const lightParams = {
-    ambientIntensity: 0.6,
-    ambientColor: '#ffffff',
-    dirIntensity: 0.8,
-    dirColor: '#ffffff',
-    dirX: 100, dirY: 200, dirZ: 300,
-  };
-
-  lightFolder.add(lightParams, 'ambientIntensity', 0, 2, 0.01).name('Ambient Intensity').onChange(v => { if (state.lights[0]) state.lights[0].intensity = v; });
-  lightFolder.addColor(lightParams, 'ambientColor').name('Ambient Color').onChange(v => { if (state.lights[0]) state.lights[0].color.set(v); });
-  lightFolder.add(lightParams, 'dirIntensity', 0, 3, 0.01).name('Dir Intensity').onChange(v => { if (state.lights[1]) state.lights[1].intensity = v; });
-  lightFolder.addColor(lightParams, 'dirColor').name('Dir Color').onChange(v => { if (state.lights[1]) state.lights[1].color.set(v); });
-  lightFolder.add(lightParams, 'dirX', -500, 500, 1).name('Dir X').onChange(v => { if (state.lights[1]) state.lights[1].position.x = v; });
-  lightFolder.add(lightParams, 'dirY', -500, 500, 1).name('Dir Y').onChange(v => { if (state.lights[1]) state.lights[1].position.y = v; });
-  lightFolder.add(lightParams, 'dirZ', -500, 500, 1).name('Dir Z').onChange(v => { if (state.lights[1]) state.lights[1].position.z = v; });
-  lightFolder.close();
-
-  // --- Parallax (orbital camera) ---
-  const parallaxFolder = gui.addFolder('Parallax');
-  const parallaxParams = { angleRange: 0.15, yRange: 0.3, tiltRange: 0.02, lerp: 0.04 };
-
-  parallaxFolder.add(parallaxParams, 'angleRange', 0, 0.5, 0.01).name('Angle Range');
-  parallaxFolder.add(parallaxParams, 'yRange', 0, 2, 0.01).name('Y Range');
-  parallaxFolder.add(parallaxParams, 'tiltRange', 0, 0.2, 0.01).name('Tilt Range');
-  parallaxFolder.add(parallaxParams, 'lerp', 0.001, 0.1, 0.001).name('Lerp');
-  parallaxFolder.close();
-
-  // Store params so mouse handler + animate() can read them
-  state.guiParallax = parallaxParams;
-
-  // --- CRT ---
-  const crtFolder = gui.addFolder('CRT Post-Processing');
-  const crt = { ...CRT_CONFIG };
-
-  crtFolder.add(crt, 'scanlineIntensity', 0, 1, 0.01).name('Scanlines').onChange(v => { if (state.crtUniforms?.scanlineIntensity) state.crtUniforms.scanlineIntensity.value = v; });
-  crtFolder.add(crt, 'scanlineCount', 100, 1500, 1).name('Scanline Count').onChange(v => { if (state.crtUniforms?.scanlineCount) state.crtUniforms.scanlineCount.value = v; });
-  crtFolder.add(crt, 'brightness', 0.5, 2, 0.01).name('Brightness').onChange(v => { if (state.crtUniforms?.brightness) state.crtUniforms.brightness.value = v; });
-  crtFolder.add(crt, 'contrast', 0.5, 2, 0.01).name('Contrast').onChange(v => { if (state.crtUniforms?.contrast) state.crtUniforms.contrast.value = v; });
-  crtFolder.add(crt, 'saturation', 0, 2, 0.01).name('Saturation').onChange(v => { if (state.crtUniforms?.saturation) state.crtUniforms.saturation.value = v; });
-  crtFolder.add(crt, 'bloomIntensity', 0, 1, 0.01).name('Bloom').onChange(v => { if (state.crtUniforms?.bloomIntensity) state.crtUniforms.bloomIntensity.value = v; });
-  crtFolder.add(crt, 'bloomThreshold', 0, 1, 0.01).name('Bloom Threshold').onChange(v => { if (state.crtUniforms?.bloomThreshold) state.crtUniforms.bloomThreshold.value = v; });
-  crtFolder.add(crt, 'rgbShift', 0, 1.2, 0.01).name('Chromatic Aberration').onChange(v => {
-    state.crtBaseRgbShift = v;
-    updateChromaticAberrationUniform();
-  });
-  crtFolder.add(crt, 'curvature', 0, 2, 0.01).name('Curvature').onChange(v => { if (state.crtUniforms?.curvature) state.crtUniforms.curvature.value = v; });
-  crtFolder.add(crt, 'vignetteStrength', 0, 1, 0.01).name('Vignette').onChange(v => { if (state.crtUniforms?.vignetteStrength) state.crtUniforms.vignetteStrength.value = v; });
-  crtFolder.add(crt, 'flickerStrength', 0, 0.1, 0.001).name('Flicker').onChange(v => { if (state.crtUniforms?.flickerStrength) state.crtUniforms.flickerStrength.value = v; });
-  crtFolder.close();
-
-  // --- Scene ---
-  const sceneFolder = gui.addFolder('Scene');
-  const sceneParams = { background: '#f7f7f6' };
-  sceneFolder.addColor(sceneParams, 'background').name('Background').onChange(v => {
-    if (state.modelScene) state.modelScene.background = new THREE.Color(v);
-    if (state.renderer) state.renderer.setClearColor(new THREE.Color(v), 1);
-  });
-  sceneFolder.close();
+    // Update composer and post-FX resolution
+    if (state.composer) {
+      state.composer.setSize(w, h);
+    }
+    postFXUniforms.uResolution.value.set(w, h);
+  }, 100);
 }
 
-function attachEventListeners() {
-  state.handlers.resize = onResize;
+function addEventListeners() {
+  state.handlers.wheel = onWheel;
   state.handlers.pointerdown = onPointerDown;
   state.handlers.pointermove = onPointerMove;
   state.handlers.pointerup = onPointerUp;
-  state.handlers.wheel = onWheel;
-  state.handlers.mousemove = onMouseMove;
-  state.handlers.toggleView = onToggleView;
+  state.handlers.resize = onResize;
 
+  window.addEventListener('wheel', state.handlers.wheel, { passive: false });
+  window.addEventListener('pointerdown', state.handlers.pointerdown);
+  window.addEventListener('pointermove', state.handlers.pointermove);
+  window.addEventListener('pointerup', state.handlers.pointerup);
   window.addEventListener('resize', state.handlers.resize);
-  document.addEventListener('mousemove', state.handlers.mousemove, { passive: true });
-
-  if (state.container) {
-    state.container.addEventListener('pointerdown', state.handlers.pointerdown);
-    state.container.addEventListener('wheel', state.handlers.wheel, { passive: false });
-    window.addEventListener('pointermove', state.handlers.pointermove);
-    window.addEventListener('pointerup', state.handlers.pointerup);
-  }
-
-  if (state.toggleBtn) {
-    state.toggleBtn.addEventListener('click', state.handlers.toggleView);
-  }
 }
 
 function removeEventListeners() {
-  if (state.handlers.resize) {
-    window.removeEventListener('resize', state.handlers.resize);
-  }
-  if (state.handlers.pointerdown && state.container) {
-    state.container.removeEventListener('pointerdown', state.handlers.pointerdown);
-  }
-  if (state.handlers.wheel && state.container) {
-    state.container.removeEventListener('wheel', state.handlers.wheel);
-  }
-  if (state.handlers.pointermove) {
-    window.removeEventListener('pointermove', state.handlers.pointermove);
-  }
-  if (state.handlers.pointerup) {
-    window.removeEventListener('pointerup', state.handlers.pointerup);
-  }
-  if (state.handlers.mousemove) {
-    document.removeEventListener('mousemove', state.handlers.mousemove);
-  }
-  if (state.handlers.toggleView && state.toggleBtn) {
-    state.toggleBtn.removeEventListener('click', state.handlers.toggleView);
-  }
-  if (state.handlers.listScroll && state.thumbnailWheelEl) {
-    state.thumbnailWheelEl.removeEventListener('scroll', state.handlers.listScroll);
-  }
-
-  Object.keys(state.handlers).forEach(key => {
-    state.handlers[key] = null;
-  });
+  if (state.handlers.wheel) window.removeEventListener('wheel', state.handlers.wheel);
+  if (state.handlers.pointerdown) window.removeEventListener('pointerdown', state.handlers.pointerdown);
+  if (state.handlers.pointermove) window.removeEventListener('pointermove', state.handlers.pointermove);
+  if (state.handlers.pointerup) window.removeEventListener('pointerup', state.handlers.pointerup);
+  if (state.handlers.resize) window.removeEventListener('resize', state.handlers.resize);
 }
 
-async function initWork() {
-  destroyWork();
+// ─── ANIMATION LOOP ─────────────────────────────────────────────────────────────
 
-  const mainContainer = document.querySelector("[data-barba-namespace='work']");
+function updateRipple() {
+  if (!state.stripMaterial) return;
+  // removed
+}
+
+function updateReveal() {}
+
+function animate() {
+  if (state.clock) state.clock.update();
+  const time = state.clock ? state.clock.getElapsed() : 0;
+
+  updateScroll();
+  updateStrip(time);
+  updateParallax();
+  updateScrollTilt();
+  animateParticles(time);
+  updateRipple();
+  updateReveal();
+  if (state.workGlowHandle) state.workGlowHandle.update(state.camera);
+  updateTitle();
+
+  // Update post-processing uniforms
+  postFXUniforms.uTime.value = time;
+
+  state.animationFrame = requestAnimationFrame(animate);
+}
+
+
+
+// ─── INIT / DESTROY ─────────────────────────────────────────────────────────────
+
+export async function initWork() {
+  if (isWorkInitialized) return;
+  isWorkInitialized = true;
+
+
+  const mainContainer = getActiveWorkContainer();
   if (!mainContainer) {
-    console.warn('Work page container not found');
+    console.warn('[work] no active work container found');
+    isWorkInitialized = false;
     return;
   }
 
   state.container = mainContainer;
-  state.titleEl = document.querySelector('.work-title') || document.querySelector('.slide-title');
-  state.captionEl = document.querySelector('.work-caption');
-  state.thumbnailWheelEl = document.querySelector('.thumbnail-wheel');
-  state.toggleBtn = document.querySelector('.view-toggle-btn');
+  state.titleEl = mainContainer.querySelector('.slide-title');
+  state.transitionLocked = false;
+  state.transitionProgress = 0;
+  state.selectedItem = null;
+  state.selectedItemIndex = -1;
+  state.selectedSlotIndex = 0;
+  state.transitionTargetRect = null;
+  if (state.transitionTimeline) {
+    state.transitionTimeline.kill();
+    state.transitionTimeline = null;
+  }
+  clearWorkTransitionOverlay();
+  setBaseSceneOpacity(1);
 
-  if (!setupRenderer()) {
-    console.error('Failed to setup renderer');
-    return;
+  setupGalleryScene();
+
+  // Load 3D model
+  try {
+    await loadWorkModel();
+  } catch (err) {
+    console.error('[work] Failed to load 3D model:', err);
   }
 
   await loadAllTextures();
-  if (USE_DOM_WHEEL) {
-    // DOM wheel mode: keep circle images + title in DOM for now.
-    setupDOMWheel();
-    if (state.titleEl) {
-      state.titleEl.style.opacity = '1';
-      state.titleEl.style.pointerEvents = 'auto';
-      state.titleEl.textContent = workItems[0]?.title || state.titleEl.textContent;
-    }
-    updateDOMWheel();
-  } else {
-    // Canvas wheel mode (temporarily disabled by USE_DOM_WHEEL):
-    // setupGallery();
-    // await setupCenterTitle();
-    setupGallery();
-    await setupCenterTitle();
-  }
-  setupModelScene();
-  loadModel();
-  setupGui();
-  attachEventListeners();
+  setupStrip();
+  addEventListeners();
 
-  // Initialize scroll tracking (kokomi-style)
+
+  state.introComplete = false;
+  state.transitionLocked = true;
+  state.scrollVelocity = 0;
   state.scrollTarget = 0;
   state.scrollCurrent = 0;
-  state.scrollDelta = 0;
-  state.crtBaseRgbShift = CRT_CONFIG.rgbShift;
-  state.crtMotionBoost = 0;
-  updateChromaticAberrationUniform();
 
-  state.animationFrame = null;
+  if (state.titleEl) {
+    gsap.set(state.titleEl, { opacity: 1, y: 0 });
+  }
+  restoreStripStartTransform();
+  setWorkTransitionVisualState(0);
+  setStripRevealProgress(0);
+  startStripSweepReveal();
+  // (cinematic exit removed)
+
   state.animationFrame = requestAnimationFrame(animate);
-  playIntro();
 }
 
-function destroyWork() {
+export function destroyWork({ keepCoverPlane = false, preserveTexture = null } = {}) {
+  if (!isWorkInitialized) return;
+  isWorkInitialized = false;
+  const preserveOverlay = state.transitionLocked;
+  // (cinematic exit removed)
+
+
   if (state.animationFrame !== null) {
     cancelAnimationFrame(state.animationFrame);
     state.animationFrame = null;
   }
 
   removeEventListeners();
+  unregisterGalleryOverlay();
 
-  // Dispose meshes
-  state.meshes.forEach(mesh => {
-    if (mesh.material) {
-      if (mesh.material.uniforms && mesh.material.uniforms.uTexture) {
-        // Texture is disposed separately from cache
-        mesh.material.uniforms.uTexture.value = null;
-      }
-      mesh.material.dispose();
-    }
-    if (state.scene) {
-      state.scene.remove(mesh);
-    }
-  });
-  state.meshes = [];
-  state.domThumbnails = [];
-  if (state.thumbnailWheelEl) {
-    state.thumbnailWheelEl.innerHTML = '';
+  // Clean up cover plane (unless transition wants to keep it)
+  if (!keepCoverPlane) {
+    removeCoverPlane();
   }
 
-  if (state.centerTitleMutationObserver) {
-    state.centerTitleMutationObserver.disconnect();
-    state.centerTitleMutationObserver = null;
-  }
-  if (state.centerTitleResizeObserver) {
-    state.centerTitleResizeObserver.disconnect();
-    state.centerTitleResizeObserver = null;
-  }
-  if (state.centerTitleSyncRaf !== null) {
-    cancelAnimationFrame(state.centerTitleSyncRaf);
-    state.centerTitleSyncRaf = null;
+  // Kill intro animation and restore reveal state
+  resetStripRevealState({ progress: 1 });
+  if (state.titleEl) {
+    gsap.killTweensOf(state.titleEl);
+    state.titleEl.style.opacity = '';
   }
 
-  if (state.centerTitleMesh) {
-    if (state.scene) {
-      state.scene.remove(state.centerTitleMesh);
-    }
-    state.centerTitleMesh.dispose();
-    state.centerTitleMesh = null;
-    state.centerTitleText = '';
+  if (state.transitionTimeline) {
+    state.transitionTimeline.kill();
+    state.transitionTimeline = null;
+  }
+  if (!preserveOverlay) {
+    clearWorkTransitionOverlay();
   }
 
-  if (state.sharedGeometry) {
-    state.sharedGeometry.dispose();
-    state.sharedGeometry = null;
-  }
 
-  state.textureCache.forEach(texture => texture.dispose());
-  state.textureCache.clear();
 
-  // Destroy GUI
-  if (state.gui) {
-    state.gui.destroy();
-    state.gui = null;
+  // Dispose strip
+  if (state.stripMesh) {
+    state.stripGroup?.remove(state.stripMesh);
   }
-  state.guiParallax = null;
-  state.modelMaterials.clear();
+  if (state.stripMaterial) {
+    state.stripMaterial.dispose();
+    state.stripMaterial = null;
+  }
+  if (state.stripGeometry) {
+    state.stripGeometry.dispose();
+    state.stripGeometry = null;
+  }
+  state.stripMesh = null;
+  state.textures = [];
+
+  // Dispose particles
+  if (state.particleSystem) {
+    if (state.particleSystem.geometry) state.particleSystem.geometry.dispose();
+    if (state.particleSystem.material) state.particleSystem.material.dispose();
+    if (state.particleSystem.parent) state.particleSystem.parent.remove(state.particleSystem);
+    state.particleSystem = null;
+  }
 
   // Dispose 3D model
-  if (state.model) {
-    state.model.traverse((child) => {
+  if (state.workModel) {
+    state.scene?.remove(state.workModel);
+    state.workModel.traverse((child) => {
       if (child.isMesh) {
         if (child.geometry) child.geometry.dispose();
-        if (child.material) child.material.dispose();
+        if (child.material) {
+          if (Array.isArray(child.material)) {
+            child.material.forEach(m => m.dispose());
+          } else {
+            child.material.dispose();
+          }
+        }
       }
     });
-    if (state.modelScene) state.modelScene.remove(state.model);
-    state.model = null;
+    state.workModel = null;
+    state.workModelMaterials = [];
+  }
+
+  // Clear tuned materials
+  state.tunedMaterials.clear();
+
+  // Dispose composer
+  if (state.composer) {
+    state.composer = null;
+  }
+  // Fresnel glow handle
+  state.workGlowHandle = null;
+
+  // Shadow plane
+  if (state.shadowPlane) {
+    state.shadowPlane.geometry.dispose();
+    state.shadowPlane.material.dispose();
+    if (state.shadowPlane.parent) state.shadowPlane.parent.remove(state.shadowPlane);
+    state.shadowPlane = null;
   }
 
   // Dispose lights
-  state.lights.forEach(light => {
-    if (state.modelScene) state.modelScene.remove(light);
+  if (state.pointLight) {
+    state.scene?.remove(state.pointLight);
+    state.pointLight = null;
+  }
+  if (state.ambientLight) {
+    state.scene?.remove(state.ambientLight);
+    state.ambientLight = null;
+  }
+  if (state.directionalLight) {
+    state.scene?.remove(state.directionalLight);
+    state.directionalLight.dispose();
+    state.directionalLight = null;
+  }
+
+  // Dispose strip group
+  if (state.stripGroup) {
+    state.scene?.remove(state.stripGroup);
+    state.stripGroup = null;
+  }
+
+  // Dispose textures
+  state.textureCache.forEach((texture) => {
+    if (!texture || texture === preserveTexture) return;
+    texture.dispose();
   });
-  state.lights = [];
+  state.textureCache.clear();
 
-  if (state.shadowCatcher) {
-    if (state.modelScene) state.modelScene.remove(state.shadowCatcher);
-    if (state.shadowCatcher.geometry) state.shadowCatcher.geometry.dispose();
-    if (state.shadowCatcher.material) state.shadowCatcher.material.dispose();
-    state.shadowCatcher = null;
-  }
-  if (state.envRenderTarget) {
-    state.envRenderTarget.dispose();
-    state.envRenderTarget = null;
-  }
-  if (state.pmremGenerator) {
-    state.pmremGenerator.dispose();
-    state.pmremGenerator = null;
+  // Clear debounce timers
+  if (resizeTimeout) {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = null;
   }
 
-  state.modelScene = null;
-  state.modelCamera = null;
+  // Reset cursor
+  document.body.style.cursor = '';
 
-  // Dispose CRT pass
-  if (state.crtPass) {
-    if (state.crtPass.geometry) {
-      state.crtPass.geometry.dispose();
-    }
-    if (state.crtPass.material) {
-      state.crtPass.material.dispose();
-    }
-    if (state.crtScene) {
-      state.crtScene.remove(state.crtPass);
-    }
-    state.crtPass = null;
-  }
-
-  // Dispose render target
-  if (state.renderTarget) {
-    state.renderTarget.dispose();
-    state.renderTarget = null;
-  }
-
-  state.crtScene = null;
-  state.crtCamera = null;
-  state.crtUniforms = null;
-
-  if (state.renderer) {
-    state.renderer.dispose();
-    if (state.renderer.domElement && state.renderer.domElement.parentNode) {
-      state.renderer.domElement.parentNode.removeChild(state.renderer.domElement);
-    }
-    state.renderer = null;
-  }
-
+  // Null out
   state.scene = null;
   state.camera = null;
-  state.raycaster = null;
   state.clock = null;
   state.container = null;
-  state.thumbnailWheelEl = null;
-  if (state.titleEl) {
-    state.titleEl.style.opacity = '';
-    state.titleEl.style.pointerEvents = '';
-  }
   state.titleEl = null;
-  state.captionEl = null;
-  state.rotation = 0;
-  state.targetRotation = 0;
-  state.scrollVelocity = 0;
   state.scrollTarget = 0;
   state.scrollCurrent = 0;
-  state.scrollDelta = 0;
-  state.crtBaseRgbShift = CRT_CONFIG.rgbShift;
-  state.crtMotionBoost = 0;
+  state.scrollVelocity = 0;
+  state.lastDragTime = 0;
+  state.activeIndex = 0;
+  state.lastActiveTitle = '';
+  state.mouseX = 0;
+  state.mouseY = 0;
+  state.parallaxCurrent = { rx: 0, ry: 0, cx: 0, cy: 0 };
+  state.scrollTilt = 0;
+  state.hoverUV = null;
+  state.hoverActive = false;
+  state.rippleStrength = 0;
   state.isPointerDown = false;
-  state.cameraTarget.angle = Math.PI / 2;
-  state.cameraTarget.y = 0;
-  state.cameraTarget.tilt = 0;
-  state.cameraCurrent.angle = Math.PI / 2;
-  state.cameraCurrent.y = 0;
-  state.cameraCurrent.tilt = 0;
-  state.lastMouseTime = 0;
-  state.wheelParallaxOffset.x = 0;
-  state.wheelParallaxOffset.y = 0;
-  state.wheelParallaxOffset.z = 0;
-  state.wheelParallaxOffset.tilt = 0;
-
-  // Reset view mode
-  state.viewMode = 'wheel';
-  state.toggleBtn = null;
+  state.transitionLocked = false;
+  state.transitionProgress = 0;
+  state.selectedItemIndex = -1;
+  state.selectedSlotIndex = 0;
+  state.selectedItem = null;
+  state.transitionTargetRect = null;
+  state.transitionEndComputed = false;
+  state.transitionTimeline = null;
+  state.cinematicExitTimeline = null;
+  state.cinematicExitSnapshot = null;
+  state.clickNdc.set(0, 0);
+  if (!preserveOverlay) {
+    setBaseSceneOpacity(1);
+  }
+  state.revealProgress = { value: 1 };
+  state.introTimeline = null;
+  state.introComplete = false;
+  state.handlers = {
+    resize: null,
+    wheel: null,
+    pointermove: null,
+    pointerdown: null,
+    pointerup: null,
+  };
 }
-
-export { initWork, destroyWork };

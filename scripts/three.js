@@ -1,10 +1,16 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three-stdlib';
+import { preloader } from './preloader.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { VignetteShader, GrainShader, EdgeDistortionShader, createPostFXUniforms } from './shaders/post-fx.js';
 import gsap from 'gsap';
-import { Text } from 'troika-three-text';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+gsap.registerPlugin(ScrollTrigger);
+
 
 let renderer = null;
 let composer = null;
@@ -15,27 +21,32 @@ let mouseHandler = null;
 let rafId = null;
 let containerEl = null;
 let isRunning = false;
-let ssaoPass = null;
 let keyLight = null;
 let ambientLight = null;
 let shadowCatcher = null;
-let modelRoot = null;
 let pmremGenerator = null;
 let envRenderTarget = null;
-let frameHistory = [];
-let effectsDowngraded = false;
 let sceneTween = null;
+let particleSystem = null;
 const tunedMaterials = new Set();
 
-// ── Text overlay state ──
-let overlayScene = null;
-let overlayCamera = null;
-let textEntries = []; // { mesh, uniforms, sourceEl, key }
-let sharedOverlayMaterial = null;
+// ── Dual model state ──
+let homeModelRoot = null;
+let workModelRoot = null;
+let activeModel = null;
+let currentModelPage = 'home'; // 'home' | 'work'
+let clayMaterial = null;
+let modelsLoaded = { home: false, work: false };
+let modelLoadPromise = null;
+
+// ── Post-FX uniforms ──
+const postFXUniforms = createPostFXUniforms();
+postFXUniforms.uResolution = { value: new THREE.Vector2(window.innerWidth, window.innerHeight) };
+let bloomPass = null;
 const cameraTarget = { angle: Math.PI / 2, y: 0, tilt: 0 };
 const cameraCurrent = { angle: Math.PI / 2, y: 0, tilt: 0 };
 const cameraOrbitOffset = { x: 0, y: 0, z: 0 };
-const parallaxConfig = { angleRange: 0.15, yRange: 0.3, tiltRange: 0.035, lerp: 0.02, orbitRadius: 5 };
+const parallaxConfig = { angleRange: 0.2, yRange: 0.3, tiltRange: 0.04, lerp: 0.05, orbitRadius: 5 };
 const tune = {
   exposure: 1.0,
   ambientIntensity: 0.18,
@@ -57,63 +68,38 @@ const tune = {
   modelZ: -5,
 };
 
+// ── Gallery overlay state (work page wheel) ──
+let galleryScene = null;
+let galleryCamera = null;
+
+// ── Shader background state (work page alternative to 3D scene) ──
+let shaderBackgroundRenderer = null;
+let baseSceneOpacity = 1;
+
 const QUALITY_CONFIG = Object.freeze({
   qualityProfile: 'balanced',
   hdriUrl: '/env.hdr',
   enableShadows: true,
 });
 
-function detectLowEndDevice() {
-  const dpr = window.devicePixelRatio || 1;
-  const cores = navigator.hardwareConcurrency || 8;
-  const memory = navigator.deviceMemory || 8;
-  const mediaResult = window.matchMedia ? window.matchMedia('(pointer: coarse)') : null;
-  const isCoarsePointer = Boolean(mediaResult && mediaResult.matches);
-  return cores <= 4 || memory <= 4 || (isCoarsePointer && dpr > 2);
-}
-
 function getQualitySettings() {
-  const lowEnd = detectLowEndDevice();
-  const profile = lowEnd ? 'balanced' : QUALITY_CONFIG.qualityProfile;
-  if (profile === 'perf') {
-    return {
-      profile,
-      pixelRatioCap: 1.5,
-      toneMappingExposure: 0.95,
-      enableShadows: false,
-      enableSSAO: false,
-      shadowMapSize: 1024,
-    };
-  }
-  if (profile === 'balanced') {
-    return {
-      profile,
-      pixelRatioCap: 2,
-      toneMappingExposure: 1.0,
-      enableShadows: QUALITY_CONFIG.enableShadows,
-      enableSSAO: true,
-      shadowMapSize: 1024,
-    };
-  }
   return {
-    profile: 'max',
-    pixelRatioCap: 2,
-    toneMappingExposure: 1.02,
+    profile: 'balanced',
+    pixelRatioCap: 1.5,
+    toneMappingExposure: 1.0,
     enableShadows: QUALITY_CONFIG.enableShadows,
-    enableSSAO: true,
-    shadowMapSize: 2048,
+    shadowMapSize: 512,
   };
 }
 
 function setupEnvironmentLighting(currentScene, currentRenderer, hdriUrl) {
   if (typeof process !== 'undefined' && process.env && process.env.VITEST) return;
-  if (!THREE.PMREMGenerator) return;
   pmremGenerator = new THREE.PMREMGenerator(currentRenderer);
   if (pmremGenerator.compileEquirectangularShader) pmremGenerator.compileEquirectangularShader();
 
-  import('three/examples/jsm/loaders/HDRLoader.js')
-    .then(({ HDRLoader }) => {
-      const hdrLoader = new HDRLoader();
+  import('three-stdlib')
+    .then(({ RGBELoader }) => {
+      const hdrLoader = new RGBELoader();
       hdrLoader.load(
         hdriUrl,
         (hdrTexture) => {
@@ -147,10 +133,10 @@ function setupShadows(currentRenderer, currentScene, settings) {
     currentRenderer.shadowMap.type = THREE.BasicShadowMap;
     return;
   }
-  currentRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  currentRenderer.shadowMap.type = THREE.PCFShadowMap;
   if (keyLight) {
     keyLight.castShadow = true;
-    keyLight.shadow.mapSize.set(settings.shadowMapSize, settings.shadowMapSize);
+    keyLight.shadow.mapSize.set(1024, 1024);
     keyLight.shadow.bias = -0.0001;
     keyLight.shadow.normalBias = 0.02;
     keyLight.shadow.camera.near = 1;
@@ -159,45 +145,46 @@ function setupShadows(currentRenderer, currentScene, settings) {
     keyLight.shadow.camera.right = 7;
     keyLight.shadow.camera.top = 7;
     keyLight.shadow.camera.bottom = -7;
+
+    // Aim the shadow camera at the model so the ribbon casts onto the floor
+    keyLight.target.position.set(tune.modelX, tune.modelY, tune.modelZ);
+    currentScene.add(keyLight.target);
   }
 
-  if (THREE.ShadowMaterial) {
-    const catcherGeometry = new THREE.PlaneGeometry(20, 20);
-    const catcherMaterial = new THREE.ShadowMaterial({ opacity: 0.22 });
-    shadowCatcher = new THREE.Mesh(catcherGeometry, catcherMaterial);
-    shadowCatcher.rotation.x = -Math.PI / 2;
-    shadowCatcher.position.y = -1.35;
-    shadowCatcher.receiveShadow = true;
-    currentScene.add(shadowCatcher);
-  }
+  const catcherGeometry = new THREE.PlaneGeometry(20, 20);
+  const catcherMaterial = new THREE.ShadowMaterial({ opacity: 0.22 });
+  shadowCatcher = new THREE.Mesh(catcherGeometry, catcherMaterial);
+  shadowCatcher.rotation.x = -Math.PI / 2;
+  shadowCatcher.position.set(tune.modelX, tune.shadowY, tune.modelZ);
+  shadowCatcher.receiveShadow = true;
+  currentScene.add(shadowCatcher);
 }
 
-function setupPostFX(currentComposer, currentScene, currentCamera, currentRenderer, settings) {
-  const width = window.innerWidth;
-  const height = window.innerHeight;
+function setupPostFX(currentComposer, currentScene, currentCamera) {
   const renderPass = new RenderPass(currentScene, currentCamera);
   currentComposer.addPass(renderPass);
 
+  bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    0.03,  // strength
+    0.3,   // radius
+    1.0,   // threshold
+  );
+  currentComposer.addPass(bloomPass);
+
+  const vignettePass = new ShaderPass(VignetteShader());
+  currentComposer.addPass(vignettePass);
+
+  const grainPass = new ShaderPass(GrainShader());
+  grainPass.uniforms.uGrain = postFXUniforms.uGrain;
+  grainPass.uniforms.uTime = postFXUniforms.uTime;
+  currentComposer.addPass(grainPass);
+
+  const edgeDistortionPass = new ShaderPass(EdgeDistortionShader());
+  currentComposer.addPass(edgeDistortionPass);
+
   const outputPass = new OutputPass();
   currentComposer.addPass(outputPass);
-
-  if (settings.enableSSAO) {
-    import('three/examples/jsm/postprocessing/SSAOPass.js')
-      .then(({ SSAOPass }) => {
-        if (!composer) return;
-        ssaoPass = new SSAOPass(currentScene, currentCamera, width, height);
-        ssaoPass.kernelRadius = 6;
-        ssaoPass.minDistance = 0.004;
-        ssaoPass.maxDistance = 0.08;
-        if (composer.insertPass) composer.insertPass(ssaoPass, 1);
-        else composer.addPass(ssaoPass);
-      })
-      .catch(() => { ssaoPass = null; });
-  }
-
-  if (settings.profile === 'max') {
-    currentRenderer.info.autoReset = false;
-  }
 }
 
 function applyLightTuning() {
@@ -222,7 +209,7 @@ function applyEnvironmentTuning() {
 function applyShadowTuning() {
   if (!shadowCatcher) return;
   if (shadowCatcher.material) shadowCatcher.material.opacity = tune.shadowOpacity;
-  shadowCatcher.position.y = tune.shadowY;
+  shadowCatcher.position.set(tune.modelX, tune.shadowY, tune.modelZ);
 }
 
 function applyMaterialTuning() {
@@ -246,7 +233,6 @@ function tuneMaterialMaps(material) {
 }
 
 function getFallbackPhysicalMaterial(sourceMaterial) {
-  if (!THREE.MeshPhysicalMaterial) return sourceMaterial;
   return new THREE.MeshPhysicalMaterial({
     color: sourceMaterial?.color?.clone ? sourceMaterial.color.clone() : new THREE.Color(0xffffff),
     map: sourceMaterial?.map || null,
@@ -286,14 +272,22 @@ function tuneMeshMaterial(mesh) {
   }
 }
 
+function normalizeModelBounds(model) {
+  // Center the model geometry so the root can be freely repositioned
+  const box = new THREE.Box3().setFromObject(model);
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  // Shift children so the model is centered at origin with bottom at y=0
+  model.children.forEach(child => {
+    child.position.x -= center.x;
+    child.position.y -= box.min.y;
+    child.position.z -= center.z;
+  });
+  return size;
+}
+
 function finalizeModel(model) {
-  if (THREE.Box3 && THREE.Vector3 && model.position?.sub) {
-    const box = new THREE.Box3().setFromObject(model);
-    const center = box.getCenter(new THREE.Vector3());
-    const minY = box.min.y;
-    model.position.sub(center);
-    model.position.y -= minY;
-  }
+  normalizeModelBounds(model);
 
   model.traverse((child) => {
     if (!child.isMesh) return;
@@ -303,137 +297,477 @@ function finalizeModel(model) {
   });
 }
 
-function updateRuntimeQuality(deltaMs) {
-  if (effectsDowngraded) return;
-  frameHistory.push(deltaMs);
-  if (frameHistory.length > 60) frameHistory.shift();
-  if (frameHistory.length < 45) return;
+// ── Clay material with iridescent fresnel edge ──
 
-  const average = frameHistory.reduce((sum, value) => sum + value, 0) / frameHistory.length;
-  if (average < 22) return; // More aggressive: triggers sooner
+function createClayMaterial() {
+  if (clayMaterial) return clayMaterial;
 
-  if (ssaoPass) ssaoPass.enabled = false;
-  // Also reduce pixel ratio if struggling
-  if (renderer && average > 35) {
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  clayMaterial = new THREE.MeshPhysicalMaterial({
+    color: new THREE.Color(0xf5f5f0),
+    roughness: 0.85,
+    metalness: 0.0,
+    envMapIntensity: 0.6,
+    clearcoat: 0.05,
+    clearcoatRoughness: 0.9,
+  });
+
+  // Add fresnel-based green/purple edge shift + grain via onBeforeCompile
+  const iridescentSnippet = /* glsl */ `
+    // Iridescent fresnel edge shift
+    vec3 iriViewDir = normalize(vViewPosition);
+    float iriFresnel = pow(1.0 - abs(dot(iriViewDir, normal)), 3.0);
+    vec3 iriGreen = vec3(0.4, 0.8, 0.5);
+    vec3 iriPurple = vec3(0.6, 0.3, 0.8);
+    vec3 iriEdge = mix(iriGreen, iriPurple, iriFresnel);
+    gl_FragColor.rgb = mix(gl_FragColor.rgb, iriEdge, iriFresnel * 0.2);
+  `;
+
+  const grainSnippet = /* glsl */ `
+    // Subtle grain texture
+    float random(vec2 co) {
+      return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+    }
+    vec2 uvNoise = vUv * 10.0 + fract(uTime * 0.1);
+    float grain = random(uvNoise);
+    gl_FragColor.rgb += (grain - 0.5) * uGrain;
+  `;
+
+  clayMaterial.onBeforeCompile = (shader) => {
+    // Add uniforms for grain animation
+    shader.uniforms.uTime = postFXUniforms.uTime;
+    shader.uniforms.uGrain = postFXUniforms.uGrain;
+
+    const primary = '#include <dithering_fragment>';
+    const fallback = '#include <output_fragment>';
+
+    if (shader.fragmentShader.includes(primary)) {
+      shader.fragmentShader = shader.fragmentShader.replace(
+        primary,
+        iridescentSnippet + '\n' + grainSnippet + '\n' + primary
+      );
+    } else if (shader.fragmentShader.includes(fallback)) {
+      console.warn('[three.js] Clay: using output_fragment fallback for iridescent injection');
+      shader.fragmentShader = shader.fragmentShader.replace(
+        fallback,
+        fallback + '\n' + iridescentSnippet + '\n' + grainSnippet
+      );
+    } else {
+      console.warn('[three.js] Clay: no suitable injection point found');
+    }
+  };
+
+  clayMaterial.customProgramCacheKey = () => 'clay-iridescent-grain';
+
+  return clayMaterial;
+}
+
+function finalizeWorkModel(model) {
+  const size = normalizeModelBounds(model);
+
+  // Scale model to roughly match the home model's visual footprint (~3-4 units tall)
+  const maxDim = Math.max(size.x, size.y, size.z);
+  if (maxDim > 0) {
+    const targetSize = 4;
+    const s = targetSize / maxDim;
+    model.scale.set(s, s, s);
   }
-  effectsDowngraded = true;
+
+  const clay = createClayMaterial();
+
+  model.traverse((child) => {
+    if (!child.isMesh) return;
+    child.castShadow = true;
+    child.receiveShadow = true;
+    child.material = clay;
+  });
 }
 
-// ── Text overlay helpers ──────────────────────────────────────────
+// ── Model loading ──
 
-function resolveFontPath(fontFamily) {
-  const families = (fontFamily || '').split(',')
-    .map(s => s.trim().replace(/^['"]|['"]$/g, '').toLowerCase());
-  for (const f of families) {
-    if (f.includes('otjubilee')) return '/OTJubilee-Golden.otf';
-    if (f.includes('neuemontreal') || f.includes('ppneuemontreal')) return '/PPNeueMontreal-Medium.otf';
-    if (f.includes('geist')) return '/GeistMono.woff2';
+function loadModels() {
+  if (modelLoadPromise) return modelLoadPromise;
+
+
+
+  modelLoadPromise = new Promise(async (resolve) => {
+    // Run animation and asset load concurrently — init() only resolves when
+    // both the progress animation finishes AND assetsLoaded is true.
+    const homeUrl = '/home/scene.glb';
+    const workUrl = '/work.glb';
+
+    await Promise.all([preloader.init(), preloader.load([homeUrl, workUrl])]);
+
+    preloader.hold(); // Wait for actual model insertion
+
+    const loader = new GLTFLoader();
+
+    const loadGLB = (url) => new Promise((resolveModel) => {
+      loader.load(url, (glb) => {
+        resolveModel(glb.scene);
+      }, undefined, (err) => {
+        console.error(`[three.js] Error loading ${url}`, err);
+        resolveModel(null);
+      });
+    });
+
+    const [homeScene, workScene] = await Promise.all([
+      loadGLB(homeUrl),
+      loadGLB(workUrl)
+    ]);
+
+    if (!scene || !isRunning) {
+      preloader.release();
+      resolve();
+      return;
+    }
+
+    if (homeScene) {
+      homeModelRoot = homeScene;
+      finalizeModel(homeModelRoot);
+      // Apply specifics for Home
+      homeModelRoot.traverse(child => {
+        if (!child.isMesh) return;
+        const n = child.name.toLowerCase();
+        if (n.includes('volume') || n.includes('glow') || n.includes('light')) {
+          homeGlowHandle = createFakeVolumeGlow(child, camera, {
+            c: 1.45, p: 2.1, glowColor: '#fff3c6', op: 0.18,
+          });
+        }
+      });
+      modelsLoaded.home = true;
+    }
+
+    if (workScene) {
+      workModelRoot = workScene;
+      // Basic finalization to be ready
+      finalizeModel(workModelRoot);
+      modelsLoaded.work = true;
+    }
+
+    applyMaterialTuning();
+
+    // Ensure at least one frame might render or just small delay to be safe
+    setTimeout(() => {
+      preloader.release();
+    }, 200);
+
+    resolve();
+  });
+
+  return modelLoadPromise;
+}
+
+/**
+ * Swap the active 3D model in the scene.
+ * @param {'home'|'work'} page - which model to show
+ */
+export async function swapModel(page) {
+  if (!scene) return;
+  if (modelLoadPromise) await modelLoadPromise;
+  if (!scene || !isRunning) return;
+  const targetModel = (page === 'work') ? workModelRoot : homeModelRoot;
+  if (!targetModel || activeModel === targetModel) return;
+
+  if (activeModel && activeModel.parent) {
+    scene.remove(activeModel);
   }
-  return '/OTJubilee-Golden.otf';
-}
+  targetModel.position.set(tune.modelX, tune.modelY, tune.modelZ);
+  scene.add(targetModel);
+  activeModel = targetModel;
+  currentModelPage = page;
 
-function applyTextTransform(text, transform) {
-  if (transform === 'uppercase') return text.toUpperCase();
-  if (transform === 'lowercase') return text.toLowerCase();
-  return text;
-}
-
-function initOverlay() {
-  if (overlayScene) return;
-  overlayScene = new THREE.Scene();
-  overlayCamera = new THREE.OrthographicCamera(
-    -window.innerWidth / 2, window.innerWidth / 2,
-    window.innerHeight / 2, -window.innerHeight / 2,
-    -1000, 1000
-  );
-  overlayCamera.position.z = 500;
-  // Single shared material for all overlay text
-  if (!sharedOverlayMaterial) {
-    sharedOverlayMaterial = new THREE.MeshBasicMaterial({
-      transparent: true,
-      depthTest: false,
-      depthWrite: false,
+  // Match fog to the active model's aesthetic
+  if (scene && scene.fog) {
+    let targetColor, targetDensity;
+    if (page === 'work') {
+      targetColor = new THREE.Color(0xf0ece4);
+      targetDensity = 0.035;
+    } else {
+      targetColor = new THREE.Color(0x0a0a0f);
+      targetDensity = 0.045;
+    }
+    gsap.to(scene.fog.color, {
+      r: targetColor.r,
+      g: targetColor.g,
+      b: targetColor.b,
+      duration: 1.2,
+      ease: 'power2.inOut'
+    });
+    gsap.to(scene.fog, {
+      density: targetDensity,
+      duration: 1.2,
+      ease: 'power2.inOut'
     });
   }
+
+  applyBaseSceneOpacity();
 }
 
-function destroyOverlay() {
-  unmountSceneText();
-  overlayScene = null;
-  overlayCamera = null;
-  if (sharedOverlayMaterial) {
-    sharedOverlayMaterial.dispose();
-    sharedOverlayMaterial = null;
+// ── Gallery overlay (used by work.js wheel) ──
+
+/**
+ * Register the work page gallery scene + camera so the shared renderer
+ * can composite the wheel on top of the 3D scene each frame.
+ */
+export function registerGalleryOverlay(gScene, gCamera) {
+  galleryScene = gScene;
+  galleryCamera = gCamera;
+}
+
+export function unregisterGalleryOverlay() {
+  galleryScene = null;
+  galleryCamera = null;
+}
+
+// ── Shader background (work page alternative to 3D scene) ──
+
+/**
+ * Register a shader background renderer function that replaces the 3D scene.
+ * Used by work page to render a pure shader background instead of the GLB model.
+ */
+export function registerShaderBackground(renderFn) {
+  shaderBackgroundRenderer = renderFn;
+}
+
+export function unregisterShaderBackground() {
+  shaderBackgroundRenderer = null;
+}
+
+/**
+ * Capture the current rendered frame as an HTMLCanvasElement.
+ * Used by transition.js to snapshot the WebGL canvas for the ink dissolve.
+ * Requires `preserveDrawingBuffer: true` on the renderer.
+ */
+export function captureCurrentFrame() {
+  if (!renderer) return null;
+  const source = renderer.domElement;
+  const canvas = document.createElement('canvas');
+  canvas.width = source.width;
+  canvas.height = source.height;
+  canvas.getContext('2d').drawImage(source, 0, 0);
+  return canvas;
+}
+
+export function closeMenuIfOpen() {
+  const btn = document.querySelector('.menu-toggle-btn');
+  if (btn && btn.classList.contains('menu-open')) btn.click();
+}
+
+// ── Fresnel fake-volume glow ──
+
+/**
+ * Apply a Fresnel fake-volume glow shader to an existing mesh via onBeforeCompile.
+ * The mesh should be a volume/inner-glow mesh in the GLB (e.g. named "fake_volume001").
+ * Returns a handle with an update(camera) method for API compatibility.
+ *
+ * @param {THREE.Mesh} mesh - the mesh to apply the glow to
+ * @param {THREE.Camera} cam - unused, kept for backwards-compatible call sites
+ * @param {Object} opts - { c, p, glowColor, op }
+ * @returns {{ update: (cam: THREE.Camera) => void }}
+ */
+export function createFakeVolumeGlow(mesh, _cam, opts = {}) {
+  const { c = 1.45, p = 2.1, glowColor = '#fff3c6', op = 0.18 } = opts;
+
+  const mat = new THREE.MeshBasicMaterial({
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+    transparent: true,
+    depthWrite: false,
+    depthTest: false,
+    toneMapped: false,
+  });
+
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.c = { value: c };
+    shader.uniforms.p = { value: p };
+    shader.uniforms.glowColor = { value: new THREE.Color(glowColor) };
+    shader.uniforms.op = { value: op };
+
+    shader.vertexShader = /* glsl */ `
+      uniform float c;
+      uniform float p;
+      varying float vIntensity;
+      void main() {
+        vec3 viewNormal = normalize(normalMatrix * normal);
+        vec3 viewDir = normalize(-(modelViewMatrix * vec4(position, 1.0)).xyz);
+        float fresnel = pow(max(0.0, 1.0 - dot(viewNormal, viewDir)), p);
+        vIntensity = min(1.5, fresnel * c);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `;
+
+    shader.fragmentShader = /* glsl */ `
+      uniform vec3  glowColor;
+      uniform float op;
+      varying float vIntensity;
+      void main() {
+        float alpha = smoothstep(0.0, 1.0, vIntensity) * op;
+        vec3 glow = glowColor * vIntensity;
+        gl_FragColor = vec4(glow, alpha);
+      }
+    `;
+
+    mat.userData.shader = shader;
+  };
+
+  mat.customProgramCacheKey = () => `fake-volume-${glowColor}-${c}-${p}`;
+  mesh.material = mat;
+  mesh.renderOrder = 10;
+  mesh.needsUpdate = true;
+
+  return {
+    update(_camera) { },
+    setOpacity(val) {
+      const s = mat.userData.shader;
+      if (s) s.uniforms.op.value = val;
+    },
+  };
+}
+
+let homeGlowHandle = null;
+
+// ── Floating particles ──
+
+const PARTICLE_COUNT = 200;
+const PARTICLE_BOUNDS = { xHalf: 6, yMin: -2, yMax: 4, zMin: -10, zMax: 2 };
+
+function createParticles(targetScene) {
+  const geo = new THREE.BufferGeometry();
+  const positions = new Float32Array(PARTICLE_COUNT * 3);
+  const sizes = new Float32Array(PARTICLE_COUNT);
+  const opacities = new Float32Array(PARTICLE_COUNT);
+  const { xHalf, yMin, yMax, zMin, zMax } = PARTICLE_BOUNDS;
+
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    positions[i * 3] = (Math.random() - 0.5) * 2 * xHalf;
+    positions[i * 3 + 1] = yMin + Math.random() * (yMax - yMin);
+    positions[i * 3 + 2] = zMin + Math.random() * (zMax - zMin);
+    sizes[i] = 0.008 + Math.random() * 0.016;
+    opacities[i] = 0.35 + Math.random() * 0.6;
+  }
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
+  geo.setAttribute('aOpacity', new THREE.BufferAttribute(opacities, 1));
+
+  const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+
+  const mat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    uniforms: {
+      uPixelRatio: { value: dpr },
+    },
+    vertexShader: /* glsl */ `
+      attribute float aSize;
+      attribute float aOpacity;
+      varying float vOpacity;
+      uniform float uPixelRatio;
+      void main() {
+        vOpacity = aOpacity;
+        vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = aSize * uPixelRatio * (300.0 / -mvPos.z);
+        gl_Position = projectionMatrix * mvPos;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      varying float vOpacity;
+      void main() {
+        float d = length(gl_PointCoord - 0.5) * 2.0;
+        if (d > 1.0) discard;
+        float alpha = smoothstep(1.0, 0.3, d) * vOpacity;
+        gl_FragColor = vec4(vec3(1.0), alpha);
+      }
+    `,
+  });
+
+  particleSystem = new THREE.Points(geo, mat);
+  particleSystem.frustumCulled = false;
+  targetScene.add(particleSystem);
+  applyBaseSceneOpacity();
+}
+
+function animateParticles(time) {
+  if (!particleSystem) return;
+  const positions = particleSystem.geometry.attributes.position.array;
+  const { xHalf, yMin, yMax, zMin, zMax } = PARTICLE_BOUNDS;
+
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    const i3 = i * 3;
+    // gentle upward drift
+    positions[i3 + 1] += 0.001;
+    // subtle sine sway
+    positions[i3] += Math.sin(time * 0.3 + i * 0.5) * 0.0004;
+    positions[i3 + 2] += Math.cos(time * 0.25 + i * 0.7) * 0.0003;
+
+    // wrap when above ceiling
+    if (positions[i3 + 1] > yMax) {
+      positions[i3 + 1] = yMin;
+      positions[i3] = (Math.random() - 0.5) * 2 * xHalf;
+      positions[i3 + 2] = zMin + Math.random() * (zMax - zMin);
+    }
+  }
+  particleSystem.geometry.attributes.position.needsUpdate = true;
+}
+
+function applyOpacityToModel(model, alpha) {
+  if (!model) return;
+  model.traverse((child) => {
+    if (!child.isMesh || !child.material) return;
+    const mats = Array.isArray(child.material) ? child.material : [child.material];
+    mats.forEach((mat) => {
+      if (!mat) return;
+      if (mat.userData.__baseOpacity === undefined) {
+        mat.userData.__baseOpacity = mat.opacity ?? 1;
+      }
+      mat.transparent = true;
+      mat.opacity = mat.userData.__baseOpacity * alpha;
+      mat.depthWrite = alpha > 0.02;
+      mat.needsUpdate = true;
+    });
+  });
+}
+
+function applyBaseSceneOpacity() {
+  const alpha = THREE.MathUtils.clamp(baseSceneOpacity, 0, 1);
+  applyOpacityToModel(activeModel, alpha);
+
+  if (particleSystem?.material) {
+    particleSystem.material.transparent = true;
+    particleSystem.material.opacity = alpha;
+    particleSystem.visible = alpha > 0.01;
+  }
+
+  if (shadowCatcher?.material) {
+    if (shadowCatcher.material.userData.__baseOpacity === undefined) {
+      shadowCatcher.material.userData.__baseOpacity = shadowCatcher.material.opacity ?? 0.22;
+    }
+    shadowCatcher.material.opacity = shadowCatcher.material.userData.__baseOpacity * alpha;
+    shadowCatcher.visible = alpha > 0.01;
   }
 }
 
-function createTextEntry(sourceEl, opts = {}) {
-  const style = window.getComputedStyle(sourceEl);
-  const rect = sourceEl.getBoundingClientRect();
-  const rawText = sourceEl.textContent?.trim() || '';
-  const text = applyTextTransform(rawText, style.textTransform);
-  if (!text) return null;
-
-  const fontSizePx = parseFloat(style.fontSize) || 16;
-  const letterSpacingPx = parseFloat(style.letterSpacing);
-  const lineHeightPx = parseFloat(style.lineHeight);
-
-  const mesh = new Text();
-  mesh.text = text;
-  mesh.font = resolveFontPath(style.fontFamily);
-  mesh.fontSize = fontSizePx;
-  mesh.textAlign = style.textAlign || 'center';
-  mesh.anchorX = 'center';
-  mesh.anchorY = 'middle';
-  mesh.letterSpacing = Number.isFinite(letterSpacingPx) ? letterSpacingPx / fontSizePx : 0;
-  mesh.lineHeight = Number.isFinite(lineHeightPx) ? lineHeightPx / fontSizePx : 'normal';
-
-  // Detect if the source element is single-line
-  // Use a generous threshold: if height is less than ~2 lines worth, treat as single-line
-  const computedLineHeight = Number.isFinite(lineHeightPx) ? lineHeightPx : fontSizePx * 1.4;
-  const isSingleLine = rect.height < computedLineHeight * 1.8;
-  if (isSingleLine) {
-    // Single-line: prevent Troika from breaking at all
-    mesh.whiteSpace = 'nowrap';
-    mesh.maxWidth = Infinity;
-  } else {
-    // Multi-line: use generous buffer to match CSS wrapping
-    mesh.maxWidth = Math.max(rect.width * 1.05 + 10, fontSizePx);
-  }
-  mesh.overflowWrap = 'break-word';
-  mesh.color = new THREE.Color().setStyle(style.color || '#e2e2e2').getHex();
-  mesh.material = sharedOverlayMaterial;
-  mesh.frustumCulled = false;
-  mesh.renderOrder = 20;
-
-  // Position in overlay-pixel space (origin = screen center)
-  const x = rect.left + rect.width * 0.5 - window.innerWidth * 0.5;
-  const y = window.innerHeight * 0.5 - (rect.top + rect.height * 0.5);
-  mesh.position.set(x, y, 190);
-  mesh.sync();
-  overlayScene.add(mesh);
-
-  // Hide the original DOM element visually but keep it clickable
-  if (sourceEl) sourceEl.classList.add('has-3d-text');
-
-  return { mesh, sourceEl, key: opts.key || '' };
-}
+// ── Main webgl init/destroy ──
 
 export function webgl() {
   if (isRunning) {
     return { scene, camera, renderer };
   }
   isRunning = true;
+  baseSceneOpacity = 1;
   const quality = getQualitySettings();
-  frameHistory = [];
-  effectsDowngraded = false;
 
   scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x0a0a0f, 0.045);
   camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
   const needsAA = (window.devicePixelRatio || 1) < 1.5;
-  renderer = new THREE.WebGLRenderer({ antialias: needsAA, alpha: true, powerPreference: 'high-performance' });
+  renderer = new THREE.WebGLRenderer({
+    antialias: needsAA,
+    alpha: true,
+    powerPreference: 'high-performance',
+    preserveDrawingBuffer: false,
+  });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, quality.pixelRatioCap));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -442,9 +776,9 @@ export function webgl() {
 
   containerEl = document.querySelector('#background');
   if (!containerEl) {
+    console.warn('[three.js] #background element not found, creating one');
     containerEl = document.createElement('div');
     containerEl.id = 'background';
-    // place near top of body to sit behind main content
     const firstChild = document.body.firstChild;
     document.body.insertBefore(containerEl, firstChild);
   }
@@ -460,32 +794,28 @@ export function webgl() {
   setupEnvironmentLighting(scene, renderer, QUALITY_CONFIG.hdriUrl);
   setupShadows(renderer, scene, quality);
   applyShadowTuning();
+  createParticles(scene);
 
-  const loader = new GLTFLoader();
-  const modelUrl = '/home/scene.glb';
-  loader.load(
-    modelUrl,
-    (glb) => {
-      if (!scene || !isRunning) return;
-      modelRoot = glb.scene;
-      finalizeModel(modelRoot);
-      applyMaterialTuning();
-      // Position model at its fixed scene location (camera moves for page changes, not the model)
-      modelRoot.position.set(tune.modelX, tune.modelY, tune.modelZ);
-      // Set initial camera offset for current page
-      const page = sessionStorage.getItem('webgl-page') || 'home';
-      const offset = getCameraOffset(page);
-      cameraOrbitOffset.x = offset.x;
-      cameraOrbitOffset.y = offset.y;
-      cameraOrbitOffset.z = offset.z;
-      scene.add(modelRoot);
-    },
-    undefined,
-    (err) => console.error('GLTF load error:', err)
-  );
+  // Load both models in parallel
+  const page = sessionStorage.getItem('webgl-page') || 'home';
+  loadModels().then(() => {
+    if (!scene || !isRunning) return;
+
+    // FETCH FRESH STATE
+    const currentPage = sessionStorage.getItem('webgl-page') || 'home';
+    const modelPage = (currentPage === 'work') ? 'work' : 'home';
+
+    swapModel(modelPage);
+
+    // Set initial camera offset
+    const offset = getCameraOffset(currentPage);
+    cameraOrbitOffset.x = offset.x;
+    cameraOrbitOffset.y = offset.y;
+    cameraOrbitOffset.z = offset.z;
+  });
+
   let resizeTimeout = null;
   resizeHandler = () => {
-    // Debounce resize to avoid excessive recalculations
     if (resizeTimeout) clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
       if (!camera || !renderer || !composer) return;
@@ -495,14 +825,8 @@ export function webgl() {
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
       composer.setSize(width, height);
-      if (ssaoPass && ssaoPass.setSize) ssaoPass.setSize(width, height);
-      if (overlayCamera) {
-        overlayCamera.left = -width / 2;
-        overlayCamera.right = width / 2;
-        overlayCamera.top = height / 2;
-        overlayCamera.bottom = -height / 2;
-        overlayCamera.updateProjectionMatrix();
-      }
+      if (bloomPass) bloomPass.setSize(width, height);
+      postFXUniforms.uResolution.value.set(width, height);
     }, 100);
   };
   window.addEventListener('resize', resizeHandler);
@@ -518,7 +842,7 @@ export function webgl() {
       render: () => renderer?.render(scene, camera),
     };
   }
-  setupPostFX(composer, scene, camera, renderer, quality);
+  setupPostFX(composer, scene, camera);
 
   // Orbital camera setup — orbit around model center
   cameraTarget.angle = Math.PI / 2;
@@ -547,6 +871,13 @@ export function webgl() {
 
   const render = () => {
     if (!isRunning || !camera || !composer) return;
+
+    // Skip rendering when the base scene is fully hidden and no gallery overlay is active
+    if (baseSceneOpacity <= 0 && !galleryScene && !shaderBackgroundRenderer) {
+      rafId = requestAnimationFrame(render);
+      return;
+    }
+
     const now = performance.now();
     const frameDelta = now - lastFrameTime;
     lastFrameTime = now;
@@ -557,9 +888,10 @@ export function webgl() {
     cameraCurrent.tilt += (cameraTarget.tilt - cameraCurrent.tilt) * lerpFactor;
 
     // Orbit center = model position + page offset (camera moves, model stays)
-    const cx = (modelRoot ? modelRoot.position.x : tune.modelX) + cameraOrbitOffset.x;
-    const cy = (modelRoot ? modelRoot.position.y : tune.modelY) + cameraOrbitOffset.y;
-    const cz = (modelRoot ? modelRoot.position.z : tune.modelZ) + cameraOrbitOffset.z;
+    const modelPos = activeModel ? activeModel.position : { x: tune.modelX, y: tune.modelY, z: tune.modelZ };
+    const cx = modelPos.x + cameraOrbitOffset.x;
+    const cy = modelPos.y + cameraOrbitOffset.y;
+    const cz = modelPos.z + cameraOrbitOffset.z;
     const radius = parallaxConfig.orbitRadius;
 
     camera.position.x = cx + Math.cos(cameraCurrent.angle) * radius;
@@ -575,18 +907,41 @@ export function webgl() {
     camera.lookAt(cx, cy, cz);
     camera.rotation.z += cameraCurrent.tilt;
 
-    composer.render();
+    // Keep uTime ticking for grain + edge distortion
+    postFXUniforms.uTime.value = driftTime;
 
-    // Render text overlay on top of the 3D scene
-    if (overlayScene && overlayCamera && textEntries.length > 0) {
+    // Drift particles
+    animateParticles(driftTime);
+
+    // Keep fake-volume glow hook in sync (no-op in current implementation)
+    if (homeGlowHandle) homeGlowHandle.update(camera);
+
+    // 1. Render background: either 3D scene (via composer) or shader background
+    if (shaderBackgroundRenderer) {
+      // Work page: render shader background instead of 3D scene
+      shaderBackgroundRenderer(renderer);
+    } else {
+      // Other pages: render 3D scene via composer (post-processing)
+      composer.render();
+    }
+
+    // 2. Render gallery overlay (work page wheel) if registered
+    if (galleryScene && galleryCamera) {
       const prevAutoClear = renderer.autoClear;
       renderer.autoClear = false;
       renderer.clearDepth();
-      renderer.render(overlayScene, overlayCamera);
+
+      // Use composer if available (work page with post-processing)
+      const workComposer = galleryScene.userData?.composer;
+      if (workComposer) {
+        workComposer.render();
+      } else {
+        renderer.render(galleryScene, galleryCamera);
+      }
+
       renderer.autoClear = prevAutoClear;
     }
 
-    updateRuntimeQuality(frameDelta);
     rafId = requestAnimationFrame(render);
   };
 
@@ -618,12 +973,25 @@ export function destroyWebgl() {
     sceneTween = null;
   }
 
-  destroyOverlay();
+  // ── Post-FX cleanup ──
+  postFXUniforms.uTime.value = 0;
+  bloomPass = null;
 
-  if (ssaoPass) {
-    if (ssaoPass.dispose) ssaoPass.dispose();
-    ssaoPass = null;
+  // Particles
+  if (particleSystem) {
+    if (particleSystem.geometry) particleSystem.geometry.dispose();
+    if (particleSystem.material) particleSystem.material.dispose();
+    if (particleSystem.parent) particleSystem.parent.remove(particleSystem);
+    particleSystem = null;
   }
+
+  // Fresnel glow handle
+  homeGlowHandle = null;
+
+  // Unregister gallery overlay
+  galleryScene = null;
+  galleryCamera = null;
+
   if (shadowCatcher) {
     if (shadowCatcher.geometry) shadowCatcher.geometry.dispose();
     if (shadowCatcher.material) shadowCatcher.material.dispose();
@@ -637,10 +1005,45 @@ export function destroyWebgl() {
     pmremGenerator.dispose();
     pmremGenerator = null;
   }
+  tunedMaterials.forEach(mat => {
+    if (mat && typeof mat.dispose === 'function') mat.dispose();
+  });
   tunedMaterials.clear();
-  if (modelRoot) {
-    scene?.remove(modelRoot);
-    modelRoot = null;
+
+  // Dispose both models
+  const disposeModel = (model) => {
+    if (!model) return;
+    model.traverse(child => {
+      if (child.isMesh) {
+        if (child.geometry) child.geometry.dispose();
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        for (const mat of mats) {
+          if (!mat) continue;
+          // Don't double-dispose clay material (shared)
+          if (mat === clayMaterial) continue;
+          for (const key of Object.keys(mat)) {
+            const val = mat[key];
+            if (val && typeof val.dispose === 'function') val.dispose();
+          }
+          mat.dispose();
+        }
+      }
+    });
+    scene?.remove(model);
+  };
+
+  disposeModel(homeModelRoot);
+  disposeModel(workModelRoot);
+  homeModelRoot = null;
+  workModelRoot = null;
+  activeModel = null;
+  modelLoadPromise = null;
+  modelsLoaded.home = false;
+  modelsLoaded.work = false;
+
+  if (clayMaterial) {
+    clayMaterial.dispose();
+    clayMaterial = null;
   }
 
   if (composer) {
@@ -658,28 +1061,39 @@ export function destroyWebgl() {
   camera = null;
   keyLight = null;
   ambientLight = null;
-  frameHistory = [];
-  effectsDowngraded = false;
   containerEl = null;
+  baseSceneOpacity = 1;
 }
 
 export function isWebglRunning() {
   return isRunning;
 }
 
-export function getWebglContext() {
-  return { scene, camera, renderer };
+/**
+ * Get the shared renderer so work.js can avoid creating its own.
+ */
+export function getRenderer() {
+  return renderer;
+}
+
+export function setBaseSceneOpacity(value) {
+  baseSceneOpacity = THREE.MathUtils.clamp(value, 0, 1);
+  applyBaseSceneOpacity();
+}
+
+export function setBaseSceneVisibility(visible) {
+  setBaseSceneOpacity(visible ? 1 : 0);
 }
 
 function getCameraOffset(page) {
   if (page === 'contact') return { x: -2, y: 0, z: 0 };
+  if (page === 'work') return { x: 0, y: 0, z: 0 }; // Same as home
   return { x: 0, y: 0, z: 0 };
 }
 
 /**
  * Animate (or immediately set) the camera orbit center for the given page.
- * Model and lighting stay completely static.
- * @param {'home'|'contact'} page
+ * @param {'home'|'contact'|'work'} page
  * @param {boolean} immediate — if true, skip the tween
  */
 export function setScenePage(page, immediate = false) {
@@ -700,56 +1114,15 @@ export function setScenePage(page, immediate = false) {
       x: target.x,
       y: target.y,
       z: target.z,
-      duration: 1.2,
-      ease: 'power2.inOut',
+      duration: 1.8,
+      ease: 'power3.inOut',
     });
   }
 }
 
-// ── Scene text API ────────────────────────────────────────────────
+// ── Scene text API (stubs — Troika removed) ─────────────────────
 
-/**
- * Create Troika text meshes for the given page namespace, reading
- * content and styles from the DOM and rendering via the overlay layer.
- * @param {'home'|'contact'} namespace
- */
-export function mountSceneText(namespace) {
-  if (!overlayScene) initOverlay();
-  unmountSceneText();
-
-  const selectors =
-    namespace === 'home'
-      ? [
-        { sel: '.hero-logo-top h1', opts: { stagger: 0.012, direction: 1, key: 'home-logo' } },
-        { sel: '.hero-text-reveal', opts: { stagger: 0.008, direction: 1, key: 'home-text' }, all: true },
-      ]
-      : namespace === 'contact'
-        ? [
-          { sel: '.contact-header', opts: { stagger: 0.02, direction: -1, key: 'contact-header' } },
-          { sel: '.text-reveal-header:not(.contact-header)', opts: { stagger: 0.01, direction: -1, key: 'contact-text' }, all: true },
-        ]
-        : [];
-
-  selectors.forEach(({ sel, opts, all }) => {
-    const els = all ? document.querySelectorAll(sel) : [document.querySelector(sel)];
-    els.forEach((el, i) => {
-      if (!el) return;
-      // Mark element as being handled by 3D text so other scripts (text-reveal) can ignore it
-      el.dataset.has3dText = 'true';
-      const entry = createTextEntry(el, { ...opts, key: `${opts.key}-${i}` });
-      if (entry) textEntries.push(entry);
-    });
-  });
-}
-
-/** Remove all overlay text meshes and restore DOM visibility. */
-export function unmountSceneText() {
-  textEntries.forEach(({ mesh, sourceEl }) => {
-    if (mesh.parent) mesh.parent.remove(mesh);
-    if (typeof mesh.dispose === 'function') mesh.dispose();
-    if (sourceEl) sourceEl.classList.remove('has-3d-text');
-  });
-  textEntries = [];
-}
+export async function mountSceneText() { }
+export async function unmountSceneText() { }
 
 export default webgl;
