@@ -11,6 +11,7 @@ import { createArchiveGrid, updateArchiveGrid, destroyArchiveGrid } from './arch
 import { createArchiveUI, updateArchiveUI, destroyArchiveUI } from './archive-ui.js';
 import { VignetteShader, GrainShader, EdgeDistortionShader, createPostFXUniforms } from './shaders/post-fx.js';
 import { CRTShader } from './CRTShader.js';
+import { createArchiveParticles, updateArchiveParticles } from './archive-particles.js';
 
 // ─────────────────────────────────────────────────────────────
 // CONFIG
@@ -74,6 +75,7 @@ const state = {
   // Components
   tube: null,
   logoModel: null,
+  particleSystem: null,
   grid: null,
   ui: null,
 
@@ -95,6 +97,7 @@ const state = {
     hoverSlowdownEnabled: true,
     hoverSlowdownScale: 0.35,
     hoveredProject: null,
+    mouseNdc: null,
   },
 
   // Post-FX uniforms
@@ -220,6 +223,11 @@ async function initArchive() {
   state.shared.hoverSlowdownEnabled = true;
   state.shared.hoverSlowdownScale = 0.35;
   state.shared.hoveredProject = null;
+  state.shared.mouseNdc = null;
+
+  // Raycaster for interactions
+  state.raycaster = new THREE.Raycaster();
+  state.mousePlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
 
   // HDRI environment for glass helmet
   state.pmremGenerator = new THREE.PMREMGenerator(state.renderer);
@@ -257,19 +265,13 @@ async function initArchive() {
 
     state.logoModel = gltf.scene;
 
+    state.particleSystem = createArchiveParticles(state.logoModel);
+
     // Scale and position the logo appropriately (adjust as needed based on the model's original scale)
-    state.logoModel.scale.set(70, 70, 70);
-    state.logoModel.position.set(0, 0, 0);
+    state.particleSystem.points.scale.set(70, 70, 70);
+    state.particleSystem.points.position.set(0, 0, 0);
 
-    // Ensure the logo uses the environment map for reflections if it has PBR materials
-    state.logoModel.traverse((child) => {
-      if (child.isMesh && child.material) {
-        child.material.envMap = state.scene.environment;
-        child.material.needsUpdate = true;
-      }
-    });
-
-    state.scene.add(state.logoModel);
+    state.scene.add(state.particleSystem.points);
   } catch (error) {
     console.warn('Archive: Failed to load logo.glb', error);
   }
@@ -288,9 +290,18 @@ async function initArchive() {
     const rect = state.container.getBoundingClientRect();
     if (rect.width > 0) {
       const nx = (e.clientX - rect.left) / rect.width;
+      const ny = (e.clientY - rect.top) / rect.height;
       const strength = 0.4;
+
       const cx = 0.5 + (Math.min(1, Math.max(0, nx)) - 0.5) * strength;
+      const cy = 0.5 + (Math.min(1, Math.max(0, ny)) - 0.5) * strength;
       state.shared.targetCenterUv.x = cx;
+      state.shared.targetCenterUv.y = cy;
+
+      state.shared.mouseNdc = new THREE.Vector2(
+        nx * 2 - 1,
+        - (ny * 2 - 1)
+      );
     }
   };
 
@@ -341,15 +352,22 @@ async function initArchive() {
     checkArchiveTubeIntersections(state.tube, state.camera, state.shared);
 
     // Rotate Logo based on tube spinning/time
-    if (state.logoModel) {
+    if (state.particleSystem) {
+      if (state.shared.mouseNdc) {
+        state.raycaster.setFromCamera(state.shared.mouseNdc, state.camera);
+        const target = new THREE.Vector3();
+        state.raycaster.ray.intersectPlane(state.mousePlane, target);
+        updateArchiveParticles(state.particleSystem, target);
+      }
+
       // Rotate slowly over time + react to scroll velocity
-      state.logoModel.rotation.y = elapsed * 0.2 + (state.shared.tubeAngle * 0.5);
+      state.particleSystem.points.rotation.y = elapsed * 0.2 + (state.shared.tubeAngle * 0.5);
 
       // Face the camera roughly based on mouse interaction
       const targetLookX = (state.shared.targetCenterUv.x - 0.5) * 2;
       const targetLookY = (state.shared.targetCenterUv.y - 0.5) * 2;
-      state.logoModel.rotation.x += (targetLookY * 0.5 - state.logoModel.rotation.x) * 0.05;
-      state.logoModel.rotation.z += (-targetLookX * 0.5 - state.logoModel.rotation.z) * 0.05;
+      state.particleSystem.points.rotation.x += (targetLookY * 0.5 - state.particleSystem.points.rotation.x) * 0.05;
+      state.particleSystem.points.rotation.z += (-targetLookX * 0.5 - state.particleSystem.points.rotation.z) * 0.05;
     }
     updateArchiveGrid(state.grid, elapsed);
     updateArchiveUI(state.ui);
@@ -399,9 +417,11 @@ function destroyArchive() {
   destroyArchiveGrid(state.grid);
   destroyArchiveUI(state.ui);
 
-  if (state.logoModel) {
-    state.scene.remove(state.logoModel);
-    state.logoModel = null;
+  if (state.particleSystem) {
+    state.scene.remove(state.particleSystem.points);
+    state.particleSystem.points.geometry.dispose();
+    state.particleSystem.points.material.dispose();
+    state.particleSystem = null;
   }
 
   // Dispose HDRI resources
@@ -446,6 +466,7 @@ function destroyArchive() {
   state.crtPass = null;
   state.clock = null;
   state.tube = null;
+  state.particleSystem = null;
   state.logoModel = null;
   state.grid = null;
   state.ui = null;
