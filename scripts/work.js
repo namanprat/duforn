@@ -119,6 +119,7 @@ const STRIP_VERTEX_SHADER = /* glsl */ `
   uniform float uFlatten;
   uniform float uArcRadius;
   uniform float uArcSpan;
+  uniform float uQuality; // 1.0 = full (3 noise layers), 0.0 = reduced (2 layers)
 
   varying vec2 vUv;
   varying vec3 vViewPosition;
@@ -235,16 +236,19 @@ const STRIP_VERTEX_SHADER = /* glsl */ `
       t * (uWaveFlowTurbulence * 1.8)
     ));
 
-    // Layer 3: Fine flutter (mostly at edges)
-    float n3 = snoise(vec3(
-      noiseUV.x * 6.0 - flow.x * uWaveLayerFlow.z,
-      noiseUV.y * 6.0 - flow.y * uWaveLayerFlow.z,
-      t * (uWaveFlowTurbulence * 3.0)
-    ));
-
-    // Edge constraint: center is more constrained, edges flutter more
-    float edgeDist = abs(vUv.y - 0.5) * 2.0; // 0 at center, 1 at edge
-    float flutter = smoothstep(0.2, 1.0, edgeDist); 
+    // Layer 3: Fine flutter (mostly at edges) — skipped on mobile (uQuality < 0.5)
+    float n3 = 0.0;
+    float flutter = 0.0;
+    if (uQuality > 0.5) {
+      n3 = snoise(vec3(
+        noiseUV.x * 6.0 - flow.x * uWaveLayerFlow.z,
+        noiseUV.y * 6.0 - flow.y * uWaveLayerFlow.z,
+        t * (uWaveFlowTurbulence * 3.0)
+      ));
+      // Edge constraint: center is more constrained, edges flutter more
+      float edgeDist = abs(vUv.y - 0.5) * 2.0; // 0 at center, 1 at edge
+      flutter = smoothstep(0.2, 1.0, edgeDist);
+    }
 
     // Wind-driven gust logic (ported from cloth prototype)
     float wave1 = sin(vUv.x * 5.0 + t * 2.0);
@@ -405,6 +409,7 @@ const state = {
 
   // Particles
   particleSystem: null,
+  particleMaterial: null,
 
   // Post-processing
   composer: null,
@@ -499,33 +504,61 @@ const state = {
 
 // ─── TEXTURE LOADING ────────────────────────────────────────────────────────────
 
-function loadAllTextures() {
+function createPlaceholderTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1;
+  canvas.height = 1;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0, 0, 1, 1);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function startTextureLoading() {
   const loader = new THREE.TextureLoader();
   const uniqueImages = [...new Set(workItems.map(item => item.image).filter(Boolean))];
 
-  const promises = uniqueImages.map(src => {
-    if (state.textureCache.has(src)) return Promise.resolve();
-    return new Promise((resolve) => {
-      loader.load(
-        src,
-        (texture) => {
-          texture.colorSpace = THREE.SRGBColorSpace;
-          texture.minFilter = THREE.LinearMipmapLinearFilter;
-          texture.magFilter = THREE.LinearFilter;
-          texture.generateMipmaps = true;
-          state.textureCache.set(src, texture);
-          resolve();
-        },
-        undefined,
-        () => {
-          console.warn(`[work] Failed to load texture: ${src}`);
-          resolve();
-        }
-      );
-    });
+  // Seed cache with placeholders so setupStrip() can run immediately
+  uniqueImages.forEach(src => {
+    if (!state.textureCache.has(src)) {
+      state.textureCache.set(src, createPlaceholderTexture());
+    }
   });
 
-  return Promise.all(promises);
+  // Load real textures in background, hot-swap into live shader uniforms
+  uniqueImages.forEach((src, i) => {
+    // Skip if already a real (non-placeholder) texture from a previous visit
+    const cached = state.textureCache.get(src);
+    if (cached && cached.image && cached.image.width > 1) return;
+
+    loader.load(
+      src,
+      (texture) => {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.minFilter = THREE.LinearMipmapLinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        texture.generateMipmaps = true;
+
+        // Dispose placeholder
+        const old = state.textureCache.get(src);
+        if (old) old.dispose();
+
+        state.textureCache.set(src, texture);
+
+        // Hot-swap into live shader uniform
+        if (state.stripMaterial) {
+          state.stripMaterial.uniforms[`uTex${i}`].value = texture;
+          state.stripMaterial.needsUpdate = true;
+        }
+      },
+      undefined,
+      () => {
+        console.warn(`[work] Failed to load texture: ${src}`);
+      }
+    );
+  });
 }
 
 // ─── CURVED STRIP GEOMETRY ──────────────────────────────────────────────────────
@@ -867,6 +900,7 @@ function setupStrip() {
       uWaveLayerFlow: { value: new THREE.Vector3(CONFIG.WAVE_LAYER_FLOW_1, CONFIG.WAVE_LAYER_FLOW_2, CONFIG.WAVE_LAYER_FLOW_3) },
       uWindStrength: { value: CONFIG.WIND_BASE_STRENGTH },
       uWindPinPower: { value: CONFIG.WIND_PIN_POWER },
+      uQuality: { value: (window.innerWidth > 1024) ? 1.0 : 0.0 },
       uHoverUV: { value: new THREE.Vector2(-1, -1) },
       uFlatten: { value: 0 },
       uSelectedIndex: { value: -1 },
@@ -1097,6 +1131,7 @@ function createParticles() {
   const positions = new Float32Array(PARTICLE_COUNT * 3);
   const sizes = new Float32Array(PARTICLE_COUNT);
   const opacities = new Float32Array(PARTICLE_COUNT);
+  const seeds = new Float32Array(PARTICLE_COUNT);
 
   for (let i = 0; i < PARTICLE_COUNT; i++) {
     positions[i * 3] = (Math.random() - 0.5) * 2 * xHalf;
@@ -1104,40 +1139,79 @@ function createParticles() {
     positions[i * 3 + 2] = zMin + Math.random() * (zMax - zMin);
     sizes[i] = 0.012 + Math.random() * 0.02;
     opacities[i] = 0.5 + Math.random() * 0.4;
+    seeds[i] = Math.random() * 1000.0;
   }
   geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   geo.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
   geo.setAttribute('aOpacity', new THREE.BufferAttribute(opacities, 1));
+  geo.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 1));
 
   const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+  const yRange = yMax - yMin;
+  const zRange = zMax - zMin;
+
   const mat = new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
     blending: THREE.NormalBlending,
-    uniforms: { uPixelRatio: { value: dpr } },
+    uniforms: {
+      uPixelRatio: { value: dpr },
+      uTime: { value: 0 },
+      uYMin: { value: yMin },
+      uYRange: { value: yRange },
+      uXHalf: { value: xHalf },
+      uZMin: { value: zMin },
+      uZRange: { value: zRange },
+      uRiseSpeed: { value: 0.001 },
+      uGlobalOpacity: { value: 1.0 },
+    },
     vertexShader: /* glsl */ `
       attribute float aSize;
       attribute float aOpacity;
+      attribute float aSeed;
       varying float vOpacity;
       uniform float uPixelRatio;
+      uniform float uTime;
+      uniform float uYMin;
+      uniform float uYRange;
+      uniform float uXHalf;
+      uniform float uZMin;
+      uniform float uZRange;
+      uniform float uRiseSpeed;
+
+      // Simple hash for pseudo-random scatter on wrap
+      float hash(float n) { return fract(sin(n) * 43758.5453123); }
+
       void main() {
         vOpacity = aOpacity;
-        vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
+
+        // Drift upward and wrap using mod
+        float yOffset = uTime * uRiseSpeed * (60.0); // ~0.001 per frame at 60fps
+        float y = mod(position.y - uYMin + yOffset, uYRange) + uYMin;
+
+        // Gentle horizontal oscillation (GPU-driven)
+        float x = position.x + sin(uTime * 0.3 + aSeed * 0.5) * 0.4;
+        float z = position.z + cos(uTime * 0.25 + aSeed * 0.7) * 0.3;
+
+        vec3 pos = vec3(x, y, z);
+        vec4 mvPos = modelViewMatrix * vec4(pos, 1.0);
         gl_PointSize = aSize * uPixelRatio * (420.0 / -mvPos.z);
         gl_Position = projectionMatrix * mvPos;
       }
     `,
     fragmentShader: /* glsl */ `
       varying float vOpacity;
+      uniform float uGlobalOpacity;
       void main() {
         float d = length(gl_PointCoord - 0.5) * 2.0;
         if (d > 1.0) discard;
-        float alpha = smoothstep(1.0, 0.3, d) * vOpacity;
+        float alpha = smoothstep(1.0, 0.3, d) * vOpacity * uGlobalOpacity;
         gl_FragColor = vec4(vec3(0.85), alpha);
       }
     `,
   });
 
+  state.particleMaterial = mat;
   state.particleSystem = new THREE.Points(geo, mat);
   state.particleSystem.frustumCulled = false;
   state.particleSystem.renderOrder = 10;
@@ -1145,22 +1219,10 @@ function createParticles() {
 }
 
 function animateParticles(time) {
-  if (!state.particleSystem) return;
-  const positions = state.particleSystem.geometry.attributes.position.array;
-  const { xHalf, yMin, yMax, zMin, zMax } = CONFIG.PARTICLE_BOUNDS;
-
-  for (let i = 0; i < CONFIG.PARTICLE_COUNT; i++) {
-    const i3 = i * 3;
-    positions[i3 + 1] += 0.001;
-    positions[i3] += Math.sin(time * 0.3 + i * 0.5) * 0.0004;
-    positions[i3 + 2] += Math.cos(time * 0.25 + i * 0.7) * 0.0003;
-    if (positions[i3 + 1] > yMax) {
-      positions[i3 + 1] = yMin;
-      positions[i3] = (Math.random() - 0.5) * 2 * xHalf;
-      positions[i3 + 2] = zMin + Math.random() * (zMax - zMin);
-    }
+  // GPU-driven: just update the time uniform
+  if (state.particleMaterial) {
+    state.particleMaterial.uniforms.uTime.value = time;
   }
-  state.particleSystem.geometry.attributes.position.needsUpdate = true;
 }
 
 // ─── SCROLL ─────────────────────────────────────────────────────────────────────
@@ -1636,11 +1698,13 @@ function setWorkModelOpacity(alpha) {
 }
 
 function setWorkParticlesOpacity(alpha) {
-  if (!state.particleSystem?.material || !('opacity' in state.particleSystem.material)) return;
   const clamped = clamp01(alpha);
-  state.particleSystem.material.transparent = true;
-  state.particleSystem.material.opacity = clamped;
-  state.particleSystem.visible = clamped > 0.01;
+  if (state.particleMaterial) {
+    state.particleMaterial.uniforms.uGlobalOpacity.value = clamped;
+  }
+  if (state.particleSystem) {
+    state.particleSystem.visible = clamped > 0.01;
+  }
 }
 
 // runWorkCinematicExit and resetWorkCinematicExit removed — no transition animation between work/film
@@ -1844,7 +1908,7 @@ export async function initWork() {
     console.error('[work] Failed to load 3D model:', err);
   }
 
-  await loadAllTextures();
+  startTextureLoading();
   setupStrip();
   addEventListeners();
 
@@ -1931,6 +1995,7 @@ export function destroyWork({ keepCoverPlane = false, preserveTexture = null } =
     if (state.particleSystem.parent) state.particleSystem.parent.remove(state.particleSystem);
     state.particleSystem = null;
   }
+  state.particleMaterial = null;
 
   // Dispose 3D model
   if (state.workModel) {
