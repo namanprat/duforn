@@ -21,6 +21,8 @@ export class Preloader {
         this.runResolver = null;
         this.isCompleting = false;
         this.loadedAssets = new Map();
+        this.resizeHandler = null;
+        this.resizeTimeout = null;
 
         // Bind methods
         this.init = this.init.bind(this);
@@ -74,13 +76,6 @@ export class Preloader {
         this.cacheDom();
         this.generateGrid();
 
-        // Add resize listener
-        let resizeTimeout;
-        window.addEventListener('resize', () => {
-            clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(() => this.generateGrid(), 200);
-        });
-
         const hasSeenPreloader = sessionStorage.getItem('preloaderSeen') === 'true';
         // const hasSeenPreloader = false; // FORCE SHOW for debugging
 
@@ -88,10 +83,12 @@ export class Preloader {
         if (this.runPromise) return this.runPromise;
 
         if (hasSeenPreloader) {
+            this.teardownResizeListener();
             this.container.style.display = 'none';
             return Promise.resolve();
         }
 
+        this.setupResizeListener();
         this.container.style.display = 'flex';
         this.animationComplete = false;
         this.pendingLoadBatches = 0;
@@ -258,6 +255,30 @@ export class Preloader {
         this.runResolver = null;
         this.runPromise = null;
         this.isCompleting = false;
+        this.teardownResizeListener();
+    }
+
+    setupResizeListener() {
+        if (this.resizeHandler) return;
+
+        this.resizeHandler = () => {
+            if (this.resizeTimeout) clearTimeout(this.resizeTimeout);
+            this.resizeTimeout = setTimeout(() => this.generateGrid(), 200);
+        };
+
+        window.addEventListener('resize', this.resizeHandler, { passive: true });
+    }
+
+    teardownResizeListener() {
+        if (this.resizeHandler) {
+            window.removeEventListener('resize', this.resizeHandler);
+            this.resizeHandler = null;
+        }
+
+        if (this.resizeTimeout) {
+            clearTimeout(this.resizeTimeout);
+            this.resizeTimeout = null;
+        }
     }
 
     complete() {

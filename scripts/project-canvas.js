@@ -4,6 +4,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { GrainShader, EdgeDistortionShader, createPostFXUniforms } from './shaders/post-fx.js';
+import { getPerformanceProfile } from './perf.js';
 
 let renderer = null;
 let scene = null;
@@ -21,6 +22,7 @@ let gui = null;
 const imageTextureCache = new Map();
 
 const postFXUniforms = createPostFXUniforms();
+const perf = getPerformanceProfile();
 
 // --- GUI-controlled parameters ---
 const params = {
@@ -373,7 +375,7 @@ async function initProjectCanvas(containerArg) {
     powerPreference: 'high-performance',
   });
   renderer.setSize(width, height);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, perf.pixelRatioCap));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.domElement.style.pointerEvents = 'none';
   // Position absolutely so the canvas overlays correctly within the fixed #background container
@@ -385,12 +387,15 @@ async function initProjectCanvas(containerArg) {
   composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
 
-  const grainPass = new ShaderPass(GrainShader());
+  postFXUniforms.uGrain.value = perf.grainStrength;
+  const grainPass = new ShaderPass(GrainShader({ grain: perf.grainStrength }));
   grainPass.uniforms.uTime = postFXUniforms.uTime;
   grainPass.uniforms.uGrain = postFXUniforms.uGrain;
   composer.addPass(grainPass);
 
-  composer.addPass(new ShaderPass(EdgeDistortionShader({ preserveAlpha: true })));
+  if (perf.enableEdgeDistortion) {
+    composer.addPass(new ShaderPass(EdgeDistortionShader({ preserveAlpha: true })));
+  }
   composer.addPass(new OutputPass());
 
   // Create FBM warp background (renders behind everything)

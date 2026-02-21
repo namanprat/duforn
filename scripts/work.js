@@ -15,6 +15,7 @@ import { preloader } from './preloader.js';
 
 import { applyWorkSignaturePostFX } from './postfx-work-signature.js';
 import { createPostFXUniforms } from './shaders/post-fx.js';
+import { getPerformanceProfile } from './perf.js';
 
 
 // Cinematic 3D strip carousel — one continuous curved mesh wrapping an arc,
@@ -103,6 +104,8 @@ const CONFIG = {
   SCROLL_TILT_LERP: 0.04,
   SCROLL_TILT_MAX: 0.15,
 };
+
+const perf = getPerformanceProfile();
 
 // ─── SHADERS ────────────────────────────────────────────────────────────────────
 
@@ -1042,7 +1045,7 @@ function setupPostProcessing() {
 
   state.composer = new EffectComposer(renderer);
   applyWorkSignaturePostFX(state.composer, state.scene, state.camera, postFXUniforms, {
-    includeBloom: true,
+    includeBloom: perf.enableBloom,
     bloomStrength: 0.05,
     bloomRadius: 0.3,
     bloomThreshold: 0.7,
@@ -1146,7 +1149,7 @@ function createParticles() {
   geo.setAttribute('aOpacity', new THREE.BufferAttribute(opacities, 1));
   geo.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 1));
 
-  const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+  const dpr = Math.min(window.devicePixelRatio || 1, perf.pixelRatioCap);
   const yRange = yMax - yMin;
   const zRange = zMax - zMin;
 

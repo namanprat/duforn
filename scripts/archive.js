@@ -12,13 +12,16 @@ import { createArchiveUI, updateArchiveUI, destroyArchiveUI } from './archive-ui
 import { VignetteShader, GrainShader, EdgeDistortionShader, createPostFXUniforms } from './shaders/post-fx.js';
 import { CRTShader } from './CRTShader.js';
 import { createArchiveParticles, updateArchiveParticles } from './archive-particles.js';
+import { getPerformanceProfile } from './perf.js';
 
 // ─────────────────────────────────────────────────────────────
 // CONFIG
 // ─────────────────────────────────────────────────────────────
 
+const perf = getPerformanceProfile();
+
 const CONFIG = Object.freeze({
-  pixelRatioMax: 1.5,
+  pixelRatioMax: perf.pixelRatioCap,
 
   tube: Object.freeze({
     scrollDeltaPerWheel: 0.002,
@@ -26,13 +29,13 @@ const CONFIG = Object.freeze({
   }),
 
   postFX: Object.freeze({
-    grain: 0.012,
+    grain: perf.grainStrength,
     vignette: 0.15,
     vignetteOffset: 1.0,
-    bloomStrength: 0.1,
+    bloomStrength: perf.enableBloom ? 0.1 : 0.0,
     bloomRadius: 0.35,
     bloomThreshold: 0.8,
-    edgeShift: 0.008,
+    edgeShift: perf.enableEdgeDistortion ? 0.008 : 0.0,
   }),
 
   crt: Object.freeze({
@@ -164,13 +167,15 @@ async function initArchive() {
   state.composer.addPass(new RenderPass(state.scene, state.camera));
 
   // Bloom
-  const bloomPass = new UnrealBloomPass(
-    new THREE.Vector2(w, h),
-    CONFIG.postFX.bloomStrength,
-    CONFIG.postFX.bloomRadius,
-    CONFIG.postFX.bloomThreshold
-  );
-  state.composer.addPass(bloomPass);
+  if (CONFIG.postFX.bloomStrength > 0) {
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(w, h),
+      CONFIG.postFX.bloomStrength,
+      CONFIG.postFX.bloomRadius,
+      CONFIG.postFX.bloomThreshold
+    );
+    state.composer.addPass(bloomPass);
+  }
 
   // Vignette
   const vignettePass = new ShaderPass(VignetteShader({ darkness: CONFIG.postFX.vignette, offset: CONFIG.postFX.vignetteOffset }));
@@ -182,8 +187,10 @@ async function initArchive() {
   state.composer.addPass(grainPass);
 
   // Edge distortion (chromatic aberration)
-  const edgePass = new ShaderPass(EdgeDistortionShader({ shift: CONFIG.postFX.edgeShift }));
-  state.composer.addPass(edgePass);
+  if (CONFIG.postFX.edgeShift > 0) {
+    const edgePass = new ShaderPass(EdgeDistortionShader({ shift: CONFIG.postFX.edgeShift }));
+    state.composer.addPass(edgePass);
+  }
 
   // CRT shader
   state.crtPass = new ShaderPass(CRTShader);

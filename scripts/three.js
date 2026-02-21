@@ -8,6 +8,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { VignetteShader, GrainShader, EdgeDistortionShader, createPostFXUniforms } from './shaders/post-fx.js';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { getPerformanceProfile } from './perf.js';
 gsap.registerPlugin(ScrollTrigger);
 
 
@@ -84,12 +85,16 @@ const QUALITY_CONFIG = Object.freeze({
 });
 
 function getQualitySettings() {
+  const perf = getPerformanceProfile();
   return {
-    profile: 'balanced',
-    pixelRatioCap: 1.5,
+    profile: perf.lowPower ? 'low-power' : 'balanced',
+    pixelRatioCap: perf.pixelRatioCap,
     toneMappingExposure: 1.0,
-    enableShadows: QUALITY_CONFIG.enableShadows,
-    shadowMapSize: 512,
+    enableShadows: QUALITY_CONFIG.enableShadows && !perf.veryLowPower,
+    shadowMapSize: perf.lowPower ? 512 : 1024,
+    enableBloom: perf.enableBloom,
+    enableEdgeDistortion: perf.enableEdgeDistortion,
+    grainStrength: perf.grainStrength,
   };
 }
 
@@ -137,7 +142,7 @@ function setupShadows(currentRenderer, currentScene, settings) {
   currentRenderer.shadowMap.type = THREE.PCFShadowMap;
   if (keyLight) {
     keyLight.castShadow = true;
-    keyLight.shadow.mapSize.set(1024, 1024);
+    keyLight.shadow.mapSize.set(settings.shadowMapSize, settings.shadowMapSize);
     keyLight.shadow.bias = -0.0001;
     keyLight.shadow.normalBias = 0.02;
     keyLight.shadow.camera.near = 1;
@@ -161,28 +166,35 @@ function setupShadows(currentRenderer, currentScene, settings) {
   currentScene.add(shadowCatcher);
 }
 
-function setupPostFX(currentComposer, currentScene, currentCamera) {
+function setupPostFX(currentComposer, currentScene, currentCamera, settings) {
   const renderPass = new RenderPass(currentScene, currentCamera);
   currentComposer.addPass(renderPass);
 
-  bloomPass = new UnrealBloomPass(
-    new THREE.Vector2(window.innerWidth, window.innerHeight),
-    0.03,  // strength
-    0.3,   // radius
-    1.0,   // threshold
-  );
-  currentComposer.addPass(bloomPass);
+  if (settings.enableBloom) {
+    bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      0.03,  // strength
+      0.3,   // radius
+      1.0,   // threshold
+    );
+    currentComposer.addPass(bloomPass);
+  } else {
+    bloomPass = null;
+  }
 
   const vignettePass = new ShaderPass(VignetteShader());
   currentComposer.addPass(vignettePass);
 
-  const grainPass = new ShaderPass(GrainShader());
+  const grainPass = new ShaderPass(GrainShader({ grain: settings.grainStrength }));
   grainPass.uniforms.uGrain = postFXUniforms.uGrain;
   grainPass.uniforms.uTime = postFXUniforms.uTime;
+  postFXUniforms.uGrain.value = settings.grainStrength;
   currentComposer.addPass(grainPass);
 
-  const edgeDistortionPass = new ShaderPass(EdgeDistortionShader());
-  currentComposer.addPass(edgeDistortionPass);
+  if (settings.enableEdgeDistortion) {
+    const edgeDistortionPass = new ShaderPass(EdgeDistortionShader());
+    currentComposer.addPass(edgeDistortionPass);
+  }
 
   const outputPass = new OutputPass();
   currentComposer.addPass(outputPass);
@@ -836,7 +848,7 @@ export function webgl() {
       render: () => renderer?.render(scene, camera),
     };
   }
-  setupPostFX(composer, scene, camera);
+  setupPostFX(composer, scene, camera, quality);
 
   // Orbital camera setup — orbit around model center
   cameraTarget.angle = Math.PI / 2;
