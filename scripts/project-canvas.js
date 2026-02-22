@@ -31,7 +31,7 @@ const params = {
   green: '#ffffff',
   blue: '#f2f2f2',
   orange: '#ebebeb',
-  cyan: '#ebebebff',
+  cyan: '#ebebeb',
   white: '#ffffff',
   yellow: '#e3e3e3',
 };

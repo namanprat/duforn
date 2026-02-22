@@ -2090,7 +2090,7 @@ section {
   }
 
   .u-mobile-hidden {
-    display: none;
+    display: none !important;
   }
 }
 
@@ -2148,7 +2148,11 @@ section {
 }
 
 .hero-bottom-contain {
-  width: var(--column-width-10);
+  width: var(--column-width-11);
+
+  p {
+    width: var(--column-width-9);
+  }
 }
 
 .about-top {
@@ -2369,8 +2373,12 @@ section {
     display: flex;
   }
 
-  .menu-toggle-btn {
-    display: block;
+  .hero-bottom-contain {
+    width: 100%;
+
+    p {
+      width: 100%;
+    }
   }
 }
 

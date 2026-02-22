@@ -227,6 +227,18 @@ function initPageFeatures(namespace, { skipWebglSetup = false } = {}) {
   }
 }
 
+function clearWorkOutroOverlay() {
+  const overlay = document.getElementById('work-outro-overlay');
+  if (overlay) {
+    gsap.to(overlay, {
+      autoAlpha: 0,
+      duration: 0.5,
+      ease: 'power2.out',
+      onComplete: () => overlay.remove()
+    });
+  }
+}
+
 barba.init({
   transitions: [
     {
@@ -259,6 +271,7 @@ barba.init({
         cleanupSplits();
       },
       async enter(data) {
+        clearWorkOutroOverlay();
         const fromNs = data?.current?.namespace;
         const toNs = data?.next?.namespace;
         const container = data?.next?.container;
@@ -339,6 +352,7 @@ barba.init({
         cleanupSplits();
       },
       async enter() {
+        clearWorkOutroOverlay();
         // Simple page swap — no ink dissolve for non-webgl pages
       },
       async once(data) {

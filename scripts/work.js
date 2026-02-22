@@ -815,6 +815,7 @@ function setupGalleryScene() {
   fillLight.decay = 2;
   fillLight.distance = 30;
   state.scene.add(fillLight);
+  state.fillLight = fillLight;
 
   // 3. RIM LIGHT: Sharp, bright backlight to separate ribbon from background
   const rimLight = new THREE.SpotLight(0xffffff, 1080); // 10% reduction (1200 -> 1080)
@@ -826,6 +827,7 @@ function setupGalleryScene() {
   rimLight.distance = 40;
   state.scene.add(rimLight);
   state.scene.add(rimLight.target);
+  state.rimLight = rimLight;
 
   // Ambient: Low base level
   state.ambientLight = new THREE.AmbientLight(0xffffff, 0.54); // 10% reduction (0.6 -> 0.54)
@@ -1849,11 +1851,152 @@ function handleClick(event) {
       const itemIdx = ((Math.floor(totalU) % CONFIG.NUM_UNIQUE) + CONFIG.NUM_UNIQUE) % CONFIG.NUM_UNIQUE;
       const item = workItems[itemIdx];
       if (item?.href) {
-        if (barba?.go) {
-          barba.go(item.href);
-        } else {
-          window.location.href = item.href;
+        // Lock transition
+        state.transitionLocked = true;
+        state.isPointerDown = false;
+        state.scrollVelocity = 0;
+
+        // Ensure outro overlay element exists and is styled correctly
+        let transitionEl = document.getElementById('work-outro-overlay');
+        if (!transitionEl) {
+          transitionEl = document.createElement('div');
+          transitionEl.id = 'work-outro-overlay';
+          document.body.appendChild(transitionEl);
         }
+        gsap.set(transitionEl, {
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: 'white',
+          zIndex: 9999,
+          pointerEvents: 'none',
+          autoAlpha: 0 // Opacity 0, visibility hidden
+        });
+
+        // Create cinematic outro timeline
+        const tl = gsap.timeline({
+          onComplete: () => {
+            if (barba?.go) {
+              barba.go(item.href);
+            } else {
+              window.location.href = item.href;
+            }
+          }
+        });
+
+        // 1. Camera & Lights move in on Z-axis, fog thickens
+        tl.to(state.camera.position, {
+          z: state.camera.position.z - 6, // Zoom further in
+          duration: 2.0, // Slower, more dramatic zoom
+          ease: 'power2.inOut'
+        }, 0);
+
+        // Make the point light (key light) follow the camera
+        if (state.pointLight) {
+          tl.to(state.pointLight.position, {
+            z: state.pointLight.position.z - 5,
+            duration: 2.0,
+            ease: 'power2.inOut'
+          }, 0);
+
+          // Flare the light slightly for drama
+          tl.to(state.pointLight, {
+            intensity: state.pointLight.intensity * 2.0, // Brighter flare
+            duration: 1.5,
+            ease: 'power2.in'
+          }, 0);
+        }
+
+        // Make fill light follow camera
+        if (state.fillLight) {
+          tl.to(state.fillLight.position, {
+            z: state.fillLight.position.z - 4,
+            duration: 2.0,
+            ease: 'power2.inOut'
+          }, 0);
+        }
+
+        // Increase fog density significantly to add depth and hide the background
+        if (state.scene.fog) {
+          tl.to(state.scene.fog, {
+            density: 0.35, // Very thick fog
+            duration: 1.5,
+            ease: 'power2.in'
+          }, 0);
+        }
+
+        // Add subtle rotation to the strip itself to give a feeling of falling or moving past
+        if (state.stripGroup) {
+          tl.to(state.stripGroup.rotation, {
+            x: state.stripGroup.rotation.x + 0.2, // Pitch slightly up
+            y: state.stripGroup.rotation.y - 0.1, // Yaw slightly
+            duration: 2.0,
+            ease: 'power1.inOut'
+          }, 0);
+        }
+
+        // 2. Elements fade out sequentially
+        // Fade out title
+        if (state.titleEl) {
+          tl.to(state.titleEl, {
+            opacity: 0,
+            duration: 0.5,
+            ease: 'power2.out'
+          }, 0);
+        }
+
+        // Fade out particles
+        const particleOpacityObj = { value: 1.0 };
+        if (state.particleMaterial && state.particleMaterial.uniforms.uGlobalOpacity) {
+          particleOpacityObj.value = state.particleMaterial.uniforms.uGlobalOpacity.value;
+          tl.to(particleOpacityObj, {
+            value: 0,
+            duration: 0.8,
+            ease: 'power2.out',
+            onUpdate: () => {
+              setWorkParticlesOpacity(particleOpacityObj.value);
+            }
+          }, 0.2);
+        }
+
+        // Fade out strip (uTransitionOpacity)
+        const stripObj = { value: 1.0 };
+        if (state.stripMaterial && state.stripMaterial.uniforms.uTransitionOpacity) {
+          stripObj.value = state.stripMaterial.uniforms.uTransitionOpacity.value;
+          tl.to(stripObj, {
+            value: 0,
+            duration: 1.0,
+            ease: 'power2.inOut',
+            onUpdate: () => {
+              if (state.stripMaterial && state.stripMaterial.uniforms.uTransitionOpacity) {
+                state.stripMaterial.uniforms.uTransitionOpacity.value = stripObj.value;
+              }
+              if (state.stripMesh) {
+                state.stripMesh.visible = stripObj.value > 0.01;
+              }
+            }
+          }, 0.4);
+        }
+
+        // Fade out workModel
+        const modelObj = { alpha: 1.0 };
+        tl.to(modelObj, {
+          alpha: 0,
+          duration: 1.0,
+          ease: 'power2.inOut',
+          onUpdate: () => {
+            setWorkModelOpacity(modelObj.alpha);
+          }
+        }, 0.4);
+
+        // 3. Fade to white backdrop (delayed slightly for full effect of lights and fog)
+        tl.to(transitionEl, {
+          autoAlpha: 1,
+          duration: 1.0,
+          ease: 'power2.inOut'
+        }, 1.2); // Starts later in the timeline
       }
     }
   }
