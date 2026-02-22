@@ -374,6 +374,11 @@ barba.init({
         }
 
         // Reveal text on initial page load for all pages
+        // Wait for preloader to fully close and resolve before revealing
+        if (preloader.runPromise) {
+          await preloader.runPromise;
+        }
+
         // For work page, wait a frame so initWork's rAF populates .slide-title
         if (ns === 'work') {
           await new Promise(r => requestAnimationFrame(r));

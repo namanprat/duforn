@@ -690,7 +690,7 @@ function createParticles(targetScene) {
   applyBaseSceneOpacity();
 }
 
-function animateParticles(time) {
+function animateParticles(time, fpsFactor = 1.0) {
   if (!particleSystem) return;
   const positions = particleSystem.geometry.attributes.position.array;
   const { xHalf, yMin, yMax, zMin, zMax } = PARTICLE_BOUNDS;
@@ -698,10 +698,10 @@ function animateParticles(time) {
   for (let i = 0; i < PARTICLE_COUNT; i++) {
     const i3 = i * 3;
     // gentle upward drift
-    positions[i3 + 1] += 0.001;
+    positions[i3 + 1] += 0.001 * fpsFactor;
     // subtle sine sway
-    positions[i3] += Math.sin(time * 0.3 + i * 0.5) * 0.0004;
-    positions[i3 + 2] += Math.cos(time * 0.25 + i * 0.7) * 0.0003;
+    positions[i3] += Math.sin(time * 0.3 + i * 0.5) * 0.0004 * fpsFactor;
+    positions[i3 + 2] += Math.cos(time * 0.25 + i * 0.7) * 0.0003 * fpsFactor;
 
     // wrap when above ceiling
     if (positions[i3 + 1] > yMax) {
@@ -893,7 +893,11 @@ export function webgl() {
     const frameDelta = now - lastFrameTime;
     lastFrameTime = now;
 
-    const lerpFactor = parallaxConfig.lerp;
+    // Calculate a factor relative to 60fps (16.666ms)
+    // Cap at 3.0 (20fps minimum) to prevent extreme jumps during lag spikes
+    const fpsFactor = Math.min(frameDelta / 16.666, 3.0);
+
+    const lerpFactor = Math.min(parallaxConfig.lerp * fpsFactor, 1.0);
     cameraCurrent.angle += (cameraTarget.angle - cameraCurrent.angle) * lerpFactor;
     cameraCurrent.y += (cameraTarget.y - cameraCurrent.y) * lerpFactor;
     cameraCurrent.tilt += (cameraTarget.tilt - cameraCurrent.tilt) * lerpFactor;
@@ -921,8 +925,8 @@ export function webgl() {
     // Keep uTime ticking for grain + edge distortion
     postFXUniforms.uTime.value = driftTime;
 
-    // Drift particles
-    animateParticles(driftTime);
+    // Drift particles, pass fpsFactor to make framerate-independent
+    animateParticles(driftTime, fpsFactor);
 
     // Keep fake-volume glow hook in sync (no-op in current implementation)
     if (homeGlowHandle) homeGlowHandle.update(camera);

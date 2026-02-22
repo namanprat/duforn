@@ -13,8 +13,11 @@ import {
 } from './three.js';
 import { preloader } from './preloader.js';
 
-import { applyWorkSignaturePostFX } from './postfx-work-signature.js';
-import { createPostFXUniforms } from './shaders/post-fx.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { VignetteShader, GrainShader, EdgeDistortionShader, createPostFXUniforms } from './shaders/post-fx.js';
 import { getPerformanceProfile } from './perf.js';
 
 
@@ -1036,6 +1039,62 @@ function updateStrip(time) {
 
 // ─── POST-PROCESSING ────────────────────────────────────────────────────────────
 
+/**
+ * Canonical work-page signature:
+ * RenderPass -> Bloom -> [Vignette] -> Grain -> Chromatic Edge -> Output
+ */
+function applyWorkSignaturePostFX(composer, scene, camera, postFXUniforms, options = {}) {
+  const {
+    bloomStrength = 0.15,
+    bloomRadius = 0.5,
+    bloomThreshold = 0.5,
+    vignetteDarkness = 0.65,
+    vignetteOffset = 0.68,
+    includeBloom = true,
+    includeVignette = true,
+    edgeShift = 0.012,
+    edgeStart = 0.1,
+    edgeEnd = 0.6,
+  } = options;
+
+  const renderPass = new RenderPass(scene, camera);
+  composer.addPass(renderPass);
+
+  if (includeBloom) {
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      bloomStrength,
+      bloomRadius,
+      bloomThreshold
+    );
+    composer.addPass(bloomPass);
+  }
+
+  if (includeVignette) {
+    const vignettePass = new ShaderPass(VignetteShader({ darkness: vignetteDarkness, offset: vignetteOffset }));
+    composer.addPass(vignettePass);
+  }
+
+  const grainPass = new ShaderPass(GrainShader());
+  if (postFXUniforms?.uTime) {
+    grainPass.uniforms.uTime = postFXUniforms.uTime;
+  }
+  if (postFXUniforms?.uGrain) {
+    grainPass.uniforms.uGrain = postFXUniforms.uGrain;
+  }
+  composer.addPass(grainPass);
+
+  const edgeDistortionPass = new ShaderPass(EdgeDistortionShader({ shift: edgeShift, edgeStart, edgeEnd, preserveAlpha: true }));
+  composer.addPass(edgeDistortionPass);
+
+  const outputPass = new OutputPass();
+  if (outputPass.material) {
+    outputPass.material.transparent = true;
+    outputPass.material.blending = THREE.NormalBlending;
+  }
+  composer.addPass(outputPass);
+}
+
 const postFXUniforms = createPostFXUniforms();
 postFXUniforms.uResolution = { value: new THREE.Vector2(window.innerWidth, window.innerHeight) };
 
@@ -1062,11 +1121,9 @@ function setupPostProcessing() {
 const orbitTarget = { angle: Math.PI / 2, y: 0, tilt: 0 };
 const orbitCurrent = { angle: Math.PI / 2, y: 0, tilt: 0 };
 
-function updateParallax() {
+function updateParallax(driftTime, fpsFactor = 1) {
   // Freeze camera orbit during transition to prevent positional drift
   if (state.transitionLocked) return;
-
-  const driftTime = state.clock ? state.clock.getElapsed() : 0;
 
   // Set orbital targets from mouse position (same approach as three.js)
   orbitTarget.angle = Math.PI / 2 + state.mouseX * CONFIG.PARALLAX_ANGLE_RANGE;
@@ -1074,7 +1131,7 @@ function updateParallax() {
   orbitTarget.tilt = state.mouseX * CONFIG.PARALLAX_TILT_RANGE;
 
   // Lerp toward targets
-  const l = CONFIG.PARALLAX_CONFIG_LERP;
+  const l = Math.min(CONFIG.PARALLAX_CONFIG_LERP * fpsFactor, 1.0);
   orbitCurrent.angle += (orbitTarget.angle - orbitCurrent.angle) * l;
   orbitCurrent.y += (orbitTarget.y - orbitCurrent.y) * l;
   orbitCurrent.tilt += (orbitTarget.tilt - orbitCurrent.tilt) * l;
@@ -1117,11 +1174,13 @@ function updateParallax() {
 
 // ─── SCROLL TILT ────────────────────────────────────────────────────────────────
 
-function updateScrollTilt() {
+function updateScrollTilt(fpsFactor = 1) {
   if (!state.stripGroup) return;
   const targetTilt = Math.max(-CONFIG.SCROLL_TILT_MAX,
     Math.min(CONFIG.SCROLL_TILT_MAX, state.scrollVelocity * CONFIG.SCROLL_TILT_AMOUNT));
-  state.scrollTilt += (targetTilt - state.scrollTilt) * CONFIG.SCROLL_TILT_LERP;
+
+  const tiltLerp = Math.min(CONFIG.SCROLL_TILT_LERP * fpsFactor, 1.0);
+  state.scrollTilt += (targetTilt - state.scrollTilt) * tiltLerp;
   state.stripGroup.rotation.z = state.scrollTilt;
 }
 
@@ -1230,7 +1289,7 @@ function animateParticles(time) {
 
 // ─── SCROLL ─────────────────────────────────────────────────────────────────────
 
-function updateScroll() {
+function updateScroll(fpsFactor = 1) {
   if (state.transitionLocked) {
     state.scrollVelocity = 0;
     state.scrollTarget = state.scrollCurrent;
@@ -1239,13 +1298,15 @@ function updateScroll() {
 
   // Apply momentum friction when not dragging
   if (!state.isPointerDown && Math.abs(state.scrollVelocity) > 0.0001) {
-    state.scrollTarget += state.scrollVelocity;
-    state.scrollVelocity *= 0.95;
+    state.scrollTarget += state.scrollVelocity * fpsFactor;
+    const damping = Math.pow(0.95, fpsFactor);
+    state.scrollVelocity *= damping;
   } else if (!state.isPointerDown) {
     state.scrollVelocity = 0;
   }
 
-  state.scrollCurrent += (state.scrollTarget - state.scrollCurrent) * CONFIG.SCROLL_LERP;
+  const scrollLerp = Math.min(CONFIG.SCROLL_LERP * fpsFactor, 1.0);
+  state.scrollCurrent += (state.scrollTarget - state.scrollCurrent) * scrollLerp;
 }
 
 // ─── WORK -> FILM TRANSITION HELPERS ───────────────────────────────────────────
@@ -1846,7 +1907,7 @@ function updateRipple() {
   // removed
 }
 
-function updateReveal() {}
+function updateReveal() { }
 
 function animate() {
   if (!isTabVisible) {
@@ -1855,11 +1916,13 @@ function animate() {
   }
   if (state.clock) state.clock.update();
   const time = state.clock ? state.clock.getElapsed() : 0;
+  const dt = state.clock ? Math.min(state.clock.getDelta(), 0.05) : 0.016;
+  const fpsFactor = Math.min(dt / 0.01666, 3.0);
 
-  updateScroll();
+  updateScroll(fpsFactor);
   updateStrip(time);
-  updateParallax();
-  updateScrollTilt();
+  updateParallax(time, fpsFactor);
+  updateScrollTilt(fpsFactor);
   animateParticles(time);
   updateRipple();
   updateReveal();

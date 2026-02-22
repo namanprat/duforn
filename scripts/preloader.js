@@ -193,12 +193,12 @@ export class Preloader {
             // If animation finishes before assets, it will sit at 100% until pending loads finish.
 
             const targetProgress = Math.min(currentProgress + increment, 100);
-            const randomDelay = 200 + Math.random() * 400;
+            const randomDelay = 30 + Math.random() * 70;
 
             setTimeout(() => {
                 gsap.to(this.progressIndicator, {
                     '--progress': targetProgress / 100,
-                    duration: 0.5,
+                    duration: 0.15,
                     ease: 'power2.out',
                     onUpdate: () => {
                         // Update text
@@ -291,51 +291,53 @@ export class Preloader {
 
         sessionStorage.setItem('preloaderSeen', 'true');
 
-        gsap.to(this.progressBar, {
-            opacity: 0,
-            duration: 0.075,
-            ease: 'power2.inOut',
-            delay: 0.3,
-            repeat: 1,
-            yoyo: true,
-            onComplete: () => {
-                gsap.set(this.progressBar, { opacity: 0 });
+        setTimeout(() => {
+            gsap.to(this.progressBar, {
+                opacity: 0,
+                duration: 0.075,
+                ease: 'power2.inOut',
+                delay: 0,
+                repeat: 1,
+                yoyo: true,
+                onComplete: () => {
+                    gsap.set(this.progressBar, { opacity: 0 });
 
-                setTimeout(() => {
-                    // If no blocks found (e.g. user didn't add them), just hide container
-                    if (!this.preloaderBlocks || this.preloaderBlocks.length === 0) {
-                        this.container.style.display = 'none';
-                        this.resolveRun();
-                        return;
-                    }
+                    setTimeout(() => {
+                        // If no blocks found (e.g. user didn't add them), just hide container
+                        if (!this.preloaderBlocks || this.preloaderBlocks.length === 0) {
+                            this.container.style.display = 'none';
+                            this.resolveRun();
+                            return;
+                        }
 
-                    // Loop through all blocks and animate them out with random delays
-                    const maxDelay = 0.8; // Speed up: total time window for reveal
-                    let completedAnimations = 0;
-                    const totalBlocks = this.preloaderBlocks.length;
+                        // Loop through all blocks and animate them out with random delays
+                        const maxDelay = 0.5; // Speed up: total time window for reveal
+                        let completedAnimations = 0;
+                        const totalBlocks = this.preloaderBlocks.length;
 
-                    this.preloaderBlocks.forEach((block) => {
-                        const randomDelay = Math.random() * maxDelay;
+                        this.preloaderBlocks.forEach((block) => {
+                            const randomDelay = Math.random() * maxDelay;
 
-                        gsap.to(block, {
-                            opacity: 0,
-                            duration: 0.1, // Slightly faster fade per block
-                            ease: 'power1.out',
-                            delay: randomDelay,
-                            onComplete: () => {
-                                gsap.set(block, { opacity: 0 });
-                                completedAnimations++;
-                                // Once the last one finishes (or close to it), resolve
-                                if (completedAnimations >= totalBlocks) {
-                                    this.container.style.display = 'none';
-                                    this.resolveRun();
-                                }
-                            },
+                            gsap.to(block, {
+                                opacity: 0,
+                                duration: 0.1, // Slightly faster fade per block
+                                ease: 'power1.out',
+                                delay: randomDelay,
+                                onComplete: () => {
+                                    gsap.set(block, { opacity: 0 });
+                                    completedAnimations++;
+                                    // Once the last one finishes (or close to it), resolve
+                                    if (completedAnimations >= totalBlocks) {
+                                        this.container.style.display = 'none';
+                                        this.resolveRun();
+                                    }
+                                },
+                            });
                         });
-                    });
-                }, 200);
-            },
-        });
+                    }, 50);
+                },
+            });
+        }, 500);
     }
 }
 
