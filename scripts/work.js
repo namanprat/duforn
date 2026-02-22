@@ -73,11 +73,6 @@ const CONFIG = {
   PARALLAX_CONFIG_LERP: 0.05,
   PARALLAX_ORBIT_RADIUS: 5,
 
-  // Strip inner image parallax (Codrops)
-  STRIP_PARALLAX_INTENSITY: 0.9,
-  STRIP_UV_SCALE: 1,
-  STRIP_SHADER_MULTIPLIER: 1.0, // Global multiplier to animate parallax on/off during transitions
-
   // Wave shader (Simplex Noise)
   WAVE_AMPLITUDE: 0.6,
   WAVE_FREQUENCY: 0.5,
@@ -309,9 +304,6 @@ const STRIP_FRAGMENT_SHADER = /* glsl */ `
   uniform float uRevealProgress;
   uniform float uRevealSoftness;
   uniform float uArcSpan;
-  uniform float uParallaxIntensity;
-  uniform float uUvScale;
-  uniform float uShaderMultiplier;
 
   varying vec2 vUv;
   varying vec3 vViewPosition;
@@ -342,23 +334,7 @@ const STRIP_FRAGMENT_SHADER = /* glsl */ `
 
     float texU = (itemFract - halfGap) / (1.0 - uGapSize);
     vec2 texCoord = vec2(texU, vUv.y);
-
-    // ─── HORIZONTAL PARALLAX ───
-    // Calculate the center of the current image slot in the strip's UV space [0, 1]
-    float slotCenterX = (itemIndex + 0.5 - uScrollOffset) / uItemsOnStrip;
     
-    // The center of the screen/strip is exactly 0.5
-    float distanceFromCenter = slotCenterX - 0.5;
-    
-    // Shift UV.x uniformly for the entire image based on its slot's distance from the center.
-    // The image UV moves opposite to the scrolling direction.
-    texCoord.x -= distanceFromCenter * uParallaxIntensity * uShaderMultiplier;
-    
-    // Scale UV to create sliding space (container bounds)
-    texCoord -= 0.5;
-    texCoord *= uUvScale;
-    texCoord += 0.5;
-
     // Clamp UVs to prevent texture edge bleeding / stretched-pixel artifacts
     texCoord = clamp(texCoord, vec2(0.001), vec2(0.999));
 
@@ -953,9 +929,6 @@ function setupStrip() {
       uRevealSoftness: { value: CONFIG.REVEAL_SOFTNESS },
       uArcRadius: { value: CONFIG.ARC_RADIUS },
       uArcSpan: { value: CONFIG.ARC_SPAN },
-      uParallaxIntensity: { value: CONFIG.STRIP_PARALLAX_INTENSITY },
-      uUvScale: { value: CONFIG.STRIP_UV_SCALE },
-      uShaderMultiplier: { value: CONFIG.STRIP_SHADER_MULTIPLIER },
     },
     extensions: {
       derivatives: true,
@@ -2167,7 +2140,7 @@ export async function initWork() {
   state.scrollCurrent = 0;
 
   if (state.titleEl) {
-    gsap.set(state.titleEl, { opacity: 1, y: 0 });
+    gsap.set(state.titleEl, { y: 0 }); // only reset y, leaving opacity to be animated 
   }
   restoreStripStartTransform();
   setWorkTransitionVisualState(0);

@@ -357,6 +357,12 @@ barba.init({
       },
       async once(data) {
         const ns = data?.next?.namespace;
+        const container = data?.next?.container;
+
+        if (container) {
+          const titlesToHide = container.querySelectorAll('.reveal-title, .reveal-body');
+          gsap.set(titlesToHide, { opacity: 0 });
+        }
 
         // Non-webgl pages (archive, film, etc.) don't call webgl() so the
         // preloader never fires via loadModels(). Run it here instead.
@@ -365,7 +371,6 @@ barba.init({
         }
 
         initPageFeatures(ns);
-        const container = data?.next?.container;
         if (!container) return;
 
         if (ns === 'home') {
