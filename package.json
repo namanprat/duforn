@@ -23,7 +23,6 @@
   "license": "MIT",
   "dependencies": {
     "@barba/core": "^2.9.7",
-    "draco3d": "^1.5.7",
     "gsap": "^3.14.2",
     "lenis": "^1.1.13",
     "three": "^0.183.0",

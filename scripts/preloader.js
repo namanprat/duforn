@@ -11,8 +11,8 @@ export class Preloader {
 
         // Setup DRACOLoader for compressed geometry
         this.dracoLoader = new DRACOLoader(this.loadingManager);
-        // Use jsDelivr CDN for decoder (faster than bundling the ~5MB decoder wasm)
-        this.dracoLoader.setDecoderPath('https://www.jsdelivr.net/npm/draco3d@1.5.7/draco_decoder/');
+        // Serve Draco decoder locally from public/draco/ (copied from three/examples/jsm/libs/draco/gltf/)
+        this.dracoLoader.setDecoderPath('/draco/');
         this.gltfLoader.setDRACOLoader(this.dracoLoader);
 
         this.animationComplete = false;
