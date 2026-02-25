@@ -1895,59 +1895,14 @@ function handleClick(event) {
           }
         });
 
-        // 1. Camera & Lights move in on Z-axis, fog thickens
+        // 1. Camera moves forward (stays in front of strip at z=-1.5)
         tl.to(state.camera.position, {
-          z: state.camera.position.z - 6, // Zoom further in
-          duration: 2.0, // Slower, more dramatic zoom
+          z: state.camera.position.z - 3,
+          duration: 2.0,
           ease: 'power2.inOut'
         }, 0);
 
-        // Make the point light (key light) follow the camera
-        if (state.pointLight) {
-          tl.to(state.pointLight.position, {
-            z: state.pointLight.position.z - 5,
-            duration: 2.0,
-            ease: 'power2.inOut'
-          }, 0);
-
-          // Flare the light slightly for drama
-          tl.to(state.pointLight, {
-            intensity: state.pointLight.intensity * 2.0, // Brighter flare
-            duration: 1.5,
-            ease: 'power2.in'
-          }, 0);
-        }
-
-        // Make fill light follow camera
-        if (state.fillLight) {
-          tl.to(state.fillLight.position, {
-            z: state.fillLight.position.z - 4,
-            duration: 2.0,
-            ease: 'power2.inOut'
-          }, 0);
-        }
-
-        // Increase fog density significantly to add depth and hide the background
-        if (state.scene.fog) {
-          tl.to(state.scene.fog, {
-            density: 0.35, // Very thick fog
-            duration: 1.5,
-            ease: 'power2.in'
-          }, 0);
-        }
-
-        // Add subtle rotation to the strip itself to give a feeling of falling or moving past
-        if (state.stripGroup) {
-          tl.to(state.stripGroup.rotation, {
-            x: state.stripGroup.rotation.x + 0.2, // Pitch slightly up
-            y: state.stripGroup.rotation.y - 0.1, // Yaw slightly
-            duration: 2.0,
-            ease: 'power1.inOut'
-          }, 0);
-        }
-
-        // 2. Elements fade out sequentially
-        // Fade out title
+        // 2. Elements fade out sequentially (lighting & fog stay untouched)
         if (state.titleEl) {
           tl.to(state.titleEl, {
             opacity: 0,
@@ -1956,7 +1911,6 @@ function handleClick(event) {
           }, 0);
         }
 
-        // Fade out particles
         const particleOpacityObj = { value: 1.0 };
         if (state.particleMaterial && state.particleMaterial.uniforms.uGlobalOpacity) {
           particleOpacityObj.value = state.particleMaterial.uniforms.uGlobalOpacity.value;
@@ -1970,7 +1924,6 @@ function handleClick(event) {
           }, 0.2);
         }
 
-        // Fade out strip (uTransitionOpacity)
         const stripObj = { value: 1.0 };
         if (state.stripMaterial && state.stripMaterial.uniforms.uTransitionOpacity) {
           stripObj.value = state.stripMaterial.uniforms.uTransitionOpacity.value;
@@ -1989,7 +1942,6 @@ function handleClick(event) {
           }, 0.4);
         }
 
-        // Fade out workModel
         const modelObj = { alpha: 1.0 };
         tl.to(modelObj, {
           alpha: 0,
@@ -1997,15 +1949,16 @@ function handleClick(event) {
           ease: 'power2.inOut',
           onUpdate: () => {
             setWorkModelOpacity(modelObj.alpha);
+            setBaseSceneOpacity(modelObj.alpha);
           }
         }, 0.4);
 
-        // 3. Fade to white backdrop (delayed slightly for full effect of lights and fog)
+        // 3. White overlay
         tl.to(transitionEl, {
           autoAlpha: 1,
           duration: 1.0,
           ease: 'power2.inOut'
-        }, 1.2); // Starts later in the timeline
+        }, 1.2);
       }
     }
   }

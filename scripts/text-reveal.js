@@ -39,7 +39,7 @@ function getOrSplit(element, type = "lines, words, chars") {
     for (let i = 0; i < len; i++) {
       const wrapper = document.createElement("div");
       wrapper.className = "u-overflow-hidden";
-      wrapper.style.cssText = "display:block;width:100%";
+      wrapper.style.cssText = "display:block;width:100%;padding:0.2em 0;margin:-0.2em 0;";
       wrappers[i] = wrapper;
     }
 

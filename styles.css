@@ -824,6 +824,8 @@ section {
   /* Lines stack vertically */
   overflow: hidden;
   /* Clip line sliding animations */
+  padding: 0.2em 0;
+  margin: -0.2em 0;
 }
 
 /* Optimize animations */
