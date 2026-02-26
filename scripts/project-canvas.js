@@ -5,6 +5,10 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { GrainShader, EdgeDistortionShader, createPostFXUniforms } from './shaders/post-fx.js';
 import { getPerformanceProfile } from './perf.js';
+import {
+  getWorkFilmTransitionState,
+  clearWorkFilmTransitionState,
+} from './work-film-transition-state.js';
 
 let renderer = null;
 let scene = null;
@@ -147,6 +151,25 @@ function ensureBackgroundElement() {
   bg.id = 'background';
   document.body.insertBefore(bg, document.body.firstChild);
   return bg;
+}
+
+export function bindFilmTemplateFromTransitionState(containerArg) {
+  const containerEl = getFilmContainer(containerArg);
+  const state = getWorkFilmTransitionState();
+  if (!containerEl || !state) return null;
+
+  const coverImg = containerEl.querySelector('.coverimg img');
+  if (coverImg && state.imageSrc) {
+    coverImg.src = state.imageSrc;
+  }
+
+  const titleEl = containerEl.querySelector('.slide-title');
+  if (titleEl && state.title) {
+    titleEl.textContent = state.title;
+  }
+
+  clearWorkFilmTransitionState();
+  return state;
 }
 
 function debouncedResize() {
@@ -425,6 +448,16 @@ async function initProjectCanvas(containerArg) {
 
 export async function initFilm(containerArg, _options = {}) {
   await initProjectCanvas(containerArg);
+}
+
+export async function waitForFilmFirstFrame() {
+  if (!isRunning) return false;
+  // Wait 2 rAFs so the EffectComposer's first render has committed to the
+  // canvas before the background fades back in (prevents blank flash).
+  await new Promise((resolve) =>
+    requestAnimationFrame(() => requestAnimationFrame(resolve))
+  );
+  return true;
 }
 
 export async function initProjectSceneShared(containerArg, _options = {}) {

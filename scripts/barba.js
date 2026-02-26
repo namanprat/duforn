@@ -6,9 +6,16 @@ import { preloader } from './preloader.js';
 import {
   initWork,
   destroyWork,
+  runWorkStripUnwrapToRect,
+  finalizeWorkToFilmVisualState,
 } from './work.js';
 import { initArchive, destroyArchive } from './archive.js';
-import { initFilm, destroyFilm } from './project-canvas.js';
+import {
+  initFilm,
+  destroyFilm,
+  waitForFilmFirstFrame,
+  bindFilmTemplateFromTransitionState,
+} from './project-canvas.js';
 import { animateRevealEnter, animateRevealLeave, cleanupSplits } from './text-reveal.js';
 import webgl, {
   destroyWebgl,
@@ -17,8 +24,8 @@ import webgl, {
   swapModel,
   closeMenuIfOpen,
   setBaseSceneVisibility,
+  setBaseSceneOverlayMode,
 } from './three.js';
-import { destroyTransition } from './transition.js';
 import { initLinkHover } from './link-hover.js';
 
 import { initLenis, destroyLenis } from './lenis-scroll.js';
@@ -159,28 +166,11 @@ function initPageFeatures(namespace, { skipWebglSetup = false } = {}) {
     }
   }
 
-  // WebGL setup already handled by transition leave/enter hooks
-  if (skipWebglSetup) {
-    if (ns === 'archive') {
-      destroyWork();
-      destroyTransition();
-      destroyWebgl();
-      initArchive();
-    } else {
-      destroyArchive();
-      if (ns === 'work') {
-        // initWork() already called in enter() hook — skip to avoid double-init
-      } else if (ns === 'home' || ns === 'contact') {
-        setBaseSceneVisibility(true);
-      }
-    }
-    return;
-  }
-
   if (ns === 'film') {
     document.body.classList.add('page-wrap--scrollable');
     initLenis();
   } else {
+    destroyLenis();
     document.body.classList.remove('page-wrap--scrollable');
   }
 
@@ -190,27 +180,52 @@ function initPageFeatures(namespace, { skipWebglSetup = false } = {}) {
     document.body.classList.remove('page-wrap--archive');
   }
 
+  // WebGL setup already handled by transition leave/enter hooks
+  if (skipWebglSetup) {
+    if (ns === 'archive') {
+      destroyWork();
+      destroyWebgl();
+      initArchive();
+    } else {
+      destroyArchive();
+      if (ns === 'work') {
+        setBaseSceneOverlayMode(true);
+        // initWork() already called in enter() hook — skip to avoid double-init
+      } else if (ns === 'film') {
+        setBaseSceneOverlayMode(false);
+        destroyWork();
+        destroyWebgl();
+      } else if (ns === 'home' || ns === 'contact') {
+        setBaseSceneOverlayMode(false);
+        setBaseSceneVisibility(true);
+      }
+    }
+    return;
+  }
+
   if (ns === 'work') {
     destroyArchive();
     destroyFilm();
     webgl();
+    setBaseSceneOverlayMode(true);
     setBaseSceneVisibility(true);
     setScenePage('work', true);
     swapModel('work');
     initWork();
   } else if (ns === 'archive') {
+    setBaseSceneOverlayMode(false);
     destroyWork();
     destroyFilm();
-    destroyTransition();
     destroyWebgl();
     initArchive();
   } else if (ns === 'film') {
+    setBaseSceneOverlayMode(false);
     destroyArchive();
     destroyWork();
-    destroyTransition();
     destroyWebgl();
     initFilm();
   } else if (ns === 'home' || ns === 'contact') {
+    setBaseSceneOverlayMode(false);
     destroyArchive();
     destroyWork();
     destroyFilm();
@@ -222,21 +237,82 @@ function initPageFeatures(namespace, { skipWebglSetup = false } = {}) {
     destroyArchive();
     destroyWork();
     destroyFilm();
-    destroyTransition();
     destroyWebgl();
   }
 }
 
-function clearWorkOutroOverlay() {
+function clearWorkOutroOverlay(duration = 0.5) {
   const overlay = document.getElementById('work-outro-overlay');
   if (overlay) {
     gsap.to(overlay, {
       autoAlpha: 0,
-      duration: 0.5,
+      duration,
       ease: 'power2.out',
       onComplete: () => overlay.remove()
     });
   }
+}
+
+const pinnedContainerStyles = new WeakMap();
+
+function pinContainerForTransition(container, { zIndex = '1', hidden = false } = {}) {
+  if (!container) return;
+  if (!pinnedContainerStyles.has(container)) {
+    pinnedContainerStyles.set(container, {
+      position: container.style.position,
+      inset: container.style.inset,
+      width: container.style.width,
+      height: container.style.height,
+      zIndex: container.style.zIndex,
+      opacity: container.style.opacity,
+      pointerEvents: container.style.pointerEvents,
+    });
+  }
+
+  container.style.position = 'fixed';
+  container.style.inset = '0';
+  container.style.width = '100vw';
+  container.style.height = '100vh';
+  container.style.zIndex = zIndex;
+  container.style.pointerEvents = hidden ? 'none' : '';
+  container.style.opacity = hidden ? '0' : '1';
+}
+
+function unpinContainerAfterTransition(container) {
+  if (!container) return;
+  const saved = pinnedContainerStyles.get(container);
+  if (!saved) return;
+  container.style.position = saved.position;
+  container.style.inset = saved.inset;
+  container.style.width = saved.width;
+  container.style.height = saved.height;
+  container.style.zIndex = saved.zIndex;
+  container.style.opacity = saved.opacity;
+  container.style.pointerEvents = saved.pointerEvents;
+  pinnedContainerStyles.delete(container);
+}
+
+function getFilmCoverTargetRect(container) {
+  const rect = container?.querySelector?.('.coverimg')?.getBoundingClientRect?.();
+  if (rect && Number.isFinite(rect.width) && Number.isFinite(rect.height) && rect.width > 1 && rect.height > 1) {
+    return {
+      x: rect.left,
+      y: rect.top,
+      width: rect.width,
+      height: rect.height,
+    };
+  }
+
+  const vw = window.innerWidth || 1;
+  const vh = window.innerHeight || 1;
+  const width = Math.min(vw * 0.42, 620);
+  const height = width * 0.62;
+  return {
+    x: (vw - width) * 0.5,
+    y: (vh - height) * 0.5,
+    width,
+    height,
+  };
 }
 
 barba.init({
@@ -280,6 +356,7 @@ barba.init({
 
         if (involvesWork) {
           const targetModel = toNs === 'work' ? 'work' : 'home';
+          setBaseSceneOverlayMode(toNs === 'work');
           swapModel(targetModel);
           setScenePage(toNs, true);
 
@@ -320,6 +397,71 @@ barba.init({
       }
     },
     {
+      name: 'work-to-film-transition',
+      from: { namespace: ['work'] },
+      to: { namespace: ['film'] },
+      async leave(data) {
+        closeMenuIfOpen();
+        cleanupSplits();
+        pinContainerForTransition(data?.current?.container, { zIndex: '2', hidden: false });
+      },
+      async enter(data) {
+        const container = data?.next?.container;
+        pinContainerForTransition(container, { zIndex: '1', hidden: true });
+        bindFilmTemplateFromTransitionState(container);
+
+        // Wait for the coverimg to load before measuring its rect.
+        // The src is set just above; if the image isn't in cache yet it won't
+        // have decoded, and getBoundingClientRect returns zero height → fallback.
+        const coverImgEl = container.querySelector('.coverimg img');
+        if (coverImgEl && !coverImgEl.complete && coverImgEl.src) {
+          await Promise.race([
+            new Promise(r => { coverImgEl.onload = r; coverImgEl.onerror = r; }),
+            new Promise(r => setTimeout(r, 600)),
+          ]);
+        }
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+
+        const targetRect = getFilmCoverTargetRect(container);
+        await runWorkStripUnwrapToRect(targetRect);
+        finalizeWorkToFilmVisualState();
+
+        const bgEl = document.getElementById('background');
+        if (bgEl) {
+          await gsapToPromise(bgEl, {
+            opacity: 0,
+            duration: 0.3,
+            ease: 'power2.inOut',
+          });
+        }
+
+        destroyWork();
+        setBaseSceneOverlayMode(false);
+        destroyWebgl();
+
+        await initFilm(container);
+        await waitForFilmFirstFrame();
+        unpinContainerAfterTransition(container);
+        if (bgEl) {
+          await gsapToPromise(bgEl, {
+            opacity: 1,
+            duration: 0.4,
+            ease: 'power2.out',
+            clearProps: 'opacity',
+          });
+        }
+        clearWorkOutroOverlay(0.35);
+      },
+      async after(data) {
+        const ns = data?.next?.namespace;
+        const nextContainer = data?.next?.container;
+        unpinContainerAfterTransition(data?.current?.container);
+        unpinContainerAfterTransition(nextContainer);
+        initPageFeatures(ns, { skipWebglSetup: true });
+        animateRevealEnter(nextContainer);
+      }
+    },
+    {
       name: 'default',
       async leave(data) {
         const fromNs = data?.current?.namespace;
@@ -345,7 +487,6 @@ barba.init({
         const shouldDestroyWebgl = isWebglPage(fromNs)
           || (fromNs === 'film' && isWebglRunning() && !isWebglPage(toNs));
         if (shouldDestroyWebgl) {
-          destroyTransition();
           destroyWebgl();
         }
 
@@ -353,7 +494,6 @@ barba.init({
       },
       async enter() {
         clearWorkOutroOverlay();
-        // Simple page swap — no ink dissolve for non-webgl pages
       },
       async once(data) {
         const ns = data?.next?.namespace;

@@ -11,6 +11,7 @@ import {
   createFakeVolumeGlow,
   setBaseSceneOpacity,
 } from './three.js';
+import { setWorkFilmTransitionState } from './work-film-transition-state.js';
 import { preloader } from './preloader.js';
 
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
@@ -434,6 +435,9 @@ const state = {
   ambientLight: null,
   directionalLight: null,
   shadowPlane: null,
+  baseFogDensity: 0.055,
+  baseFogColor: new THREE.Color(0xe6e4dc),
+  cloudFogColor: new THREE.Color(0xf4f3ee),
 
   // Scroll state (in item units — 1.0 = one image slot)
   scrollTarget: 0,
@@ -797,7 +801,9 @@ function setupGalleryScene() {
   state.scene = new THREE.Scene();
 
   // Fog - Deep, dreamy atmospheric fog
-  state.scene.fog = new THREE.FogExp2(0xe6e4dc, 0.055); // Slightly denser, warmer/softer
+  state.baseFogDensity = 0.055;
+  state.baseFogColor.set(0xe6e4dc);
+  state.scene.fog = new THREE.FogExp2(state.baseFogColor.clone(), state.baseFogDensity); // Slightly denser, warmer/softer
 
   // ── Cinematic 3-Point Lighting ──
 
@@ -964,11 +970,19 @@ function updateTitle() {
   }
   if (!state.titleEl) return;
 
+  if (state.transitionLocked && state.selectedItem?.title) {
+    if (state.lastActiveTitle !== state.selectedItem.title) {
+      state.lastActiveTitle = state.selectedItem.title;
+      state.titleEl.textContent = state.selectedItem.title;
+    }
+    return;
+  }
+
   const centerItem = 0.5 * CONFIG.ITEMS_ON_STRIP + state.scrollCurrent;
   const idx = ((Math.floor(centerItem) % CONFIG.NUM_UNIQUE) + CONFIG.NUM_UNIQUE) % CONFIG.NUM_UNIQUE;
   state.activeIndex = idx;
 
-  const item = workItems[idx];
+      const item = workItems[idx];
   if (!item) return;
 
   if (state.lastActiveTitle !== item.title) {
@@ -1522,6 +1536,7 @@ function getSlotScreenRect(slotIndex, flatten = state.transitionProgress) {
 function setWorkTransitionVisualState(progress) {
   const p = clamp01(progress);
   state.transitionProgress = p;
+  const cloudRamp = clamp01((p - 0.2) / 0.8);
 
   if (state.stripMaterial?.uniforms) {
     state.stripMaterial.uniforms.uFlatten.value = p;
@@ -1531,16 +1546,17 @@ function setWorkTransitionVisualState(progress) {
     state.stripMaterial.uniforms.uIsolateSlot.value = 0;
   }
 
-  if (state.titleEl) {
-    state.titleEl.style.opacity = `${1 - clamp01(p * 1.5)}`;
-  }
-
   if (state.workModel) {
-    const alpha = 1 - clamp01((p - 0.05) / 0.45);
+    const alpha = 1 - clamp01((p - 0.55) / 0.25);
     setWorkModelOpacity(alpha);
   }
 
-  setWorkParticlesOpacity(1 - clamp01(p * 1.4));
+  setWorkParticlesOpacity(1 - clamp01((p - 0.2) / 0.5));
+
+  if (state.scene?.fog) {
+    state.scene.fog.density = THREE.MathUtils.lerp(state.baseFogDensity, 0.24, cloudRamp);
+    state.scene.fog.color.copy(state.baseFogColor).lerp(state.cloudFogColor, cloudRamp);
+  }
 
   // Cover plane cross-dissolve: fade in cover at 65-95%, fade out strip at 75-100%
   if (state.coverPlane) {
@@ -1720,7 +1736,7 @@ function runStripUnwrapToRect(targetRect) {
     const animState = { progress: 0 };
 
     const focusTargets = state.container
-      ? state.container.querySelectorAll('.slide-title, .slider, .u-section-spacer-large')
+      ? state.container.querySelectorAll('.slider, .u-section-spacer-large')
       : [];
 
     state.transitionTimeline = gsap.timeline({
@@ -1780,6 +1796,44 @@ function setWorkParticlesOpacity(alpha) {
   if (state.particleSystem) {
     state.particleSystem.visible = clamped > 0.01;
   }
+}
+
+function ensureWorkOutroOverlay() {
+  let overlay = document.getElementById('work-outro-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'work-outro-overlay';
+    document.body.appendChild(overlay);
+  }
+
+  gsap.set(overlay, {
+    position: 'fixed',
+    inset: 0,
+    zIndex: 9999,
+    pointerEvents: 'none',
+    background: [
+      'radial-gradient(circle at 50% 42%, rgba(255,255,255,0.9) 0%, rgba(248,246,240,0.82) 35%, rgba(241,238,231,0.76) 60%, rgba(235,231,222,0.58) 78%, rgba(230,225,214,0.44) 100%)',
+      'radial-gradient(circle at 20% 75%, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.0) 48%)',
+      'radial-gradient(circle at 82% 22%, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.0) 52%)'
+    ].join(','),
+    filter: 'blur(8px)',
+    autoAlpha: 0,
+  });
+
+  return overlay;
+}
+
+function getFallbackTransitionRect() {
+  const vw = window.innerWidth || 1;
+  const vh = window.innerHeight || 1;
+  const width = Math.min(vw * 0.42, 620);
+  const height = width * 0.62;
+  return {
+    x: (vw - width) * 0.5,
+    y: (vh - height) * 0.5,
+    width,
+    height,
+  };
 }
 
 // runWorkCinematicExit and resetWorkCinematicExit removed — no transition animation between work/film
@@ -1860,107 +1914,55 @@ function handleClick(event) {
       const itemIdx = ((Math.floor(totalU) % CONFIG.NUM_UNIQUE) + CONFIG.NUM_UNIQUE) % CONFIG.NUM_UNIQUE;
       const item = workItems[itemIdx];
       if (item?.href) {
-        // Lock transition
-        state.transitionLocked = true;
-        state.isPointerDown = false;
-        state.scrollVelocity = 0;
-
-        // Ensure outro overlay element exists and is styled correctly
-        let transitionEl = document.getElementById('work-outro-overlay');
-        if (!transitionEl) {
-          transitionEl = document.createElement('div');
-          transitionEl.id = 'work-outro-overlay';
-          document.body.appendChild(transitionEl);
-        }
-        gsap.set(transitionEl, {
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          backgroundColor: 'white',
-          zIndex: 9999,
-          pointerEvents: 'none',
-          autoAlpha: 0 // Opacity 0, visibility hidden
+        const slotIndex = Math.floor(totalU);
+        prepareWorkToFilmTransition(item, {
+          selectedIndex: itemIdx,
+          slotIndex,
+          clickNdc: { x: state.rayMouse.x, y: state.rayMouse.y },
         });
-
-        // Create cinematic outro timeline
-        const tl = gsap.timeline({
-          onComplete: () => {
-            if (barba?.go) {
-              barba.go(item.href);
-            } else {
-              window.location.href = item.href;
-            }
-          }
-        });
-
-        // 1. Camera moves forward (stays in front of strip at z=-1.5)
-        tl.to(state.camera.position, {
-          z: state.camera.position.z - 3,
-          duration: 2.0,
-          ease: 'power2.inOut'
-        }, 0);
-
-        // 2. Elements fade out sequentially (lighting & fog stay untouched)
         if (state.titleEl) {
-          tl.to(state.titleEl, {
-            opacity: 0,
-            duration: 0.5,
-            ease: 'power2.out'
-          }, 0);
+          state.lastActiveTitle = item.title;
+          state.titleEl.textContent = item.title;
         }
+        setWorkFilmTransitionState({
+          itemId: item.id,
+          title: item.title,
+          imageSrc: item.image,
+          href: item.href,
+          clickedSlotIndex: slotIndex,
+          timestamp: Date.now(),
+        });
 
-        const particleOpacityObj = { value: 1.0 };
-        if (state.particleMaterial && state.particleMaterial.uniforms.uGlobalOpacity) {
-          particleOpacityObj.value = state.particleMaterial.uniforms.uGlobalOpacity.value;
-          tl.to(particleOpacityObj, {
-            value: 0,
-            duration: 0.8,
-            ease: 'power2.out',
-            onUpdate: () => {
-              setWorkParticlesOpacity(particleOpacityObj.value);
-            }
-          }, 0.2);
+        // Keep the cloud layer as a subtle support, unwrap remains the primary cue.
+        const transitionEl = ensureWorkOutroOverlay();
+        gsap.to(transitionEl, { autoAlpha: 0.25, duration: 0.25, ease: 'power2.out' });
+
+        if (barba?.go) {
+          barba.go(item.href);
+        } else {
+          window.location.href = item.href;
         }
-
-        const stripObj = { value: 1.0 };
-        if (state.stripMaterial && state.stripMaterial.uniforms.uTransitionOpacity) {
-          stripObj.value = state.stripMaterial.uniforms.uTransitionOpacity.value;
-          tl.to(stripObj, {
-            value: 0,
-            duration: 1.0,
-            ease: 'power2.inOut',
-            onUpdate: () => {
-              if (state.stripMaterial && state.stripMaterial.uniforms.uTransitionOpacity) {
-                state.stripMaterial.uniforms.uTransitionOpacity.value = stripObj.value;
-              }
-              if (state.stripMesh) {
-                state.stripMesh.visible = stripObj.value > 0.01;
-              }
-            }
-          }, 0.4);
-        }
-
-        const modelObj = { alpha: 1.0 };
-        tl.to(modelObj, {
-          alpha: 0,
-          duration: 1.0,
-          ease: 'power2.inOut',
-          onUpdate: () => {
-            setWorkModelOpacity(modelObj.alpha);
-            setBaseSceneOpacity(modelObj.alpha);
-          }
-        }, 0.4);
-
-        // 3. White overlay
-        tl.to(transitionEl, {
-          autoAlpha: 1,
-          duration: 1.0,
-          ease: 'power2.inOut'
-        }, 1.2);
       }
     }
+  }
+}
+
+export function prepareWorkToFilmTransition(item, options = {}) {
+  return prepareWorkToProjectTransition(item, options);
+}
+
+export function runWorkStripUnwrapToRect(targetRect) {
+  return runStripUnwrapToRect(targetRect || getFallbackTransitionRect());
+}
+
+export function finalizeWorkToFilmVisualState() {
+  if (state.transitionTimeline) {
+    state.transitionTimeline.kill();
+    state.transitionTimeline = null;
+  }
+  setWorkTransitionVisualState(1);
+  if (state.stripMaterial?.uniforms) {
+    state.stripMaterial.uniforms.uIsolateSlot.value = 1;
   }
 }
 

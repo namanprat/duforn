@@ -77,6 +77,7 @@ let galleryCamera = null;
 // ── Shader background state (work page alternative to 3D scene) ──
 let shaderBackgroundRenderer = null;
 let baseSceneOpacity = 1;
+let baseSceneOverlayMode = false;
 
 const QUALITY_CONFIG = Object.freeze({
   qualityProfile: 'balanced',
@@ -536,21 +537,6 @@ export function unregisterShaderBackground() {
   shaderBackgroundRenderer = null;
 }
 
-/**
- * Capture the current rendered frame as an HTMLCanvasElement.
- * Used by transition.js to snapshot the WebGL canvas for the ink dissolve.
- * Requires `preserveDrawingBuffer: true` on the renderer.
- */
-export function captureCurrentFrame() {
-  if (!renderer) return null;
-  const source = renderer.domElement;
-  const canvas = document.createElement('canvas');
-  canvas.width = source.width;
-  canvas.height = source.height;
-  canvas.getContext('2d').drawImage(source, 0, 0);
-  return canvas;
-}
-
 export function closeMenuIfOpen() {
   const btn = document.querySelector('.menu-toggle-btn');
   if (btn && btn.classList.contains('menu-open')) btn.click();
@@ -732,7 +718,7 @@ function applyOpacityToModel(model, alpha) {
 }
 
 function applyBaseSceneOpacity() {
-  const alpha = THREE.MathUtils.clamp(baseSceneOpacity, 0, 1);
+  const alpha = baseSceneOverlayMode ? 0 : THREE.MathUtils.clamp(baseSceneOpacity, 0, 1);
   applyOpacityToModel(activeModel, alpha);
 
   if (particleSystem?.material) {
@@ -1084,6 +1070,7 @@ export function destroyWebgl() {
   ambientLight = null;
   containerEl = null;
   baseSceneOpacity = 1;
+  baseSceneOverlayMode = false;
 }
 
 export function isWebglRunning() {
@@ -1104,6 +1091,11 @@ export function setBaseSceneOpacity(value) {
 
 export function setBaseSceneVisibility(visible) {
   setBaseSceneOpacity(visible ? 1 : 0);
+}
+
+export function setBaseSceneOverlayMode(active) {
+  baseSceneOverlayMode = Boolean(active);
+  applyBaseSceneOpacity();
 }
 
 function getCameraOffset(page) {
