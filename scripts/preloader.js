@@ -2,6 +2,7 @@ import gsap from 'gsap';
 import { GLTFLoader, DRACOLoader } from 'three-stdlib';
 import * as THREE from 'three';
 import { unlockHoverAudio } from './link-hover.js';
+import { isCoarsePointerDevice } from './perf.js';
 
 const isPaintDebugEnabled = new URLSearchParams(window.location.search).has('debugPaint');
 function paintDebugMark(step, payload = null) {
@@ -15,6 +16,8 @@ function paintDebugMark(step, payload = null) {
     // eslint-disable-next-line no-console
     console.log(`[paint-debug @${ts}ms] ${step}`);
 }
+
+const isTouchDevice = isCoarsePointerDevice();
 
 export class Preloader {
     constructor() {
@@ -100,7 +103,7 @@ export class Preloader {
             this.teardownResizeListener();
             this.container.style.display = 'none';
             paintDebugMark('preloader hidden (already seen)');
-            window.audioEnabled = true;
+            window.audioEnabled = !isTouchDevice;
             window.gyroEnabled = true;
             return Promise.resolve();
         }
@@ -394,13 +397,15 @@ export class Preloader {
 
     handleEnterClick(wrapper) {
         // 1. Audio Permission
-        window.audioEnabled = true;
-        // Prime the hover Audio element during this user gesture so iOS/Safari
-        // allows programmatic playback later
-        unlockHoverAudio();
-        // Unlock AudioContext as well (needed for Web Audio API users)
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        audioCtx.resume();
+        window.audioEnabled = !isTouchDevice;
+        if (!isTouchDevice) {
+            // Prime the hover Audio element during this user gesture so iOS/Safari
+            // allows programmatic playback later
+            unlockHoverAudio();
+            // Unlock AudioContext as well (needed for Web Audio API users)
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            audioCtx.resume();
+        }
 
         // 2. Gyroscope Permission
         if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {

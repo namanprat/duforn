@@ -23,6 +23,7 @@ let isRunning = false;
 let isTabVisible = true;
 let visibilityHandler = null;
 let gui = null;
+let scrollRafPending = false;
 const imageTextureCache = new Map();
 
 const postFXUniforms = createPostFXUniforms();
@@ -204,8 +205,12 @@ function onResizeHandler() {
 }
 
 function onScrollHandler() {
-  if (!isRunning) return;
-  updateImages();
+  if (!isRunning || scrollRafPending) return;
+  scrollRafPending = true;
+  requestAnimationFrame(() => {
+    scrollRafPending = false;
+    if (isRunning) updateImages();
+  });
 }
 
 // ─── Image planes (overlay on top of shader) ─────────────────

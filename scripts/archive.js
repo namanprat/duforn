@@ -8,13 +8,14 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { archiveItems } from '../data/archive-items.js';
 import { GLTFLoader } from 'three-stdlib';
 import { VignetteShader, GrainShader, EdgeDistortionShader, createPostFXUniforms, CRTShader } from './shaders/post-fx.js';
-import { getPerformanceProfile } from './perf.js';
+import { getPerformanceProfile, isCoarsePointerDevice } from './perf.js';
 
 // ─────────────────────────────────────────────────────────────
 // CONFIG
 // ─────────────────────────────────────────────────────────────
 
 const perf = getPerformanceProfile();
+const isTouchDevice = isCoarsePointerDevice();
 
 const CONFIG = Object.freeze({
   pixelRatioMax: perf.pixelRatioCap,
@@ -332,7 +333,9 @@ async function initArchive() {
     }, 100);
   };
 
-  window.addEventListener('mousemove', state.handlers.onMouseMove);
+  if (!isTouchDevice) {
+    window.addEventListener('mousemove', state.handlers.onMouseMove);
+  }
   window.addEventListener('wheel', state.handlers.onWheel, { passive: false });
   window.addEventListener('resize', state.handlers.onResize);
 
@@ -875,7 +878,7 @@ function createArchiveUI(sharedState) {
   };
 
   // Attach event listeners
-  if (uiState.container) {
+  if (uiState.container && !isTouchDevice) {
     uiState.container.addEventListener('mousemove', uiState.handlers.onMouseMove);
     uiState.container.addEventListener('mouseleave', uiState.handlers.onMouseLeave);
   }
@@ -898,4 +901,3 @@ function destroyArchiveUI(uiState) {
 
   uiState.container = null;
 }
-

@@ -148,6 +148,7 @@ function createContactEnterTween() {
 
 // Update time display
 let cachedTimeElement = null;
+let timeIntervalId = null;
 const IST_TIME_FORMATTER = new Intl.DateTimeFormat('en-GB', {
   hour: '2-digit',
   minute: '2-digit',
@@ -169,10 +170,10 @@ function updateTime() {
 function initTime() {
   cachedTimeElement = null; // Reset cache for new page
   updateTime();
-  if (window.timeInterval) {
-    clearInterval(window.timeInterval);
+  if (timeIntervalId) {
+    clearInterval(timeIntervalId);
   }
-  window.timeInterval = setInterval(updateTime, 1000);
+  timeIntervalId = setInterval(updateTime, 1000);
 }
 
 // One-shot flag: once() fires on initial load and calls animateRevealEnter.

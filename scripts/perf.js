@@ -5,11 +5,15 @@ function safeMatchMedia(query) {
   return window.matchMedia(query).matches;
 }
 
+export function isCoarsePointerDevice() {
+  return safeMatchMedia('(pointer: coarse)');
+}
+
 export function getPerformanceProfile() {
   if (cachedProfile) return cachedProfile;
 
   const reduceMotion = safeMatchMedia('(prefers-reduced-motion: reduce)');
-  const coarsePointer = safeMatchMedia('(pointer: coarse)');
+  const coarsePointer = isCoarsePointerDevice();
   const hardwareConcurrency = typeof navigator !== 'undefined' && navigator.hardwareConcurrency
     ? navigator.hardwareConcurrency
     : 8;
@@ -17,14 +21,15 @@ export function getPerformanceProfile() {
     ? navigator.deviceMemory
     : 8;
 
-  const lowPower = reduceMotion || coarsePointer || hardwareConcurrency <= 4 || deviceMemory <= 4;
+  const mobileCapable = coarsePointer && hardwareConcurrency >= 6 && deviceMemory >= 6;
+  const lowPower = reduceMotion || hardwareConcurrency <= 4 || deviceMemory <= 4 || (coarsePointer && !mobileCapable);
   const veryLowPower = hardwareConcurrency <= 2 || deviceMemory <= 2;
 
   cachedProfile = {
     reduceMotion,
     lowPower,
     veryLowPower,
-    pixelRatioCap: veryLowPower ? 0.9 : (lowPower ? 1.0 : 1.5),
+    pixelRatioCap: veryLowPower ? 1.0 : (lowPower ? 1.25 : 1.75),
     enableBloom: !lowPower,
     enableEdgeDistortion: !veryLowPower,
     enableGrain: !lowPower,

@@ -1,5 +1,6 @@
 import gsap from 'gsap';
 import { SplitText } from 'gsap/SplitText';
+import { isCoarsePointerDevice } from './perf.js';
 
 gsap.registerPlugin(SplitText);
 
@@ -11,6 +12,7 @@ const ANIM_CONFIG = {
 };
 
 const TRANSFORM_ORIGIN = "50% 50% -10px";
+const isTouchDevice = isCoarsePointerDevice();
 
 // Store instances for cleanup
 const linkInstances = new WeakMap();
@@ -20,12 +22,14 @@ const hoverAudio = new Audio('/hover.wav');
 hoverAudio.volume = 0.5;
 
 export function unlockHoverAudio() {
+  if (isTouchDevice) return;
   hoverAudio.play()
     .then(() => { hoverAudio.pause(); hoverAudio.currentTime = 0; })
     .catch(() => { });
 }
 
 export function initLinkHover() {
+  if (isTouchDevice) return;
   const navLinks = document.querySelectorAll('.nav-wrap a, .bottom-nav-wrap a');
 
   navLinks.forEach(link => {
@@ -104,13 +108,15 @@ export function initLinkHover() {
     link.addEventListener('mouseenter', handleEnter);
     link.addEventListener('mouseleave', handleLeave);
 
-    // Store for cleanup
-    linkInstances.set(link, {
+    // Store for cleanup (include tween getter for destroy)
+    const instance = {
       originalSplit,
       italicSplit,
       handleEnter,
-      handleLeave
-    });
+      handleLeave,
+      getTween: () => tl,
+    };
+    linkInstances.set(link, instance);
   });
 }
 
@@ -173,7 +179,11 @@ export function destroyLinkHover() {
     const instance = linkInstances.get(link);
 
     if (instance) {
-      // Kill animations
+      // Kill active tween before reverting splits
+      if (instance.getTween) {
+        const activeTween = instance.getTween();
+        if (activeTween) activeTween.kill();
+      }
       instance.originalSplit.revert();
       instance.italicSplit.revert();
 

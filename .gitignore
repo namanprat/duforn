@@ -1,6 +1,10 @@
 # Backup files
 *.bak
 
+# OS files
+.DS_Store
+**/.DS_Store
+
 # Platform-specific binaries
 node_modules/@esbuild/linux-x64/
 node_modules/@rollup/rollup-linux-x64-gnu/

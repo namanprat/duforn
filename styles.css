@@ -2400,6 +2400,14 @@ button:focus-visible {
 @media (max-width: 768px) {
   .nav-contain {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .menu-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .hero-bottom-contain {

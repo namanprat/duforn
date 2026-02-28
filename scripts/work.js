@@ -20,7 +20,7 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { VignetteShader, GrainShader, EdgeDistortionShader, createPostFXUniforms } from './shaders/post-fx.js';
-import { getPerformanceProfile } from './perf.js';
+import { getPerformanceProfile, isCoarsePointerDevice } from './perf.js';
 
 
 // Cinematic 3D strip carousel — one continuous curved mesh wrapping an arc,
@@ -146,6 +146,7 @@ const CONFIG = {
 };
 
 const perf = getPerformanceProfile();
+const isTouchDevice = isCoarsePointerDevice();
 
 // ─── SHADERS ────────────────────────────────────────────────────────────────────
 
@@ -1981,12 +1982,13 @@ function onPointerMove(event) {
     state.lastDragTime = now;
   }
 
-  const mouseX = (event.clientX / window.innerWidth) * 2 - 1;
-  const mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
-
-  // Update parallax tracking
-  state.mouseX = mouseX;
-  state.mouseY = mouseY;
+  if (!isTouchDevice) {
+    const mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+    const mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+    // Desktop hover-only parallax tracking
+    state.mouseX = mouseX;
+    state.mouseY = mouseY;
+  }
 }
 
 function onPointerUp(event) {

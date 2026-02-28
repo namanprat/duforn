@@ -8,7 +8,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { VignetteShader, GrainShader, EdgeDistortionShader, createPostFXUniforms } from './shaders/post-fx.js';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { getPerformanceProfile } from './perf.js';
+import { getPerformanceProfile, isCoarsePointerDevice } from './perf.js';
 gsap.registerPlugin(ScrollTrigger);
 
 const isPaintDebugEnabled = new URLSearchParams(window.location.search).has('debugPaint');
@@ -62,6 +62,7 @@ const cameraTarget = { angle: Math.PI / 2, y: 0, tilt: 0 };
 const cameraCurrent = { angle: Math.PI / 2, y: 0, tilt: 0 };
 const cameraOrbitOffset = { x: 0, y: 0, z: 0 };
 const parallaxConfig = { angleRange: 0.2, yRange: 0.3, tiltRange: 0.04, lerp: 0.05, orbitRadius: 5 };
+const isTouchDevice = isCoarsePointerDevice();
 const tune = {
   exposure: 1.0,
   ambientIntensity: 0.18,
@@ -100,7 +101,7 @@ const pendingGalleryOverlayFrameCallbacks = [];
 
 const QUALITY_CONFIG = Object.freeze({
   qualityProfile: 'balanced',
-  hdriUrl: '/env.hdr',
+  hdriUrl: '/home.hdr',
   enableShadows: true,
 });
 
@@ -524,14 +525,17 @@ export async function swapModel(page) {
       targetColor = new THREE.Color(0x0a0a0f);
       targetDensity = 0.045;
     }
-    gsap.to(scene.fog.color, {
+    // Kill previous fog tweens to prevent stacking
+    if (scene.fog._fogColorTween) scene.fog._fogColorTween.kill();
+    if (scene.fog._fogDensityTween) scene.fog._fogDensityTween.kill();
+    scene.fog._fogColorTween = gsap.to(scene.fog.color, {
       r: targetColor.r,
       g: targetColor.g,
       b: targetColor.b,
       duration: 1.2,
       ease: 'power2.inOut'
     });
-    gsap.to(scene.fog, {
+    scene.fog._fogDensityTween = gsap.to(scene.fog, {
       density: targetDensity,
       duration: 1.2,
       ease: 'power2.inOut'
@@ -789,7 +793,8 @@ export function webgl() {
   scene.fog = new THREE.FogExp2(baseSceneFogPreset.color.clone(), baseSceneFogPreset.density);
   camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
-  const needsAA = (window.devicePixelRatio || 1) < 1.5;
+  const effectivePixelRatio = Math.min(window.devicePixelRatio || 1, quality.pixelRatioCap);
+  const needsAA = effectivePixelRatio < 1.5;
   renderer = new THREE.WebGLRenderer({
     antialias: needsAA,
     alpha: true,
@@ -797,7 +802,7 @@ export function webgl() {
     preserveDrawingBuffer: false,
   });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, quality.pixelRatioCap));
+  renderer.setPixelRatio(effectivePixelRatio);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = quality.toneMappingExposure;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -814,13 +819,13 @@ export function webgl() {
   containerEl.appendChild(renderer.domElement);
   paintDebugMark('webgl canvas attached');
 
-  ambientLight = new THREE.AmbientLight(0xffffff, 0.18);
-  scene.add(ambientLight);
-
-  keyLight = new THREE.DirectionalLight(0xffffff, 3.25);
-  keyLight.position.set(4.2, 7.5, 6.2);
-  scene.add(keyLight);
-  applyLightTuning();
+  // ambientLight = new THREE.AmbientLight(0xffffff, 0.18);
+  // scene.add(ambientLight);
+  //
+  // keyLight = new THREE.DirectionalLight(0xffffff, 3.25);
+  // keyLight.position.set(4.2, 7.5, 6.2);
+  // scene.add(keyLight);
+  // applyLightTuning();
   setupEnvironmentLighting(scene, renderer, QUALITY_CONFIG.hdriUrl);
   setupShadows(renderer, scene, quality);
   applyShadowTuning();
@@ -886,20 +891,16 @@ export function webgl() {
   cameraCurrent.y = 0;
   cameraCurrent.tilt = 0;
 
-  let lastMouseTime = 0;
-
   mouseHandler = (event) => {
-    const now = performance.now();
-    if (now - lastMouseTime < 16) return;
-    lastMouseTime = now;
-
     const mx = (event.clientX / window.innerWidth) * 2 - 1;
     const my = -(event.clientY / window.innerHeight) * 2 + 1;
     cameraTarget.angle = Math.PI / 2 + mx * parallaxConfig.angleRange;
     cameraTarget.y = -my * parallaxConfig.yRange;
     cameraTarget.tilt = mx * parallaxConfig.tiltRange;
   };
-  window.addEventListener('mousemove', mouseHandler, { passive: true });
+  if (!isTouchDevice) {
+    window.addEventListener('mousemove', mouseHandler, { passive: true });
+  }
 
   window.__gyroHandler = (event) => {
     if (!window.gyroEnabled) return;
@@ -915,7 +916,7 @@ export function webgl() {
     y = Math.max(-1, Math.min(1, y));
 
     cameraTarget.angle = Math.PI / 2 + x * parallaxConfig.angleRange;
-    cameraTarget.y = y * parallaxConfig.yRange; // Removed negative since beta direction differs from screen-space Y
+    cameraTarget.y = y * parallaxConfig.yRange * 1.1; // +10% vertical gyro influence
     cameraTarget.tilt = x * parallaxConfig.tiltRange;
   };
   window.addEventListener('deviceorientation', window.__gyroHandler, { passive: true });
