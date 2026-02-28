@@ -34,7 +34,7 @@ export function initLinkHover() {
 
   navLinks.forEach(link => {
     // Skip if already initialized or excluded
-    if (link.id === 'time' || linkInstances.has(link)) return;
+    if (link.id === 'time' || link.classList.contains('menu-toggle-btn') || linkInstances.has(link)) return;
 
     const originalText = (link.textContent || '').trim();
     if (!originalText) return;

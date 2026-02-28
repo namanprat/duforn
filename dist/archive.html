@@ -8,14 +8,42 @@
   <link rel="icon" href="/site-icon.png" />
   <meta name="theme-color" content="#000000" />
   <meta name="author" content="duforn" />
+  <meta name="description" content="Archive of past projects and explorations by Duforn — design experiments, studies, and creative work." />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://duforn.com/archive" />
+  <meta property="og:title" content="Duforn | Archive" />
+  <meta property="og:description" content="Archive of past projects and explorations by Duforn — design experiments, studies, and creative work." />
+  <meta property="og:image" content="https://duforn.com/site-icon.png" />
+  <meta property="og:url" content="https://duforn.com/archive" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Duforn | Archive" />
+  <meta name="twitter:description" content="Archive of past projects and explorations by Duforn — design experiments, studies, and creative work." />
+  <meta name="twitter:image" content="https://duforn.com/site-icon.png" />
+  <link rel="apple-touch-icon" href="/site-icon.png" />
+  <link rel="manifest" href="/manifest.json" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "name": "Archive — Duforn",
+    "description": "Archive of past projects and explorations by Duforn.",
+    "url": "https://duforn.com/archive",
+    "author": { "@type": "Person", "name": "Duforn" }
+  }
+  </script>
+  <link rel="preload" href="/PPNeueMontreal-Medium.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/CorteseLight.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/OTJubilee-Golden.woff2" as="font" type="font/woff2" crossorigin />
   <script type="module" crossorigin src="/assets/barba-CQlRLqFM.js"></script>
   <script type="module" crossorigin src="/assets/gsap-Bc0iluX2.js"></script>
   <script type="module" crossorigin src="/assets/three-7yxLgHKg.js"></script>
-  <script type="module" crossorigin src="/assets/barba-BFJ4z7Xr.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/barba-tDDPeloU.css">
+  <script type="module" crossorigin src="/assets/barba-B8_EZf2O.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/barba-C53lNoYa.css">
 </head>
 
 <body data-barba="wrapper" class="page-wrap">
+  <a href="#main" class="skip-link">Skip to content</a>
   <div class="preloader">
     <div class="preloader-grid">
       <div class="preloader-block"></div>
@@ -39,6 +67,7 @@
       </div>
     </div>
   </div>
+  <header>
   <nav class="nav-wrap u-position-fixed">
     <div class="nav-contain u-container-full">
       <a class="u-mobile-hidden" href="/work">work</a>
@@ -99,23 +128,21 @@
             <div class="receipt-divider"></div>
           </div>
 
-          <div class="u-flex-vertical-nowrap u-width-full">
-            <a class="menu-item u-flex-horizontal-nowrap u-gap-1 u-width-full u-padding-1" href="/work">
-              <h5 class="">WORK</h5>
-              <div class="receipt-dots" aria-hidden="true"></div>
-              <h5 class="">01</h5>
-            </a>
-            <a class="menu-item u-flex-horizontal-nowrap u-gap-1 u-width-full u-padding-1" href="/contact">
-              <h5 class="">CONTACT</h5>
-              <div class="receipt-dots" aria-hidden="true"></div>
-              <h5 class="">02</h5>
-            </a>
-            <a class="menu-item u-flex-horizontal-nowrap u-gap-1 u-width-full u-padding-1" href="/archive">
-              <h5 class="">ARCHIVE</h5>
-              <div class="receipt-dots" aria-hidden="true"></div>
-              <h5 class="">03</h5>
-            </a>
-          </div>
+          <a class="menu-item" href="/work">
+            <h5>WORK</h5>
+            <div class="receipt-dots" aria-hidden="true"></div>
+            <h5>01</h5>
+          </a>
+          <a class="menu-item" href="/contact">
+            <h5>CONTACT</h5>
+            <div class="receipt-dots" aria-hidden="true"></div>
+            <h5>02</h5>
+          </a>
+          <a class="menu-item" href="/archive">
+            <h5>ARCHIVE</h5>
+            <div class="receipt-dots" aria-hidden="true"></div>
+            <h5>03</h5>
+          </a>
 
           <div class="u-flex-vertical-nowrap u-gap-3 u-width-full">
             <div class="receipt-star" aria-hidden="true"></div>
@@ -144,11 +171,17 @@
       </div>
     </div>
   </div>
+  </header>
   <!-- WebGL background container -->
   <div id="background"></div>
-  <main data-barba="container" data-barba-namespace="archive" class="archive-container">
+  <main id="main" data-barba="container" data-barba-namespace="archive" class="archive-container">
+    <h1 class="u-visually-hidden">Archive</h1>
+    <p class="u-visually-hidden">A collection of past projects, design experiments, and creative explorations by Duforn.</p>
     <div class="whiteEdgeGradient" aria-hidden="true"></div>
   </main>
+  <footer class="u-visually-hidden">
+    <p>&copy; 2026 Duforn. All rights reserved.</p>
+  </footer>
 </body>
 
 </html>

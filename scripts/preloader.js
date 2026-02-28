@@ -40,6 +40,8 @@ export class Preloader {
         this.loadedAssets = new Map();
         this.resizeHandler = null;
         this.resizeTimeout = null;
+        this._lastGridWidth = 0;
+        this._lastGridHeight = 0;
 
         // Bind methods
         this.init = this.init.bind(this);
@@ -55,13 +57,18 @@ export class Preloader {
         this.resizeObserver = null;
     }
 
-    generateGrid() {
+    generateGrid(force = false) {
         const gridContainer = document.querySelector('.preloader-grid');
         if (!gridContainer) return;
 
         // Calculate columns and rows for ~200 squares while keeping them 1:1
         const width = window.innerWidth;
         const height = window.innerHeight;
+
+        // Skip regeneration if viewport dimensions haven't changed
+        if (!force && width === this._lastGridWidth && height === this._lastGridHeight) return;
+        this._lastGridWidth = width;
+        this._lastGridHeight = height;
 
         // Target roughly 200 blocks total
         // area = w * h

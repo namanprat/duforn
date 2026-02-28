@@ -668,6 +668,7 @@ function createParticles(targetScene) {
   const positions = new Float32Array(PARTICLE_COUNT * 3);
   const sizes = new Float32Array(PARTICLE_COUNT);
   const opacities = new Float32Array(PARTICLE_COUNT);
+  const seeds = new Float32Array(PARTICLE_COUNT);
   const { xHalf, yMin, yMax, zMin, zMax } = PARTICLE_BOUNDS;
 
   for (let i = 0; i < PARTICLE_COUNT; i++) {
@@ -676,12 +677,16 @@ function createParticles(targetScene) {
     positions[i * 3 + 2] = zMin + Math.random() * (zMax - zMin);
     sizes[i] = 0.008 + Math.random() * 0.016;
     opacities[i] = 0.35 + Math.random() * 0.6;
+    seeds[i] = Math.random();
   }
   geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   geo.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
   geo.setAttribute('aOpacity', new THREE.BufferAttribute(opacities, 1));
+  geo.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 1));
 
   const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+  const yRange = yMax - yMin;
+  const zRange = zMax - zMin;
 
   const mat = new THREE.ShaderMaterial({
     transparent: true,
@@ -689,15 +694,41 @@ function createParticles(targetScene) {
     blending: THREE.AdditiveBlending,
     uniforms: {
       uPixelRatio: { value: dpr },
+      uTime: { value: 0.0 },
+      uYMin: { value: yMin },
+      uYRange: { value: yRange },
+      uXHalf: { value: xHalf },
+      uZMin: { value: zMin },
+      uZRange: { value: zRange },
     },
     vertexShader: /* glsl */ `
       attribute float aSize;
       attribute float aOpacity;
+      attribute float aSeed;
       varying float vOpacity;
       uniform float uPixelRatio;
+      uniform float uTime;
+      uniform float uYMin;
+      uniform float uYRange;
+      uniform float uXHalf;
+      uniform float uZMin;
+      uniform float uZRange;
       void main() {
         vOpacity = aOpacity;
-        vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
+
+        // Drift speed: ~0.06 units/sec (matches original 0.001/frame @ 60fps)
+        float driftSpeed = 0.06;
+        // Per-particle phase offset from seed so they don't all wrap at once
+        float yOffset = mod((position.y - uYMin) + uTime * driftSpeed + aSeed * uYRange, uYRange);
+        float y = uYMin + yOffset;
+
+        // Gentle sine sway in X and Z
+        float swayX = sin(uTime * 0.3 + aSeed * 100.0) * 0.4;
+        float swayZ = cos(uTime * 0.25 + aSeed * 70.0) * 0.3;
+        float x = position.x + swayX;
+        float z = position.z + swayZ;
+
+        vec4 mvPos = modelViewMatrix * vec4(x, y, z, 1.0);
         gl_PointSize = aSize * uPixelRatio * (300.0 / -mvPos.z);
         gl_Position = projectionMatrix * mvPos;
       }
@@ -719,27 +750,10 @@ function createParticles(targetScene) {
   applyBaseSceneOpacity();
 }
 
-function animateParticles(time, fpsFactor = 1.0) {
+function animateParticles(time) {
   if (!particleSystem) return;
-  const positions = particleSystem.geometry.attributes.position.array;
-  const { xHalf, yMin, yMax, zMin, zMax } = PARTICLE_BOUNDS;
-
-  for (let i = 0; i < PARTICLE_COUNT; i++) {
-    const i3 = i * 3;
-    // gentle upward drift
-    positions[i3 + 1] += 0.001 * fpsFactor;
-    // subtle sine sway
-    positions[i3] += Math.sin(time * 0.3 + i * 0.5) * 0.0004 * fpsFactor;
-    positions[i3 + 2] += Math.cos(time * 0.25 + i * 0.7) * 0.0003 * fpsFactor;
-
-    // wrap when above ceiling
-    if (positions[i3 + 1] > yMax) {
-      positions[i3 + 1] = yMin;
-      positions[i3] = (Math.random() - 0.5) * 2 * xHalf;
-      positions[i3 + 2] = zMin + Math.random() * (zMax - zMin);
-    }
-  }
-  particleSystem.geometry.attributes.position.needsUpdate = true;
+  // GPU-driven: just update the time uniform
+  particleSystem.material.uniforms.uTime.value = time;
 }
 
 function applyOpacityToModel(model, alpha) {
@@ -973,8 +987,8 @@ export function webgl() {
     // Keep uTime ticking for grain + edge distortion
     postFXUniforms.uTime.value = driftTime;
 
-    // Drift particles, pass fpsFactor to make framerate-independent
-    animateParticles(driftTime, fpsFactor);
+    // Drift particles (GPU-driven via time uniform)
+    animateParticles(driftTime);
 
     // Keep fake-volume glow hook in sync (no-op in current implementation)
     if (homeGlowHandle) homeGlowHandle.update(camera);

@@ -1,8 +1,4 @@
-import gsap from "gsap";
-import { SplitText } from "gsap/SplitText";
 import { getLenis } from "./lenis-scroll.js";
-
-gsap.registerPlugin(SplitText);
 
 let isMenuOpen = false;
 let isAnimating = false;
@@ -11,27 +7,9 @@ let menuInitialized = false;
 let menuOverlayClickHandler = null;
 let menuToggleClickHandler = null;
 let menuKeydownHandler = null;
-let cachedMenuItems = null;
-let cachedMenuBoxes = null;
 let cachedMenuToggleBtn = null;
-const splits = new Map();
+let closeTransitionHandler = null;
 const receiptCloseHandlers = new WeakMap();
-
-function getOrSplit(element) {
-  if (splits.has(element)) return splits.get(element);
-  // Split into lines, words, AND chars to support both animation types
-  const split = new SplitText(element, { type: "lines, words, chars" });
-  
-  // Apply overflow hidden to lines (parents of words)
-  if (split.lines) {
-    split.lines.forEach(line => {
-      line.style.overflow = "hidden";
-    });
-  }
-
-  splits.set(element, split);
-  return split;
-}
 
 // menu functions
 function openMenu() {
@@ -44,57 +22,30 @@ function openMenu() {
     menuParent.setAttribute("aria-hidden", "false");
   }
 
-  cachedMenuBoxes.forEach(box => {
-    box.style.pointerEvents = "all";
-  });
-
-  if (menuParent) menuParent.style.pointerEvents = "all";
-  gsap.to(menuParent, { autoAlpha: 1, duration: 0.3 });
   if (cachedMenuToggleBtn) cachedMenuToggleBtn.classList.add("menu-open");
+
+  // CSS-driven: add class — transitions handle the animation
+  if (menuParent) menuParent.classList.add("is-open");
 
   // disable scrolling
   if (getLenis()) {
     getLenis().stop();
   }
 
-  if (cachedMenuBoxes.length) {
-    gsap.to(cachedMenuBoxes, {
-      clipPath: "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)",
-      duration: 0.3,
-      onComplete: () => {
+  // clip-path transition on .menu-box determines when open animation is done
+  const firstBox = menuParent?.querySelector(".menu-box");
+  if (firstBox) {
+    const onEnd = (e) => {
+      if (e.propertyName === "clip-path") {
         isAnimating = false;
-      },
-    });
+        firstBox.removeEventListener("transitionend", onEnd);
+      }
+    };
+    firstBox.addEventListener("transitionend", onEnd);
   } else {
     isAnimating = false;
   }
 
-  // animate menu items (simple fade in)
-  cachedMenuItems.forEach((item) => {
-    gsap.set(item, { opacity: 1, transform: "translateY(0%)" });
-  });
-
-  function playMenuReveal() {
-    cachedMenuItems.forEach((item, index) => {
-      const split = getOrSplit(item);
-      gsap.fromTo(
-        split.chars,
-        {
-          y: -100,
-          opacity: 0,
-        },
-        {
-          y: 0,
-          opacity: 1,
-          duration: 1,
-          stagger: 0.05,
-          ease: "power2.out",
-          delay: index * 0.1,
-        }
-      );
-    });
-  }
-  playMenuReveal();
   isMenuOpen = true;
 }
 
@@ -108,37 +59,31 @@ function closeMenu() {
     menuParent.setAttribute("aria-hidden", "true");
   }
 
-  cachedMenuBoxes.forEach(box => {
-    box.style.pointerEvents = "none";
-  });
-
-  if (menuParent) menuParent.style.pointerEvents = "none";
   if (cachedMenuToggleBtn) cachedMenuToggleBtn.classList.remove("menu-open");
+
+  // CSS-driven: remove class — transitions handle the animation
+  if (menuParent) menuParent.classList.remove("is-open");
 
   // enable scrolling
   if (getLenis()) {
     getLenis().start();
   }
 
-  if (cachedMenuBoxes.length) {
-    gsap.to(cachedMenuBoxes, {
-      clipPath: "polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%)",
-      duration: 0.3,
-      onComplete: () => {
-        gsap.set(cachedMenuItems, { opacity: 0, transform: "translateY(100%)" });
-        if (menuParent) {
-          gsap.to(menuParent, {
-            autoAlpha: 0,
-            duration: 0.25,
-            onComplete: () => {
-              isAnimating = false;
-            },
-          });
-        } else {
-          isAnimating = false;
-        }
-      },
-    });
+  // The close sequence: clip-path closes (0.3s) then backdrop fades (0.25s after 0.3s delay)
+  // Total close duration: ~0.55s — listen for opacity transitionend on the wrap
+  if (menuParent) {
+    // Remove any previous handler
+    if (closeTransitionHandler) {
+      menuParent.removeEventListener("transitionend", closeTransitionHandler);
+    }
+    closeTransitionHandler = (e) => {
+      if (e.target === menuParent && e.propertyName === "opacity") {
+        isAnimating = false;
+        menuParent.removeEventListener("transitionend", closeTransitionHandler);
+        closeTransitionHandler = null;
+      }
+    };
+    menuParent.addEventListener("transitionend", closeTransitionHandler);
   } else {
     isAnimating = false;
   }
@@ -151,15 +96,11 @@ function initMenu() {
   if (menuInitialized) return;
   menuInitialized = true;
   cachedMenuToggleBtn = document.querySelector(".menu-toggle-btn");
-  cachedMenuBoxes = document.querySelectorAll(".menu-box");
-  cachedMenuItems = document.querySelectorAll(".menu-item");
   const receiptCloseButtons = document.querySelectorAll(".receipt-close");
 
-  // reference menu-parent and initialize its state
+  // reference menu-parent — CSS handles the default hidden state
   menuParent = document.querySelector('.menu-wrap');
   if (menuParent) {
-    menuParent.style.pointerEvents = 'none';
-    gsap.set(menuParent, { autoAlpha: 0 });
     // click on blank space (menuParent itself) closes the popup
     menuOverlayClickHandler = (e) => {
       if (e.target === menuParent && isMenuOpen && !isAnimating) {
@@ -170,9 +111,9 @@ function initMenu() {
   }
 
   if (cachedMenuToggleBtn) {
-    menuToggleClickHandler = (e) => {
+    menuToggleClickHandler = () => {
       if (isAnimating) {
-        gsap.killTweensOf([...cachedMenuBoxes, ...cachedMenuItems]);
+        // Force-finish any in-progress transition
         isAnimating = false;
       }
 
@@ -225,11 +166,6 @@ function initMenu() {
 function destroyMenu() {
   const receiptCloseButtons = document.querySelectorAll(".receipt-close");
 
-  // Kill any active animations
-  if (cachedMenuBoxes && cachedMenuItems) {
-    gsap.killTweensOf([...cachedMenuBoxes, ...cachedMenuItems, menuParent]);
-  }
-
   if (cachedMenuToggleBtn && menuToggleClickHandler) {
     cachedMenuToggleBtn.removeEventListener("click", menuToggleClickHandler);
   }
@@ -239,6 +175,10 @@ function destroyMenu() {
   if (menuParent && menuOverlayClickHandler) {
     menuParent.removeEventListener("click", menuOverlayClickHandler);
   }
+  if (menuParent && closeTransitionHandler) {
+    menuParent.removeEventListener("transitionend", closeTransitionHandler);
+    closeTransitionHandler = null;
+  }
   receiptCloseButtons.forEach((button) => {
     const onClick = receiptCloseHandlers.get(button);
     if (onClick) {
@@ -246,15 +186,10 @@ function destroyMenu() {
       receiptCloseHandlers.delete(button);
     }
   });
-  
-  // Revert all SplitText instances
-  splits.forEach(split => {
-    if (split && split.revert) {
-      split.revert();
-    }
-  });
-  splits.clear();
-  
+
+  // Ensure menu is closed visually
+  if (menuParent) menuParent.classList.remove("is-open");
+
   // Reset state
   isMenuOpen = false;
   isAnimating = false;
@@ -262,8 +197,6 @@ function destroyMenu() {
   menuOverlayClickHandler = null;
   menuToggleClickHandler = null;
   menuKeydownHandler = null;
-  cachedMenuItems = null;
-  cachedMenuBoxes = null;
   cachedMenuToggleBtn = null;
 }
 

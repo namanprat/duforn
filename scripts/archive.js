@@ -726,8 +726,9 @@ async function createArchiveTube(scene) {
 function updateArchiveTube(tubeState, dt, sharedState) {
   if (!tubeState) return;
 
-  // Scroll Logic
-  tubeState.scrollCurrent += (sharedState.tubeScrollTarget - tubeState.scrollCurrent) * 0.12;
+  // Scroll Logic (scale lerp by frame delta for framerate independence)
+  const scrollLerp = Math.min(0.12 * (dt / 0.01666), 1.0);
+  tubeState.scrollCurrent += (sharedState.tubeScrollTarget - tubeState.scrollCurrent) * scrollLerp;
 
   if (tubeState.scrollCurrent > tubeState.loopHeight / 2) {
     tubeState.scrollCurrent -= tubeState.loopHeight;
