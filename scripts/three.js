@@ -11,6 +11,19 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { getPerformanceProfile } from './perf.js';
 gsap.registerPlugin(ScrollTrigger);
 
+const isPaintDebugEnabled = new URLSearchParams(window.location.search).has('debugPaint');
+function paintDebugMark(step, payload = null) {
+  if (!isPaintDebugEnabled) return;
+  const ts = performance.now().toFixed(1);
+  if (payload !== null) {
+    // eslint-disable-next-line no-console
+    console.log(`[paint-debug @${ts}ms] ${step}`, payload);
+    return;
+  }
+  // eslint-disable-next-line no-console
+  console.log(`[paint-debug @${ts}ms] ${step}`);
+}
+
 
 let renderer = null;
 let composer = null;
@@ -78,6 +91,12 @@ let galleryCamera = null;
 let shaderBackgroundRenderer = null;
 let baseSceneOpacity = 1;
 let baseSceneOverlayMode = false;
+let baseSceneBackgroundVisible = true;
+const baseSceneFogPreset = {
+  color: new THREE.Color(0x0a0a0f),
+  density: 0.045,
+};
+const pendingGalleryOverlayFrameCallbacks = [];
 
 const QUALITY_CONFIG = Object.freeze({
   qualityProfile: 'balanced',
@@ -117,7 +136,7 @@ function setupEnvironmentLighting(currentScene, currentRenderer, hdriUrl) {
           if (envRenderTarget) envRenderTarget.dispose?.();
           envRenderTarget = pmremGenerator.fromEquirectangular(hdrTexture);
           currentScene.environment = envRenderTarget.texture;
-          currentScene.background = envRenderTarget.texture;
+          applyBaseSceneBackgroundState();
           applyEnvironmentTuning();
           hdrTexture.dispose?.();
         },
@@ -224,6 +243,21 @@ function applyShadowTuning() {
   if (!shadowCatcher) return;
   if (shadowCatcher.material) shadowCatcher.material.opacity = tune.shadowOpacity;
   shadowCatcher.position.set(tune.modelX, tune.shadowY, tune.modelZ);
+}
+
+function applyBaseSceneBackgroundState() {
+  if (!scene) return;
+  const shouldHideBaseSceneBackground = baseSceneOverlayMode || !baseSceneBackgroundVisible;
+  if (shouldHideBaseSceneBackground) {
+    scene.background = null;
+    scene.fog = null;
+    return;
+  }
+
+  scene.background = envRenderTarget?.texture || null;
+  if (!scene.fog) {
+    scene.fog = new THREE.FogExp2(baseSceneFogPreset.color.clone(), baseSceneFogPreset.density);
+  }
 }
 
 function applyMaterialTuning() {
@@ -523,6 +557,11 @@ export function unregisterGalleryOverlay() {
   galleryCamera = null;
 }
 
+export function onNextGalleryOverlayFrame(callback) {
+  if (typeof callback !== 'function') return;
+  pendingGalleryOverlayFrameCallbacks.push(callback);
+}
+
 // ── Shader background (work page alternative to 3D scene) ──
 
 /**
@@ -747,7 +786,7 @@ export function webgl() {
   const quality = getQualitySettings();
 
   scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x0a0a0f, 0.045);
+  scene.fog = new THREE.FogExp2(baseSceneFogPreset.color.clone(), baseSceneFogPreset.density);
   camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
   const needsAA = (window.devicePixelRatio || 1) < 1.5;
@@ -762,6 +801,7 @@ export function webgl() {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = quality.toneMappingExposure;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.setClearColor(0x000000, 0);
 
   containerEl = document.querySelector('#background');
   if (!containerEl) {
@@ -772,6 +812,7 @@ export function webgl() {
     document.body.insertBefore(containerEl, firstChild);
   }
   containerEl.appendChild(renderer.domElement);
+  paintDebugMark('webgl canvas attached');
 
   ambientLight = new THREE.AmbientLight(0xffffff, 0.18);
   scene.add(ambientLight);
@@ -784,6 +825,7 @@ export function webgl() {
   setupShadows(renderer, scene, quality);
   applyShadowTuning();
   createParticles(scene);
+  applyBaseSceneBackgroundState();
 
   // Load both models in parallel
   const page = sessionStorage.getItem('webgl-page') || 'home';
@@ -858,6 +900,25 @@ export function webgl() {
     cameraTarget.tilt = mx * parallaxConfig.tiltRange;
   };
   window.addEventListener('mousemove', mouseHandler, { passive: true });
+
+  window.__gyroHandler = (event) => {
+    if (!window.gyroEnabled) return;
+    if (event.gamma === null || event.beta === null) return;
+
+    // Map gamma (left-to-right tilt) and beta (front-to-back tilt)
+    // Gamma is typically -90 to 90. Beta is typically -180 to 180.
+    // Clamp to reasonable ranges to mimic mouse movement
+    let x = event.gamma / 45; // Cap at 45 degrees tilt
+    let y = (event.beta - 45) / 45; // Assume user holds phone slightly tilted up at ~45 deg
+
+    x = Math.max(-1, Math.min(1, x));
+    y = Math.max(-1, Math.min(1, y));
+
+    cameraTarget.angle = Math.PI / 2 + x * parallaxConfig.angleRange;
+    cameraTarget.y = y * parallaxConfig.yRange; // Removed negative since beta direction differs from screen-space Y
+    cameraTarget.tilt = x * parallaxConfig.tiltRange;
+  };
+  window.addEventListener('deviceorientation', window.__gyroHandler, { passive: true });
 
   let lastFrameTime = performance.now();
 
@@ -939,6 +1000,17 @@ export function webgl() {
       } else {
         renderer.render(galleryScene, galleryCamera);
       }
+      if (pendingGalleryOverlayFrameCallbacks.length) {
+        const callbacks = pendingGalleryOverlayFrameCallbacks.splice(0);
+        callbacks.forEach((callback) => {
+          try {
+            callback();
+          } catch (error) {
+            console.error('[three.js] overlay frame callback failed', error);
+          }
+        });
+        paintDebugMark('work first rendered frame');
+      }
 
       renderer.autoClear = prevAutoClear;
     }
@@ -974,6 +1046,10 @@ export function destroyWebgl() {
     window.removeEventListener('mousemove', mouseHandler);
     mouseHandler = null;
   }
+  if (window.__gyroHandler) {
+    window.removeEventListener('deviceorientation', window.__gyroHandler);
+    window.__gyroHandler = null;
+  }
 
   if (sceneTween) {
     sceneTween.kill();
@@ -998,6 +1074,7 @@ export function destroyWebgl() {
   // Unregister gallery overlay
   galleryScene = null;
   galleryCamera = null;
+  pendingGalleryOverlayFrameCallbacks.length = 0;
 
   if (shadowCatcher) {
     if (shadowCatcher.geometry) shadowCatcher.geometry.dispose();
@@ -1071,6 +1148,7 @@ export function destroyWebgl() {
   containerEl = null;
   baseSceneOpacity = 1;
   baseSceneOverlayMode = false;
+  baseSceneBackgroundVisible = true;
 }
 
 export function isWebglRunning() {
@@ -1095,7 +1173,14 @@ export function setBaseSceneVisibility(visible) {
 
 export function setBaseSceneOverlayMode(active) {
   baseSceneOverlayMode = Boolean(active);
+  paintDebugMark('base overlay mode', { active: baseSceneOverlayMode });
   applyBaseSceneOpacity();
+  applyBaseSceneBackgroundState();
+}
+
+export function setBaseSceneBackgroundVisible(visible) {
+  baseSceneBackgroundVisible = Boolean(visible);
+  applyBaseSceneBackgroundState();
 }
 
 function getCameraOffset(page) {

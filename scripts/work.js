@@ -7,6 +7,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import {
   registerGalleryOverlay,
   unregisterGalleryOverlay,
+  onNextGalleryOverlayFrame,
   getRenderer,
   createFakeVolumeGlow,
   setBaseSceneOpacity,
@@ -26,9 +27,44 @@ import { getPerformanceProfile } from './perf.js';
 // with UV-scrolled image segments, wave displacement, and parallax.
 // Composited by the shared renderer via registerGalleryOverlay().
 
+// Persists across init/destroy cycles — textures are loaded once and reused on every navigation
+const workTextureCache = new Map();
+
 let isWorkInitialized = false;
 let isTabVisible = true;
 let visibilityHandler = null;
+let workFirstFramePromise = Promise.resolve();
+let workFirstFrameResolver = null;
+
+const isPaintDebugEnabled = new URLSearchParams(window.location.search).has('debugPaint');
+function paintDebugMark(step, payload = null) {
+  if (!isPaintDebugEnabled) return;
+  const ts = performance.now().toFixed(1);
+  if (payload !== null) {
+    // eslint-disable-next-line no-console
+    console.log(`[paint-debug @${ts}ms] ${step}`, payload);
+    return;
+  }
+  // eslint-disable-next-line no-console
+  console.log(`[paint-debug @${ts}ms] ${step}`);
+}
+
+export function resetWorkFirstFrameGate() {
+  workFirstFramePromise = new Promise((resolve) => {
+    workFirstFrameResolver = resolve;
+  });
+}
+
+function resolveWorkFirstFrameGate() {
+  if (!workFirstFrameResolver) return;
+  workFirstFrameResolver();
+  workFirstFrameResolver = null;
+  paintDebugMark('work first-frame gate resolved');
+}
+
+export function whenWorkFirstFrame() {
+  return workFirstFramePromise;
+}
 
 
 function getActiveWorkContainer() {
@@ -532,19 +568,24 @@ function createPlaceholderTexture() {
 }
 
 function startTextureLoading() {
-  const loader = new THREE.TextureLoader();
   const uniqueImages = [...new Set(workItems.map(item => item.image).filter(Boolean))];
 
-  // Seed cache with placeholders so setupStrip() can run immediately
+  // If the persistent cache has real textures (loaded during preloader), use them
+  // immediately — no placeholder, no background load, no flash.
   uniqueImages.forEach(src => {
-    if (!state.textureCache.has(src)) {
+    const persisted = workTextureCache.get(src);
+    if (persisted) {
+      state.textureCache.set(src, persisted);
+    } else if (!state.textureCache.has(src)) {
       state.textureCache.set(src, createPlaceholderTexture());
     }
   });
 
-  // Load real textures in background, hot-swap into live shader uniforms
+  // Load any textures not yet in the persistent cache (fallback / slow connection)
+  const loader = new THREE.TextureLoader();
   uniqueImages.forEach((src, i) => {
-    // Skip if already a real (non-placeholder) texture from a previous visit
+    if (workTextureCache.has(src)) return;
+
     const cached = state.textureCache.get(src);
     if (cached && cached.image && cached.image.width > 1) return;
 
@@ -555,27 +596,22 @@ function startTextureLoading() {
         texture.minFilter = THREE.LinearMipmapLinearFilter;
         texture.magFilter = THREE.LinearFilter;
         texture.generateMipmaps = true;
-
-        // Prevent stretching when UV goes beyond 0.0 - 1.0 because of parallax
         texture.wrapS = THREE.MirroredRepeatWrapping;
         texture.wrapT = THREE.MirroredRepeatWrapping;
 
-        // Dispose placeholder
+        workTextureCache.set(src, texture);
+
         const old = state.textureCache.get(src);
         if (old) old.dispose();
-
         state.textureCache.set(src, texture);
 
-        // Hot-swap into live shader uniform
         if (state.stripMaterial) {
           state.stripMaterial.uniforms[`uTex${i}`].value = texture;
           state.stripMaterial.needsUpdate = true;
         }
       },
       undefined,
-      () => {
-        console.warn(`[work] Failed to load texture: ${src}`);
-      }
+      () => { console.warn(`[work] Failed to load texture: ${src}`); }
     );
   });
 }
@@ -739,6 +775,49 @@ function finalizeModel(model) {
   });
 }
 
+/**
+ * Load all work strip textures into the persistent cache during the preloader window.
+ * Called from barba.js on initial page load (any namespace) so textures are ready
+ * before the user ever navigates to the work page.
+ * Safe to call when preloader is not active — hold/release become no-ops.
+ */
+export function startWorkTexturePreload() {
+  preloader.hold();
+  const textureLoader = new THREE.TextureLoader();
+  const uniqueImages = [...new Set(workItems.map(item => item.image).filter(Boolean))];
+
+  Promise.all(
+    uniqueImages.map((src, i) => {
+      if (workTextureCache.has(src)) return Promise.resolve();
+
+      return new Promise((resolve) => {
+        textureLoader.load(
+          src,
+          (texture) => {
+            texture.colorSpace = THREE.SRGBColorSpace;
+            texture.minFilter = THREE.LinearMipmapLinearFilter;
+            texture.magFilter = THREE.LinearFilter;
+            texture.generateMipmaps = true;
+            texture.wrapS = THREE.MirroredRepeatWrapping;
+            texture.wrapT = THREE.MirroredRepeatWrapping;
+
+            workTextureCache.set(src, texture);
+
+            // Hot-swap if strip is already live (e.g. direct work page load)
+            if (state.stripMaterial) {
+              state.stripMaterial.uniforms[`uTex${i}`].value = texture;
+              state.stripMaterial.needsUpdate = true;
+            }
+            resolve();
+          },
+          undefined,
+          () => resolve(),
+        );
+      });
+    }),
+  ).finally(() => preloader.release());
+}
+
 async function loadWorkModel() {
   const workUrl = '/models/work.glb';
 
@@ -748,23 +827,41 @@ async function loadWorkModel() {
 
   preloader.hold();
 
+  const releasePreloader = () => {
+    setTimeout(() => {
+      preloader.release();
+    }, 200);
+  };
+
   // Reuse preloader's parsed GLTF scene instead of re-parsing
   const cached = preloader.getAsset(workUrl);
+  let model = null;
   if (cached) {
-    state.workModel = cached.scene;
+    model = cached.scene;
     preloader.clearAssets();
   } else {
     const loader = new GLTFLoader();
-    state.workModel = await new Promise((resolve, reject) => {
+    model = await new Promise((resolve, reject) => {
       loader.load(workUrl, (glb) => resolve(glb.scene), undefined, reject);
     });
   }
 
+  if (!isWorkInitialized || !state.scene) {
+    releasePreloader();
+    return;
+  }
+
+  state.workModel = model;
   finalizeModel(state.workModel);
 
   // Position model behind the ribbon
   state.workModel.position.set(0, -5.6, -17.3);
   state.workModel.scale.set(1, 1, 1);
+
+  if (!state.scene) {
+    releasePreloader();
+    return;
+  }
 
   state.scene.add(state.workModel);
 
@@ -779,9 +876,7 @@ async function loadWorkModel() {
     }
   });
 
-  setTimeout(() => {
-    preloader.release();
-  }, 200);
+  releasePreloader();
 }
 
 // ─── SCENE SETUP ────────────────────────────────────────────────────────────────
@@ -884,6 +979,16 @@ function setupGalleryScene() {
   setupPostProcessing();
 
   registerGalleryOverlay(state.scene, state.camera);
+  paintDebugMark('work overlay registered');
+  if (renderer) {
+    onNextGalleryOverlayFrame(() => {
+      resolveWorkFirstFrameGate();
+    });
+  } else {
+    requestAnimationFrame(() => {
+      resolveWorkFirstFrameGate();
+    });
+  }
 }
 
 // ─── STRIP MESH CREATION ────────────────────────────────────────────────────────
@@ -2049,6 +2154,8 @@ function animate() {
 export async function initWork() {
   if (isWorkInitialized) return;
   isWorkInitialized = true;
+  resetWorkFirstFrameGate();
+  paintDebugMark('initWork start');
 
 
   const mainContainer = getActiveWorkContainer();
@@ -2074,13 +2181,6 @@ export async function initWork() {
 
   setupGalleryScene();
 
-  // Load 3D model
-  try {
-    await loadWorkModel();
-  } catch (err) {
-    console.error('[work] Failed to load 3D model:', err);
-  }
-
   startTextureLoading();
   setupStrip();
   addEventListeners();
@@ -2103,12 +2203,21 @@ export async function initWork() {
   startStripSweepReveal();
   // (cinematic exit removed)
 
+  // Load 3D model in background so page reveal is not blocked.
+  loadWorkModel().catch((err) => {
+    console.error('[work] Failed to load 3D model:', err);
+  });
+
   state.animationFrame = requestAnimationFrame(animate);
 }
 
 export function destroyWork({ keepCoverPlane = false, preserveTexture = null } = {}) {
-  if (!isWorkInitialized) return;
+  if (!isWorkInitialized) {
+    resolveWorkFirstFrameGate();
+    return;
+  }
   isWorkInitialized = false;
+  paintDebugMark('destroyWork');
   const preserveOverlay = state.transitionLocked;
   // (cinematic exit removed)
 
@@ -2228,9 +2337,11 @@ export function destroyWork({ keepCoverPlane = false, preserveTexture = null } =
     state.stripGroup = null;
   }
 
-  // Dispose textures
-  state.textureCache.forEach((texture) => {
+  // Dispose placeholder textures only — real textures stay in workTextureCache
+  // and are reused on the next navigation to the work page.
+  state.textureCache.forEach((texture, src) => {
     if (!texture || texture === preserveTexture) return;
+    if (workTextureCache.has(src)) return;
     texture.dispose();
   });
   state.textureCache.clear();
@@ -2288,4 +2399,6 @@ export function destroyWork({ keepCoverPlane = false, preserveTexture = null } =
     pointerdown: null,
     pointerup: null,
   };
+  resolveWorkFirstFrameGate();
+  workFirstFramePromise = Promise.resolve();
 }

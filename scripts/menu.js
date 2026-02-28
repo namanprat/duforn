@@ -10,6 +10,7 @@ let menuParent = null;
 let menuInitialized = false;
 let menuOverlayClickHandler = null;
 let menuToggleClickHandler = null;
+let menuKeydownHandler = null;
 let cachedMenuItems = null;
 let cachedMenuBoxes = null;
 let cachedMenuToggleBtn = null;
@@ -35,6 +36,13 @@ function getOrSplit(element) {
 // menu functions
 function openMenu() {
   isAnimating = true;
+  if (cachedMenuToggleBtn) {
+    cachedMenuToggleBtn.setAttribute("aria-expanded", "true");
+    cachedMenuToggleBtn.setAttribute("aria-label", "Close menu");
+  }
+  if (menuParent) {
+    menuParent.setAttribute("aria-hidden", "false");
+  }
 
   cachedMenuBoxes.forEach(box => {
     box.style.pointerEvents = "all";
@@ -92,6 +100,13 @@ function openMenu() {
 
 function closeMenu() {
   isAnimating = true;
+  if (cachedMenuToggleBtn) {
+    cachedMenuToggleBtn.setAttribute("aria-expanded", "false");
+    cachedMenuToggleBtn.setAttribute("aria-label", "Open menu");
+  }
+  if (menuParent) {
+    menuParent.setAttribute("aria-hidden", "true");
+  }
 
   cachedMenuBoxes.forEach(box => {
     box.style.pointerEvents = "none";
@@ -156,7 +171,6 @@ function initMenu() {
 
   if (cachedMenuToggleBtn) {
     menuToggleClickHandler = (e) => {
-      e.preventDefault(); // Prevent navigation if it's a link
       if (isAnimating) {
         gsap.killTweensOf([...cachedMenuBoxes, ...cachedMenuItems]);
         isAnimating = false;
@@ -170,6 +184,13 @@ function initMenu() {
     };
     cachedMenuToggleBtn.addEventListener("click", menuToggleClickHandler);
   }
+  menuKeydownHandler = (event) => {
+    if (event.key === "Escape" && isMenuOpen && !isAnimating) {
+      closeMenu();
+      cachedMenuToggleBtn?.focus();
+    }
+  };
+  document.addEventListener("keydown", menuKeydownHandler);
 
   receiptCloseButtons.forEach((button) => {
     const onClick = (event) => {
@@ -212,6 +233,9 @@ function destroyMenu() {
   if (cachedMenuToggleBtn && menuToggleClickHandler) {
     cachedMenuToggleBtn.removeEventListener("click", menuToggleClickHandler);
   }
+  if (menuKeydownHandler) {
+    document.removeEventListener("keydown", menuKeydownHandler);
+  }
   if (menuParent && menuOverlayClickHandler) {
     menuParent.removeEventListener("click", menuOverlayClickHandler);
   }
@@ -237,6 +261,7 @@ function destroyMenu() {
   menuInitialized = false;
   menuOverlayClickHandler = null;
   menuToggleClickHandler = null;
+  menuKeydownHandler = null;
   cachedMenuItems = null;
   cachedMenuBoxes = null;
   cachedMenuToggleBtn = null;

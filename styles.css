@@ -24,6 +24,7 @@ html,
 body {
   width: 100%;
   height: 100%;
+  background-color: #0b0b0b;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -215,7 +216,7 @@ html {
 body {
   font-family: var(--text-style-font-primary);
   font-size: var(--typography-font-size-text-main);
-  background-color: transparent;
+  background-color: var(--swatch-dark);
   color: var(--swatch-dark);
 }
 
@@ -404,6 +405,20 @@ p {
   height: 100vh;
   z-index: -10;
   overflow: hidden;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.14s ease;
+}
+
+body.work-booting #background,
+body.work-transitioning #background {
+  opacity: 0;
+  visibility: hidden;
+}
+
+body.work-ready #background {
+  opacity: 1;
+  visibility: visible;
 }
 
 .page-wrap::after {
@@ -415,10 +430,12 @@ p {
   height: 200%;
   pointer-events: none;
   position: fixed;
-  background-image: url("/grain.png");
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.07) 0 1px, transparent 1px),
+    radial-gradient(circle at 80% 30%, rgba(0, 0, 0, 0.05) 0 1px, transparent 1px);
   z-index: 999;
   background-repeat: repeat;
-  background-size: 1000px;
+  background-size: 3px 3px, 4px 4px;
   opacity: 0.3;
   mix-blend-mode: overlay;
   animation: grain 3s steps(5) infinite;
@@ -2270,6 +2287,14 @@ section {
 .menu-toggle-btn {
   display: none;
   cursor: pointer;
+  color: inherit;
+  font-family: var(--text-style-font-tertiary);
+}
+
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--swatch-light);
+  outline-offset: 4px;
 }
 
 .menu-wrap {
@@ -2287,6 +2312,8 @@ section {
   background-color: color-mix(in srgb, var(--theme-primary) 26%, transparent);
   backdrop-filter: blur(15px);
   font-family: var(--text-style-font-tertiary);
+  opacity: 0;
+  visibility: hidden;
 }
 
 .menu-box a,
@@ -2799,8 +2826,13 @@ img {
 .page-wrap--archive .nav-contain a,
 .page-wrap--archive .nav-contain a span,
 .page-wrap--archive .bottom-nav-wrap a,
-.page-wrap--archive .bottom-nav-wrap #time {
-  color: white;
+.page-wrap--archive .bottom-nav-wrap a span,
+.page-wrap--archive .bottom-nav-wrap #time,
+.page-wrap--archive .nav-wrap a[aria-current="page"],
+.page-wrap--archive .nav-wrap a[aria-current="page"] span,
+.page-wrap--archive .bottom-nav-wrap a[aria-current="page"],
+.page-wrap--archive .bottom-nav-wrap a[aria-current="page"] span {
+  color: white !important;
 }
 
 /* Text alignment for home/contact pages */
@@ -3498,4 +3530,9 @@ img {
     --spacing-section-space-medium: 3rem;
     --spacing-section-space-large: 5rem;
   }
+}
+
+/* Disable active link hover */
+a[aria-current="page"] {
+  cursor: not-allowed !important;
 }

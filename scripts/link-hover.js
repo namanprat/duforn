@@ -15,16 +15,26 @@ const TRANSFORM_ORIGIN = "50% 50% -10px";
 // Store instances for cleanup
 const linkInstances = new WeakMap();
 
+// Prepare audio instance
+const hoverAudio = new Audio('/hover.wav');
+hoverAudio.volume = 0.5;
+
+export function unlockHoverAudio() {
+  hoverAudio.play()
+    .then(() => { hoverAudio.pause(); hoverAudio.currentTime = 0; })
+    .catch(() => { });
+}
+
 export function initLinkHover() {
   const navLinks = document.querySelectorAll('.nav-wrap a, .bottom-nav-wrap a');
-  
+
   navLinks.forEach(link => {
     // Skip if already initialized or excluded
     if (link.id === 'time' || linkInstances.has(link)) return;
 
     const originalText = (link.textContent || '').trim();
     if (!originalText) return;
-    
+
     // Ensure block-level box model for 3D rotation effect
     link.style.display = 'inline-block';
 
@@ -51,37 +61,49 @@ export function initLinkHover() {
     const italicSplit = new SplitText(italicSpan, { type: 'chars' });
 
     // Initial positions
-    gsap.set(originalSplit.chars, { 
-      rotationX: 0, 
-      opacity: 1, 
+    gsap.set(originalSplit.chars, {
+      rotationX: 0,
+      opacity: 1,
       transformOrigin: TRANSFORM_ORIGIN,
       backfaceVisibility: 'hidden'
     });
-    
-    gsap.set(italicSplit.chars, { 
-      rotationX: -90, 
-      opacity: 0, 
-      transformOrigin: TRANSFORM_ORIGIN, 
+
+    gsap.set(italicSplit.chars, {
+      rotationX: -90,
+      opacity: 0,
+      transformOrigin: TRANSFORM_ORIGIN,
       backfaceVisibility: 'hidden'
     });
-    
+
     // Animation state
     let tl = null;
-    
+
     // Event handlers
     const handleEnter = () => {
+      if (link.getAttribute('aria-current') === 'page') return;
+
       tl?.kill();
       tl = animateChars(originalSplit.chars, italicSplit.chars, true);
+
+      if (window.audioEnabled) {
+        hoverAudio.currentTime = 0;
+        hoverAudio.play().catch(e => {
+          // Log but don't hard crash if it fails (e.g. strict browser policies)
+          console.warn('Audio play failed:', e);
+        });
+      }
     };
-    
+
     const handleLeave = () => {
+      if (link.getAttribute('aria-current') === 'page') return;
+
       tl?.kill();
       tl = animateChars(originalSplit.chars, italicSplit.chars, false);
     };
-    
+
     link.addEventListener('mouseenter', handleEnter);
     link.addEventListener('mouseleave', handleLeave);
-    
+
     // Store for cleanup
     linkInstances.set(link, {
       originalSplit,
@@ -116,53 +138,53 @@ function createTextSpan(text, isItalic) {
 
 function animateChars(originalChars, italicChars, isHover) {
   const tl = gsap.timeline();
-  
+
   if (isHover) {
     tl.to(originalChars, {
       rotationX: 90,
       opacity: 0,
       ...ANIM_CONFIG
     }, 0)
-    .to(italicChars, {
-      rotationX: 0,
-      opacity: 1,
-      ...ANIM_CONFIG
-    }, 0);
+      .to(italicChars, {
+        rotationX: 0,
+        opacity: 1,
+        ...ANIM_CONFIG
+      }, 0);
   } else {
     tl.to(originalChars, {
       rotationX: 0,
       opacity: 1,
       ...ANIM_CONFIG
     }, 0)
-    .to(italicChars, {
-      rotationX: -90,
-      opacity: 0,
-      ...ANIM_CONFIG
-    }, 0);
+      .to(italicChars, {
+        rotationX: -90,
+        opacity: 0,
+        ...ANIM_CONFIG
+      }, 0);
   }
-  
+
   return tl;
 }
 
 export function destroyLinkHover() {
   const navLinks = document.querySelectorAll('.nav-wrap a, .bottom-nav-wrap a');
-  
+
   navLinks.forEach(link => {
     const instance = linkInstances.get(link);
-    
+
     if (instance) {
       // Kill animations
       instance.originalSplit.revert();
       instance.italicSplit.revert();
-      
+
       // Remove listeners
       link.removeEventListener('mouseenter', instance.handleEnter);
       link.removeEventListener('mouseleave', instance.handleLeave);
-      
+
       // Clear WeakMap entry
       linkInstances.delete(link);
     }
-    
+
     // Restore original text
     const firstSpan = link.querySelector('span');
     if (firstSpan) {

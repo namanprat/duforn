@@ -1,6 +1,20 @@
 import gsap from 'gsap';
 import { GLTFLoader, DRACOLoader } from 'three-stdlib';
 import * as THREE from 'three';
+import { unlockHoverAudio } from './link-hover.js';
+
+const isPaintDebugEnabled = new URLSearchParams(window.location.search).has('debugPaint');
+function paintDebugMark(step, payload = null) {
+    if (!isPaintDebugEnabled) return;
+    const ts = performance.now().toFixed(1);
+    if (payload !== null) {
+        // eslint-disable-next-line no-console
+        console.log(`[paint-debug @${ts}ms] ${step}`, payload);
+        return;
+    }
+    // eslint-disable-next-line no-console
+    console.log(`[paint-debug @${ts}ms] ${step}`);
+}
 
 export class Preloader {
     constructor() {
@@ -85,11 +99,15 @@ export class Preloader {
         if (hasSeenPreloader) {
             this.teardownResizeListener();
             this.container.style.display = 'none';
+            paintDebugMark('preloader hidden (already seen)');
+            window.audioEnabled = true;
+            window.gyroEnabled = true;
             return Promise.resolve();
         }
 
         this.setupResizeListener();
         this.container.style.display = 'flex';
+        paintDebugMark('preloader shown');
         this.animationComplete = false;
         this.pendingLoadBatches = 0;
         this.isCompleting = false;
@@ -292,52 +310,132 @@ export class Preloader {
         sessionStorage.setItem('preloaderSeen', 'true');
 
         setTimeout(() => {
-            gsap.to(this.progressBar, {
-                opacity: 0,
-                duration: 0.075,
-                ease: 'power2.inOut',
-                delay: 0,
-                repeat: 1,
-                yoyo: true,
-                onComplete: () => {
-                    gsap.set(this.progressBar, { opacity: 0 });
+            if (!this.preloaderBlocks || this.preloaderBlocks.length === 0) {
+                this.showEnterButton();
+                return;
+            }
 
-                    setTimeout(() => {
-                        // If no blocks found (e.g. user didn't add them), just hide container
-                        if (!this.preloaderBlocks || this.preloaderBlocks.length === 0) {
-                            this.container.style.display = 'none';
-                            this.resolveRun();
-                            return;
+            // Fade progress bar and scatter blocks simultaneously
+            gsap.to(this.progressBar, { opacity: 0, duration: 0.3, ease: 'power2.inOut' });
+
+            const maxDelay = 0.5;
+            let completedAnimations = 0;
+            const totalBlocks = this.preloaderBlocks.length;
+
+            this.preloaderBlocks.forEach((block) => {
+                const randomDelay = Math.random() * maxDelay;
+                gsap.to(block, {
+                    opacity: 0,
+                    duration: 0.1,
+                    ease: 'power1.out',
+                    delay: randomDelay,
+                    onComplete: () => {
+                        gsap.set(block, { opacity: 0 });
+                        completedAnimations++;
+                        if (completedAnimations >= totalBlocks) {
+                            this.showEnterButton();
                         }
-
-                        // Loop through all blocks and animate them out with random delays
-                        const maxDelay = 0.5; // Speed up: total time window for reveal
-                        let completedAnimations = 0;
-                        const totalBlocks = this.preloaderBlocks.length;
-
-                        this.preloaderBlocks.forEach((block) => {
-                            const randomDelay = Math.random() * maxDelay;
-
-                            gsap.to(block, {
-                                opacity: 0,
-                                duration: 0.1, // Slightly faster fade per block
-                                ease: 'power1.out',
-                                delay: randomDelay,
-                                onComplete: () => {
-                                    gsap.set(block, { opacity: 0 });
-                                    completedAnimations++;
-                                    // Once the last one finishes (or close to it), resolve
-                                    if (completedAnimations >= totalBlocks) {
-                                        this.container.style.display = 'none';
-                                        this.resolveRun();
-                                    }
-                                },
-                            });
-                        });
-                    }, 50);
-                },
+                    },
+                });
             });
         }, 500);
+    }
+
+    showEnterButton() {
+        const wrapper = document.createElement('div');
+        Object.assign(wrapper.style, {
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '0.75rem',
+            opacity: 0,
+            zIndex: 100,
+            color: 'var(--theme-accent)',
+        });
+
+        const hint = document.createElement('p');
+        hint.textContent = '// audio + motion';
+        Object.assign(hint.style, {
+            fontFamily: 'inherit',
+            fontSize: '0.75rem',
+            letterSpacing: '0.12em',
+            opacity: 0.5,
+            margin: 0,
+        });
+
+        const enterBtn = document.createElement('button');
+        enterBtn.textContent = 'ENTER';
+        enterBtn.className = 'preloader-enter-btn';
+        Object.assign(enterBtn.style, {
+            background: 'transparent',
+            border: '1px solid currentColor',
+            color: 'inherit',
+            padding: '1rem 3rem',
+            fontFamily: 'inherit',
+            fontSize: '1rem',
+            letterSpacing: '0.1em',
+            cursor: 'pointer',
+        });
+
+        wrapper.appendChild(hint);
+        wrapper.appendChild(enterBtn);
+        this.container.appendChild(wrapper);
+
+        gsap.to(wrapper, { opacity: 1, duration: 0.5, ease: 'power2.out' });
+
+        enterBtn.addEventListener('click', () => {
+            this.handleEnterClick(wrapper);
+        });
+    }
+
+    handleEnterClick(wrapper) {
+        // 1. Audio Permission
+        window.audioEnabled = true;
+        // Prime the hover Audio element during this user gesture so iOS/Safari
+        // allows programmatic playback later
+        unlockHoverAudio();
+        // Unlock AudioContext as well (needed for Web Audio API users)
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        audioCtx.resume();
+
+        // 2. Gyroscope Permission
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+            DeviceOrientationEvent.requestPermission()
+                .then(permissionState => {
+                    if (permissionState === 'granted') {
+                        window.gyroEnabled = true;
+                    } else {
+                        console.warn('Gyroscope permission denied');
+                    }
+                    this.finishPreloader(wrapper);
+                })
+                .catch(err => {
+                    console.error('Error requesting gyro permission:', err);
+                    this.finishPreloader(wrapper); // Continue even if gyro fails
+                });
+        } else {
+            // Android or older devices where permission isn't requested explicitly
+            window.gyroEnabled = true;
+            this.finishPreloader(wrapper);
+        }
+    }
+
+    finishPreloader(wrapper) {
+        gsap.to([wrapper, this.container], {
+            opacity: 0,
+            duration: 0.5,
+            ease: 'power2.inOut',
+            onComplete: () => {
+                this.container.style.display = 'none';
+                paintDebugMark('preloader hidden');
+                wrapper.remove();
+                this.resolveRun();
+            }
+        });
     }
 }
 

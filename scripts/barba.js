@@ -6,8 +6,11 @@ import { preloader } from './preloader.js';
 import {
   initWork,
   destroyWork,
+  startWorkTexturePreload,
   runWorkStripUnwrapToRect,
   finalizeWorkToFilmVisualState,
+  whenWorkFirstFrame,
+  resetWorkFirstFrameGate,
 } from './work.js';
 import { initArchive, destroyArchive } from './archive.js';
 import {
@@ -29,6 +32,39 @@ import webgl, {
 import { initLinkHover } from './link-hover.js';
 
 import { initLenis, destroyLenis } from './lenis-scroll.js';
+
+const isPaintDebugEnabled = new URLSearchParams(window.location.search).has('debugPaint');
+function paintDebugMark(step, payload = null) {
+  if (!isPaintDebugEnabled) return;
+  const ts = performance.now().toFixed(1);
+  if (payload !== null) {
+    // eslint-disable-next-line no-console
+    console.log(`[paint-debug @${ts}ms] ${step}`, payload);
+    return;
+  }
+  // eslint-disable-next-line no-console
+  console.log(`[paint-debug @${ts}ms] ${step}`);
+}
+paintDebugMark('html parsed');
+
+function setWorkVisualState(state = null) {
+  document.body.classList.remove('work-booting', 'work-ready', 'work-transitioning');
+  if (state) {
+    document.body.classList.add(state);
+  }
+}
+
+function hideWorkContainer(container) {
+  if (!container) return;
+  container.style.opacity = '0';
+  setWorkVisualState('work-booting');
+}
+
+function revealWorkContainer(container) {
+  if (!container) return;
+  container.style.opacity = '1';
+  setWorkVisualState('work-ready');
+}
 
 
 function tweenToPromise(tween) {
@@ -156,8 +192,29 @@ function initPageFeatures(namespace, { skipWebglSetup = false } = {}) {
   initMenu();
   initLinkHover();
 
+  // Set aria-current="page" on links matching current path
+  const currentPath = window.location.pathname;
+  document.querySelectorAll('.nav-wrap a, .bottom-nav-wrap a, .menu-box a').forEach(link => {
+    if (!link.href) return;
+    try {
+      const url = new URL(link.href, window.location.origin);
+      if (url.pathname === currentPath) {
+        link.setAttribute('aria-current', 'page');
+      } else {
+        link.removeAttribute('aria-current');
+      }
+    } catch (e) { }
+  });
 
   const ns = namespace || document.querySelector('[data-barba="container"]')?.dataset.barbaNamespace;
+  if (ns !== 'work') {
+    setWorkVisualState(null);
+  } else if (
+    !document.body.classList.contains('work-booting')
+    && !document.body.classList.contains('work-transitioning')
+  ) {
+    setWorkVisualState('work-ready');
+  }
   const linkMain = document.querySelector('.link-main');
   if (linkMain) {
     gsap.set(linkMain, { autoAlpha: ns === 'home' ? 0 : 1 });
@@ -507,10 +564,20 @@ barba.init({
         // Non-webgl pages (archive, film, etc.) don't call webgl() so the
         // preloader never fires via loadModels(). Run it here instead.
         if (!isWebglPage(ns)) {
-          await Promise.all([preloader.init(), preloader.load([])]);
+          // init() is synchronous until its first await — runPromise is set
+          // before it returns, so startWorkTexturePreload() can safely hold().
+          const initPromise = preloader.init();
+          startWorkTexturePreload();
+          await Promise.all([initPromise, preloader.load([])]);
         }
 
         initPageFeatures(ns);
+
+        // For webgl pages, webgl() → loadModels() → preloader.init() has run
+        // synchronously inside initPageFeatures, so hold() is now safe.
+        if (isWebglPage(ns)) {
+          startWorkTexturePreload();
+        }
         if (!container) return;
 
         if (ns === 'home') {

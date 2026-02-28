@@ -40,11 +40,9 @@
       <a class="u-mobile-hidden" href="/work">work</a>
       <a href="/" class="link-main">duforn</a>
       <a class="u-mobile-hidden" href="/contact">contact</a>
-      <div class="menu-toggle-btn">
-        <div class="menu-toggle-btn-wrapper">
-          <a>MENU</a>
-        </div>
-      </div>
+      <button class="menu-toggle-btn" type="button" aria-label="Open menu" aria-haspopup="dialog" aria-controls="site-menu" aria-expanded="false">
+        <span class="menu-toggle-btn-wrapper">MENU</span>
+      </button>
     </div>
   </nav>
   <!-- <div class="grid-guide">
@@ -66,10 +64,10 @@
   <div class="bottom-nav-wrap u-position-fixed u-container-full u-mobile-hidden">
     <div class="bottom-nav-contain">
       <a href="/archive">archive</a>
-      <a id="time">12:34:56 IST</a>
+      <span id="time" aria-live="polite">12:34:56 IST</span>
     </div>
   </div>
-  <div class="menu-wrap">
+  <div class="menu-wrap" id="site-menu" role="dialog" aria-modal="true" aria-label="Site menu" aria-hidden="true">
     <div class="menu-content u-container-full">
       <div class="menu-box u-flex-vertical-nowrap u-justify-content-center">
         <img src="/menu/bill-top.svg" alt="" class="u-width-full receipt-svg u-object-fit-contain u-height-auto "
@@ -98,17 +96,17 @@
           </div>
 
           <div class="u-flex-vertical-nowrap u-width-full">
-            <a class="u-flex-horizontal-nowrap u-gap-1 u-width-full u-padding-1" href="/work">
+            <a class="menu-item u-flex-horizontal-nowrap u-gap-1 u-width-full u-padding-1" href="/work">
               <h5 class="">WORK</h5>
               <div class="receipt-dots" aria-hidden="true"></div>
               <h5 class="">01</h5>
             </a>
-            <a class="u-flex-horizontal-nowrap u-gap-1 u-width-full u-padding-1" href="/contact">
+            <a class="menu-item u-flex-horizontal-nowrap u-gap-1 u-width-full u-padding-1" href="/contact">
               <h5 class="">CONTACT</h5>
               <div class="receipt-dots" aria-hidden="true"></div>
               <h5 class="">02</h5>
             </a>
-            <a class="u-flex-horizontal-nowrap u-gap-1 u-width-full u-padding-1" href="/archive">
+            <a class="menu-item u-flex-horizontal-nowrap u-gap-1 u-width-full u-padding-1" href="/archive">
               <h5 class="">ARCHIVE</h5>
               <div class="receipt-dots" aria-hidden="true"></div>
               <h5 class="">03</h5>
