@@ -1,5 +1,5 @@
 import { getLenis } from "./lenis-scroll.js";
-import { bindHapticTap } from "./link-hover.js";
+import { bindHapticTap, CLICK_HAPTIC_PATTERN } from "./link-hover.js";
 
 let isMenuOpen = false;
 let isAnimating = false;
@@ -127,7 +127,7 @@ function initMenu() {
       }
     };
     cachedMenuToggleBtn.addEventListener("click", menuToggleClickHandler);
-    menuToggleHapticCleanup = bindHapticTap(cachedMenuToggleBtn, 'selection');
+    menuToggleHapticCleanup = bindHapticTap(cachedMenuToggleBtn, CLICK_HAPTIC_PATTERN);
   }
   menuKeydownHandler = (event) => {
     if (event.key === "Escape" && isMenuOpen && !isAnimating) {
@@ -146,7 +146,7 @@ function initMenu() {
     };
     button.addEventListener("click", onClick);
     receiptCloseHandlers.set(button, onClick);
-    receiptCloseHapticCleanups.set(button, bindHapticTap(button, 'selection'));
+    receiptCloseHapticCleanups.set(button, bindHapticTap(button, CLICK_HAPTIC_PATTERN));
   });
 
   // Populate receipt datetime with current time

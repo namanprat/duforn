@@ -37,19 +37,19 @@ function ReceiptMenu() {
             </div>
 
             <Link className="menu-item" to="/work" onClick={closeMenuIfOpen}>
-              <h5>WORK</h5>
+              <span className="menu-item-label">WORK</span>
               <div className="receipt-dots" aria-hidden="true" />
-              <h5>01</h5>
+              <span className="menu-item-index">01</span>
             </Link>
             <Link className="menu-item" to="/contact" onClick={closeMenuIfOpen}>
-              <h5>CONTACT</h5>
+              <span className="menu-item-label">CONTACT</span>
               <div className="receipt-dots" aria-hidden="true" />
-              <h5>02</h5>
+              <span className="menu-item-index">02</span>
             </Link>
             <Link className="menu-item" to="/archive" onClick={closeMenuIfOpen}>
-              <h5>ARCHIVE</h5>
+              <span className="menu-item-label">ARCHIVE</span>
               <div className="receipt-dots" aria-hidden="true" />
-              <h5>03</h5>
+              <span className="menu-item-index">03</span>
             </Link>
 
             <div className="u-flex-vertical-nowrap u-gap-3 u-width-full">

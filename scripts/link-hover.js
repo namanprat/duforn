@@ -14,21 +14,47 @@ const ANIM_CONFIG = {
 const isTouchDevice = isCoarsePointerDevice();
 const LINK_SELECTOR = '.nav-wrap a, .bottom-nav-wrap a, .contact-contain a';
 const MOBILE_CLICK_GUARD_MS = 450;
+export const CLICK_HAPTIC_PATTERN = [
+  { duration: 80, intensity: 0.8 },
+  { delay: 80, duration: 50, intensity: 0.3 },
+];
 
 const linkInstances = new WeakMap();
 
 let haptics = null;
+let hapticsUnlocked = !isTouchDevice;
+let hapticsUnlockBound = false;
 
 export function getHaptics() {
   if (!haptics) haptics = new WebHaptics({ debug: true });
   return haptics;
 }
 
-export function triggerHapticFeedback(preset = 'nudge') {
-  return getHaptics().trigger(preset);
+function unlockHaptics() {
+  hapticsUnlocked = true;
 }
 
-export function bindHapticTap(target, preset = 'nudge') {
+export function ensureHapticsUnlock() {
+  if (hapticsUnlockBound || hapticsUnlocked) return;
+
+  const markUnlocked = () => {
+    unlockHaptics();
+    window.removeEventListener('pointerdown', markUnlocked, true);
+    window.removeEventListener('keydown', markUnlocked, true);
+  };
+
+  // Capture-phase unlock ensures the first trusted gesture unlocks before any button/link handler fires.
+  window.addEventListener('pointerdown', markUnlocked, { capture: true, passive: true });
+  window.addEventListener('keydown', markUnlocked, { capture: true });
+  hapticsUnlockBound = true;
+}
+
+export function triggerHapticFeedback(pattern = CLICK_HAPTIC_PATTERN) {
+  if (!hapticsUnlocked) return Promise.resolve();
+  return getHaptics().trigger(pattern);
+}
+
+export function bindHapticTap(target, pattern = CLICK_HAPTIC_PATTERN) {
   if (!target) return () => {};
 
   if (isTouchDevice) {
@@ -36,12 +62,12 @@ export function bindHapticTap(target, preset = 'nudge') {
 
     const handlePointerDown = () => {
       lastPointerDownAt = Date.now();
-      triggerHapticFeedback(preset);
+      triggerHapticFeedback(pattern);
     };
 
     const handleClick = () => {
       if (Date.now() - lastPointerDownAt < MOBILE_CLICK_GUARD_MS) return;
-      triggerHapticFeedback(preset);
+      triggerHapticFeedback(pattern);
     };
 
     target.addEventListener('pointerdown', handlePointerDown, { passive: true });
@@ -54,7 +80,7 @@ export function bindHapticTap(target, preset = 'nudge') {
   }
 
   const handleClick = () => {
-    triggerHapticFeedback(preset);
+    triggerHapticFeedback(pattern);
   };
 
   target.addEventListener('click', handleClick);
@@ -134,6 +160,7 @@ function animateChars(baseChars, hoverChars, isHover) {
 }
 
 export function initLinkHover() {
+  ensureHapticsUnlock();
   const links = document.querySelectorAll(LINK_SELECTOR);
 
   links.forEach((link) => {
@@ -143,7 +170,7 @@ export function initLinkHover() {
     if (!originalText) return;
 
     if (isTouchDevice) {
-      const cleanupTapHaptics = bindHapticTap(link, 'nudge');
+      const cleanupTapHaptics = bindHapticTap(link, CLICK_HAPTIC_PATTERN);
 
       linkInstances.set(link, {
         mode: 'touch',
@@ -207,25 +234,18 @@ export function initLinkHover() {
     let timeline = null;
 
     const handleEnter = () => {
-      if (link.getAttribute('aria-current') === 'page') return;
-
       timeline?.kill();
       timeline = animateChars(baseChars, hoverChars, true);
       getHaptics().trigger([{ duration: 10 }], { intensity: 1 });
     };
 
     const handleLeave = () => {
-      if (link.getAttribute('aria-current') === 'page') return;
-
       timeline?.kill();
       timeline = animateChars(baseChars, hoverChars, false);
     };
 
     const handleClick = () => {
-      getHaptics().trigger([
-        { duration: 80, intensity: 0.8 },
-        { delay: 80, duration: 50, intensity: 0.3 },
-      ]);
+      triggerHapticFeedback(CLICK_HAPTIC_PATTERN);
     };
 
     link.addEventListener('mouseenter', handleEnter);
@@ -248,7 +268,7 @@ export function initLinkHover() {
   document.querySelectorAll('.menu-item').forEach((item) => {
     if (linkInstances.has(item)) return;
 
-    const cleanupTapHaptics = bindHapticTap(item, 'selection');
+    const cleanupTapHaptics = bindHapticTap(item, CLICK_HAPTIC_PATTERN);
 
     linkInstances.set(item, {
       mode: 'haptic-only',
