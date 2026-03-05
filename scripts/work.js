@@ -55,35 +55,7 @@ const workDebugControls = {
   windMultiplier: 1,
 };
 
-function forceGuiTextToParagraphs(gui) {
-  const root = gui?.domElement;
-  if (!root) return;
-  const apply = () => {
-    const targets = root.querySelectorAll('.title, .name');
-    targets.forEach((node) => {
-      const text = (node.textContent || '').trim();
-      if (!text) return;
-      const onlyPChild =
-        node.childElementCount === 1 &&
-        node.firstElementChild &&
-        node.firstElementChild.tagName === 'P';
-      if (onlyPChild) {
-        node.firstElementChild.textContent = text;
-        return;
-      }
-      node.textContent = '';
-      const p = document.createElement('p');
-      p.textContent = text;
-      p.style.margin = '0';
-      p.style.fontSize = '12px';
-      p.style.lineHeight = '1.2';
-      p.style.fontWeight = '500';
-      node.appendChild(p);
-    });
-  };
-  apply();
-  requestAnimationFrame(apply);
-}
+// GUI helpers removed for work: keep badge + controls but no runtime GUI
 
 function ensureWorkDebugBadge() {
   if (workDebugBadge && workDebugBadge.isConnected) return workDebugBadge;
@@ -126,19 +98,7 @@ function destroyWorkDebugBadge() {
 }
 
 function initWorkDebugGui() {
-  if (workDebugGui) return;
-  import('lil-gui')
-    .then(({ default: GUI }) => {
-      if (workDebugGui || !isWorkInitialized) return;
-      const gui = new GUI({ title: 'Work Strip Debug', width: 280 });
-      gui.domElement.style.zIndex = '2147483647';
-      gui.add(workDebugControls, 'windMultiplier', 0, 3, 0.01).name('Wind Multiplier');
-      forceGuiTextToParagraphs(gui);
-      workDebugGui = gui;
-    })
-    .catch((error) => {
-      console.warn('[work-strip] Failed to load debug GUI', error);
-    });
+  // GUI disabled: use workDebugBadge and `workDebugControls` for simple live status.
 }
 
 function destroyWorkDebugGui() {

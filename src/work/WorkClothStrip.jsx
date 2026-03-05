@@ -132,35 +132,7 @@ const STRIP_VERTEX_SHADER = /* glsl */ `
   }
 `;
 
-function forceGuiTextToParagraphs(gui) {
-  const root = gui?.domElement;
-  if (!root) return;
-  const apply = () => {
-    const targets = root.querySelectorAll('.title, .name');
-    targets.forEach((node) => {
-      const text = (node.textContent || '').trim();
-      if (!text) return;
-      const onlyPChild =
-        node.childElementCount === 1 &&
-        node.firstElementChild &&
-        node.firstElementChild.tagName === 'P';
-      if (onlyPChild) {
-        node.firstElementChild.textContent = text;
-        return;
-      }
-      node.textContent = '';
-      const p = document.createElement('p');
-      p.textContent = text;
-      p.style.margin = '0';
-      p.style.fontSize = '12px';
-      p.style.lineHeight = '1.2';
-      p.style.fontWeight = '500';
-      node.appendChild(p);
-    });
-  };
-  apply();
-  requestAnimationFrame(apply);
-}
+// GUI helper removed in work build
 
 function getGridIndex(col, row, cols) {
   return row * cols + col;
@@ -287,7 +259,7 @@ function WorkClothStripScene({ onStatus }) {
   const liveLocalPositionsRef = useRef(new Float32Array(cols * rows * 3));
   const lockedLocalPositionsRef = useRef(null);
   const wasDeterministicRef = useRef(false);
-  const guiRef = useRef(null);
+  
   const tweakRef = useRef({
     windBase: CLOTH_CONFIG.windBase,
     windMultiplier: 1.0,
@@ -498,37 +470,7 @@ function WorkClothStripScene({ onStatus }) {
     wasDeterministicRef.current = false;
   }, [cols, rows, geometryData.positions]);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
-    let cancelled = false;
-    import('lil-gui').then(({ default: GUI }) => {
-      if (cancelled) return;
-      const gui = new GUI({ title: 'Work Cloth Rapier', width: 320 });
-      gui.domElement.style.zIndex = '2147483647';
-      guiRef.current = gui;
-
-      const settings = tweakRef.current;
-      gui.add(settings, 'windBase', 0, 0.5, 0.005).name('Wind Base');
-      gui.add(settings, 'windMultiplier', 0, 3, 0.01).name('Wind Mult');
-      gui.add(settings, 'hoverWindBoost', 0, 0.1, 0.001).name('Hover Wind');
-      gui.add(settings, 'dragWindBoost', 0, 0.2, 0.001).name('Drag Wind');
-      gui.add(settings, 'aeroDrag', 0, 0.4, 0.005).name('Aero Drag');
-      gui.add(settings, 'flutterScale', 0, 0.6, 0.01).name('Flutter');
-      gui.add(settings, 'hoverRadius', 0.2, 2.5, 0.01).name('Hover Radius');
-      gui.add(settings, 'hoverImpulse', 0, 4, 0.01).name('Hover Impulse');
-      gui.add(settings, 'dragImpulse', 0, 8, 0.01).name('Drag Impulse');
-      gui.add(settings, 'maxImpulse', 0.2, 12, 0.05).name('Max Impulse');
-      gui.add(settings, 'lerp', 0.02, 0.6, 0.01).name('Sphere Lerp');
-      forceGuiTextToParagraphs(gui);
-    });
-    return () => {
-      cancelled = true;
-      if (guiRef.current) {
-        guiRef.current.destroy();
-      }
-      guiRef.current = null;
-    };
-  }, []);
+  // GUI removed for production / work build - debug controls kept in `tweakRef`
 
   useEffect(() => {
     let cancelled = false;
