@@ -3,6 +3,7 @@ import { GLTFLoader, DRACOLoader } from 'three-stdlib';
 import * as THREE from 'three';
 import { createPaintDebugLogger } from './runtime/debug.js';
 import { debounce } from './runtime/timing.js';
+import { getHaptics } from './link-hover.js';
 
 const paintDebugMark = createPaintDebugLogger('paint-debug');
 
@@ -381,13 +382,9 @@ export class Preloader {
     }
 
     handleEnterClick(wrapper) {
-        // 1. Audio Permission
+        // 1. Audio + Haptics — unlock AudioContext during user gesture
         window.audioEnabled = true;
-        if (typeof window.AudioContext !== 'undefined' || typeof window.webkitAudioContext !== 'undefined') {
-            // Unlock AudioContext (needed for Web Audio API users)
-            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            audioCtx.resume();
-        }
+        getHaptics().trigger('selection');
 
         // 2. Gyroscope Permission
         if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
