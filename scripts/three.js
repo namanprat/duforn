@@ -12,6 +12,7 @@ import { getPerformanceProfile, isCoarsePointerDevice } from './perf.js';
 import { createPaintDebugLogger } from './runtime/debug.js';
 import { debounce } from './runtime/timing.js';
 import { queryOne } from './runtime/dom.js';
+import { PARALLAX_MOTION_CONFIG, mapDeviceOrientationToParallax } from './runtime/motion.js';
 gsap.registerPlugin(ScrollTrigger);
 
 const paintDebugMark = createPaintDebugLogger('paint-debug');
@@ -53,7 +54,7 @@ let bloomPass = null;
 const cameraTarget = { angle: Math.PI / 2, y: 0, tilt: 0 };
 const cameraCurrent = { angle: Math.PI / 2, y: 0, tilt: 0 };
 const cameraOrbitOffset = { x: 0, y: 0, z: 0 };
-const parallaxConfig = { angleRange: 0.2, yRange: 0.3, tiltRange: 0.04, lerp: 0.05, orbitRadius: 5 };
+const parallaxConfig = PARALLAX_MOTION_CONFIG;
 const isTouchDevice = isCoarsePointerDevice();
 const tune = {
   exposure: 1.0,
@@ -906,16 +907,9 @@ export function webgl() {
 
   window.__gyroHandler = (event) => {
     if (!window.gyroEnabled) return;
-    if (event.gamma === null || event.beta === null) return;
-
-    // Map gamma (left-to-right tilt) and beta (front-to-back tilt)
-    // Gamma is typically -90 to 90. Beta is typically -180 to 180.
-    // Clamp to reasonable ranges to mimic mouse movement
-    let x = event.gamma / 45; // Cap at 45 degrees tilt
-    let y = (event.beta - 45) / 45; // Assume user holds phone slightly tilted up at ~45 deg
-
-    x = Math.max(-1, Math.min(1, x));
-    y = Math.max(-1, Math.min(1, y));
+    const mapped = mapDeviceOrientationToParallax(event);
+    if (!mapped) return;
+    const { x, y } = mapped;
 
     cameraTarget.angle = Math.PI / 2 + x * parallaxConfig.angleRange;
     cameraTarget.y = y * parallaxConfig.yRange * 1.1; // +10% vertical gyro influence

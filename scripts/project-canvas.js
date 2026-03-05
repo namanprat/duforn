@@ -4,7 +4,6 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { GrainShader, EdgeDistortionShader, createPostFXUniforms } from './shaders/post-fx.js';
-import { getPerformanceProfile } from './perf.js';
 import {
   ensureBackgroundElement,
   getFilmContainer,
@@ -27,7 +26,13 @@ let eventBindings = null;
 const imageTextureCache = new Map();
 
 const postFXUniforms = createPostFXUniforms();
-const perf = getPerformanceProfile();
+const FILM_POST_FX = Object.freeze({
+  grain: 0.03,
+  edgeShift: 0.0056,
+  edgeStart: 0.2,
+  edgeEnd: 0.75,
+});
+const FILM_MAX_PIXEL_RATIO = 2.5;
 
 // --- GUI-controlled parameters ---
 const params = {
@@ -55,7 +60,6 @@ const FBMWarpShader = /* glsl */ `
   uniform vec3  uCyan;
   uniform vec3  uWhite;
   uniform vec3  uYellow;
-  uniform float uGrain;
 
   float random(in vec2 st) {
     return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
@@ -128,10 +132,6 @@ const FBMWarpShader = /* glsl */ `
 
     vec3 color = gradient(pattern(uv));
 
-    // Add grain
-    float noiseVal = (random(uv + vec2(iTime)) - 0.5) * uGrain;
-    color += noiseVal;
-
     gl_FragColor = vec4(color, 1.0);
   }
 `;
@@ -144,6 +144,7 @@ function onResizeHandler() {
   const w = window.innerWidth;
   const h = window.innerHeight;
 
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, FILM_MAX_PIXEL_RATIO));
   renderer.setSize(w, h);
   composer.setSize(w, h);
 
@@ -181,6 +182,27 @@ function createImagePlane(imgElement) {
   const texture = loader.load(
     source,
     () => {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.minFilter = THREE.LinearMipmapLinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      texture.generateMipmaps = true;
+      const maxAnisotropy = renderer?.capabilities?.getMaxAnisotropy?.() || 1;
+      texture.anisotropy = maxAnisotropy;
+      texture.needsUpdate = true;
+
+      if (import.meta.env.DEV) {
+        const image = texture.image || {};
+        console.info('[film] texture quality profile', {
+          source,
+          width: image.width || null,
+          height: image.height || null,
+          colorSpace: texture.colorSpace,
+          minFilter: texture.minFilter,
+          magFilter: texture.magFilter,
+          generateMipmaps: texture.generateMipmaps,
+          anisotropy: texture.anisotropy,
+        });
+      }
       imgElement.style.opacity = '0';
     },
     undefined,
@@ -240,9 +262,23 @@ function updateImages() {
 
     const x = rect.left - width / 2 + rect.width / 2;
     const y = -rect.top + height / 2 - rect.height / 2;
+    const texture = imageTextureCache.get(img);
+    const textureWidth = texture?.image?.width || rect.width;
+    const textureHeight = texture?.image?.height || rect.height;
+    const textureAspect = textureWidth / Math.max(textureHeight, 1);
+    const rectAspect = rect.width / Math.max(rect.height, 1);
+
+    let renderWidth = rect.width;
+    let renderHeight = rect.height;
+    // Match CSS object-fit: contain behavior for the projected mesh.
+    if (textureAspect > rectAspect) {
+      renderHeight = rect.width / textureAspect;
+    } else {
+      renderWidth = rect.height * textureAspect;
+    }
 
     mesh.position.set(x, y, 0);
-    mesh.scale.set(rect.width, rect.height, 1);
+    mesh.scale.set(renderWidth, renderHeight, 1);
   });
 }
 
@@ -265,7 +301,6 @@ function createBackground() {
       uCyan: { value: new THREE.Color(params.cyan) },
       uWhite: { value: new THREE.Color(params.white) },
       uYellow: { value: new THREE.Color(params.yellow) },
-      uGrain: postFXUniforms.uGrain,
     },
     vertexShader: /* glsl */ `
       void main() {
@@ -336,6 +371,12 @@ async function initProjectCanvas(containerArg) {
   const activeContainer = getFilmContainer(containerArg);
 
   container = ensureBackgroundElement();
+  const workOutroOverlay = document.getElementById('work-outro-overlay');
+  if (workOutroOverlay) {
+    workOutroOverlay.style.opacity = '0';
+    workOutroOverlay.style.visibility = 'hidden';
+    workOutroOverlay.remove();
+  }
 
   isRunning = true;
 
@@ -355,11 +396,11 @@ async function initProjectCanvas(containerArg) {
 
   renderer = new THREE.WebGLRenderer({
     alpha: true,
-    antialias: false,
+    antialias: true,
     powerPreference: 'high-performance',
   });
   renderer.setSize(width, height);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, perf.pixelRatioCap));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, FILM_MAX_PIXEL_RATIO));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.domElement.style.pointerEvents = 'none';
   // Position absolutely so the canvas overlays correctly within the fixed #background container
@@ -371,15 +412,18 @@ async function initProjectCanvas(containerArg) {
   composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
 
-  postFXUniforms.uGrain.value = perf.grainStrength;
-  const grainPass = new ShaderPass(GrainShader({ grain: perf.grainStrength }));
+  postFXUniforms.uGrain.value = FILM_POST_FX.grain;
+  const grainPass = new ShaderPass(GrainShader({ grain: FILM_POST_FX.grain }));
   grainPass.uniforms.uTime = postFXUniforms.uTime;
   grainPass.uniforms.uGrain = postFXUniforms.uGrain;
   composer.addPass(grainPass);
 
-  if (perf.enableEdgeDistortion) {
-    composer.addPass(new ShaderPass(EdgeDistortionShader({ preserveAlpha: true })));
-  }
+  composer.addPass(new ShaderPass(EdgeDistortionShader({
+    shift: FILM_POST_FX.edgeShift,
+    edgeStart: FILM_POST_FX.edgeStart,
+    edgeEnd: FILM_POST_FX.edgeEnd,
+    preserveAlpha: true,
+  })));
   composer.addPass(new OutputPass());
 
   // Create FBM warp background (renders behind everything)

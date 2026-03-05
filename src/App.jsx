@@ -18,6 +18,7 @@ import { initArchive, destroyArchive } from '../scripts/archive.js';
 import { initFilm, destroyFilm, bindFilmTemplateFromTransitionState } from '../scripts/project-canvas.js';
 import { setNavigateHandler } from './lib/navigationBridge.js';
 import { runRouteEnterTransition } from './lib/animation/routeTransition.js';
+import { cleanupBrandHandoff, runBrandHandoff } from './lib/animation/brandHandoffTransition.js';
 import { preloader } from '../scripts/preloader.js';
 
 const TITLES = {
@@ -44,6 +45,7 @@ function applyBodyRouteClasses(namespace) {
   document.body.classList.add('page-wrap');
   document.body.classList.toggle('page-wrap--archive', namespace === 'archive');
   document.body.classList.toggle('page-wrap--scrollable', namespace === 'film');
+  document.body.classList.toggle('brand-home', namespace === 'home');
 }
 
 function useClock() {
@@ -81,6 +83,7 @@ function NavigationBridge() {
 function AppShell() {
   const location = useLocation();
   const contentRef = useRef(null);
+  const previousNamespaceRef = useRef(getNamespace(location.pathname));
 
   useClock();
 
@@ -99,6 +102,7 @@ function AppShell() {
       destroyLenis();
       destroyWebgl();
       cleanupSplits();
+      cleanupBrandHandoff();
       destroyLinkHover();
       destroyMenu();
     };
@@ -108,11 +112,15 @@ function AppShell() {
     const currentPath = location.pathname;
     document.title = TITLES[currentPath] || 'Duforn';
     const namespace = getNamespace(currentPath);
+    const previousNamespace = previousNamespaceRef.current;
     applyBodyRouteClasses(namespace);
+    runBrandHandoff({ fromNamespace: previousNamespace, toNamespace: namespace });
+    previousNamespaceRef.current = namespace;
 
     const stopEnterTween = runRouteEnterTransition(contentRef.current);
     const container = document.querySelector('[data-page-container="true"]');
-    if (container) animateRevealEnter(container);
+    if (container) animateRevealEnter(container, { excludeSelector: '.home-hero-brand' });
+    initLinkHover();
 
     const ensureWebgl = () => {
       if (!isWebglRunning()) webgl();
@@ -174,6 +182,7 @@ function AppShell() {
 
     return () => {
       stopEnterTween();
+      cleanupBrandHandoff();
       cleanupSplits();
       const pageCleanup = {
         work: () => destroyWork(),

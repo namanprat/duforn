@@ -14,6 +14,7 @@ import {
 import { setWorkFilmTransitionState } from './work-film-transition-state.js';
 import { preloader } from './preloader.js';
 import { navigateTo } from '../src/lib/navigationBridge.js';
+import { getWorkStripBridge } from '../src/work/workStripBridge.js';
 
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
@@ -24,6 +25,7 @@ import { getPerformanceProfile, isCoarsePointerDevice } from './perf.js';
 import { createPaintDebugLogger } from './runtime/debug.js';
 import { debounce } from './runtime/timing.js';
 import { queryLast } from './runtime/dom.js';
+import { PARALLAX_MOTION_CONFIG, mapDeviceOrientationToParallax } from './runtime/motion.js';
 import {
   clearWorkFirstFrameGate,
   resetWorkFirstFrameGate,
@@ -42,8 +44,109 @@ const workTextureCache = new Map();
 let isWorkInitialized = false;
 let isTabVisible = true;
 let visibilityHandler = null;
+let workGyroHandler = null;
+let workGyroInitHandler = null;
 
 const paintDebugMark = createPaintDebugLogger('paint-debug');
+const stripBridge = getWorkStripBridge();
+let workDebugBadge = null;
+let workDebugGui = null;
+const workDebugControls = {
+  windMultiplier: 1,
+};
+
+function forceGuiTextToParagraphs(gui) {
+  const root = gui?.domElement;
+  if (!root) return;
+  const apply = () => {
+    const targets = root.querySelectorAll('.title, .name');
+    targets.forEach((node) => {
+      const text = (node.textContent || '').trim();
+      if (!text) return;
+      const onlyPChild =
+        node.childElementCount === 1 &&
+        node.firstElementChild &&
+        node.firstElementChild.tagName === 'P';
+      if (onlyPChild) {
+        node.firstElementChild.textContent = text;
+        return;
+      }
+      node.textContent = '';
+      const p = document.createElement('p');
+      p.textContent = text;
+      p.style.margin = '0';
+      p.style.fontSize = '12px';
+      p.style.lineHeight = '1.2';
+      p.style.fontWeight = '500';
+      node.appendChild(p);
+    });
+  };
+  apply();
+  requestAnimationFrame(apply);
+}
+
+function ensureWorkDebugBadge() {
+  if (workDebugBadge && workDebugBadge.isConnected) return workDebugBadge;
+  const badge = document.createElement('div');
+  badge.id = 'work-rapier-debug-badge';
+  Object.assign(badge.style, {
+    position: 'fixed',
+    top: '12px',
+    left: '12px',
+    zIndex: '2147483647',
+    background: 'rgba(10,10,10,0.88)',
+    color: '#9df7b6',
+    fontFamily: 'monospace',
+    fontSize: '12px',
+    lineHeight: '1.2',
+    padding: '8px 10px',
+    borderRadius: '6px',
+    pointerEvents: 'none',
+    maxWidth: '92vw',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  });
+  badge.textContent = 'Work debug: initializing...';
+  document.body.appendChild(badge);
+  workDebugBadge = badge;
+  return badge;
+}
+
+function setWorkDebugStatus(text) {
+  const badge = ensureWorkDebugBadge();
+  badge.textContent = text;
+}
+
+function destroyWorkDebugBadge() {
+  if (workDebugBadge?.isConnected) {
+    workDebugBadge.remove();
+  }
+  workDebugBadge = null;
+}
+
+function initWorkDebugGui() {
+  if (workDebugGui) return;
+  import('lil-gui')
+    .then(({ default: GUI }) => {
+      if (workDebugGui || !isWorkInitialized) return;
+      const gui = new GUI({ title: 'Work Strip Debug', width: 280 });
+      gui.domElement.style.zIndex = '2147483647';
+      gui.add(workDebugControls, 'windMultiplier', 0, 3, 0.01).name('Wind Multiplier');
+      forceGuiTextToParagraphs(gui);
+      workDebugGui = gui;
+    })
+    .catch((error) => {
+      console.warn('[work-strip] Failed to load debug GUI', error);
+    });
+}
+
+function destroyWorkDebugGui() {
+  if (workDebugGui) {
+    workDebugGui.destroy();
+    workDebugGui = null;
+  }
+}
 
 function resolveFirstFrameGateWithDebug() {
   resolveWorkFirstFrameGate();
@@ -431,6 +534,9 @@ const state = {
   clock: null,
 
   // Strip mesh
+  usingBridgeStrip: false,
+  bridgeCleanup: null,
+  bridgeReadyCleanup: null,
   stripGroup: null,     // parent group for parallax
   stripMesh: null,      // the single curved mesh
   stripGeometry: null,
@@ -497,8 +603,15 @@ const state = {
   // Interaction
   isPointerDown: false,
   lastPointerX: 0,
+  lastPointerY: 0,
   dragStartX: 0,
   dragStartY: 0,
+  stripAxis: 'horizontal',
+  gyro: {
+    x: 0,
+    y: 0,
+    active: false,
+  },
   transitionLocked: false,
   transitionProgress: 0,
   selectedItemIndex: -1,
@@ -876,7 +989,7 @@ function setupGalleryScene() {
     0.1,
     100
   );
-  state.camera.position.set(0, 0, CONFIG.PARALLAX_ORBIT_RADIUS);
+  state.camera.position.set(0, 0, PARALLAX_MOTION_CONFIG.orbitRadius);
 
   state.scene = new THREE.Scene();
 
@@ -979,6 +1092,23 @@ function setupGalleryScene() {
 // ─── STRIP MESH CREATION ────────────────────────────────────────────────────────
 
 function setupStrip() {
+  state.usingBridgeStrip = stripBridge.isReady();
+  state.stripAxis = isTouchDevice ? 'vertical' : 'horizontal';
+  stripBridge.setStripMetrics({
+    itemsOnStrip: CONFIG.ITEMS_ON_STRIP,
+    numUnique: CONFIG.NUM_UNIQUE,
+    gapSize: CONFIG.GAP_SIZE,
+    axis: state.stripAxis,
+  });
+  stripBridge.setVisible(true);
+
+  if (state.usingBridgeStrip) {
+    state.stripGeometry = null;
+    state.stripMaterial = null;
+    state.stripMesh = null;
+    return;
+  }
+
   // Build ordered texture array from unique images
   const uniqueImages = [...new Set(workItems.map(item => item.image))];
   state.textures = uniqueImages.map(src => state.textureCache.get(src)).filter(Boolean);
@@ -1084,6 +1214,9 @@ function updateTitle() {
 function setStripRevealProgress(progress) {
   const clamped = clamp01(progress);
   state.revealProgress.value = clamped;
+  if (state.usingBridgeStrip) {
+    stripBridge.setRevealProgress(clamped);
+  }
   if (state.stripMaterial?.uniforms?.uRevealProgress) {
     state.stripMaterial.uniforms.uRevealProgress.value = clamped;
   }
@@ -1098,7 +1231,7 @@ function resetStripRevealState({ progress = 1 } = {}) {
 }
 
 function startStripSweepReveal() {
-  if (!state.stripMaterial) {
+  if (!state.stripMaterial && !state.usingBridgeStrip) {
     state.introComplete = true;
     state.transitionLocked = false;
     return;
@@ -1133,17 +1266,28 @@ function startStripSweepReveal() {
 // ─── UPDATE STRIP ───────────────────────────────────────────────────────────────
 
 function updateStrip(time) {
-  if (!state.stripMaterial) return;
-
-  const u = state.stripMaterial.uniforms;
   const gust =
     (Math.sin(time * CONFIG.WIND_GUST_FREQ_1) +
       Math.sin(time * CONFIG.WIND_GUST_FREQ_2) * 0.5) +
     0.5;
   const clampedGust = Math.max(0, gust);
+  const windStrength = (CONFIG.WIND_BASE_STRENGTH + clampedGust * CONFIG.WIND_GUST_SCALE) * workDebugControls.windMultiplier;
+  stripBridge.setScrollTarget(state.scrollTarget);
+  stripBridge.setScrollCurrent(state.scrollCurrent);
+  stripBridge.setWindStrength(windStrength);
+  if (state.stripGroup) {
+    stripBridge.setGroupTransform({
+      position: [state.stripGroup.position.x, state.stripGroup.position.y, state.stripGroup.position.z],
+      scale: [state.stripGroup.scale.x, state.stripGroup.scale.y, state.stripGroup.scale.z],
+      rotationZ: state.stripGroup.rotation.z,
+    });
+  }
+
+  if (!state.stripMaterial) return;
+  const u = state.stripMaterial.uniforms;
   u.uScrollOffset.value = state.scrollCurrent;
   u.uTime.value = time;
-  u.uWindStrength.value = CONFIG.WIND_BASE_STRENGTH + clampedGust * CONFIG.WIND_GUST_SCALE;
+  u.uWindStrength.value = windStrength;
 }
 
 // ─── FLOATING PARTICLES ─────────────────────────────────────────────────────────
@@ -1240,13 +1384,16 @@ function updateParallax(driftTime, fpsFactor = 1) {
   // Freeze camera orbit during transition to prevent positional drift
   if (state.transitionLocked) return;
 
-  // Set orbital targets from mouse position (same approach as three.js)
-  orbitTarget.angle = Math.PI / 2 + state.mouseX * CONFIG.PARALLAX_ANGLE_RANGE;
-  orbitTarget.y = -state.mouseY * CONFIG.PARALLAX_Y_RANGE;
-  orbitTarget.tilt = state.mouseX * CONFIG.PARALLAX_TILT_RANGE;
+  // Match home behavior: desktop uses pointer, coarse devices prefer gyro.
+  const useGyro = isTouchDevice && state.gyro.active;
+  const mx = useGyro ? state.gyro.x : state.mouseX;
+  const my = useGyro ? state.gyro.y : -state.mouseY;
+  orbitTarget.angle = Math.PI / 2 + mx * PARALLAX_MOTION_CONFIG.angleRange;
+  orbitTarget.y = my * PARALLAX_MOTION_CONFIG.yRange * (useGyro ? 1.1 : 1.0);
+  orbitTarget.tilt = mx * PARALLAX_MOTION_CONFIG.tiltRange;
 
   // Lerp toward targets
-  const l = Math.min(CONFIG.PARALLAX_CONFIG_LERP * fpsFactor, 1.0);
+  const l = Math.min(PARALLAX_MOTION_CONFIG.lerp * fpsFactor, 1.0);
   orbitCurrent.angle += (orbitTarget.angle - orbitCurrent.angle) * l;
   orbitCurrent.y += (orbitTarget.y - orbitCurrent.y) * l;
   orbitCurrent.tilt += (orbitTarget.tilt - orbitCurrent.tilt) * l;
@@ -1259,7 +1406,7 @@ function updateParallax(driftTime, fpsFactor = 1) {
     const cx = center.x;
     const cy = center.y;
     const cz = center.z;
-    const radius = CONFIG.PARALLAX_ORBIT_RADIUS;
+    const radius = PARALLAX_MOTION_CONFIG.orbitRadius;
 
     state.camera.position.x = cx + Math.cos(orbitCurrent.angle) * radius;
     state.camera.position.z = cz + Math.sin(orbitCurrent.angle) * radius;
@@ -1278,6 +1425,11 @@ function updateParallax(driftTime, fpsFactor = 1) {
 
     // Handheld tilt from mouse
     state.camera.rotation.z += orbitCurrent.tilt;
+    stripBridge.setCameraPose({
+      position: [state.camera.position.x, state.camera.position.y, state.camera.position.z],
+      rotation: [state.camera.rotation.x, state.camera.rotation.y, state.camera.rotation.z],
+      fov: state.camera.fov,
+    });
 
     // Point light loosely follows camera — reinforces 3D curvature
     if (state.pointLight) {
@@ -1565,6 +1717,13 @@ function applyTransitionTransform(progress) {
 }
 
 function getStripPointForUv(u, v, flatten) {
+  if (state.usingBridgeStrip) {
+    const bridgePoint = stripBridge.getSlotWorldPoint(u, v, flatten);
+    if (bridgePoint) {
+      return bridgePoint.clone ? bridgePoint.clone() : new THREE.Vector3(bridgePoint.x, bridgePoint.y, bridgePoint.z);
+    }
+  }
+
   const angle = (u - 0.5) * CONFIG.ARC_SPAN;
   const xCurve = Math.sin(angle) * CONFIG.ARC_RADIUS;
   const zCurve = (Math.cos(angle) - 1) * CONFIG.ARC_RADIUS;
@@ -1592,6 +1751,10 @@ function projectWorldPointToScreen(point) {
 
 function getSlotScreenRect(slotIndex, flatten = state.transitionProgress) {
   if (!state.camera || !Number.isFinite(slotIndex)) return null;
+  if (state.usingBridgeStrip) {
+    const bridgeRect = stripBridge.getSlotScreenRect(slotIndex, flatten);
+    if (bridgeRect) return bridgeRect;
+  }
 
   const gapInset = (CONFIG.GAP_SIZE * 0.5) / CONFIG.ITEMS_ON_STRIP;
   const uStart = (slotIndex - state.scrollCurrent) / CONFIG.ITEMS_ON_STRIP + gapInset;
@@ -1626,45 +1789,66 @@ function getSlotScreenRect(slotIndex, flatten = state.transitionProgress) {
 function setWorkTransitionVisualState(progress) {
   const p = clamp01(progress);
   state.transitionProgress = p;
-  const cloudRamp = clamp01((p - 0.2) / 0.8);
+  const isFilmTransition = state.transitionLocked && Boolean(state.selectedItem);
+  const flattenProgress = isFilmTransition ? clamp01((p - 0.15) / 0.7) : p;
+  const dissolve = clamp01((p - 0.08) / 0.84);
+  const dissolveEase = dissolve * dissolve * (3 - 2 * dissolve);
+  const nonSelectedFade = isFilmTransition ? 0 : clamp01((p - 0.18) / 0.55);
+  const isolateSlot = 0;
+  const transitionOpacity = 1;
+  const physicsBlend = isFilmTransition
+    ? (p < 0.6 ? 1 : clamp01(1 - (p - 0.6) / 0.4))
+    : 1;
+  const interactionEnabled = !isFilmTransition || p < 0.6;
+
+  stripBridge.setTransitionState({
+    flatten: flattenProgress,
+    selectedIndex: state.selectedItemIndex,
+    nonSelectedFade,
+    focusSlot: state.selectedSlotIndex,
+    isolateSlot,
+    transitionOpacity,
+    transitionMode: isFilmTransition ? 'unwrap' : 'idle',
+    physicsBlend,
+    interactionEnabled,
+  });
+  stripBridge.setVisible(true);
 
   if (state.stripMaterial?.uniforms) {
-    state.stripMaterial.uniforms.uFlatten.value = p;
+    state.stripMaterial.uniforms.uFlatten.value = flattenProgress;
     state.stripMaterial.uniforms.uSelectedIndex.value = state.selectedItemIndex;
-    state.stripMaterial.uniforms.uNonSelectedFade.value = clamp01((p - 0.18) / 0.55);
+    state.stripMaterial.uniforms.uNonSelectedFade.value = nonSelectedFade;
     state.stripMaterial.uniforms.uFocusSlot.value = state.selectedSlotIndex;
-    state.stripMaterial.uniforms.uIsolateSlot.value = 0;
+    state.stripMaterial.uniforms.uIsolateSlot.value = isolateSlot;
   }
 
   if (state.workModel) {
-    const alpha = 1 - clamp01((p - 0.55) / 0.25);
-    setWorkModelOpacity(alpha);
+    const modelAlpha = isFilmTransition ? 1 - dissolveEase : 1 - clamp01((p - 0.55) / 0.25);
+    setWorkModelOpacity(modelAlpha);
   }
 
-  setWorkParticlesOpacity(1 - clamp01((p - 0.2) / 0.5));
+  setWorkParticlesOpacity(isFilmTransition ? 1 - dissolveEase : 1 - clamp01((p - 0.2) / 0.5));
 
   if (state.scene?.fog) {
-    state.scene.fog.density = THREE.MathUtils.lerp(state.baseFogDensity, 0.24, cloudRamp);
-    state.scene.fog.color.copy(state.baseFogColor).lerp(state.cloudFogColor, cloudRamp);
+    if (isFilmTransition) {
+      state.scene.fog.density = THREE.MathUtils.lerp(state.baseFogDensity, 0.0, dissolveEase);
+      state.scene.fog.color.copy(state.baseFogColor).lerp(state.cloudFogColor, dissolveEase * 0.4);
+    } else {
+      const cloudRamp = clamp01((p - 0.2) / 0.8);
+      state.scene.fog.density = THREE.MathUtils.lerp(state.baseFogDensity, 0.24, cloudRamp);
+      state.scene.fog.color.copy(state.baseFogColor).lerp(state.cloudFogColor, cloudRamp);
+    }
   }
 
-  // Cover plane cross-dissolve: fade in cover at 65-95%, fade out strip at 75-100%
-  if (state.coverPlane) {
-    const coverFadeIn = clamp01((p - 0.65) / 0.30);
-    state.coverPlaneMaterial.opacity = coverFadeIn;
-    state.coverPlane.visible = coverFadeIn > 0.01;
+  applyTransitionUiOpacity(isFilmTransition ? 1 - dissolveEase : 1);
+
+  if (state.stripMaterial?.uniforms) {
+    state.stripMaterial.uniforms.uTransitionOpacity.value = 1;
   }
-  if (state.stripMaterial?.uniforms && p > 0.75) {
-    // Fade out the strip mesh itself as cover takes over
-    const stripFadeOut = 1 - clamp01((p - 0.75) / 0.25);
-    state.stripMaterial.uniforms.uTransitionOpacity.value = stripFadeOut;
-    if (state.stripMesh) state.stripMesh.visible = stripFadeOut > 0.01;
-  } else if (state.stripMesh) {
-    state.stripMesh.visible = true;
-  }
+  if (state.stripMesh) state.stripMesh.visible = true;
 
   if (state.transitionTargetRect && state.transitionEndComputed) {
-    applyTransitionTransform(p);
+    applyTransitionTransform(flattenProgress);
   }
 }
 
@@ -1772,6 +1956,15 @@ function prepareWorkToProjectTransition(item, { selectedIndex, slotIndex, clickN
     state.stripMaterial.uniforms.uFocusSlot.value = state.selectedSlotIndex;
     state.stripMaterial.uniforms.uIsolateSlot.value = 0;
   }
+  stripBridge.setTransitionState({
+    selectedIndex: state.selectedItemIndex,
+    nonSelectedFade: 0,
+    focusSlot: state.selectedSlotIndex,
+    isolateSlot: 0,
+    transitionMode: 'unwrap',
+    physicsBlend: 1,
+    interactionEnabled: true,
+  });
 
   setWorkTransitionVisualState(0);
   return true;
@@ -1796,7 +1989,7 @@ function getSelectedStripSegmentHandle() {
 
 function runStripUnwrapToRect(targetRect) {
   return new Promise((resolve) => {
-    if (!state.stripMaterial || !state.selectedItem) {
+    if (!state.selectedItem || !state.stripGroup || !state.camera) {
       resolve(false);
       return;
     }
@@ -1806,35 +1999,34 @@ function runStripUnwrapToRect(targetRect) {
 
     // Compute the deterministic end transform once, up-front
     computeTransitionEndTransform(state.transitionTargetRect);
-
-    // Create the cover plane in the same scene for cross-dissolve
-    createCoverPlane(state.transitionTargetRect);
+    if (!state.transitionEndComputed) {
+      resolve(false);
+      return;
+    }
 
     if (state.transitionTimeline) {
       state.transitionTimeline.kill();
       state.transitionTimeline = null;
     }
 
-    // Reset strip material opacity (may have been faded by previous transition)
-    if (state.stripMaterial) {
+    // Reset strip material opacity (legacy mesh path only)
+    if (state.stripMaterial?.uniforms?.uTransitionOpacity) {
       state.stripMaterial.opacity = 1;
-      if (state.stripMaterial.uniforms?.uTransitionOpacity) {
-        state.stripMaterial.uniforms.uTransitionOpacity.value = 1;
-      }
+      state.stripMaterial.uniforms.uTransitionOpacity.value = 1;
     }
 
     const animState = { progress: 0 };
 
-    const focusTargets = state.container
-      ? state.container.querySelectorAll('.slider, .u-section-spacer-large')
-      : [];
-
     state.transitionTimeline = gsap.timeline({
       onComplete: () => {
         setWorkTransitionVisualState(1);
-        if (state.stripMaterial?.uniforms) {
-          state.stripMaterial.uniforms.uIsolateSlot.value = 1;
-        }
+        stripBridge.setTransitionState({
+          isolateSlot: 0,
+          transitionMode: 'idle',
+          physicsBlend: 0,
+          interactionEnabled: false,
+        });
+        if (state.stripMaterial?.uniforms) state.stripMaterial.uniforms.uIsolateSlot.value = 0;
         state.transitionTimeline = null;
         resolve(true);
       },
@@ -1848,15 +2040,6 @@ function runStripUnwrapToRect(targetRect) {
         setWorkTransitionVisualState(animState.progress);
       },
     }, 0);
-
-    if (focusTargets.length) {
-      state.transitionTimeline.to(focusTargets, {
-        opacity: 0,
-        duration: 0.45,
-        ease: 'power2.out',
-        stagger: 0.04,
-      }, 0);
-    }
   });
 }
 
@@ -1886,6 +2069,19 @@ function setWorkParticlesOpacity(alpha) {
   if (state.particleSystem) {
     state.particleSystem.visible = clamped > 0.01;
   }
+}
+
+function getTransitionFadeTargets() {
+  if (!state.container) return [];
+  return [...state.container.querySelectorAll('.slider, .u-section-spacer-large')];
+}
+
+function applyTransitionUiOpacity(alpha) {
+  const clamped = clamp01(alpha);
+  const targets = getTransitionFadeTargets();
+  targets.forEach((el) => {
+    el.style.opacity = `${clamped}`;
+  });
 }
 
 function ensureWorkOutroOverlay() {
@@ -1926,6 +2122,87 @@ function getFallbackTransitionRect() {
   };
 }
 
+function getFilmCoverTargetRect() {
+  const filmContainer = document.querySelector('[data-page-container="true"][data-page-namespace="film"]');
+  const coverEl = filmContainer?.querySelector?.('.coverimg img, .coverimg');
+  if (coverEl) {
+    const rect = coverEl.getBoundingClientRect();
+    if (rect.width > 1 && rect.height > 1) {
+      return {
+        x: rect.left,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height,
+      };
+    }
+  }
+  return getFallbackTransitionRect();
+}
+
+function getCurrentStripAxis() {
+  return state.stripAxis === 'vertical' ? 'vertical' : 'horizontal';
+}
+
+function getUvAxisCoord(uv) {
+  if (!uv) return 0;
+  return getCurrentStripAxis() === 'vertical' ? (1 - uv.y) : uv.x;
+}
+
+function setupWorkGyroscope() {
+  cleanupWorkGyroscope();
+
+  workGyroHandler = (event) => {
+    if (!window.gyroEnabled) return;
+    const mapped = mapDeviceOrientationToParallax(event);
+    if (!mapped) return;
+    state.gyro.x = mapped.x;
+    state.gyro.y = mapped.y;
+    state.gyro.active = true;
+  };
+  window.addEventListener('deviceorientation', workGyroHandler, { passive: true });
+
+  if (window.gyroEnabled) return;
+
+  workGyroInitHandler = () => {
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      DeviceOrientationEvent.requestPermission()
+        .then((permissionState) => {
+          if (permissionState === 'granted') {
+            window.gyroEnabled = true;
+          }
+        })
+        .catch((error) => {
+          console.error('[work] gyro permission request failed', error);
+        });
+    } else {
+      window.gyroEnabled = true;
+    }
+    if (workGyroInitHandler) {
+      window.removeEventListener('click', workGyroInitHandler);
+      window.removeEventListener('touchstart', workGyroInitHandler);
+      workGyroInitHandler = null;
+    }
+  };
+
+  window.addEventListener('click', workGyroInitHandler, { once: true });
+  window.addEventListener('touchstart', workGyroInitHandler, { once: true });
+}
+
+function cleanupWorkGyroscope() {
+  if (workGyroHandler) {
+    window.removeEventListener('deviceorientation', workGyroHandler);
+    workGyroHandler = null;
+  }
+  if (workGyroInitHandler) {
+    window.removeEventListener('click', workGyroInitHandler);
+    window.removeEventListener('touchstart', workGyroInitHandler);
+    workGyroInitHandler = null;
+  }
+  state.gyro.x = 0;
+  state.gyro.y = 0;
+  state.gyro.active = false;
+}
+
 // runWorkCinematicExit and resetWorkCinematicExit removed — no transition animation between work/film
 
 // ─── EVENT HANDLERS ─────────────────────────────────────────────────────────────
@@ -1933,9 +2210,10 @@ function getFallbackTransitionRect() {
 function onWheel(event) {
   if (state.transitionLocked || !state.introComplete) return;
   event.preventDefault();
-  const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY)
-    ? event.deltaX
-    : event.deltaY;
+  const useVertical = getCurrentStripAxis() === 'vertical';
+  const delta = useVertical
+    ? event.deltaY
+    : (Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY);
   state.scrollTarget += delta * CONFIG.SCROLL_SPEED;
 }
 
@@ -1943,6 +2221,7 @@ function onPointerDown(event) {
   if (state.transitionLocked || !state.introComplete) return;
   state.isPointerDown = true;
   state.lastPointerX = event.clientX;
+  state.lastPointerY = event.clientY;
   state.dragStartX = event.clientX;
   state.dragStartY = event.clientY;
   state.scrollVelocity = 0;
@@ -1958,11 +2237,14 @@ function onPointerMove(event) {
   if (state.isPointerDown) {
     const now = performance.now();
     const deltaX = event.clientX - state.lastPointerX;
+    const deltaY = event.clientY - state.lastPointerY;
+    const primaryDelta = getCurrentStripAxis() === 'vertical' ? deltaY : deltaX;
     const dt = now - state.lastDragTime;
-    state.scrollTarget -= deltaX * CONFIG.DRAG_MULTIPLIER;
+    state.scrollTarget -= primaryDelta * CONFIG.DRAG_MULTIPLIER;
     // Track instantaneous velocity for momentum on release
-    if (dt > 0) state.scrollVelocity = -deltaX * CONFIG.DRAG_MULTIPLIER / (dt / 16);
+    if (dt > 0) state.scrollVelocity = -primaryDelta * CONFIG.DRAG_MULTIPLIER / (dt / 16);
     state.lastPointerX = event.clientX;
+    state.lastPointerY = event.clientY;
     state.lastDragTime = now;
   }
 
@@ -1982,9 +2264,56 @@ function onPointerUp(event) {
 
   const dx = Math.abs(event.clientX - state.dragStartX);
   const dy = Math.abs(event.clientY - state.dragStartY);
-  if (dx < 5 && dy < 5) {
+  if (!state.usingBridgeStrip && dx < 5 && dy < 5) {
     handleClick(event);
   }
+}
+
+async function processStripSelection({ item, selectedIndex, slotIndex, clickNdc }) {
+  if (!item?.href) return;
+  if (!prepareWorkToFilmTransition(item, {
+    selectedIndex,
+    slotIndex,
+    clickNdc,
+  })) {
+    navigateTo(item.href);
+    return;
+  }
+  if (state.titleEl) {
+    state.lastActiveTitle = item.title;
+    state.titleEl.textContent = item.title;
+  }
+  setWorkFilmTransitionState({
+    itemId: item.id,
+    title: item.title,
+    imageSrc: item.image,
+    href: item.href,
+    clickedSlotIndex: slotIndex,
+    timestamp: Date.now(),
+  });
+
+  const transitionEl = ensureWorkOutroOverlay();
+  gsap.to(transitionEl, { autoAlpha: 0.25, duration: 0.25, ease: 'power2.out' });
+
+  let transitioned = false;
+  try {
+    const unwrapPromise = runWorkStripUnwrapToRect(getFilmCoverTargetRect());
+    const timeoutPromise = new Promise((resolve) => {
+      window.setTimeout(() => resolve(false), 2200);
+    });
+    transitioned = await Promise.race([unwrapPromise, timeoutPromise]);
+  } catch (error) {
+    console.error('[work] unwrap transition failed before navigation', error);
+  }
+  if (!transitioned) {
+    setWorkTransitionVisualState(1);
+    stripBridge.setTransitionState({
+      transitionMode: 'idle',
+      physicsBlend: 0,
+      interactionEnabled: false,
+    });
+  }
+  navigateTo(item.href);
 }
 
 function handleClick(event) {
@@ -2001,35 +2330,16 @@ function handleClick(event) {
     const uv = intersects[0].uv;
     if (uv) {
       // Determine which item was clicked from UV.x + scroll
-      const totalU = uv.x * CONFIG.ITEMS_ON_STRIP + state.scrollCurrent;
+      const totalU = getUvAxisCoord(uv) * CONFIG.ITEMS_ON_STRIP + state.scrollCurrent;
       const itemIdx = ((Math.floor(totalU) % CONFIG.NUM_UNIQUE) + CONFIG.NUM_UNIQUE) % CONFIG.NUM_UNIQUE;
       const item = workItems[itemIdx];
-      if (item?.href) {
-        const slotIndex = Math.floor(totalU);
-        prepareWorkToFilmTransition(item, {
-          selectedIndex: itemIdx,
-          slotIndex,
-          clickNdc: { x: state.rayMouse.x, y: state.rayMouse.y },
-        });
-        if (state.titleEl) {
-          state.lastActiveTitle = item.title;
-          state.titleEl.textContent = item.title;
-        }
-        setWorkFilmTransitionState({
-          itemId: item.id,
-          title: item.title,
-          imageSrc: item.image,
-          href: item.href,
-          clickedSlotIndex: slotIndex,
-          timestamp: Date.now(),
-        });
-
-        // Keep the cloud layer as a subtle support, unwrap remains the primary cue.
-        const transitionEl = ensureWorkOutroOverlay();
-        gsap.to(transitionEl, { autoAlpha: 0.25, duration: 0.25, ease: 'power2.out' });
-
-        navigateTo(item.href);
-      }
+      const slotIndex = Math.floor(totalU);
+      processStripSelection({
+        item,
+        selectedIndex: itemIdx,
+        slotIndex,
+        clickNdc: { x: state.rayMouse.x, y: state.rayMouse.y },
+      });
     }
   }
 }
@@ -2048,8 +2358,14 @@ export function finalizeWorkToFilmVisualState() {
     state.transitionTimeline = null;
   }
   setWorkTransitionVisualState(1);
+  stripBridge.setTransitionState({
+    isolateSlot: 0,
+    transitionMode: 'idle',
+    physicsBlend: 0,
+    interactionEnabled: false,
+  });
   if (state.stripMaterial?.uniforms) {
-    state.stripMaterial.uniforms.uIsolateSlot.value = 1;
+    state.stripMaterial.uniforms.uIsolateSlot.value = 0;
   }
 }
 
@@ -2133,6 +2449,9 @@ export async function initWork() {
   isWorkInitialized = true;
   resetWorkFirstFrameGate();
   paintDebugMark('initWork start');
+  console.warn('[work-strip] initWork called');
+  setWorkDebugStatus('Work debug: initWork called');
+  initWorkDebugGui();
 
 
   const mainContainer = getActiveWorkContainer();
@@ -2144,6 +2463,7 @@ export async function initWork() {
 
   state.container = mainContainer;
   state.titleEl = mainContainer.querySelector('.slide-title');
+  applyTransitionUiOpacity(1);
   state.transitionLocked = false;
   state.transitionProgress = 0;
   state.selectedItem = null;
@@ -2158,9 +2478,31 @@ export async function initWork() {
 
   setupGalleryScene();
 
+  if (state.bridgeCleanup) {
+    state.bridgeCleanup();
+    state.bridgeCleanup = null;
+  }
+  state.bridgeCleanup = stripBridge.onItemClick((payload) => {
+    if (state.transitionLocked) return;
+    processStripSelection(payload);
+  });
+  if (state.bridgeReadyCleanup) {
+    state.bridgeReadyCleanup();
+    state.bridgeReadyCleanup = null;
+  }
+  state.bridgeReadyCleanup = stripBridge.onReady(() => {
+    console.warn('[work-strip] strip bridge connected (React/Rapier host ready)');
+    setWorkDebugStatus('Work debug: bridge connected (Rapier host ready)');
+  });
+
   startTextureLoading();
   setupStrip();
   addEventListeners();
+  if (isTouchDevice) {
+    setupWorkGyroscope();
+  } else {
+    cleanupWorkGyroscope();
+  }
 
   visibilityHandler = () => { isTabVisible = !document.hidden; };
   document.addEventListener('visibilitychange', visibilityHandler);
@@ -2195,6 +2537,8 @@ export function destroyWork({ keepCoverPlane = false, preserveTexture = null } =
   }
   isWorkInitialized = false;
   paintDebugMark('destroyWork');
+  console.warn('[work-strip] destroyWork called');
+  setWorkDebugStatus('Work debug: destroyWork called');
   const preserveOverlay = state.transitionLocked;
   // (cinematic exit removed)
 
@@ -2211,7 +2555,35 @@ export function destroyWork({ keepCoverPlane = false, preserveTexture = null } =
   isTabVisible = true;
 
   removeEventListeners();
+  cleanupWorkGyroscope();
+  applyTransitionUiOpacity(1);
   unregisterGalleryOverlay();
+  if (state.bridgeCleanup) {
+    state.bridgeCleanup();
+    state.bridgeCleanup = null;
+  }
+  if (state.bridgeReadyCleanup) {
+    state.bridgeReadyCleanup();
+    state.bridgeReadyCleanup = null;
+  }
+  stripBridge.setVisible(false);
+  stripBridge.setTransitionState({
+    flatten: 0,
+    selectedIndex: -1,
+    nonSelectedFade: 0,
+    focusSlot: -1,
+    isolateSlot: 0,
+    transitionOpacity: 1,
+    transitionMode: 'idle',
+    physicsBlend: 1,
+    interactionEnabled: true,
+  });
+  stripBridge.setRevealProgress(1);
+  stripBridge.setScrollCurrent(0);
+  stripBridge.setScrollTarget(0);
+  stripBridge.setStripMetrics({ axis: 'horizontal' });
+  destroyWorkDebugGui();
+  destroyWorkDebugBadge();
 
   // Clean up cover plane (unless transition wants to keep it)
   if (!keepCoverPlane) {
@@ -2245,6 +2617,7 @@ export function destroyWork({ keepCoverPlane = false, preserveTexture = null } =
     state.stripGeometry = null;
   }
   state.stripMesh = null;
+  state.usingBridgeStrip = false;
   state.textures = [];
 
   // Dispose particles
@@ -2349,6 +2722,10 @@ export function destroyWork({ keepCoverPlane = false, preserveTexture = null } =
   state.hoverActive = false;
   state.rippleStrength = 0;
   state.isPointerDown = false;
+  state.lastPointerX = 0;
+  state.lastPointerY = 0;
+  state.dragStartX = 0;
+  state.dragStartY = 0;
   state.transitionLocked = false;
   state.transitionProgress = 0;
   state.selectedItemIndex = -1;
@@ -2358,8 +2735,14 @@ export function destroyWork({ keepCoverPlane = false, preserveTexture = null } =
   state.transitionEndComputed = false;
   state.transitionTimeline = null;
   state.cinematicExitTimeline = null;
+  state.bridgeCleanup = null;
+  state.bridgeReadyCleanup = null;
   state.cinematicExitSnapshot = null;
   state.clickNdc.set(0, 0);
+  state.stripAxis = 'horizontal';
+  state.gyro.x = 0;
+  state.gyro.y = 0;
+  state.gyro.active = false;
   if (!preserveOverlay) {
     setBaseSceneOpacity(1);
   }

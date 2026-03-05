@@ -25,15 +25,62 @@ export default function FilmPage() {
       </section>
 
       <div className="coverimg u-overflow-hidden">
-        <img src="/money-me/Showcase-1.webp" alt="money.me showcase" decoding="async" />
+        <img
+          src="/money-me/Showcase-1.webp"
+          alt="money.me showcase"
+          decoding="async"
+          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+        />
       </div>
 
       <section className="u-container-main u-flex-vertical-nowrap u-gap-5 u-align-items-center">
         <div className="project-img">
-          <img src="/project/project_1.jpg" alt="Project showcase image 1" loading="lazy" decoding="async" />
+          <picture>
+            <source
+              type="image/webp"
+              srcSet={[
+                '/project/project_1.webp 3840w',
+              ].join(', ')}
+              sizes="(max-width: 991px) 92vw, 72vw"
+            />
+            <img
+              src="/project/project_1.jpg"
+              srcSet={[
+                '/project/project_1-1200.jpg 1200w',
+                '/project/project_1-1800.jpg 1800w',
+                '/project/project_1-2160.jpg 2160w',
+              ].join(', ')}
+              sizes="(max-width: 991px) 92vw, 72vw"
+              alt="Project showcase image 1"
+              loading="lazy"
+              decoding="async"
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            />
+          </picture>
         </div>
         <div className="project-img">
-          <img src="/project/project_4.jpg" alt="Project showcase image 2" loading="lazy" decoding="async" />
+          <picture>
+            <source
+              type="image/webp"
+              srcSet={[
+                '/project/project_4.webp 3840w',
+              ].join(', ')}
+              sizes="(max-width: 991px) 92vw, 72vw"
+            />
+            <img
+              src="/project/project_4.jpg"
+              srcSet={[
+                '/project/project_4-1200.jpg 1200w',
+                '/project/project_4-1800.jpg 1800w',
+                '/project/project_4-2160.jpg 2160w',
+              ].join(', ')}
+              sizes="(max-width: 991px) 92vw, 72vw"
+              alt="Project showcase image 2"
+              loading="lazy"
+              decoding="async"
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            />
+          </picture>
         </div>
       </section>
     </main>

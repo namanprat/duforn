@@ -24,6 +24,7 @@
   "dependencies": {
     "@react-three/drei": "^10.7.6",
     "@react-three/fiber": "^9.4.0",
+    "@react-three/rapier": "^2.2.0",
     "gltfjsx": "^6.5.3",
     "gsap": "^3.14.2",
     "lenis": "^1.1.13",
@@ -31,7 +32,8 @@
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.9.5",
     "three": "^0.183.0",
-    "three-stdlib": "^2.29.9"
+    "three-stdlib": "^2.29.9",
+    "web-haptics": "^0.0.6"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^5.1.0",

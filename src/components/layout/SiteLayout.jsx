@@ -104,7 +104,7 @@ export default function SiteLayout({ children }) {
             <Link className="u-mobile-hidden" to="/work" onClick={closeMenuIfOpen}>
               work
             </Link>
-            <Link to="/" className="link-main" onClick={closeMenuIfOpen}>
+            <Link to="/" className="link-main nav-brand" onClick={closeMenuIfOpen}>
               duforn
             </Link>
             <Link className="u-mobile-hidden" to="/contact" onClick={closeMenuIfOpen}>

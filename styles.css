@@ -2084,6 +2084,35 @@ section {
   letter-spacing: normal;
 }
 
+.nav-brand {
+  display: inline-block;
+  will-change: transform, opacity;
+}
+
+.home-hero-brand {
+  display: inline-block;
+  will-change: transform, opacity;
+}
+
+.home-hero-brand-clip {
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+}
+
+body.brand-home .nav-brand {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+body:not(.brand-home) .nav-brand {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
 .hero-bottom-contain {
   width: var(--column-width-11);
 }

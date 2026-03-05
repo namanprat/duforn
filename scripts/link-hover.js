@@ -1,5 +1,6 @@
 import gsap from 'gsap';
 import { SplitText } from 'gsap/SplitText';
+import { WebHaptics } from 'web-haptics';
 import { isCoarsePointerDevice } from './perf.js';
 
 gsap.registerPlugin(SplitText);
@@ -17,20 +18,20 @@ const isTouchDevice = isCoarsePointerDevice();
 // Store instances for cleanup
 const linkInstances = new WeakMap();
 
-// Prepare audio instance
-const hoverAudio = new Audio('/hover.wav');
-hoverAudio.volume = 0.5;
+// Shared haptics instance – debug:true produces synthesised audio clicks
+// on devices without the Vibration API (i.e. desktop browsers).
+let haptics = null;
 
-export function unlockHoverAudio() {
-  if (isTouchDevice) return;
-  hoverAudio.play()
-    .then(() => { hoverAudio.pause(); hoverAudio.currentTime = 0; })
-    .catch(() => { });
+export function getHaptics() {
+  if (!haptics) haptics = new WebHaptics({ debug: true });
+  return haptics;
 }
+
+const LINK_SELECTOR = '.nav-wrap a, .bottom-nav-wrap a, .contact-contain a';
 
 export function initLinkHover() {
   if (isTouchDevice) return;
-  const navLinks = document.querySelectorAll('.nav-wrap a, .bottom-nav-wrap a');
+  const navLinks = document.querySelectorAll(LINK_SELECTOR);
 
   navLinks.forEach(link => {
     // Skip if already initialized or excluded
@@ -48,9 +49,9 @@ export function initLinkHover() {
       perspective: 800
     });
 
-    // Normalize spaces: replace regular spaces and braille spaces with non-breaking spaces
-    // This ensures spaces are preserved during SplitText and don't collapse in flexbox
-    const normalizedText = originalText.replace(/[\s\u2800]/g, '\u00A0');
+    // Use original text directly so it can wrap on multiple lines,
+    // avoiding non-breaking space replacement that forces single lines.
+    const normalizedText = originalText;
 
     // Create dual text structure
     const originalSpan = createTextSpan(normalizedText, false);
@@ -89,13 +90,18 @@ export function initLinkHover() {
       tl?.kill();
       tl = animateChars(originalSplit.chars, italicSplit.chars, true);
 
-      if (window.audioEnabled) {
-        hoverAudio.currentTime = 0;
-        hoverAudio.play().catch(e => {
-          // Log but don't hard crash if it fails (e.g. strict browser policies)
-          console.warn('Audio play failed:', e);
-        });
-      }
+      // Light haptic pulse on hover
+      getHaptics().trigger([
+        { duration: 10 },
+      ], { intensity: 1 });
+    };
+
+    const handleClick = () => {
+      // Stronger nudge haptic on click
+      getHaptics().trigger([
+        { duration: 80, intensity: 0.8 },
+        { delay: 80, duration: 50, intensity: 0.3 },
+      ]);
     };
 
     const handleLeave = () => {
@@ -107,6 +113,7 @@ export function initLinkHover() {
 
     link.addEventListener('mouseenter', handleEnter);
     link.addEventListener('mouseleave', handleLeave);
+    link.addEventListener('click', handleClick);
 
     // Store for cleanup (include tween getter for destroy)
     const instance = {
@@ -114,6 +121,7 @@ export function initLinkHover() {
       italicSplit,
       handleEnter,
       handleLeave,
+      handleClick,
       getTween: () => tl,
     };
     linkInstances.set(link, instance);
@@ -126,7 +134,6 @@ function createTextSpan(text, isItalic) {
 
   gsap.set(span, {
     display: 'block',
-    whiteSpace: 'nowrap',
     width: '100%',
     height: '100%',
     textAlign: 'center',
@@ -173,7 +180,7 @@ function animateChars(originalChars, italicChars, isHover) {
 }
 
 export function destroyLinkHover() {
-  const navLinks = document.querySelectorAll('.nav-wrap a, .bottom-nav-wrap a');
+  const navLinks = document.querySelectorAll(LINK_SELECTOR);
 
   navLinks.forEach(link => {
     const instance = linkInstances.get(link);
@@ -190,6 +197,7 @@ export function destroyLinkHover() {
       // Remove listeners
       link.removeEventListener('mouseenter', instance.handleEnter);
       link.removeEventListener('mouseleave', instance.handleLeave);
+      link.removeEventListener('click', instance.handleClick);
 
       // Clear WeakMap entry
       linkInstances.delete(link);

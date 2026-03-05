@@ -1,7 +1,6 @@
 import gsap from 'gsap';
 import { GLTFLoader, DRACOLoader } from 'three-stdlib';
 import * as THREE from 'three';
-import { unlockHoverAudio } from './link-hover.js';
 import { isCoarsePointerDevice } from './perf.js';
 import { createPaintDebugLogger } from './runtime/debug.js';
 import { debounce } from './runtime/timing.js';
@@ -388,10 +387,7 @@ export class Preloader {
         // 1. Audio Permission
         window.audioEnabled = !isTouchDevice;
         if (!isTouchDevice) {
-            // Prime the hover Audio element during this user gesture so iOS/Safari
-            // allows programmatic playback later
-            unlockHoverAudio();
-            // Unlock AudioContext as well (needed for Web Audio API users)
+            // Unlock AudioContext (needed for Web Audio API users)
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             audioCtx.resume();
         }

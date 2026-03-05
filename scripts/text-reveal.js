@@ -60,7 +60,8 @@ function getOrSplit(element, type = "lines, words, chars") {
 // ─── Char animations (reveal-title) ────────────────────────────────────────────
 
 function revealChars(element, { duration = 0.6, stagger = 0.02, ease = "power2.out" } = {}) {
-  const split = getOrSplit(element, "lines, words, chars");
+  const splitType = element.getAttribute("data-split-type") || "lines, words, chars";
+  const split = getOrSplit(element, splitType);
   if (!split?.chars?.length) return null;
   return gsap.fromTo(
     split.chars,
@@ -70,7 +71,8 @@ function revealChars(element, { duration = 0.6, stagger = 0.02, ease = "power2.o
 }
 
 function hideChars(element, { duration = 0.4, stagger = 0.015, ease = "power2.in" } = {}) {
-  const split = getOrSplit(element, "lines, words, chars");
+  const splitType = element.getAttribute("data-split-type") || "lines, words, chars";
+  const split = getOrSplit(element, splitType);
   if (!split?.chars?.length) return null;
   return gsap.to(split.chars, { y: -100, opacity: 0, duration, stagger, ease });
 }
@@ -95,11 +97,17 @@ function hideLines(element, { duration = 0.35, stagger = 0.05, ease = "power2.in
 
 // ─── Public API ─────────────────────────────────────────────────────────────────
 
-async function animateRevealEnter(container) {
-  if (!container) return;
+function filterByExcludeSelector(elements, excludeSelector) {
+  if (!excludeSelector) return elements;
+  return Array.from(elements).filter((element) => !element.matches(excludeSelector));
+}
 
-  const titles = container.querySelectorAll(".reveal-title");
-  const bodies = container.querySelectorAll(".reveal-body");
+async function animateRevealEnter(container, options = {}) {
+  if (!container) return;
+  const { excludeSelector } = options;
+
+  const titles = filterByExcludeSelector(container.querySelectorAll(".reveal-title"), excludeSelector);
+  const bodies = filterByExcludeSelector(container.querySelectorAll(".reveal-body"), excludeSelector);
   if (!titles.length && !bodies.length) return;
 
   await document.fonts.ready;
