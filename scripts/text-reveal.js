@@ -102,6 +102,8 @@ async function animateRevealEnter(container) {
   const bodies = container.querySelectorAll(".reveal-body");
   if (!titles.length && !bodies.length) return;
 
+  await document.fonts.ready;
+
   // Clear inline styles so fresh split + animation can take over
   const all = [...titles, ...bodies];
   gsap.set(all, { clearProps: "all" });

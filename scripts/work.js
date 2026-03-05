@@ -1,6 +1,5 @@
 import gsap from 'gsap';
 import * as THREE from 'three';
-import barba from '@barba/core';
 import { workItems } from '../data/work-items.js';
 import { GLTFLoader } from 'three-stdlib';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
@@ -14,6 +13,7 @@ import {
 } from './three.js';
 import { setWorkFilmTransitionState } from './work-film-transition-state.js';
 import { preloader } from './preloader.js';
+import { navigateTo } from '../src/lib/navigationBridge.js';
 
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
@@ -21,6 +21,15 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { VignetteShader, GrainShader, EdgeDistortionShader, createPostFXUniforms } from './shaders/post-fx.js';
 import { getPerformanceProfile, isCoarsePointerDevice } from './perf.js';
+import { createPaintDebugLogger } from './runtime/debug.js';
+import { debounce } from './runtime/timing.js';
+import { queryLast } from './runtime/dom.js';
+import {
+  clearWorkFirstFrameGate,
+  resetWorkFirstFrameGate,
+  resolveWorkFirstFrameGate,
+} from './work/transitions.js';
+export { resetWorkFirstFrameGate, whenWorkFirstFrame } from './work/transitions.js';
 
 
 // Cinematic 3D strip carousel — one continuous curved mesh wrapping an arc,
@@ -33,44 +42,19 @@ const workTextureCache = new Map();
 let isWorkInitialized = false;
 let isTabVisible = true;
 let visibilityHandler = null;
-let workFirstFramePromise = Promise.resolve();
-let workFirstFrameResolver = null;
 
-const isPaintDebugEnabled = new URLSearchParams(window.location.search).has('debugPaint');
-function paintDebugMark(step, payload = null) {
-  if (!isPaintDebugEnabled) return;
-  const ts = performance.now().toFixed(1);
-  if (payload !== null) {
-    // eslint-disable-next-line no-console
-    console.log(`[paint-debug @${ts}ms] ${step}`, payload);
-    return;
-  }
-  // eslint-disable-next-line no-console
-  console.log(`[paint-debug @${ts}ms] ${step}`);
-}
+const paintDebugMark = createPaintDebugLogger('paint-debug');
 
-export function resetWorkFirstFrameGate() {
-  workFirstFramePromise = new Promise((resolve) => {
-    workFirstFrameResolver = resolve;
-  });
-}
-
-function resolveWorkFirstFrameGate() {
-  if (!workFirstFrameResolver) return;
-  workFirstFrameResolver();
-  workFirstFrameResolver = null;
+function resolveFirstFrameGateWithDebug() {
+  resolveWorkFirstFrameGate();
   paintDebugMark('work first-frame gate resolved');
-}
-
-export function whenWorkFirstFrame() {
-  return workFirstFramePromise;
 }
 
 
 function getActiveWorkContainer() {
-  const containers = document.querySelectorAll('[data-barba="container"][data-barba-namespace="work"]');
-  if (!containers.length) return null;
-  return containers[containers.length - 1];
+  return queryLast(
+    '[data-page-container="true"][data-page-namespace="work"]'
+  );
 }
 
 const CONFIG = {
@@ -778,7 +762,7 @@ function finalizeModel(model) {
 
 /**
  * Load all work strip textures into the persistent cache during the preloader window.
- * Called from barba.js on initial page load (any namespace) so textures are ready
+ * Called on initial page load so textures are ready
  * before the user ever navigates to the work page.
  * Safe to call when preloader is not active — hold/release become no-ops.
  */
@@ -2044,11 +2028,7 @@ function handleClick(event) {
         const transitionEl = ensureWorkOutroOverlay();
         gsap.to(transitionEl, { autoAlpha: 0.25, duration: 0.25, ease: 'power2.out' });
 
-        if (barba?.go) {
-          barba.go(item.href);
-        } else {
-          window.location.href = item.href;
-        }
+        navigateTo(item.href);
       }
     }
   }
@@ -2073,24 +2053,19 @@ export function finalizeWorkToFilmVisualState() {
   }
 }
 
-let resizeTimeout = null;
+const onResize = debounce(() => {
+  if (!state.camera) return;
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  state.camera.aspect = w / h;
+  state.camera.updateProjectionMatrix();
 
-function onResize() {
-  if (resizeTimeout) clearTimeout(resizeTimeout);
-  resizeTimeout = setTimeout(() => {
-    if (!state.camera) return;
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    state.camera.aspect = w / h;
-    state.camera.updateProjectionMatrix();
-
-    // Update composer and post-FX resolution
-    if (state.composer) {
-      state.composer.setSize(w, h);
-    }
-    postFXUniforms.uResolution.value.set(w, h);
-  }, 100);
-}
+  // Update composer and post-FX resolution
+  if (state.composer) {
+    state.composer.setSize(w, h);
+  }
+  postFXUniforms.uResolution.value.set(w, h);
+}, 100);
 
 function addEventListeners() {
   state.handlers.wheel = onWheel;
@@ -2215,7 +2190,7 @@ export async function initWork() {
 
 export function destroyWork({ keepCoverPlane = false, preserveTexture = null } = {}) {
   if (!isWorkInitialized) {
-    resolveWorkFirstFrameGate();
+    resolveFirstFrameGateWithDebug();
     return;
   }
   isWorkInitialized = false;
@@ -2349,10 +2324,7 @@ export function destroyWork({ keepCoverPlane = false, preserveTexture = null } =
   state.textureCache.clear();
 
   // Clear debounce timers
-  if (resizeTimeout) {
-    clearTimeout(resizeTimeout);
-    resizeTimeout = null;
-  }
+  onResize.cancel?.();
 
   // Reset cursor
   document.body.style.cursor = '';
@@ -2401,6 +2373,6 @@ export function destroyWork({ keepCoverPlane = false, preserveTexture = null } =
     pointerdown: null,
     pointerup: null,
   };
-  resolveWorkFirstFrameGate();
-  workFirstFramePromise = Promise.resolve();
+  resolveFirstFrameGateWithDebug();
+  clearWorkFirstFrameGate();
 }

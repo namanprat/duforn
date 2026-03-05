@@ -22,13 +22,19 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@barba/core": "^2.9.7",
+    "@react-three/drei": "^10.7.6",
+    "@react-three/fiber": "^9.4.0",
+    "gltfjsx": "^6.5.3",
     "gsap": "^3.14.2",
     "lenis": "^1.1.13",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.9.5",
     "three": "^0.183.0",
     "three-stdlib": "^2.29.9"
   },
   "devDependencies": {
+    "@vitejs/plugin-react": "^5.1.0",
     "@vitest/coverage-v8": "^4.0.18",
     "@vitest/ui": "^4.0.18",
     "happy-dom": "^20.6.1",

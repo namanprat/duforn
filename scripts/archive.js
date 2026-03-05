@@ -5,10 +5,19 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
-import { archiveItems } from '../data/archive-items.js';
 import { GLTFLoader } from 'three-stdlib';
 import { VignetteShader, GrainShader, EdgeDistortionShader, createPostFXUniforms, CRTShader } from './shaders/post-fx.js';
 import { getPerformanceProfile, isCoarsePointerDevice } from './perf.js';
+import { debounce } from './runtime/timing.js';
+import { createArchiveGrid, destroyArchiveGrid, updateArchiveGrid } from './archive/grid.js';
+import {
+  checkArchiveTubeIntersections,
+  createArchiveTube,
+  destroyArchiveTube,
+  updateArchiveTube,
+  updateArchiveTubeMouseMove,
+} from './archive/tube.js';
+import { createArchiveUI, destroyArchiveUI, updateArchiveUI } from './archive/ui.js';
 
 // ─────────────────────────────────────────────────────────────
 // CONFIG
@@ -54,7 +63,6 @@ const CONFIG = Object.freeze({
 
 let isTabVisible = true;
 let visibilityHandler = null;
-let archiveResizeTimeout = null;
 
 const state = {
   running: false,
@@ -114,7 +122,7 @@ async function initArchive() {
   const token = state.initToken;
 
   // Find or create container
-  state.container = document.querySelector('main[data-barba-namespace="archive"]');
+  state.container = document.querySelector('main[data-page-namespace="archive"]');
   if (!state.container) {
     console.error('Archive: container not found');
     return;
@@ -287,7 +295,7 @@ async function initArchive() {
   if (state.initToken !== token) { destroyArchive(); return; }
 
   state.grid = createArchiveGrid(state.scene, state.shared);
-  state.ui = createArchiveUI(state.shared);
+  state.ui = createArchiveUI(state.shared, { container: state.container, isTouchDevice });
 
   // Event handlers
   state.handlers.onMouseMove = (e) => {
@@ -321,17 +329,14 @@ async function initArchive() {
     else if (e.deltaY > 0) state.shared.tubeNaturalDir = 1;
   };
 
-  state.handlers.onResize = () => {
-    if (archiveResizeTimeout) clearTimeout(archiveResizeTimeout);
-    archiveResizeTimeout = setTimeout(() => {
-      const w = state.renderHost.clientWidth || window.innerWidth;
-      const h = state.renderHost.clientHeight || window.innerHeight;
-      state.camera.aspect = w / h;
-      state.camera.updateProjectionMatrix();
-      state.renderer.setSize(w, h);
-      state.composer.setSize(w, h);
-    }, 100);
-  };
+  state.handlers.onResize = debounce(() => {
+    const w = state.renderHost.clientWidth || window.innerWidth;
+    const h = state.renderHost.clientHeight || window.innerHeight;
+    state.camera.aspect = w / h;
+    state.camera.updateProjectionMatrix();
+    state.renderer.setSize(w, h);
+    state.composer.setSize(w, h);
+  }, 100);
 
   if (!isTouchDevice) {
     window.addEventListener('mousemove', state.handlers.onMouseMove);
@@ -405,14 +410,10 @@ function destroyArchive() {
   }
   isTabVisible = true;
 
-  if (archiveResizeTimeout) {
-    clearTimeout(archiveResizeTimeout);
-    archiveResizeTimeout = null;
-  }
-
   window.removeEventListener('mousemove', state.handlers.onMouseMove);
   window.removeEventListener('wheel', state.handlers.onWheel);
   window.removeEventListener('resize', state.handlers.onResize);
+  state.handlers.onResize?.cancel?.();
 
   // Destroy components
   destroyArchiveTube(state.tube);
@@ -475,430 +476,3 @@ function destroyArchive() {
 }
 
 export { initArchive, destroyArchive };
-
-// ─────────────────────────────────────────────────────────────
-// ARCHIVE-GRID.JS
-// ─────────────────────────────────────────────────────────────
-
-
-/**
- * Archive Grid - Animated grid plane background
- * Ported from brev/js/GridPlane.js to project conventions
- */
-
-function createArchiveGrid(scene, sharedState) {
-  const gridState = {
-    mesh: null,
-    material: null,
-    uniforms: {
-      uGridScale: { value: 26.0 },
-      uLineWidth: { value: 0.5 },
-      uEdgeWidth: { value: 0.14 },
-      uEdgeAmp: { value: 1.3 },
-      uCenterRadius: { value: 0.22 },
-      uCenterAmp: { value: 0.85 },
-      uCenter: { value: new THREE.Vector2(0.5, 0.5) },
-      uTime: { value: 0.0 },
-      uScrollSpeed: { value: 0.012 },
-      uResolution: { value: new THREE.Vector2(1, 1) },
-    },
-  };
-
-  const material = new THREE.ShaderMaterial({
-    uniforms: gridState.uniforms,
-    vertexShader: `
-      varying vec2 vUv;
-
-      uniform float uEdgeWidth;
-      uniform float uEdgeAmp;
-      uniform float uCenterRadius;
-      uniform float uCenterAmp;
-      uniform vec2 uCenter;
-
-      void main() {
-        vUv = uv;
-
-        vec3 p = position;
-
-        float dEdge = min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y));
-        float edgeMask = 1.0 - smoothstep(0.0, uEdgeWidth, dEdge);
-
-        float dCenter = distance(vUv, uCenter);
-        float centerMask = 1.0 - smoothstep(0.0, uCenterRadius, dCenter);
-
-        float zOffset = edgeMask * uEdgeAmp + centerMask * uCenterAmp;
-        p.z += zOffset;
-
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
-      }
-    `,
-    fragmentShader: `
-      varying vec2 vUv;
-
-      uniform float uGridScale;
-      uniform float uLineWidth;
-      uniform float uTime;
-      uniform float uScrollSpeed;
-      uniform vec2 uResolution;
-
-      float gridLine(float coord, float width) {
-        float fw = fwidth(coord);
-        float p = abs(fract(coord - 0.5) - 0.5);
-        return 1.0 - smoothstep(width * fw, (width + 1.0) * fw, p);
-      }
-
-      void main() {
-        vec2 uv = (vUv + vec2(uTime * uScrollSpeed, 0.0)) * uGridScale;
-        float gx = gridLine(uv.x, uLineWidth);
-        float gy = gridLine(uv.y, uLineWidth);
-        float g = max(gx, gy);
-
-        vec3 base = vec3(0.);
-        vec3 line = vec3(0.09);
-        vec3 col = mix(base, line, g);
-        gl_FragColor = vec4(col, 1.);
-      }
-    `,
-    side: THREE.DoubleSide,
-  });
-
-  const geometry = new THREE.PlaneGeometry(18, 18, 512, 512);
-  gridState.mesh = new THREE.Mesh(geometry, material);
-  gridState.mesh.position.set(0, 0, -5.0);
-
-  scene.add(gridState.mesh);
-  gridState.material = material;
-
-  // Store reference to sharedState for updates
-  gridState.sharedState = sharedState;
-
-  return gridState;
-}
-
-function updateArchiveGrid(gridState, time) {
-  if (!gridState || !gridState.material) return;
-
-  gridState.material.uniforms.uTime.value = time;
-
-  // Smoothly lerp center based on shared state
-  if (gridState.sharedState && gridState.sharedState.targetCenterUv) {
-    gridState.material.uniforms.uCenter.value.lerp(gridState.sharedState.targetCenterUv, 0.08);
-  }
-}
-
-function destroyArchiveGrid(gridState) {
-  if (!gridState) return;
-
-  if (gridState.mesh) {
-    if (gridState.mesh.geometry) gridState.mesh.geometry.dispose();
-    if (gridState.material) gridState.material.dispose();
-    if (gridState.mesh.parent) {
-      gridState.mesh.parent.remove(gridState.mesh);
-    }
-  }
-
-  gridState.mesh = null;
-  gridState.material = null;
-}
-
-
-// ─────────────────────────────────────────────────────────────
-// ARCHIVE-TUBE.JS
-// ─────────────────────────────────────────────────────────────
-
-
-/**
- * Archive Tube - Cylindrical carousel of images
- * Ported from brev/js/ImageTube.js
- */
-
-
-
-async function createArchiveTube(scene) {
-  const tubeState = {
-    rows: 5,
-    cols: 12,
-    ySpacing: 2.7,
-    radius: 4,
-    tileW: 0.72,
-    tileH: 1.1,
-
-    scrollCurrent: 0,
-    angle: 0,
-    rotationSpeedScale: 1,
-
-    raycaster: new THREE.Raycaster(),
-    mouse: new THREE.Vector2(),
-    intersected: null,
-
-    group: new THREE.Group(),
-    rowGroups: [],
-    rowSpeeds: [],
-    textures: [],
-    loopHeight: 0,
-  };
-
-  // Pre-compute row speeds
-  for (let r = 0; r < tubeState.rows; r++) {
-    tubeState.rowSpeeds.push(1.0);
-  }
-
-  // Load textures
-  const loader = new THREE.TextureLoader();
-  tubeState.textures = await Promise.all(
-    archiveItems.map(item =>
-      new Promise(resolve => {
-        loader.load(item.image, resolve, undefined, () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = 512;
-          canvas.height = 512;
-          const ctx = canvas.getContext('2d');
-          ctx.fillStyle = '#333';
-          ctx.fillRect(0, 0, 512, 512);
-          ctx.fillStyle = '#666';
-          ctx.font = '24px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(item.title, 256, 256);
-          resolve(new THREE.CanvasTexture(canvas));
-        });
-      })
-    )
-  );
-
-  const aspects = tubeState.textures.map(tex => {
-    if (tex.image) {
-      return tex.image.width / tex.image.height;
-    }
-    return 1;
-  });
-
-  const projectNames = archiveItems.map(item => item.title);
-
-  // Build geometry
-  const repeatCount = 3;
-  const totalRows = tubeState.rows * repeatCount;
-  tubeState.loopHeight = tubeState.rows * tubeState.ySpacing;
-
-  for (let rowIndex = 0; rowIndex < totalRows; rowIndex++) {
-    const rowGroup = new THREE.Group();
-    const y = (rowIndex - (totalRows - 1) / 2) * tubeState.ySpacing;
-    rowGroup.position.y = y;
-
-    tubeState.group.add(rowGroup);
-    tubeState.rowGroups[rowIndex] = rowGroup;
-
-    const baseRow = rowIndex % tubeState.rows;
-    const rowOffset = baseRow % 2 === 0 ? 0 : 0.5;
-
-    for (let col = 0; col < tubeState.cols; col++) {
-      const theta = ((col + rowOffset) / tubeState.cols) * Math.PI * 2;
-      const x = Math.cos(theta) * tubeState.radius;
-      const z = Math.sin(theta) * tubeState.radius;
-      const ry = -(theta - Math.PI / 2);
-
-      const texIndex = (baseRow * tubeState.cols + col) % archiveItems.length;
-      const aspect = aspects[texIndex];
-      const planeGeometry = new THREE.PlaneGeometry(tubeState.tileH * aspect, tubeState.tileH);
-
-      const material = new THREE.MeshBasicMaterial({
-        map: tubeState.textures[texIndex],
-        side: THREE.DoubleSide,
-        toneMapped: false,
-      });
-
-      const mesh = new THREE.Mesh(planeGeometry, material);
-      mesh.position.set(x, 0, z);
-      mesh.rotation.y = ry;
-
-      mesh.userData = {
-        projectName: projectNames[texIndex],
-      };
-
-      rowGroup.add(mesh);
-    }
-  }
-
-  scene.add(tubeState.group);
-  return tubeState;
-}
-
-function updateArchiveTube(tubeState, dt, sharedState) {
-  if (!tubeState) return;
-
-  // Scroll Logic (scale lerp by frame delta for framerate independence)
-  const scrollLerp = Math.min(0.12 * (dt / 0.01666), 1.0);
-  tubeState.scrollCurrent += (sharedState.tubeScrollTarget - tubeState.scrollCurrent) * scrollLerp;
-
-  if (tubeState.scrollCurrent > tubeState.loopHeight / 2) {
-    tubeState.scrollCurrent -= tubeState.loopHeight;
-    sharedState.tubeScrollTarget -= tubeState.loopHeight;
-  } else if (tubeState.scrollCurrent < -tubeState.loopHeight / 2) {
-    tubeState.scrollCurrent += tubeState.loopHeight;
-    sharedState.tubeScrollTarget += tubeState.loopHeight;
-  }
-
-  tubeState.group.position.y = -tubeState.scrollCurrent;
-
-  // Rotation Logic
-  const damping = 0.92;
-  sharedState.tubeSpinVelocity *= Math.pow(damping, dt * 60);
-  sharedState.tubeSpinVelocity = Math.max(-2.0, Math.min(2.0, sharedState.tubeSpinVelocity));
-
-  tubeState.rotationSpeedScale += (sharedState.rotationSpeedScaleTarget - tubeState.rotationSpeedScale) * sharedState.rotationSpeedScaleLerp;
-  const scaledDt = dt * tubeState.rotationSpeedScale;
-
-  const baseSpeed = sharedState.tubeNaturalDir * sharedState.baseSpeed;
-  tubeState.angle += (baseSpeed + sharedState.tubeSpinVelocity) * scaledDt;
-
-  sharedState.tubeAngle = tubeState.angle;
-
-  // Apply Rotation to Rows
-  const totalRows = tubeState.rowGroups.length;
-  for (let rowIndex = 0; rowIndex < totalRows; rowIndex++) {
-    const rowObj = tubeState.rowGroups[rowIndex];
-    if (!rowObj) continue;
-    const baseRow = rowIndex % tubeState.rows;
-    rowObj.rotation.y = tubeState.angle * tubeState.rowSpeeds[baseRow];
-  }
-}
-
-function checkArchiveTubeIntersections(tubeState, camera, sharedState) {
-  if (!tubeState) return;
-
-  tubeState.raycaster.setFromCamera(tubeState.mouse, camera);
-
-  const meshes = [];
-  tubeState.group.traverse(child => {
-    if (child.isMesh) meshes.push(child);
-  });
-
-  const intersects = tubeState.raycaster.intersectObjects(meshes);
-
-  if (intersects.length > 0) {
-    const object = intersects[0].object;
-    if (tubeState.intersected !== object) {
-      tubeState.intersected = object;
-      sharedState.hoveredProject = object.userData.projectName;
-    }
-  } else {
-    if (tubeState.intersected) {
-      tubeState.intersected = null;
-      sharedState.hoveredProject = null;
-    }
-  }
-}
-
-function updateArchiveTubeMouseMove(tubeState, event) {
-  if (!tubeState) return;
-  tubeState.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-  tubeState.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-}
-
-function destroyArchiveTube(tubeState) {
-  if (!tubeState) return;
-
-  tubeState.group.traverse(child => {
-    if (child.isMesh) {
-      if (child.geometry) child.geometry.dispose();
-      if (child.material) {
-        if (Array.isArray(child.material)) {
-          child.material.forEach(m => m.dispose());
-        } else {
-          child.material.dispose();
-        }
-      }
-    }
-  });
-
-  tubeState.textures.forEach(tex => tex.dispose());
-
-  if (tubeState.group.parent) {
-    tubeState.group.parent.remove(tubeState.group);
-  }
-
-  tubeState.rowGroups = [];
-  tubeState.textures = [];
-  tubeState.intersected = null;
-}
-
-
-// ─────────────────────────────────────────────────────────────
-// ARCHIVE-UI.JS
-// ─────────────────────────────────────────────────────────────
-
-
-/**
- * Archive UI - Grid center UV control only
- */
-
-function createArchiveUI(sharedState) {
-  const uiState = {
-    container: document.querySelector('.archive-container') || document.querySelector('main[data-barba-namespace="archive"]'),
-    sharedState: sharedState,
-    handlers: {},
-  };
-
-  if (!uiState.container) {
-    console.warn('Archive UI: container not found');
-  }
-
-  // Mouse move handler
-  uiState.handlers.onMouseMove = (e) => {
-    if (!uiState.container) return;
-
-    const rect = uiState.container.getBoundingClientRect();
-    const clientX = e.clientX;
-    const clientY = e.clientY;
-
-    // Control grid center UV
-    if (rect.width > 0 && rect.height > 0) {
-      const nx = (clientX - rect.left) / rect.width;
-      const ny = (clientY - rect.top) / rect.height;
-      const clampedX = Math.min(1, Math.max(0, nx));
-      const clampedY = Math.min(1, Math.max(0, ny));
-
-      const strength = 0.4;
-      const cx = 0.5 + (clampedX - 0.5) * strength;
-      const cy = 0.5 + ((1 - clampedY) - 0.5) * strength;
-
-      if (uiState.sharedState && uiState.sharedState.targetCenterUv) {
-        uiState.sharedState.targetCenterUv.set(
-          Math.min(1, Math.max(0, cx)),
-          Math.min(1, Math.max(0, cy))
-        );
-      }
-    }
-  };
-
-  // Mouse leave handler
-  uiState.handlers.onMouseLeave = () => {
-    if (uiState.sharedState && uiState.sharedState.targetCenterUv) {
-      uiState.sharedState.targetCenterUv.set(0.5, 0.5);
-    }
-  };
-
-  // Attach event listeners
-  if (uiState.container && !isTouchDevice) {
-    uiState.container.addEventListener('mousemove', uiState.handlers.onMouseMove);
-    uiState.container.addEventListener('mouseleave', uiState.handlers.onMouseLeave);
-  }
-
-  return uiState;
-}
-
-function updateArchiveUI(uiState) {
-  // No-op: minimal UI
-}
-
-function destroyArchiveUI(uiState) {
-  if (!uiState) return;
-
-  // Remove event listeners
-  if (uiState.container) {
-    uiState.container.removeEventListener('mousemove', uiState.handlers.onMouseMove);
-    uiState.container.removeEventListener('mouseleave', uiState.handlers.onMouseLeave);
-  }
-
-  uiState.container = null;
-}

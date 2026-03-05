@@ -9,20 +9,12 @@ import { VignetteShader, GrainShader, EdgeDistortionShader, createPostFXUniforms
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { getPerformanceProfile, isCoarsePointerDevice } from './perf.js';
+import { createPaintDebugLogger } from './runtime/debug.js';
+import { debounce } from './runtime/timing.js';
+import { queryOne } from './runtime/dom.js';
 gsap.registerPlugin(ScrollTrigger);
 
-const isPaintDebugEnabled = new URLSearchParams(window.location.search).has('debugPaint');
-function paintDebugMark(step, payload = null) {
-  if (!isPaintDebugEnabled) return;
-  const ts = performance.now().toFixed(1);
-  if (payload !== null) {
-    // eslint-disable-next-line no-console
-    console.log(`[paint-debug @${ts}ms] ${step}`, payload);
-    return;
-  }
-  // eslint-disable-next-line no-console
-  console.log(`[paint-debug @${ts}ms] ${step}`);
-}
+const paintDebugMark = createPaintDebugLogger('paint-debug');
 
 
 let renderer = null;
@@ -108,14 +100,14 @@ const QUALITY_CONFIG = Object.freeze({
 function getQualitySettings() {
   const perf = getPerformanceProfile();
   return {
-    profile: perf.lowPower ? 'low-power' : 'balanced',
-    pixelRatioCap: perf.pixelRatioCap,
+    profile: 'balanced',
+    pixelRatioCap: Math.max(perf.pixelRatioCap, 2.0), // Force higher pixel ratio limit
     toneMappingExposure: 1.0,
-    enableShadows: QUALITY_CONFIG.enableShadows && !perf.veryLowPower,
-    shadowMapSize: perf.lowPower ? 512 : 1024,
-    enableBloom: perf.enableBloom,
-    enableEdgeDistortion: perf.enableEdgeDistortion,
-    grainStrength: perf.grainStrength,
+    enableShadows: true, // Always enable shadows
+    shadowMapSize: 2048, // High-res shadow maps
+    enableBloom: true, // Always enable bloom
+    enableEdgeDistortion: true, // Always enable edge distortion
+    grainStrength: 0.03, // Consistent grain
   };
 }
 
@@ -822,7 +814,7 @@ export function webgl() {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.setClearColor(0x000000, 0);
 
-  containerEl = document.querySelector('#background');
+  containerEl = queryOne('#background');
   if (!containerEl) {
     console.warn('[three.js] #background element not found, creating one');
     containerEl = document.createElement('div');
@@ -864,21 +856,17 @@ export function webgl() {
     cameraOrbitOffset.z = offset.z;
   });
 
-  let resizeTimeout = null;
-  resizeHandler = () => {
-    if (resizeTimeout) clearTimeout(resizeTimeout);
-    resizeTimeout = setTimeout(() => {
-      if (!camera || !renderer || !composer) return;
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-      renderer.setSize(width, height);
-      composer.setSize(width, height);
-      if (bloomPass) bloomPass.setSize(width, height);
-      postFXUniforms.uResolution.value.set(width, height);
-    }, 100);
-  };
+  resizeHandler = debounce(() => {
+    if (!camera || !renderer || !composer) return;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+    renderer.setSize(width, height);
+    composer.setSize(width, height);
+    if (bloomPass) bloomPass.setSize(width, height);
+    postFXUniforms.uResolution.value.set(width, height);
+  }, 100);
   window.addEventListener('resize', resizeHandler);
 
   visibilityHandler = () => { isTabVisible = !document.hidden; };
@@ -934,6 +922,29 @@ export function webgl() {
     cameraTarget.tilt = x * parallaxConfig.tiltRange;
   };
   window.addEventListener('deviceorientation', window.__gyroHandler, { passive: true });
+
+  // Request gyroscope permissions on first interaction (needed for iOS 13+)
+  const initGyro = () => {
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      DeviceOrientationEvent.requestPermission()
+        .then(permissionState => {
+          if (permissionState === 'granted') {
+            window.gyroEnabled = true;
+          }
+        })
+        .catch(console.error);
+    } else {
+      // Non-iOS 13+ devices don't need permission
+      window.gyroEnabled = true;
+    }
+    window.removeEventListener('click', initGyro);
+    window.removeEventListener('touchstart', initGyro);
+  };
+
+  if (!window.gyroEnabled) {
+    window.addEventListener('click', initGyro, { once: true });
+    window.addEventListener('touchstart', initGyro, { once: true });
+  }
 
   let lastFrameTime = performance.now();
 
@@ -1055,6 +1066,7 @@ export function destroyWebgl() {
 
   if (resizeHandler) {
     window.removeEventListener('resize', resizeHandler);
+    resizeHandler.cancel?.();
     resizeHandler = null;
   }
   if (mouseHandler) {

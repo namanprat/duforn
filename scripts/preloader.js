@@ -3,19 +3,10 @@ import { GLTFLoader, DRACOLoader } from 'three-stdlib';
 import * as THREE from 'three';
 import { unlockHoverAudio } from './link-hover.js';
 import { isCoarsePointerDevice } from './perf.js';
+import { createPaintDebugLogger } from './runtime/debug.js';
+import { debounce } from './runtime/timing.js';
 
-const isPaintDebugEnabled = new URLSearchParams(window.location.search).has('debugPaint');
-function paintDebugMark(step, payload = null) {
-    if (!isPaintDebugEnabled) return;
-    const ts = performance.now().toFixed(1);
-    if (payload !== null) {
-        // eslint-disable-next-line no-console
-        console.log(`[paint-debug @${ts}ms] ${step}`, payload);
-        return;
-    }
-    // eslint-disable-next-line no-console
-    console.log(`[paint-debug @${ts}ms] ${step}`);
-}
+const paintDebugMark = createPaintDebugLogger('paint-debug');
 
 const isTouchDevice = isCoarsePointerDevice();
 
@@ -39,7 +30,6 @@ export class Preloader {
         this.isCompleting = false;
         this.loadedAssets = new Map();
         this.resizeHandler = null;
-        this.resizeTimeout = null;
         this._lastGridWidth = 0;
         this._lastGridHeight = 0;
 
@@ -288,11 +278,7 @@ export class Preloader {
 
     setupResizeListener() {
         if (this.resizeHandler) return;
-
-        this.resizeHandler = () => {
-            if (this.resizeTimeout) clearTimeout(this.resizeTimeout);
-            this.resizeTimeout = setTimeout(() => this.generateGrid(), 200);
-        };
+        this.resizeHandler = debounce(() => this.generateGrid(), 200);
 
         window.addEventListener('resize', this.resizeHandler, { passive: true });
     }
@@ -300,12 +286,8 @@ export class Preloader {
     teardownResizeListener() {
         if (this.resizeHandler) {
             window.removeEventListener('resize', this.resizeHandler);
+            this.resizeHandler.cancel?.();
             this.resizeHandler = null;
-        }
-
-        if (this.resizeTimeout) {
-            clearTimeout(this.resizeTimeout);
-            this.resizeTimeout = null;
         }
     }
 

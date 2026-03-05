@@ -200,4 +200,10 @@ function destroyMenu() {
   cachedMenuToggleBtn = null;
 }
 
-export { initMenu, destroyMenu };
+function closeMenuIfOpen() {
+  if (isMenuOpen && !isAnimating) {
+    closeMenu();
+  }
+}
+
+export { initMenu, destroyMenu, closeMenuIfOpen };

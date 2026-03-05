@@ -6,9 +6,11 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { GrainShader, EdgeDistortionShader, createPostFXUniforms } from './shaders/post-fx.js';
 import { getPerformanceProfile } from './perf.js';
 import {
-  getWorkFilmTransitionState,
-  clearWorkFilmTransitionState,
-} from './work-film-transition-state.js';
+  ensureBackgroundElement,
+  getFilmContainer,
+} from './project-canvas/dom.js';
+import { createProjectCanvasEvents } from './project-canvas/events.js';
+export { bindFilmTemplateFromTransitionState } from './project-canvas/dom.js';
 
 let renderer = null;
 let scene = null;
@@ -18,12 +20,10 @@ let backgroundMesh = null;
 let imagePlanes = [];
 let rafId = null;
 let container = null;
-let resizeTimeout = null;
 let isRunning = false;
 let isTabVisible = true;
-let visibilityHandler = null;
 let gui = null;
-let scrollRafPending = false;
+let eventBindings = null;
 const imageTextureCache = new Map();
 
 const postFXUniforms = createPostFXUniforms();
@@ -138,46 +138,6 @@ const FBMWarpShader = /* glsl */ `
 
 // ─── Helpers ──────────────────────────────────────────────────
 
-function getFilmContainer(containerArg) {
-  if (containerArg && containerArg.querySelector) return containerArg;
-  const containers = document.querySelectorAll('[data-barba="container"][data-barba-namespace="film"]');
-  if (containers.length) return containers[containers.length - 1];
-  return document;
-}
-
-function ensureBackgroundElement() {
-  let bg = document.getElementById('background');
-  if (bg) return bg;
-  bg = document.createElement('div');
-  bg.id = 'background';
-  document.body.insertBefore(bg, document.body.firstChild);
-  return bg;
-}
-
-export function bindFilmTemplateFromTransitionState(containerArg) {
-  const containerEl = getFilmContainer(containerArg);
-  const state = getWorkFilmTransitionState();
-  if (!containerEl || !state) return null;
-
-  const coverImg = containerEl.querySelector('.coverimg img');
-  if (coverImg && state.imageSrc) {
-    coverImg.src = state.imageSrc;
-  }
-
-  const titleEl = containerEl.querySelector('.slide-title');
-  if (titleEl && state.title) {
-    titleEl.textContent = state.title;
-  }
-
-  clearWorkFilmTransitionState();
-  return state;
-}
-
-function debouncedResize() {
-  if (resizeTimeout) clearTimeout(resizeTimeout);
-  resizeTimeout = window.setTimeout(onResizeHandler, 150);
-}
-
 function onResizeHandler() {
   if (!renderer || !isRunning || !camera || !composer) return;
 
@@ -205,12 +165,8 @@ function onResizeHandler() {
 }
 
 function onScrollHandler() {
-  if (!isRunning || scrollRafPending) return;
-  scrollRafPending = true;
-  requestAnimationFrame(() => {
-    scrollRafPending = false;
-    if (isRunning) updateImages();
-  });
+  if (!isRunning) return;
+  updateImages();
 }
 
 // ─── Image planes (overlay on top of shader) ─────────────────
@@ -438,11 +394,14 @@ async function initProjectCanvas(containerArg) {
   // Create lil-gui controls
   // createGUI();
 
-  window.addEventListener('resize', debouncedResize);
-  window.addEventListener('scroll', onScrollHandler, { passive: true });
-
-  visibilityHandler = () => { isTabVisible = !document.hidden; };
-  document.addEventListener('visibilitychange', visibilityHandler);
+  eventBindings = createProjectCanvasEvents({
+    onResize: onResizeHandler,
+    onScroll: onScrollHandler,
+    onVisibilityChange: (visible) => {
+      isTabVisible = visible;
+    },
+  });
+  eventBindings.attach();
 
   updateImages();
   animate();
@@ -479,19 +438,11 @@ export function destroyFilm() {
     rafId = null;
   }
 
-  if (visibilityHandler) {
-    document.removeEventListener('visibilitychange', visibilityHandler);
-    visibilityHandler = null;
+  if (eventBindings) {
+    eventBindings.detach();
+    eventBindings = null;
   }
   isTabVisible = true;
-
-  window.removeEventListener('resize', debouncedResize);
-  window.removeEventListener('scroll', onScrollHandler);
-
-  if (resizeTimeout) {
-    clearTimeout(resizeTimeout);
-    resizeTimeout = null;
-  }
 
   // Destroy GUI
   if (gui) {

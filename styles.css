@@ -3,15 +3,13 @@
 
 @font-face {
   font-family: OTJubilee-Golden;
-  src: url("/CorteseLight.woff2") format("woff2"),
-    url("/CorteseLight.otf") format("opentype");
+  src: url("/CorteseLight.woff2") format("woff2");
   font-display: swap;
 }
 
 @font-face {
   font-family: NeueMontreal;
-  src: url("/PPNeueMontreal-Medium.woff2") format("woff2"),
-    url("/PPNeueMontreal-Medium.otf") format("opentype");
+  src: url("/PPNeueMontreal-Medium.woff2") format("woff2");
   font-display: swap;
 }
 
@@ -156,7 +154,7 @@ button {
 }
 
 span {
-  color: var(--swatch-dark);
+  color: inherit;
 }
 
 h1,
@@ -330,12 +328,12 @@ p {
   transition: opacity 0.14s ease;
 }
 
-body.work-booting #background,
 body.work-transitioning #background {
   opacity: 0;
   visibility: hidden;
 }
 
+body.work-booting #background,
 body.work-ready #background {
   opacity: 1;
   visibility: visible;
@@ -1375,7 +1373,7 @@ section {
 /* Typography & Text */
 .u-text-style-display {
   font-size: var(--typography-font-size-display);
-  line-height: var(--typography-line-height-small);
+  line-height: var(--typography-line-height-1);
   font-weight: var(--typography-font-primary-medium);
   letter-spacing: var(--typography-letter-spacing);
 }
@@ -2771,7 +2769,7 @@ img {
   }
 }
 
-/* Archive page - white nav (class toggled via barba.js) */
+/* Archive page - white nav */
 .page-wrap--archive .nav-wrap a,
 .page-wrap--archive .nav-contain a,
 .page-wrap--archive .nav-contain a span,
@@ -2786,12 +2784,12 @@ img {
 }
 
 /* Text alignment for home/contact pages */
-[data-barba-namespace="home"] .hero-logo-top h1 {
+[data-page-namespace="home"] .hero-logo-top h1 {
   text-align: center;
 }
 
-[data-barba-namespace="contact"] .contact-header,
-[data-barba-namespace="contact"] .contact-contain .reveal-title {
+[data-page-namespace="contact"] .contact-header,
+[data-page-namespace="contact"] .contact-contain .reveal-title {
   text-align: center;
 }
 
