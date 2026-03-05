@@ -1,13 +1,10 @@
 import gsap from 'gsap';
 import { GLTFLoader, DRACOLoader } from 'three-stdlib';
 import * as THREE from 'three';
-import { isCoarsePointerDevice } from './perf.js';
 import { createPaintDebugLogger } from './runtime/debug.js';
 import { debounce } from './runtime/timing.js';
 
 const paintDebugMark = createPaintDebugLogger('paint-debug');
-
-const isTouchDevice = isCoarsePointerDevice();
 
 export class Preloader {
     constructor() {
@@ -99,7 +96,7 @@ export class Preloader {
             this.teardownResizeListener();
             this.container.style.display = 'none';
             paintDebugMark('preloader hidden (already seen)');
-            window.audioEnabled = !isTouchDevice;
+            window.audioEnabled = true;
             window.gyroEnabled = true;
             return Promise.resolve();
         }
@@ -385,8 +382,8 @@ export class Preloader {
 
     handleEnterClick(wrapper) {
         // 1. Audio Permission
-        window.audioEnabled = !isTouchDevice;
-        if (!isTouchDevice) {
+        window.audioEnabled = true;
+        if (typeof window.AudioContext !== 'undefined' || typeof window.webkitAudioContext !== 'undefined') {
             // Unlock AudioContext (needed for Web Audio API users)
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             audioCtx.resume();

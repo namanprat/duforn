@@ -12,7 +12,6 @@ const ANIM_CONFIG = {
   stagger: 0.02
 };
 
-const TRANSFORM_ORIGIN = "50% 50% -10px";
 const isTouchDevice = isCoarsePointerDevice();
 
 // Store instances for cleanup
@@ -30,32 +29,33 @@ export function getHaptics() {
 const LINK_SELECTOR = '.nav-wrap a, .bottom-nav-wrap a, .contact-contain a';
 
 export function initLinkHover() {
-  if (isTouchDevice) return;
   const navLinks = document.querySelectorAll(LINK_SELECTOR);
 
   navLinks.forEach(link => {
     // Skip if already initialized or excluded
     if (link.id === 'time' || link.classList.contains('menu-toggle-btn') || linkInstances.has(link)) return;
 
+    if (isTouchDevice) {
+      const handleTouchStart = () => {
+        getHaptics().trigger('nudge');
+      };
+
+      link.addEventListener('touchstart', handleTouchStart, { passive: true });
+      linkInstances.set(link, { handleTouchStart });
+      return;
+    }
+
     const originalText = (link.textContent || '').trim();
     if (!originalText) return;
 
-    // Ensure block-level box model for 3D rotation effect
-    link.style.display = 'inline-block';
-
     gsap.set(link, {
       position: 'relative',
-      overflow: 'hidden',
-      perspective: 800
+      display: 'inline-block'
     });
 
-    // Use original text directly so it can wrap on multiple lines,
-    // avoiding non-breaking space replacement that forces single lines.
-    const normalizedText = originalText;
-
     // Create dual text structure
-    const originalSpan = createTextSpan(normalizedText, false);
-    const italicSpan = createTextSpan(normalizedText, true);
+    const originalSpan = createTextSpan(originalText, false);
+    const italicSpan = createTextSpan(originalText, true);
 
     link.textContent = '';
     link.appendChild(originalSpan);
@@ -65,19 +65,17 @@ export function initLinkHover() {
     const originalSplit = new SplitText(originalSpan, { type: 'chars' });
     const italicSplit = new SplitText(italicSpan, { type: 'chars' });
 
-    // Initial positions
+    // Initial positions: vertical "dive" animation instead of 3D flip.
     gsap.set(originalSplit.chars, {
-      rotationX: 0,
+      yPercent: 0,
       opacity: 1,
-      transformOrigin: TRANSFORM_ORIGIN,
-      backfaceVisibility: 'hidden'
+      display: 'inline-block'
     });
 
     gsap.set(italicSplit.chars, {
-      rotationX: -90,
+      yPercent: -110,
       opacity: 0,
-      transformOrigin: TRANSFORM_ORIGIN,
-      backfaceVisibility: 'hidden'
+      display: 'inline-block'
     });
 
     // Animation state
@@ -133,16 +131,13 @@ function createTextSpan(text, isItalic) {
   span.textContent = text;
 
   gsap.set(span, {
-    display: 'block',
-    width: '100%',
-    height: '100%',
-    textAlign: 'center',
+    display: 'inline-block',
+    whiteSpace: 'pre-wrap',
     ...(isItalic && {
       position: 'absolute',
       top: 0,
       left: 0,
       fontStyle: 'normal',
-      width: '100%'
     })
   });
 
@@ -154,23 +149,23 @@ function animateChars(originalChars, italicChars, isHover) {
 
   if (isHover) {
     tl.to(originalChars, {
-      rotationX: 90,
+      yPercent: 110,
       opacity: 0,
       ...ANIM_CONFIG
     }, 0)
       .to(italicChars, {
-        rotationX: 0,
+        yPercent: 0,
         opacity: 1,
         ...ANIM_CONFIG
       }, 0);
   } else {
     tl.to(originalChars, {
-      rotationX: 0,
+      yPercent: 0,
       opacity: 1,
       ...ANIM_CONFIG
     }, 0)
       .to(italicChars, {
-        rotationX: -90,
+        yPercent: -110,
         opacity: 0,
         ...ANIM_CONFIG
       }, 0);
@@ -187,17 +182,23 @@ export function destroyLinkHover() {
 
     if (instance) {
       // Kill active tween before reverting splits
+      if (instance.handleTouchStart) {
+        link.removeEventListener('touchstart', instance.handleTouchStart);
+      }
+
       if (instance.getTween) {
         const activeTween = instance.getTween();
         if (activeTween) activeTween.kill();
       }
-      instance.originalSplit.revert();
-      instance.italicSplit.revert();
+      if (instance.originalSplit && instance.italicSplit) {
+        instance.originalSplit.revert();
+        instance.italicSplit.revert();
+      }
 
       // Remove listeners
-      link.removeEventListener('mouseenter', instance.handleEnter);
-      link.removeEventListener('mouseleave', instance.handleLeave);
-      link.removeEventListener('click', instance.handleClick);
+      if (instance.handleEnter) link.removeEventListener('mouseenter', instance.handleEnter);
+      if (instance.handleLeave) link.removeEventListener('mouseleave', instance.handleLeave);
+      if (instance.handleClick) link.removeEventListener('click', instance.handleClick);
 
       // Clear WeakMap entry
       linkInstances.delete(link);
@@ -205,7 +206,7 @@ export function destroyLinkHover() {
 
     // Restore original text
     const firstSpan = link.querySelector('span');
-    if (firstSpan) {
+    if (firstSpan && !isTouchDevice) {
       const text = firstSpan.textContent;
       link.textContent = text;
       gsap.set(link, { clearProps: 'all' });

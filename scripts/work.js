@@ -49,64 +49,6 @@ let workGyroInitHandler = null;
 
 const paintDebugMark = createPaintDebugLogger('paint-debug');
 const stripBridge = getWorkStripBridge();
-let workDebugBadge = null;
-let workDebugGui = null;
-const workDebugControls = {
-  windMultiplier: 1,
-};
-
-// GUI helpers removed for work: keep badge + controls but no runtime GUI
-
-function ensureWorkDebugBadge() {
-  if (workDebugBadge && workDebugBadge.isConnected) return workDebugBadge;
-  const badge = document.createElement('div');
-  badge.id = 'work-rapier-debug-badge';
-  Object.assign(badge.style, {
-    position: 'fixed',
-    top: '12px',
-    left: '12px',
-    zIndex: '2147483647',
-    background: 'rgba(10,10,10,0.88)',
-    color: '#9df7b6',
-    fontFamily: 'monospace',
-    fontSize: '12px',
-    lineHeight: '1.2',
-    padding: '8px 10px',
-    borderRadius: '6px',
-    pointerEvents: 'none',
-    maxWidth: '92vw',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-  });
-  badge.textContent = 'Work debug: initializing...';
-  document.body.appendChild(badge);
-  workDebugBadge = badge;
-  return badge;
-}
-
-function setWorkDebugStatus(text) {
-  const badge = ensureWorkDebugBadge();
-  badge.textContent = text;
-}
-
-function destroyWorkDebugBadge() {
-  if (workDebugBadge?.isConnected) {
-    workDebugBadge.remove();
-  }
-  workDebugBadge = null;
-}
-
-function initWorkDebugGui() {
-  // GUI disabled: use workDebugBadge and `workDebugControls` for simple live status.
-}
-
-function destroyWorkDebugGui() {
-  if (workDebugGui) {
-    workDebugGui.destroy();
-    workDebugGui = null;
-  }
-}
 
 function resolveFirstFrameGateWithDebug() {
   resolveWorkFirstFrameGate();
@@ -1231,7 +1173,7 @@ function updateStrip(time) {
       Math.sin(time * CONFIG.WIND_GUST_FREQ_2) * 0.5) +
     0.5;
   const clampedGust = Math.max(0, gust);
-  const windStrength = (CONFIG.WIND_BASE_STRENGTH + clampedGust * CONFIG.WIND_GUST_SCALE) * workDebugControls.windMultiplier;
+  const windStrength = CONFIG.WIND_BASE_STRENGTH + clampedGust * CONFIG.WIND_GUST_SCALE;
   stripBridge.setScrollTarget(state.scrollTarget);
   stripBridge.setScrollCurrent(state.scrollCurrent);
   stripBridge.setWindStrength(windStrength);
@@ -2410,8 +2352,6 @@ export async function initWork() {
   resetWorkFirstFrameGate();
   paintDebugMark('initWork start');
   console.warn('[work-strip] initWork called');
-  setWorkDebugStatus('Work debug: initWork called');
-  initWorkDebugGui();
 
 
   const mainContainer = getActiveWorkContainer();
@@ -2452,7 +2392,6 @@ export async function initWork() {
   }
   state.bridgeReadyCleanup = stripBridge.onReady(() => {
     console.warn('[work-strip] strip bridge connected (React/Rapier host ready)');
-    setWorkDebugStatus('Work debug: bridge connected (Rapier host ready)');
   });
 
   startTextureLoading();
@@ -2498,7 +2437,6 @@ export function destroyWork({ keepCoverPlane = false, preserveTexture = null } =
   isWorkInitialized = false;
   paintDebugMark('destroyWork');
   console.warn('[work-strip] destroyWork called');
-  setWorkDebugStatus('Work debug: destroyWork called');
   const preserveOverlay = state.transitionLocked;
   // (cinematic exit removed)
 
@@ -2542,8 +2480,6 @@ export function destroyWork({ keepCoverPlane = false, preserveTexture = null } =
   stripBridge.setScrollCurrent(0);
   stripBridge.setScrollTarget(0);
   stripBridge.setStripMetrics({ axis: 'horizontal' });
-  destroyWorkDebugGui();
-  destroyWorkDebugBadge();
 
   // Clean up cover plane (unless transition wants to keep it)
   if (!keepCoverPlane) {
