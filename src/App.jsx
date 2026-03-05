@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
 import SiteLayout from './components/layout/SiteLayout.jsx';
@@ -11,7 +11,7 @@ import FilmPage from './routes/FilmPage.jsx';
 import webgl, { destroyWebgl, isWebglRunning, setScenePage, setBaseSceneOverlayMode, setBaseSceneVisibility, swapModel } from '../scripts/three.js';
 import { initMenu, destroyMenu } from '../scripts/menu.js';
 import { initLinkHover, destroyLinkHover } from '../scripts/link-hover.js';
-import { animateRevealEnter, cleanupSplits } from '../scripts/text-reveal.js';
+import { animateRevealEnter, animateRevealLeave, cleanupSplits } from '../scripts/text-reveal.js';
 import { initLenis, destroyLenis } from '../scripts/lenis-scroll.js';
 import { initWork, destroyWork, startWorkTexturePreload } from '../scripts/work.js';
 import { initArchive, destroyArchive } from '../scripts/archive.js';
@@ -80,10 +80,9 @@ function NavigationBridge() {
   return null;
 }
 
-function AppShell() {
-  const location = useLocation();
+function AppShell({ routeLocation }) {
   const contentRef = useRef(null);
-  const previousNamespaceRef = useRef(getNamespace(location.pathname));
+  const previousNamespaceRef = useRef(getNamespace(routeLocation.pathname));
 
   useClock();
 
@@ -109,7 +108,7 @@ function AppShell() {
   }, []);
 
   useEffect(() => {
-    const currentPath = location.pathname;
+    const currentPath = routeLocation.pathname;
     document.title = TITLES[currentPath] || 'Duforn';
     const namespace = getNamespace(currentPath);
     const previousNamespace = previousNamespaceRef.current;
@@ -119,7 +118,7 @@ function AppShell() {
 
     const stopEnterTween = runRouteEnterTransition(contentRef.current);
     const container = document.querySelector('[data-page-container="true"]');
-    if (container) animateRevealEnter(container, { excludeSelector: '.home-hero-brand' });
+    if (container) animateRevealEnter(container);
     initLinkHover();
 
     const ensureWebgl = () => {
@@ -194,7 +193,7 @@ function AppShell() {
       };
       pageCleanup[namespace]?.();
     };
-  }, [location.pathname]);
+  }, [routeLocation.pathname]);
 
   return (
     <>
@@ -209,9 +208,50 @@ function AppShell() {
 }
 
 export default function App() {
+  const liveLocation = useLocation();
+  const [displayedLocation, setDisplayedLocation] = useState(liveLocation);
+  const transitionTokenRef = useRef(0);
+
+  useEffect(() => {
+    const fromPath = displayedLocation.pathname;
+    const toPath = liveLocation.pathname;
+
+    if (fromPath === toPath) return;
+
+    const isLeavingRevealPage = fromPath === '/' || fromPath === '/contact';
+
+    // Only delay the route swap (to animate text out) when leaving home or contact.
+    if (!isLeavingRevealPage) {
+      setDisplayedLocation(liveLocation);
+      return;
+    }
+
+    let cancelled = false;
+    const token = ++transitionTokenRef.current;
+
+    const runLeaveThenSwap = async () => {
+      const currentContainer = document.querySelector('[data-page-container="true"]');
+      if (currentContainer) {
+        await animateRevealLeave(currentContainer);
+      }
+
+      if (cancelled || token !== transitionTokenRef.current) return;
+
+      // Reset split state before mounting the next route and running enter.
+      cleanupSplits();
+      setDisplayedLocation(liveLocation);
+    };
+
+    runLeaveThenSwap();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [liveLocation, displayedLocation.pathname]);
+
   return (
-    <Routes>
-      <Route element={<AppShell />}>
+    <Routes location={displayedLocation}>
+      <Route element={<AppShell routeLocation={displayedLocation} />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/work" element={<WorkPage />} />
         <Route path="/contact" element={<ContactPage />} />

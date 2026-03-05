@@ -5,20 +5,17 @@ import { isCoarsePointerDevice } from './perf.js';
 
 gsap.registerPlugin(SplitText);
 
-// Shared animation config
 const ANIM_CONFIG = {
   duration: 0.5,
   ease: 'power2.inOut',
-  stagger: 0.02
+  stagger: 0.02,
 };
 
 const isTouchDevice = isCoarsePointerDevice();
+const LINK_SELECTOR = '.nav-wrap a, .bottom-nav-wrap a, .contact-contain a';
 
-// Store instances for cleanup
 const linkInstances = new WeakMap();
 
-// Shared haptics instance – debug:true produces synthesised audio clicks
-// on devices without the Vibration API (i.e. desktop browsers).
 let haptics = null;
 
 export function getHaptics() {
@@ -26,190 +23,228 @@ export function getHaptics() {
   return haptics;
 }
 
-const LINK_SELECTOR = '.nav-wrap a, .bottom-nav-wrap a, .contact-contain a';
+function shouldSkipLink(link) {
+  if (linkInstances.has(link)) return true;
+  if (link.id === 'time') return true;
+  if (link.classList.contains('menu-toggle-btn')) return true;
+  if (link.classList.contains('menu-item')) return true;
+  return false;
+}
 
-export function initLinkHover() {
-  const navLinks = document.querySelectorAll(LINK_SELECTOR);
-
-  navLinks.forEach(link => {
-    // Skip if already initialized or excluded
-    if (link.id === 'time' || link.classList.contains('menu-toggle-btn') || linkInstances.has(link)) return;
-
-    if (isTouchDevice) {
-      const handleTouchStart = () => {
-        getHaptics().trigger('nudge');
-      };
-
-      link.addEventListener('touchstart', handleTouchStart, { passive: true });
-      linkInstances.set(link, { handleTouchStart });
-      return;
+function wrapCharsWithMasks(chars) {
+  return chars.map((charNode) => {
+    if (charNode.textContent === ' ') {
+      charNode.textContent = '\u00A0';
     }
 
-    const originalText = (link.textContent || '').trim();
-    if (!originalText) return;
-
-    gsap.set(link, {
-      position: 'relative',
-      display: 'inline-block'
+    const mask = document.createElement('span');
+    Object.assign(mask.style, {
+      display: 'inline-block',
+      overflow: 'hidden',
+      verticalAlign: 'top',
+      lineHeight: '1em',
+      pointerEvents: 'none',
     });
 
-    // Create dual text structure
-    const originalSpan = createTextSpan(originalText, false);
-    const italicSpan = createTextSpan(originalText, true);
+    const parent = charNode.parentNode;
+    if (parent) {
+      parent.insertBefore(mask, charNode);
+      mask.appendChild(charNode);
+    }
 
-    link.textContent = '';
-    link.appendChild(originalSpan);
-    link.appendChild(italicSpan);
-
-    // Split once and reuse
-    const originalSplit = new SplitText(originalSpan, { type: 'chars' });
-    const italicSplit = new SplitText(italicSpan, { type: 'chars' });
-
-    // Initial positions: vertical "dive" animation instead of 3D flip.
-    gsap.set(originalSplit.chars, {
-      yPercent: 0,
-      opacity: 1,
-      display: 'inline-block'
+    gsap.set(charNode, {
+      display: 'inline-block',
+      willChange: 'transform, opacity',
+      force3D: true,
+      pointerEvents: 'none',
     });
 
-    gsap.set(italicSplit.chars, {
-      yPercent: -110,
-      opacity: 0,
-      display: 'inline-block'
-    });
-
-    // Animation state
-    let tl = null;
-
-    // Event handlers
-    const handleEnter = () => {
-      if (link.getAttribute('aria-current') === 'page') return;
-
-      tl?.kill();
-      tl = animateChars(originalSplit.chars, italicSplit.chars, true);
-
-      // Light haptic pulse on hover
-      getHaptics().trigger([
-        { duration: 10 },
-      ], { intensity: 1 });
-    };
-
-    const handleClick = () => {
-      // Stronger nudge haptic on click
-      getHaptics().trigger([
-        { duration: 80, intensity: 0.8 },
-        { delay: 80, duration: 50, intensity: 0.3 },
-      ]);
-    };
-
-    const handleLeave = () => {
-      if (link.getAttribute('aria-current') === 'page') return;
-
-      tl?.kill();
-      tl = animateChars(originalSplit.chars, italicSplit.chars, false);
-    };
-
-    link.addEventListener('mouseenter', handleEnter);
-    link.addEventListener('mouseleave', handleLeave);
-    link.addEventListener('click', handleClick);
-
-    // Store for cleanup (include tween getter for destroy)
-    const instance = {
-      originalSplit,
-      italicSplit,
-      handleEnter,
-      handleLeave,
-      handleClick,
-      getTween: () => tl,
-    };
-    linkInstances.set(link, instance);
+    return charNode;
   });
 }
 
-function createTextSpan(text, isItalic) {
-  const span = document.createElement('span');
-  span.textContent = text;
-
-  gsap.set(span, {
-    display: 'inline-block',
-    whiteSpace: 'pre-wrap',
-    ...(isItalic && {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      fontStyle: 'normal',
-    })
-  });
-
-  return span;
-}
-
-function animateChars(originalChars, italicChars, isHover) {
+function animateChars(baseChars, hoverChars, isHover) {
   const tl = gsap.timeline();
 
   if (isHover) {
-    tl.to(originalChars, {
-      yPercent: 110,
+    // Current text exits upward, hover text enters from bottom.
+    tl.to(baseChars, {
+      yPercent: -110,
       opacity: 0,
-      ...ANIM_CONFIG
+      ...ANIM_CONFIG,
     }, 0)
-      .to(italicChars, {
+      .to(hoverChars, {
         yPercent: 0,
         opacity: 1,
-        ...ANIM_CONFIG
+        ...ANIM_CONFIG,
       }, 0);
   } else {
-    tl.to(originalChars, {
+    tl.to(baseChars, {
       yPercent: 0,
       opacity: 1,
-      ...ANIM_CONFIG
+      ...ANIM_CONFIG,
     }, 0)
-      .to(italicChars, {
-        yPercent: -110,
+      .to(hoverChars, {
+        yPercent: 110,
         opacity: 0,
-        ...ANIM_CONFIG
+        ...ANIM_CONFIG,
       }, 0);
   }
 
   return tl;
 }
 
+export function initLinkHover() {
+  const links = document.querySelectorAll(LINK_SELECTOR);
+
+  links.forEach((link) => {
+    if (shouldSkipLink(link)) return;
+
+    const originalText = (link.textContent || '').trim();
+    if (!originalText) return;
+
+    if (isTouchDevice) {
+      let lastTouchAt = 0;
+
+      const handleTouchStart = () => {
+        lastTouchAt = Date.now();
+        getHaptics().trigger('nudge');
+      };
+
+      const handleClick = () => {
+        if (Date.now() - lastTouchAt < 400) return;
+        getHaptics().trigger('nudge');
+      };
+
+      link.addEventListener('touchstart', handleTouchStart, { passive: true });
+      link.addEventListener('click', handleClick);
+
+      linkInstances.set(link, {
+        mode: 'touch',
+        originalText,
+        handleTouchStart,
+        handleClick,
+      });
+
+      return;
+    }
+
+    const root = document.createElement('span');
+    Object.assign(root.style, {
+      position: 'relative',
+      display: 'inline-block',
+      pointerEvents: 'none',
+      verticalAlign: 'baseline',
+    });
+
+    const baseLayer = document.createElement('span');
+    baseLayer.textContent = originalText;
+    Object.assign(baseLayer.style, {
+      display: 'inline-block',
+      whiteSpace: 'nowrap',
+      pointerEvents: 'none',
+    });
+
+    const hoverLayer = document.createElement('span');
+    hoverLayer.textContent = originalText;
+    Object.assign(hoverLayer.style, {
+      position: 'absolute',
+      top: '0',
+      left: '0',
+      width: '100%',
+      display: 'inline-block',
+      whiteSpace: 'nowrap',
+      pointerEvents: 'none',
+    });
+
+    root.appendChild(baseLayer);
+    root.appendChild(hoverLayer);
+
+    link.textContent = '';
+    link.appendChild(root);
+
+    const baseSplit = new SplitText(baseLayer, { type: 'chars' });
+    const hoverSplit = new SplitText(hoverLayer, { type: 'chars' });
+
+    const baseChars = wrapCharsWithMasks(baseSplit.chars);
+    const hoverChars = wrapCharsWithMasks(hoverSplit.chars);
+
+    gsap.set(baseChars, {
+      yPercent: 0,
+      opacity: 1,
+    });
+
+    gsap.set(hoverChars, {
+      yPercent: 110,
+      opacity: 0,
+    });
+
+    let timeline = null;
+
+    const handleEnter = () => {
+      if (link.getAttribute('aria-current') === 'page') return;
+
+      timeline?.kill();
+      timeline = animateChars(baseChars, hoverChars, true);
+      getHaptics().trigger([{ duration: 10 }], { intensity: 1 });
+    };
+
+    const handleLeave = () => {
+      if (link.getAttribute('aria-current') === 'page') return;
+
+      timeline?.kill();
+      timeline = animateChars(baseChars, hoverChars, false);
+    };
+
+    const handleClick = () => {
+      getHaptics().trigger([
+        { duration: 80, intensity: 0.8 },
+        { delay: 80, duration: 50, intensity: 0.3 },
+      ]);
+    };
+
+    link.addEventListener('mouseenter', handleEnter);
+    link.addEventListener('mouseleave', handleLeave);
+    link.addEventListener('click', handleClick);
+
+    linkInstances.set(link, {
+      mode: 'desktop',
+      originalText,
+      baseSplit,
+      hoverSplit,
+      getTimeline: () => timeline,
+      handleEnter,
+      handleLeave,
+      handleClick,
+    });
+  });
+}
+
 export function destroyLinkHover() {
-  const navLinks = document.querySelectorAll(LINK_SELECTOR);
+  const links = document.querySelectorAll(LINK_SELECTOR);
 
-  navLinks.forEach(link => {
+  links.forEach((link) => {
     const instance = linkInstances.get(link);
+    if (!instance) return;
 
-    if (instance) {
-      // Kill active tween before reverting splits
-      if (instance.handleTouchStart) {
-        link.removeEventListener('touchstart', instance.handleTouchStart);
-      }
-
-      if (instance.getTween) {
-        const activeTween = instance.getTween();
-        if (activeTween) activeTween.kill();
-      }
-      if (instance.originalSplit && instance.italicSplit) {
-        instance.originalSplit.revert();
-        instance.italicSplit.revert();
-      }
-
-      // Remove listeners
-      if (instance.handleEnter) link.removeEventListener('mouseenter', instance.handleEnter);
-      if (instance.handleLeave) link.removeEventListener('mouseleave', instance.handleLeave);
-      if (instance.handleClick) link.removeEventListener('click', instance.handleClick);
-
-      // Clear WeakMap entry
+    if (instance.mode === 'touch') {
+      link.removeEventListener('touchstart', instance.handleTouchStart);
+      link.removeEventListener('click', instance.handleClick);
       linkInstances.delete(link);
+      return;
     }
 
-    // Restore original text
-    const firstSpan = link.querySelector('span');
-    if (firstSpan && !isTouchDevice) {
-      const text = firstSpan.textContent;
-      link.textContent = text;
-      gsap.set(link, { clearProps: 'all' });
-    }
+    const activeTimeline = instance.getTimeline?.();
+    if (activeTimeline) activeTimeline.kill();
+
+    if (instance.handleEnter) link.removeEventListener('mouseenter', instance.handleEnter);
+    if (instance.handleLeave) link.removeEventListener('mouseleave', instance.handleLeave);
+    if (instance.handleClick) link.removeEventListener('click', instance.handleClick);
+
+    instance.baseSplit?.revert?.();
+    instance.hoverSplit?.revert?.();
+
+    link.textContent = instance.originalText;
+    linkInstances.delete(link);
   });
 }
