@@ -1,4 +1,5 @@
 import { getLenis } from "./lenis-scroll.js";
+import { bindHapticTap } from "./link-hover.js";
 
 let isMenuOpen = false;
 let isAnimating = false;
@@ -9,7 +10,9 @@ let menuToggleClickHandler = null;
 let menuKeydownHandler = null;
 let cachedMenuToggleBtn = null;
 let closeTransitionHandler = null;
+let menuToggleHapticCleanup = null;
 const receiptCloseHandlers = new WeakMap();
+const receiptCloseHapticCleanups = new WeakMap();
 
 // menu functions
 function openMenu() {
@@ -124,6 +127,7 @@ function initMenu() {
       }
     };
     cachedMenuToggleBtn.addEventListener("click", menuToggleClickHandler);
+    menuToggleHapticCleanup = bindHapticTap(cachedMenuToggleBtn, 'selection');
   }
   menuKeydownHandler = (event) => {
     if (event.key === "Escape" && isMenuOpen && !isAnimating) {
@@ -142,6 +146,7 @@ function initMenu() {
     };
     button.addEventListener("click", onClick);
     receiptCloseHandlers.set(button, onClick);
+    receiptCloseHapticCleanups.set(button, bindHapticTap(button, 'selection'));
   });
 
   // Populate receipt datetime with current time
@@ -169,6 +174,10 @@ function destroyMenu() {
   if (cachedMenuToggleBtn && menuToggleClickHandler) {
     cachedMenuToggleBtn.removeEventListener("click", menuToggleClickHandler);
   }
+  if (menuToggleHapticCleanup) {
+    menuToggleHapticCleanup();
+    menuToggleHapticCleanup = null;
+  }
   if (menuKeydownHandler) {
     document.removeEventListener("keydown", menuKeydownHandler);
   }
@@ -184,6 +193,11 @@ function destroyMenu() {
     if (onClick) {
       button.removeEventListener("click", onClick);
       receiptCloseHandlers.delete(button);
+    }
+    const cleanupHaptics = receiptCloseHapticCleanups.get(button);
+    if (cleanupHaptics) {
+      cleanupHaptics();
+      receiptCloseHapticCleanups.delete(button);
     }
   });
 

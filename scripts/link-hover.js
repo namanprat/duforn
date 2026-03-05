@@ -13,6 +13,7 @@ const ANIM_CONFIG = {
 
 const isTouchDevice = isCoarsePointerDevice();
 const LINK_SELECTOR = '.nav-wrap a, .bottom-nav-wrap a, .contact-contain a';
+const MOBILE_CLICK_GUARD_MS = 450;
 
 const linkInstances = new WeakMap();
 
@@ -23,10 +24,48 @@ export function getHaptics() {
   return haptics;
 }
 
+export function triggerHapticFeedback(preset = 'nudge') {
+  return getHaptics().trigger(preset);
+}
+
+export function bindHapticTap(target, preset = 'nudge') {
+  if (!target) return () => {};
+
+  if (isTouchDevice) {
+    let lastPointerDownAt = 0;
+
+    const handlePointerDown = () => {
+      lastPointerDownAt = Date.now();
+      triggerHapticFeedback(preset);
+    };
+
+    const handleClick = () => {
+      if (Date.now() - lastPointerDownAt < MOBILE_CLICK_GUARD_MS) return;
+      triggerHapticFeedback(preset);
+    };
+
+    target.addEventListener('pointerdown', handlePointerDown, { passive: true });
+    target.addEventListener('click', handleClick);
+
+    return () => {
+      target.removeEventListener('pointerdown', handlePointerDown);
+      target.removeEventListener('click', handleClick);
+    };
+  }
+
+  const handleClick = () => {
+    triggerHapticFeedback(preset);
+  };
+
+  target.addEventListener('click', handleClick);
+  return () => {
+    target.removeEventListener('click', handleClick);
+  };
+}
+
 function shouldSkipLink(link) {
   if (linkInstances.has(link)) return true;
   if (link.id === 'time') return true;
-  if (link.classList.contains('menu-toggle-btn')) return true;
   if (link.classList.contains('menu-item')) return true;
   return false;
 }
@@ -104,26 +143,12 @@ export function initLinkHover() {
     if (!originalText) return;
 
     if (isTouchDevice) {
-      let lastTouchAt = 0;
-
-      const handleTouchStart = () => {
-        lastTouchAt = Date.now();
-        getHaptics().trigger('nudge');
-      };
-
-      const handleClick = () => {
-        if (Date.now() - lastTouchAt < 400) return;
-        getHaptics().trigger('nudge');
-      };
-
-      link.addEventListener('touchstart', handleTouchStart, { passive: true });
-      link.addEventListener('click', handleClick);
+      const cleanupTapHaptics = bindHapticTap(link, 'nudge');
 
       linkInstances.set(link, {
         mode: 'touch',
         originalText,
-        handleTouchStart,
-        handleClick,
+        cleanupTapHaptics,
       });
 
       return;
@@ -218,6 +243,18 @@ export function initLinkHover() {
       handleClick,
     });
   });
+
+  // Menu items — haptic only (no char-flip, their internal DOM is complex)
+  document.querySelectorAll('.menu-item').forEach((item) => {
+    if (linkInstances.has(item)) return;
+
+    const cleanupTapHaptics = bindHapticTap(item, 'selection');
+
+    linkInstances.set(item, {
+      mode: 'haptic-only',
+      cleanupTapHaptics,
+    });
+  });
 }
 
 export function destroyLinkHover() {
@@ -228,8 +265,7 @@ export function destroyLinkHover() {
     if (!instance) return;
 
     if (instance.mode === 'touch') {
-      link.removeEventListener('touchstart', instance.handleTouchStart);
-      link.removeEventListener('click', instance.handleClick);
+      instance.cleanupTapHaptics?.();
       linkInstances.delete(link);
       return;
     }
@@ -246,5 +282,13 @@ export function destroyLinkHover() {
 
     link.textContent = instance.originalText;
     linkInstances.delete(link);
+  });
+
+  // Clean up menu item haptic handlers
+  document.querySelectorAll('.menu-item').forEach((item) => {
+    const instance = linkInstances.get(item);
+    if (!instance) return;
+    instance.cleanupTapHaptics?.();
+    linkInstances.delete(item);
   });
 }
