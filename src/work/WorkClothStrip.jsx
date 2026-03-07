@@ -259,7 +259,7 @@ function WorkClothStripScene({ onStatus }) {
   const liveLocalPositionsRef = useRef(new Float32Array(cols * rows * 3));
   const lockedLocalPositionsRef = useRef(null);
   const wasDeterministicRef = useRef(false);
-  
+
   const tweakRef = useRef({
     windBase: CLOTH_CONFIG.windBase,
     windMultiplier: 1.0,
@@ -987,10 +987,10 @@ export function WorkClothStripHost() {
     >
       <div
         style={{
-          position: 'fixed',
+          position: 'absolute',
           top: 12,
           left: 12,
-          zIndex: 2147483647,
+          zIndex: 20,
           background: 'rgba(0,0,0,0.8)',
           color: '#9df7b6',
           fontFamily: 'monospace',

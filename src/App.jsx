@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
+
+// Polyfill AudioContext for iOS Safari so web-haptics can detect and use it
+if (typeof window !== 'undefined') {
+  window.AudioContext = window.AudioContext || window.webkitAudioContext;
+}
+
+import { useWebHaptics } from 'web-haptics/react';
 import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import gsap from 'gsap';
 
 import SiteLayout from './components/layout/SiteLayout.jsx';
 import HomePage from './routes/HomePage.jsx';
@@ -83,8 +91,15 @@ function NavigationBridge() {
 function AppShell({ routeLocation }) {
   const contentRef = useRef(null);
   const previousNamespaceRef = useRef(getNamespace(routeLocation.pathname));
+  const initialRevealCompleteRef = useRef(!preloader.isBlockingContent());
 
   useClock();
+
+  const { trigger: hapticTrigger } = useWebHaptics({ debug: true, showSwitch: false });
+  useEffect(() => {
+    window.hapticTrigger = hapticTrigger;
+    window.hapticsEnabled = true;
+  }, [hapticTrigger]);
 
   useEffect(() => {
     preloader.init();
@@ -116,10 +131,33 @@ function AppShell({ routeLocation }) {
     runBrandHandoff({ fromNamespace: previousNamespace, toNamespace: namespace });
     previousNamespaceRef.current = namespace;
 
-    const stopEnterTween = runRouteEnterTransition(contentRef.current);
     const container = document.querySelector('[data-page-container="true"]');
-    if (container) animateRevealEnter(container);
     initLinkHover();
+    let stopEnterTween = () => { };
+    let enterSequenceCancelled = false;
+
+    const runEnterAnimations = () => {
+      if (!contentRef.current) return;
+      stopEnterTween();
+      stopEnterTween = runRouteEnterTransition(contentRef.current);
+
+      const isRevealPage = namespace === 'home' || namespace === 'contact';
+      if (container && isRevealPage) {
+        animateRevealEnter(container);
+      }
+    };
+
+    if (!initialRevealCompleteRef.current && preloader.isBlockingContent()) {
+      gsap.set(contentRef.current, { autoAlpha: 0, y: 10 });
+      preloader.waitForExit().then(() => {
+        if (enterSequenceCancelled || initialRevealCompleteRef.current) return;
+        initialRevealCompleteRef.current = true;
+        runEnterAnimations();
+      });
+    } else {
+      initialRevealCompleteRef.current = true;
+      runEnterAnimations();
+    }
 
     const ensureWebgl = () => {
       if (!isWebglRunning()) webgl();
@@ -180,6 +218,7 @@ function AppShell({ routeLocation }) {
     setup();
 
     return () => {
+      enterSequenceCancelled = true;
       stopEnterTween();
       cleanupBrandHandoff();
       cleanupSplits();

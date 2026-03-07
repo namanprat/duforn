@@ -51,6 +51,9 @@ export function ensureHapticsUnlock() {
 
 export function triggerHapticFeedback(pattern = CLICK_HAPTIC_PATTERN) {
   if (!hapticsUnlocked) return Promise.resolve();
+  if (typeof window.hapticTrigger === 'function') {
+    return Promise.resolve(window.hapticTrigger(pattern));
+  }
   return getHaptics().trigger(pattern);
 }
 
@@ -170,14 +173,9 @@ export function initLinkHover() {
     if (!originalText) return;
 
     if (isTouchDevice) {
-      const cleanupTapHaptics = bindHapticTap(link, CLICK_HAPTIC_PATTERN);
-
-      linkInstances.set(link, {
-        mode: 'touch',
-        originalText,
-        cleanupTapHaptics,
-      });
-
+      // Haptics for nav/contact links are handled via React onClick (trusted gesture on iOS).
+      // Skip imperative binding here to avoid double-triggering.
+      linkInstances.set(link, { mode: 'touch', originalText, cleanupTapHaptics: null });
       return;
     }
 
@@ -236,7 +234,11 @@ export function initLinkHover() {
     const handleEnter = () => {
       timeline?.kill();
       timeline = animateChars(baseChars, hoverChars, true);
-      getHaptics().trigger([{ duration: 10 }], { intensity: 1 });
+      if (typeof window.hapticTrigger === 'function') {
+        window.hapticTrigger([{ duration: 10 }], { intensity: 1 });
+      } else {
+        getHaptics().trigger([{ duration: 10 }], { intensity: 1 });
+      }
     };
 
     const handleLeave = () => {

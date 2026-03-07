@@ -1,5 +1,5 @@
 import { getLenis } from "./lenis-scroll.js";
-import { bindHapticTap, CLICK_HAPTIC_PATTERN } from "./link-hover.js";
+import { ensureHapticsUnlock } from "./link-hover.js";
 
 let isMenuOpen = false;
 let isAnimating = false;
@@ -10,9 +10,7 @@ let menuToggleClickHandler = null;
 let menuKeydownHandler = null;
 let cachedMenuToggleBtn = null;
 let closeTransitionHandler = null;
-let menuToggleHapticCleanup = null;
 const receiptCloseHandlers = new WeakMap();
-const receiptCloseHapticCleanups = new WeakMap();
 
 // menu functions
 function openMenu() {
@@ -98,6 +96,9 @@ function closeMenu() {
 function initMenu() {
   if (menuInitialized) return;
   menuInitialized = true;
+  // Ensure haptics unlock capture-listeners are installed early so
+  // menu haptics work on first trusted gestures on mobile.
+  try { ensureHapticsUnlock(); } catch (e) { /* ignore */ }
   cachedMenuToggleBtn = document.querySelector(".menu-toggle-btn");
   const receiptCloseButtons = document.querySelectorAll(".receipt-close");
 
@@ -127,7 +128,6 @@ function initMenu() {
       }
     };
     cachedMenuToggleBtn.addEventListener("click", menuToggleClickHandler);
-    menuToggleHapticCleanup = bindHapticTap(cachedMenuToggleBtn, CLICK_HAPTIC_PATTERN);
   }
   menuKeydownHandler = (event) => {
     if (event.key === "Escape" && isMenuOpen && !isAnimating) {
@@ -146,7 +146,7 @@ function initMenu() {
     };
     button.addEventListener("click", onClick);
     receiptCloseHandlers.set(button, onClick);
-    receiptCloseHapticCleanups.set(button, bindHapticTap(button, CLICK_HAPTIC_PATTERN));
+
   });
 
   // Populate receipt datetime with current time
@@ -174,10 +174,6 @@ function destroyMenu() {
   if (cachedMenuToggleBtn && menuToggleClickHandler) {
     cachedMenuToggleBtn.removeEventListener("click", menuToggleClickHandler);
   }
-  if (menuToggleHapticCleanup) {
-    menuToggleHapticCleanup();
-    menuToggleHapticCleanup = null;
-  }
   if (menuKeydownHandler) {
     document.removeEventListener("keydown", menuKeydownHandler);
   }
@@ -194,11 +190,7 @@ function destroyMenu() {
       button.removeEventListener("click", onClick);
       receiptCloseHandlers.delete(button);
     }
-    const cleanupHaptics = receiptCloseHapticCleanups.get(button);
-    if (cleanupHaptics) {
-      cleanupHaptics();
-      receiptCloseHapticCleanups.delete(button);
-    }
+
   });
 
   // Ensure menu is closed visually

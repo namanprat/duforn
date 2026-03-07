@@ -32,6 +32,7 @@
   --typography-font-size-text-small: clamp(0.875rem, 0.8472rem + 0.1389vw, 1rem);
   --typography-font-size-text-main: clamp(1rem, 0.9722rem + 0.1389vw, 1.125rem);
   --typography-font-size-large: clamp(1.125rem, 1.0972rem + 0.1389vw, 1.25rem);
+  --typography-font-size-h6: clamp(1.25rem, 1.3472rem + 0.1389vw, 1.25rem);
   --typography-font-size-h5: clamp(1.375rem, 1.3472rem + 0.1389vw, 1.5rem);
   --typography-font-size-h4: clamp(1.75rem, 1.6944rem + 0.2778vw, 2rem);
   --typography-font-size-h3: clamp(2.25rem, 2.0833rem + 0.8333vw, 3rem);

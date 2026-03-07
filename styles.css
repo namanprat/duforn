@@ -2200,8 +2200,7 @@ body:not(.brand-home) .nav-brand {
   flex-direction: column;
   align-self: center;
   padding: 0;
-  margin-left: auto;
-  margin-right: auto;
+  margin: auto;
   width: 100%;
   height: auto;
   max-height: calc(100dvh - var(--spacing-space-8));
@@ -2285,21 +2284,21 @@ button:focus-visible {
   transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
 }
 
-.menu-box a,
-.menu-box h5,
-.menu-box p,
-.menu-box button {
-  font-family: var(--text-style-font-tertiary);
+.menu-box *{
+    font-family: var(--text-style-font-tertiary);
+  font-size: var(--typography-font-size-text-main);
+  line-height: var(--typography-line-height-medium);
+  letter-spacing: var(--typography-letter-spacing);
+  font-weight: 500;
+  white-space: nowrap;
   color: inherit;
 }
 
 .menu-content {
-  margin: 0 auto;
   position: static;
   min-height: 100%;
   min-height: 100dvh;
   min-height: 100svh;
-  display: grid;
   place-items: center;
   padding-block: var(--size-0-5rem);
 }
@@ -2325,37 +2324,34 @@ button:focus-visible {
   height: auto;
   display: block;
 }
+.barcode-contain {
+  padding-top: var(--spacing-space-2);
+}
 
 .menu-item {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  column-gap: var(--spacing-space-1);
+  column-gap: var(--spacing-space-2);
   width: 100%;
-  padding: var(--spacing-space-0-5rem) 0;
   text-decoration: none;
+
+  span {
+    font-size: var(--typography-font-size-h6);
+  }
 }
 
-.menu-item-label,
-.menu-item-index {
-  font-family: var(--text-style-font-tertiary);
-  font-size: var(--typography-font-size-text-main);
-  line-height: var(--typography-line-height-medium);
-  letter-spacing: 0.06em;
-  font-weight: 500;
-  white-space: nowrap;
-}
 
 .receipt-dots {
   width: 100%;
   min-width: 0;
-  height: 4px;
+  height: 3px;
   line-height: 0;
   font-size: 0;
   background-image: url('/menu/bill-dot.svg');
   background-repeat: repeat-x;
   background-position: left center;
-  background-size: 4px 4px;
+  background-size: 3px 3px;
   margin: 0 var(--spacing-space-0-5rem);
 }
 
@@ -2472,7 +2468,11 @@ img {
 }
 
 .slider {
-  transform-style: preserve-3d;
+  transform-style: flat;
+}
+
+body.preloader-active .slider {
+  pointer-events: none !important;
 }
 
 .slide {
