@@ -80,6 +80,70 @@ function NavigationBridge() {
   return null;
 }
 
+function ensureWebglRuntime() {
+  if (!isWebglRunning()) webgl();
+}
+
+function destroySharedPages() {
+  destroyFilm();
+  destroyArchive();
+  destroyWork();
+  destroyLenis();
+}
+
+function destroyNonFilmPages() {
+  destroyArchive();
+  destroyWork();
+}
+
+function destroyWebglIfRunning() {
+  if (isWebglRunning()) destroyWebgl();
+}
+
+async function setupBaseScenePage(page, options = {}) {
+  const { workOverlay = false } = options;
+
+  destroySharedPages();
+  ensureWebglRuntime();
+  setBaseSceneOverlayMode(false);
+  setBaseSceneVisibility(true);
+  setScenePage(page, workOverlay);
+  await swapModel(page === 'work' ? 'work' : 'home');
+}
+
+async function setupArchivePage() {
+  destroyFilm();
+  destroyWork();
+  destroyLenis();
+  destroyWebglIfRunning();
+  await initArchive();
+}
+
+async function setupFilmPage(container) {
+  destroyNonFilmPages();
+  destroyWebglIfRunning();
+  initLenis();
+  bindFilmTemplateFromTransitionState(container);
+  await initFilm(container);
+}
+
+function cleanupPageNamespace(namespace) {
+  if (namespace === 'work') {
+    destroyWork();
+    return;
+  }
+
+  if (namespace === 'archive') {
+    destroyArchive();
+    return;
+  }
+
+  if (namespace === 'film') {
+    destroyFilm();
+    destroyLenis();
+  }
+}
+
 function AppShell() {
   const location = useLocation();
   const contentRef = useRef(null);
@@ -89,10 +153,8 @@ function AppShell() {
 
   useEffect(() => {
     preloader.init();
-    startWorkTexturePreload();
     document.fonts.ready.then(() => {
       initMenu();
-      initLinkHover();
     });
 
     return () => {
@@ -122,77 +184,25 @@ function AppShell() {
     if (container) animateRevealEnter(container, { excludeSelector: '.home-hero-brand' });
     initLinkHover();
 
-    const ensureWebgl = () => {
-      if (!isWebglRunning()) webgl();
-    };
-
     const pageSetup = {
-      home: async () => {
-        destroyFilm();
-        destroyArchive();
-        destroyWork();
-        destroyLenis();
-        setBaseSceneOverlayMode(false);
-        ensureWebgl();
-        setBaseSceneVisibility(true);
-        setScenePage('home', false);
-        await swapModel('home');
-      },
-      contact: async () => {
-        destroyFilm();
-        destroyArchive();
-        destroyWork();
-        destroyLenis();
-        ensureWebgl();
-        setBaseSceneOverlayMode(false);
-        setBaseSceneVisibility(true);
-        setScenePage('contact', false);
-        await swapModel('home');
-      },
+      home: () => setupBaseScenePage('home'),
+      contact: () => setupBaseScenePage('contact'),
       work: async () => {
-        destroyFilm();
-        destroyArchive();
-        destroyLenis();
-        ensureWebgl();
-        setBaseSceneOverlayMode(false);
-        setBaseSceneVisibility(true);
-        setScenePage('work', true);
-        await swapModel('work');
+        startWorkTexturePreload();
+        await setupBaseScenePage('work', { workOverlay: true });
         await initWork();
       },
-      archive: async () => {
-        destroyFilm();
-        destroyWork();
-        destroyLenis();
-        if (isWebglRunning()) destroyWebgl();
-        await initArchive();
-      },
-      film: async () => {
-        destroyArchive();
-        destroyWork();
-        if (isWebglRunning()) destroyWebgl();
-        initLenis();
-        bindFilmTemplateFromTransitionState(container);
-        await initFilm(container);
-      },
+      archive: () => setupArchivePage(),
+      film: () => setupFilmPage(container),
     };
 
-    const setup = pageSetup[namespace] || pageSetup.home;
-    setup();
+    void (pageSetup[namespace] || pageSetup.home)();
 
     return () => {
       stopEnterTween();
       cleanupBrandHandoff();
       cleanupSplits();
-      const pageCleanup = {
-        work: () => destroyWork(),
-        archive: () => destroyArchive(),
-        film: () => {
-          destroyFilm();
-          destroyLenis();
-        },
-      };
-      pageCleanup[namespace]?.();
+      cleanupPageNamespace(namespace);
     };
   }, [location.pathname]);
 

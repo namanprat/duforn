@@ -441,11 +441,10 @@ function loadModels() {
     preloader.hold(); // Wait for actual model insertion
 
     // Reuse preloader's parsed GLTF scenes instead of re-parsing
-    const cachedHome = preloader.getAsset(homeUrl);
-    const cachedWork = preloader.getAsset(workUrl);
+    const cachedHome = preloader.getAssetClone(homeUrl);
+    const cachedWork = preloader.getAssetClone(workUrl);
     const homeScene = cachedHome ? cachedHome.scene : null;
     const workScene = cachedWork ? cachedWork.scene : null;
-    preloader.clearAssets();
 
     if (!scene || !isRunning) {
       preloader.release();
@@ -557,20 +556,6 @@ export function unregisterGalleryOverlay() {
 export function onNextGalleryOverlayFrame(callback) {
   if (typeof callback !== 'function') return;
   pendingGalleryOverlayFrameCallbacks.push(callback);
-}
-
-// ── Shader background (work page alternative to 3D scene) ──
-
-/**
- * Register a shader background renderer function that replaces the 3D scene.
- * Used by work page to render a pure shader background instead of the GLB model.
- */
-export function registerShaderBackground(renderFn) {
-  shaderBackgroundRenderer = renderFn;
-}
-
-export function unregisterShaderBackground() {
-  shaderBackgroundRenderer = null;
 }
 
 export function closeMenuIfOpen() {
@@ -1238,10 +1223,5 @@ export function setScenePage(page, immediate = false) {
     });
   }
 }
-
-// ── Scene text API (stubs — Troika removed) ─────────────────────
-
-export async function mountSceneText() { }
-export async function unmountSceneText() { }
 
 export default webgl;

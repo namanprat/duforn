@@ -2,6 +2,7 @@ import gsap from 'gsap';
 import { GLTFLoader, DRACOLoader } from 'three-stdlib';
 import * as THREE from 'three';
 import { createPaintDebugLogger } from './runtime/debug.js';
+import { cloneSceneGraph } from './runtime/assets.js';
 import { debounce } from './runtime/timing.js';
 
 const paintDebugMark = createPaintDebugLogger('paint-debug');
@@ -126,6 +127,10 @@ export class Preloader {
         }
 
         const promises = urls.map(url => {
+            if (this.loadedAssets.has(url)) {
+                return Promise.resolve(this.loadedAssets.get(url));
+            }
+
             return new Promise((resolve, reject) => {
                 this.gltfLoader.load(url, (gltf) => {
                     this.loadedAssets.set(url, gltf);
@@ -155,6 +160,16 @@ export class Preloader {
 
     getAsset(url) {
         return this.loadedAssets.get(url) || null;
+    }
+
+    getAssetClone(url, options = {}) {
+        const asset = this.getAsset(url);
+        if (!asset?.scene) return asset;
+
+        return {
+            ...asset,
+            scene: cloneSceneGraph(asset.scene, options),
+        };
     }
 
     clearAssets() {

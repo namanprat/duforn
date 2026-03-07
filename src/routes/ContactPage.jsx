@@ -1,24 +1,13 @@
 import { useEffect } from 'react';
-import gsap from 'gsap';
+import { animateStaggerEnter } from '../../scripts/text-reveal.js';
 
 export default function ContactPage() {
   useEffect(() => {
-    // Custom entrance animation to avoid SplitText conflicts with link-hover
     const elements = document.querySelectorAll('.contact-in');
-
-    // Set initial state
-    gsap.set(elements, { y: 60, opacity: 0 });
-
-    // Animate after a small delay to match reveal-title timing
-    gsap.to(elements, {
-      y: 0,
-      opacity: 1,
-      duration: 0.6,
-      stagger: 0.05,
-      ease: "power2.out",
-      delay: 0.1
-    });
+    const tween = animateStaggerEnter(elements);
+    return () => tween?.kill();
   }, []);
+
   return (
     <main id="main" data-page-container="true" data-page-namespace="contact">
       <section className="hero u-background-transparent">

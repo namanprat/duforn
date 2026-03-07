@@ -5,9 +5,9 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
-import { GLTFLoader } from 'three-stdlib';
 import { VignetteShader, GrainShader, EdgeDistortionShader, createPostFXUniforms, CRTShader } from './shaders/post-fx.js';
 import { getPerformanceProfile, isCoarsePointerDevice } from './perf.js';
+import { preloader } from './preloader.js';
 import { debounce } from './runtime/timing.js';
 import { createArchiveGrid, destroyArchiveGrid, updateArchiveGrid } from './archive/grid.js';
 import {
@@ -261,32 +261,38 @@ async function initArchive() {
     });
 
   // Load Logo
-  const gltfLoader = new GLTFLoader();
   try {
-    const gltf = await gltfLoader.loadAsync('/models/logo.glb');
-    if (state.initToken !== token) { destroyArchive(); return; }
-
-    state.logoModel = gltf.scene;
-
-    // Center the logo geometry so it matches the particle system centering
-    const box = new THREE.Box3().setFromObject(state.logoModel);
-    const center = box.getCenter(new THREE.Vector3());
-    state.logoModel.traverse((child) => {
-      if (child.isMesh && child.geometry) {
-        child.geometry.translate(-center.x, -center.y, -center.z);
-        if (child.material) {
-          child.material.envMap = state.scene.environment;
-          child.material.needsUpdate = true;
-          // Ensure it's somewhat visible if particles are white
-          child.material.transparent = true;
-          child.material.opacity = 0.9;
-        }
-      }
+    const logoUrl = '/models/logo.glb';
+    await preloader.load([logoUrl]);
+    const gltf = preloader.getAssetClone(logoUrl, {
+      cloneMaterials: true,
+      cloneGeometries: true,
     });
+    if (state.initToken !== token) { destroyArchive(); return; }
+    if (!gltf?.scene) {
+      console.warn('Archive: Failed to clone logo.glb from preloader cache');
+    } else {
+      state.logoModel = gltf.scene;
 
-    state.logoModel.scale.set(70, 70, 70);
-    state.logoModel.position.set(0, 0, 0);
-    state.scene.add(state.logoModel);
+      // Center the logo geometry so it matches the particle system centering
+      const box = new THREE.Box3().setFromObject(state.logoModel);
+      const center = box.getCenter(new THREE.Vector3());
+      state.logoModel.traverse((child) => {
+        if (child.isMesh && child.geometry) {
+          child.geometry.translate(-center.x, -center.y, -center.z);
+          if (child.material) {
+            child.material.envMap = state.scene.environment;
+            child.material.needsUpdate = true;
+            child.material.transparent = true;
+            child.material.opacity = 0.9;
+          }
+        }
+      });
+
+      state.logoModel.scale.set(70, 70, 70);
+      state.logoModel.position.set(0, 0, 0);
+      state.scene.add(state.logoModel);
+    }
   } catch (error) {
     console.warn('Archive: Failed to load logo.glb', error);
   }

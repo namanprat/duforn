@@ -5,6 +5,7 @@ import { BallCollider, Physics, RigidBody, useRapier } from '@react-three/rapier
 import { workItems } from '../../data/work-items.js';
 import { getWorkStripBridge } from './workStripBridge.js';
 import { getHaptics } from '../../scripts/link-hover.js';
+import { createColorFallbackTexture, loadTextureAssets } from '../../scripts/runtime/assets.js';
 
 const STRIP_CONFIG = {
   arcRadius: 14,
@@ -197,30 +198,10 @@ function buildGrid(cols, rows) {
   return { positions, flatPositions, uvs, indices };
 }
 
-function createPlaceholderTexture() {
-  const data = new Uint8Array([220, 218, 210, 255]);
-  const texture = new THREE.DataTexture(data, 1, 1, THREE.RGBAFormat);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.needsUpdate = true;
-  return texture;
-}
-
 function loadTextures(uniqueImages) {
-  return Promise.all(uniqueImages.map((src) => new Promise((resolve) => {
-    const loader = new THREE.TextureLoader();
-    loader.load(
-      src,
-      (texture) => {
-        texture.colorSpace = THREE.SRGBColorSpace;
-        texture.minFilter = THREE.LinearMipmapLinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-        texture.generateMipmaps = true;
-        resolve(texture);
-      },
-      undefined,
-      () => resolve(createPlaceholderTexture())
-    );
-  })));
+  return loadTextureAssets(uniqueImages, {
+    onErrorTexture: () => createColorFallbackTexture(),
+  });
 }
 
 function WorkClothStripScene({ onStatus }) {
@@ -416,7 +397,7 @@ function WorkClothStripScene({ onStatus }) {
     return items.slice(0, 6);
   }, []);
 
-  const texturesRef = useRef(Array.from({ length: 6 }, () => createPlaceholderTexture()));
+  const texturesRef = useRef(Array.from({ length: 6 }, () => createColorFallbackTexture()));
 
   useEffect(() => {
     let mounted = true;

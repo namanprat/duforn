@@ -145,10 +145,6 @@ export function cleanupBrandHandoff() {
   removeGhost();
 }
 
-export function applyBrandRestingState(namespace) {
-  finalizeNamespaceState(namespace);
-}
-
 export async function runBrandHandoff({ fromNamespace, toNamespace }) {
   cleanupBrandHandoff();
   const token = runToken;

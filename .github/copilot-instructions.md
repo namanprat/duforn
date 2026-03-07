@@ -1,6 +1,6 @@
 # Contributing to Duforn Portfolio
 
-High-performance interactive portfolio built as a static multi-page app with SPA-like transitions, WebGL backgrounds, and GSAP animations.
+High-performance portfolio built as a React SPA with route-driven Three.js runtimes, GSAP motion, and selective React Three Fiber usage.
 
 ## Setup
 
@@ -23,73 +23,63 @@ npm run dev        # http://localhost:5173
 | `npm run test:ui` | Tests with browser UI |
 | `npm run test:coverage` | Tests with coverage report |
 
-## Project Structure
+## Current Structure
 
-```
-index.html, work.html, archive.html, film.html, contact.html   # Page entry points
-styles.css                # Global styles + utility classes
-vite.config.js            # Multi-page build config
+```text
+index.html                # Single Vite entry point
+styles.css                # Global styles
+vite.config.js            # Vite + Vitest config
+
+src/
+├── main.jsx              # React bootstrap + model preload side effects
+├── App.jsx               # Route definitions + page runtime lifecycle
+├── routes/               # Route components
+├── components/           # React layout/components
+├── lib/animation/        # React-side transition helpers
+├── work/                 # React Three Fiber work-strip surface
+└── models/               # gltfjsx-generated model components
 
 scripts/
-├── barba.js              # Main entry — page routing, transitions, lifecycle
-├── three.js              # WebGL background + camera blending (home/contact)
-├── transition.js         # html2canvas shader page transitions
-├── work.js               # Work page slider
-├── index.js              # Home page hero scroll effects
-├── link-hover.js         # 3D character flip hover
-├── text-reveal.js        # SplitText scroll animations
-├── archive/              # Archive page (modular)
-│   ├── index.js          # Entry (initArchiveScene / destroyArchiveScene)
-│   ├── state.js, config.js, renderer.js, atlas.js
-│   ├── shaders.js, input.js, focus.js
-└── [menu, btn-hover, lenis-scroll, middle-carousel, preloader].js
+├── three.js              # Shared base WebGL runtime
+├── work.js               # Work page imperative runtime
+├── archive.js            # Archive page imperative runtime
+├── project-canvas.js     # Film page imperative runtime
+├── menu.js, link-hover.js, lenis-scroll.js, preloader.js
+└── runtime/              # Shared runtime utilities, including asset helpers
 
 data/
-├── work-items.js         # Work page project data
-└── archive-items.js      # Archive item metadata
+├── work-items.js
+└── archive-items.js
 ```
 
-## Key Conventions
+## Conventions
 
-### Module Pattern
+### Lifecycle Ownership
 
-Every page module exports an `init` and `destroy` function pair:
+- `src/App.jsx` is the lifecycle coordinator for imperative page runtimes.
+- Keep page-specific scene setup in dedicated modules under `scripts/` with clear `init` and `destroy` APIs.
+- Always remove listeners, cancel RAFs, dispose renderer resources, and guard against double init.
 
-```javascript
-export function initModule() { /* setup DOM, events, loops */ }
-export function destroyModule() { /* cancel RAF, remove listeners, dispose resources */ }
-```
+### Asset Loading
 
-- Named event handlers (not anonymous) for proper removal
-- Cancel all `requestAnimationFrame` calls in destroy
-- Dispose Three.js resources (geometries, materials, textures, renderers)
-- Kill GSAP tweens and ScrollTriggers
+- Centralize GLTF loading through `scripts/preloader.js`.
+- Centralize texture configuration and fallback logic through `scripts/runtime/assets.js`.
+- Use root-relative paths for files in `public/`, for example `/models/logo.glb`.
 
-### Barba.js Page Lifecycle
+### gltfjsx
 
-All pages route through `scripts/barba.js`. Two transition types exist:
+- Generated model components live in `src/models/`.
+- `src/models/preload.js` imports those files for `useGLTF.preload()` side effects.
+- Prefer gltfjsx components for React-owned render trees. Do not push them into imperative `scripts/*.js` modules unless the page is being actively migrated to React rendering.
 
-1. **`home-contact-transition`** — Text animations + WebGL camera blend (no page capture)
-2. **`default`** — html2canvas shader transitions for other pages
+### React vs Imperative Code
 
-Page-specific modules are initialized in `initPageFeatures(namespace)` and destroyed in the leave transition.
+- If a feature already lives comfortably in React, keep it there.
+- If a page depends on an existing imperative Three runtime, clean that runtime up rather than layering unrelated abstractions over it.
+- When consolidating files, prioritize shared helpers over merging unrelated page modules.
 
-### Adding a New Page
+## Validation
 
-1. Create `newpage.html` following the Barba container structure (see existing pages)
-2. Add entry to `vite.config.js` `rollupOptions.input`
-3. Create `scripts/newpage.js` with `init`/`destroy` exports
-4. Wire into `scripts/barba.js`: add to `initPageFeatures()` and leave transition
-
-See `CLAUDE.md` for detailed instructions and templates.
-
-## Tech Stack
-
-Vite, Barba.js, Three.js, GSAP (ScrollTrigger, Draggable, SplitText), Lenis, html2canvas, postprocessing, Vitest.
-
-## Branch & PR Guidelines
-
-- Create feature branches from `main`
-- Keep commits focused and descriptive
-- Run `npm test` and `npm run build` before opening a PR
-- Ensure no memory leaks (check destroy functions for new modules)
+- Run `npm test` after changing shared helpers or route lifecycle logic.
+- Run `npm run build` before finishing substantial work.
+- Manually verify navigation across home, work, archive, film, and contact after WebGL lifecycle changes.

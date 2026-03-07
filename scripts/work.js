@@ -1,7 +1,6 @@
 import gsap from 'gsap';
 import * as THREE from 'three';
 import { workItems } from '../data/work-items.js';
-import { GLTFLoader } from 'three-stdlib';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import {
   registerGalleryOverlay,
@@ -23,6 +22,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { VignetteShader, GrainShader, EdgeDistortionShader, createPostFXUniforms } from './shaders/post-fx.js';
 import { getPerformanceProfile, isCoarsePointerDevice } from './perf.js';
 import { createPaintDebugLogger } from './runtime/debug.js';
+import { loadTextureAsset } from './runtime/assets.js';
 import { debounce } from './runtime/timing.js';
 import { queryLast } from './runtime/dom.js';
 import { PARALLAX_MOTION_CONFIG, mapDeviceOrientationToParallax } from './runtime/motion.js';
@@ -783,36 +783,22 @@ function finalizeModel(model) {
  */
 export function startWorkTexturePreload() {
   preloader.hold();
-  const textureLoader = new THREE.TextureLoader();
   const uniqueImages = [...new Set(workItems.map(item => item.image).filter(Boolean))];
 
   Promise.all(
     uniqueImages.map((src, i) => {
       if (workTextureCache.has(src)) return Promise.resolve();
 
-      return new Promise((resolve) => {
-        textureLoader.load(
-          src,
-          (texture) => {
-            texture.colorSpace = THREE.SRGBColorSpace;
-            texture.minFilter = THREE.LinearMipmapLinearFilter;
-            texture.magFilter = THREE.LinearFilter;
-            texture.generateMipmaps = true;
-            texture.wrapS = THREE.MirroredRepeatWrapping;
-            texture.wrapT = THREE.MirroredRepeatWrapping;
+      return loadTextureAsset(src, {
+        wrapS: THREE.MirroredRepeatWrapping,
+        wrapT: THREE.MirroredRepeatWrapping,
+      }).then((texture) => {
+        workTextureCache.set(src, texture);
 
-            workTextureCache.set(src, texture);
-
-            // Hot-swap if strip is already live (e.g. direct work page load)
-            if (state.stripMaterial) {
-              state.stripMaterial.uniforms[`uTex${i}`].value = texture;
-              state.stripMaterial.needsUpdate = true;
-            }
-            resolve();
-          },
-          undefined,
-          () => resolve(),
-        );
+        if (state.stripMaterial) {
+          state.stripMaterial.uniforms[`uTex${i}`].value = texture;
+          state.stripMaterial.needsUpdate = true;
+        }
       });
     }),
   ).finally(() => preloader.release());
@@ -834,16 +820,12 @@ async function loadWorkModel() {
   };
 
   // Reuse preloader's parsed GLTF scene instead of re-parsing
-  const cached = preloader.getAsset(workUrl);
-  let model = null;
-  if (cached) {
-    model = cached.scene;
-    preloader.clearAssets();
-  } else {
-    const loader = new GLTFLoader();
-    model = await new Promise((resolve, reject) => {
-      loader.load(workUrl, (glb) => resolve(glb.scene), undefined, reject);
-    });
+  const cached = preloader.getAssetClone(workUrl);
+  const model = cached?.scene || null;
+
+  if (!model) {
+    releasePreloader();
+    return;
   }
 
   if (!isWorkInitialized || !state.scene) {

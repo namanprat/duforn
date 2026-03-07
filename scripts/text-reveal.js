@@ -172,4 +172,28 @@ function cleanupSplits() {
   splits.clear();
 }
 
-export { animateRevealEnter, animateRevealLeave, cleanupSplits };
+function animateStaggerEnter(targets, options = {}) {
+  const {
+    y = 60,
+    opacity = 0,
+    duration = 0.6,
+    stagger = 0.05,
+    ease = 'power2.out',
+    delay = 0.1,
+  } = options;
+
+  const elements = Array.from(targets || []).filter(Boolean);
+  if (!elements.length) return null;
+
+  gsap.set(elements, { y, opacity });
+  return gsap.to(elements, {
+    y: 0,
+    opacity: 1,
+    duration,
+    stagger,
+    ease,
+    delay,
+  });
+}
+
+export { animateRevealEnter, animateRevealLeave, animateStaggerEnter, cleanupSplits };

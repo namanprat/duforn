@@ -1,146 +1,99 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-## Project Overview
-
-Creative portfolio site — static multi-page app with SPA-like transitions via Barba.js, WebGL backgrounds (Three.js), and GSAP animations.
+This repository is a React SPA served by Vite, with route-specific imperative Three.js runtimes managed from the React app shell.
 
 ## Commands
 
 ```bash
 npm run dev           # Dev server (localhost:5173)
+npm run host          # Dev server on LAN
 npm run build         # Production build to dist/
 npm run preview       # Preview production build
-npm run host          # Dev server on LAN
-npm test              # Run unit tests (Vitest)
-npm run test:ui       # Tests with browser UI
-npm run test:coverage # Tests with coverage report
+npm test              # Run Vitest tests
+npm run test:ui       # Run Vitest UI
+npm run test:coverage # Coverage report
 ```
 
-**Note:** Test infrastructure (Vitest + happy-dom) is configured in `vite.config.js`. Baseline test files exist in `test/`, including `test/setup.js` and `test/smoke.test.js`.
+## Runtime Architecture
 
-## Architecture
+### App Entry
 
-### Multi-Page App with SPA Transitions
+- `index.html` mounts the React app.
+- `src/main.jsx` bootstraps `BrowserRouter`, imports the global stylesheet, and imports `src/models/preload.js` so gltfjsx-generated preload hooks warm the GLB assets.
+- `src/App.jsx` is the route and lifecycle orchestrator.
 
-Each HTML page (`index.html`, `work.html`, `archive.html`, `film.html`, `contact.html`) is a separate Vite entry point (configured in `vite.config.js`). Barba.js intercepts navigation to create SPA-like transitions between them. The single entry script for all pages is `scripts/barba.js`.
+### Route Model
 
-### Page Lifecycle (scripts/barba.js)
+Routes are handled by React Router:
 
-`scripts/barba.js` is the orchestrator. It imports all page modules and manages their lifecycle:
+- `/` → `src/routes/HomePage.jsx`
+- `/work` → `src/routes/WorkPage.jsx`
+- `/contact` → `src/routes/ContactPage.jsx`
+- `/archive` → `src/routes/ArchivePage.jsx`
+- `/film` → `src/routes/FilmPage.jsx`
 
-1. **`initPageFeatures(namespace)`** runs on every page load/transition:
-   - Shared modules: `initMenu()`, `initScrollTextReveals()`, `initLinkHover()`
-   - Per-namespace: initializes the relevant page module and destroys others
+### Imperative Scene Modules
 
-2. **Four transition flows** (registered in `barba.init({ transitions: [...] })`):
-   - **`work-detail-unwrap`** (`work` → `film`) — Work-strip unwrap handoff into the film detail scene
-   - **`detail-work-dissolve`** (`film` → `work`) — Detail-to-work dissolve with shared WebGL continuity
-   - **`webgl-page-transition`** (`home`/`contact`/`work` → `home`/`contact`/`work`) — Shared WebGL camera/model transitions
-   - **`default`** (all remaining namespace changes + initial page load)
+The app still uses imperative Three.js/GSAP runtimes for several pages. `src/App.jsx` is responsible for starting and destroying them as routes change.
 
-3. **Destroy before init:** When navigating away, the current page's destroy function is called before the new page initializes. This prevents memory leaks from stacked WebGL contexts and event listeners.
+| Module | Public lifecycle | Purpose |
+| --- | --- | --- |
+| `scripts/three.js` | `webgl()` / `destroyWebgl()` | Shared base WebGL scene for home, contact, and work. |
+| `scripts/work.js` | `initWork()` / `destroyWork()` | Work page gallery runtime layered over the base scene. |
+| `scripts/archive.js` | `initArchive()` / `destroyArchive()` | Archive page renderer/composer lifecycle. |
+| `scripts/project-canvas.js` | `initFilm()` / `destroyFilm()` | Film page shader background and image plane runtime. |
+| `scripts/menu.js` | `initMenu()` / `destroyMenu()` | Global navigation overlay. |
+| `scripts/link-hover.js` | `initLinkHover()` / `destroyLinkHover()` | Hover interaction effect for link text. |
+| `scripts/lenis-scroll.js` | `initLenis()` / `destroyLenis()` | Smooth scrolling for film/detail views. |
 
-### Key Modules
+Guard all runtime modules against double init and always remove listeners, cancel RAFs, and dispose renderer resources in destroy paths.
 
-| Module | Init / Destroy | Notes |
-|--------|---------------|-------|
-| `scripts/three.js` | `webgl()` / `destroyWebgl()` | Shared base WebGL runtime (home/contact/work). Key controls include `swapModel()` and `setScenePage()`. |
-| `scripts/work.js` | `initWork()` / `destroyWork()` | Work namespace 3D strip scene and transition handoff helpers. |
-| `scripts/archive.js` | `initArchive()` / `destroyArchive()` | Archive namespace 3D atlas scene with dedicated renderer/composer lifecycle. |
-| `scripts/project-canvas.js` | `initFilm()` / `destroyFilm()` | Film/detail namespace WebGL runtime; also exposes shared-scene API (`initProjectSceneShared()` / `destroyProjectSceneShared()`). |
-| `scripts/transition.js` | `animateTransition()` / `revealTransition()` / `destroyTransition()` | Ink/shader transition renderer utilities used by transition orchestration and cleanup. |
-| `scripts/text-reveal.js` | `initScrollTextReveals()` / `cleanupScrollTriggers()` / `cleanupSplits()` | SplitText + ScrollTrigger setup/teardown for page/transition-safe text animation. |
-| `scripts/link-hover.js` | `initLinkHover()` / `destroyLinkHover()` | Hover text/character interaction effects for link elements. |
-| `scripts/project-page-data.js` | `bindFilmProjectData()` | Binds selected project content to film/detail DOM from URL or transition state. |
-| `scripts/shared-transition-state.js` | `setProjectTransitionState()` / `getProjectTransitionState()` / `clearProjectTransitionState()` | Session-backed transition payload handoff between work and film flows. |
+## Asset Pipeline
 
-### Data Files
+### GLTF Loading
 
-- `data/work-items.js` — Project data for work page
-- `data/archive-items.js` — Archive item metadata (id, title, year, description, category, image)
+- `scripts/preloader.js` owns the shared `GLTFLoader` and `DRACOLoader` setup.
+- Reuse cached GLTF assets through the preloader instead of creating page-local loaders.
+- If multiple scenes need the same asset, clone from the cached parse result rather than reparsing the file.
 
-## Module Pattern (Required)
+### Texture Loading
 
-Every page module **must** expose a matching `init`/`destroy` lifecycle pair. `init` may be async when setup requires async asset loading.
+- Shared texture helpers live in `scripts/runtime/assets.js`.
+- Reuse `configureTexture()` and `loadTextureAsset()` instead of hand-rolling color space, mipmap, filter, and fallback setup in each page module.
 
-```javascript
-let rafId = null;
+### gltfjsx
 
-export async function initModule() {
-  // 1. Cache DOM queries in module-level variables
-  // 2. Add named event listeners (not anonymous — needed for removal)
-  // 3. Initialize async assets/resources when needed
-  // 4. Start animation loops
-}
+- Generated React model components live under `src/models/`.
+- These files are generated from `public/models/*.glb` and currently serve two purposes:
+  - `useGLTF.preload()` side effects via `src/models/preload.js`
+  - future React-owned model rendering surfaces
+- Do not force gltfjsx components into imperative Three.js modules. Use them when React owns the render tree.
 
-export function destroyModule() {
-  // 1. cancelAnimationFrame(rafId)
-  // 2. Remove all event listeners (by named reference)
-  // 3. Dispose Three.js resources (geometries, materials, textures, renderers, composers)
-  // 4. Kill GSAP tweens and ScrollTriggers
-  // 5. Null out DOM references
-}
-```
+## Data Sources
 
-**Critical:** Guard against double-init with module flags/tokens (`isRunning`, `isWorkInitialized`, init tokens) before creating new runtimes. See `scripts/three.js`, `scripts/work.js`, and `scripts/archive.js`.
+- `data/work-items.js` drives work page media and related React/Fiber surfaces.
+- `data/archive-items.js` drives archive page media.
 
-## Page HTML Structure
+## Adding or Changing Pages
 
-Every page must follow this Barba.js structure:
+1. Add or update the route component under `src/routes/`.
+2. Register the route in `src/App.jsx`.
+3. If the page needs an imperative runtime, add a clear init/destroy pair in `scripts/` and wire it into the route lifecycle helpers in `src/App.jsx`.
+4. If the page is React-owned, prefer React components over new imperative globals.
 
-```html
-<body data-barba="wrapper" class="page-wrap">
-  <div class="transition"><div class="transition-overlay"></div></div>
-  <nav class="nav-wrap u-position-fixed">...</nav>
-  <div id="background"></div>
-  <main data-barba="container" data-barba-namespace="NAMESPACE">
-    <!-- Page content -->
-  </main>
-  <script type="module" src="/scripts/barba.js"></script>
-</body>
-```
+## Testing
 
-## Adding a New Page
-
-1. Create a new page HTML entry file following the HTML structure above
-2. Add entry to `vite.config.js` → `rollupOptions.input`
-3. Create a matching page module in `scripts/` with `init`/`destroy` exports (async init is allowed)
-4. Wire into `scripts/barba.js`: import module, add namespace handling in `initPageFeatures()`
-5. Update `barba.init()` transitions: include the new namespace in `from`/`to` rules or add a dedicated transition if needed
-
-## CSS Conventions
-
-- **Variables** defined on `:root` — colors (`--theme-background`, `--theme-primary`), typography sizes (`--typography-font-size-*`), spacing (`--spacing-space-1` through `--spacing-space-8`), 12-column grid (`--column-width-*`)
-- **Utility classes** use `u-` prefix: `u-container`, `u-flex-horizontal-wrap`, `u-text-style-h1`, `u-margin-top-4`, `u-column-width-6`, `u-mobile-hidden`, etc.
-- **Fonts:** `--text-style-font-primary` (InterVariable), `--text-style-font-secondary` (secondary, monospace)
-
-## Text Animation Classes
-
-- `.text-reveal` — Words slide up on scroll
-- `.text-reveal-reverse` — Words slide down on scroll
-- `.text-reveal-header` — Header text with transition animations
-- `.body-text-reveal` — Body text line-by-line reveal (excludes hero elements)
-- `.hero-text-reveal` — Hero text (home page), animated in Barba transitions
-
-## Asset Paths
-
-Assets in `public/` are served at root: use `/home/scene.glb`, not `./public/home/scene.glb`.
+- Vitest uses `happy-dom` and `test/setup.js`.
+- Keep at least a smoke-level regression test for shared utilities or route-critical behavior.
+- Run `npm test` and `npm run build` after meaningful runtime or asset-pipeline changes.
 
 ## Performance Rules
 
-- Cap pixel ratio: `Math.min(window.devicePixelRatio || 1, 1.5)`
-- Throttle/debounce scroll and resize handlers
-- Use GSAP for animations, not CSS transitions on frequently animated properties
-- Query DOM once, cache references in module-level variables
+- Cap pixel ratio where the runtime already does so.
+- Use shared debounce helpers from `scripts/runtime/timing.js` for resize and scroll work.
+- Avoid duplicate asset loads.
+- Prefer cached DOM lookups and named event handlers in imperative modules.
 
-## Deployment
+## Asset Paths
 
-Deployment platform configuration is managed outside this repo. In-repo validation requirement: run `npm run build` before PRs and verify the production build succeeds.
-
-## Branch & PR Guidelines
-
-- Create feature branches from `main`
-- Run `npm test` and `npm run build` before opening a PR
-- Verify no memory leaks in new modules (check destroy functions)
+Files under `public/` are served from the root URL. Use `/models/work.glb`, `/home.hdr`, and similar root-relative paths.

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { archiveItems } from '../../data/archive-items.js';
+import { createLabelFallbackTexture, loadTextureAsset } from '../runtime/assets.js';
 
 export async function createArchiveTube(scene) {
   const tubeState = {
@@ -29,23 +30,9 @@ export async function createArchiveTube(scene) {
     tubeState.rowSpeeds.push(1.0);
   }
 
-  const loader = new THREE.TextureLoader();
   tubeState.textures = await Promise.all(
-    archiveItems.map((item) => new Promise((resolve) => {
-      loader.load(item.image, resolve, undefined, () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = 512;
-        canvas.height = 512;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#333';
-        ctx.fillRect(0, 0, 512, 512);
-        ctx.fillStyle = '#666';
-        ctx.font = '24px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(item.title, 256, 256);
-        resolve(new THREE.CanvasTexture(canvas));
-      });
+    archiveItems.map((item) => loadTextureAsset(item.image, {
+      onErrorTexture: () => createLabelFallbackTexture(item.title),
     }))
   );
 

@@ -4,6 +4,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { GrainShader, EdgeDistortionShader, createPostFXUniforms } from './shaders/post-fx.js';
+import { configureTexture } from './runtime/assets.js';
 import {
   ensureBackgroundElement,
   getFilmContainer,
@@ -182,13 +183,7 @@ function createImagePlane(imgElement) {
   const texture = loader.load(
     source,
     () => {
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.minFilter = THREE.LinearMipmapLinearFilter;
-      texture.magFilter = THREE.LinearFilter;
-      texture.generateMipmaps = true;
-      const maxAnisotropy = renderer?.capabilities?.getMaxAnisotropy?.() || 1;
-      texture.anisotropy = maxAnisotropy;
-      texture.needsUpdate = true;
+      configureTexture(texture, { renderer });
 
       if (import.meta.env.DEV) {
         const image = texture.image || {};
@@ -458,20 +453,6 @@ export async function initFilm(containerArg, _options = {}) {
   await initProjectCanvas(containerArg);
 }
 
-export async function waitForFilmFirstFrame() {
-  if (!isRunning) return false;
-  // Wait 2 rAFs so the EffectComposer's first render has committed to the
-  // canvas before the background fades back in (prevents blank flash).
-  await new Promise((resolve) =>
-    requestAnimationFrame(() => requestAnimationFrame(resolve))
-  );
-  return true;
-}
-
-export async function initProjectSceneShared(containerArg, _options = {}) {
-  await initProjectCanvas(containerArg);
-}
-
 export function destroyFilm() {
   if (!isRunning) return;
 
@@ -536,9 +517,3 @@ export function destroyFilm() {
   postFXUniforms.uTime.value = 0;
 }
 
-export function destroyProjectSceneShared() {
-  destroyFilm();
-}
-
-export const init = initFilm;
-export const destroy = destroyFilm;
