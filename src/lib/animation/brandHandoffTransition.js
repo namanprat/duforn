@@ -188,7 +188,18 @@ export async function runBrandHandoff({ fromNamespace, toNamespace }) {
   });
 
   if (leavingHome) {
+    const ghost = createHomeBrandGhost();
+    const ghostSplit = splitNode(ghost);
     const navSplit = splitNode(navBrand);
+
+    if (ghostSplit?.chars?.length) {
+      timeline.to(ghostSplit.chars, {
+        yPercent: -120,
+        opacity: 0,
+        duration: 0.42,
+        stagger: 0.015,
+      }, 0);
+    }
 
     if (navSplit?.chars?.length) {
       gsap.set(navSplit.chars, { yPercent: 120, opacity: 0 });
@@ -205,7 +216,9 @@ export async function runBrandHandoff({ fromNamespace, toNamespace }) {
   }
 
   if (enteringHome) {
+    const homeBrand = getHomeBrandNode();
     const navSplit = splitNode(navBrand);
+    const homeSplit = splitNode(homeBrand);
 
     if (navSplit?.chars?.length) {
       gsap.set(navBrand, { autoAlpha: 1, pointerEvents: 'auto' });
@@ -217,6 +230,19 @@ export async function runBrandHandoff({ fromNamespace, toNamespace }) {
       }, 0);
     } else if (navBrand) {
       timeline.to(navBrand, { autoAlpha: 0, duration: 0.24 }, 0);
+    }
+
+    if (homeSplit?.chars?.length) {
+      gsap.set(homeSplit.chars, { yPercent: 120, opacity: 0 });
+      gsap.set(homeBrand, { autoAlpha: 1 });
+      timeline.to(homeSplit.chars, {
+        yPercent: 0,
+        opacity: 1,
+        duration: 0.52,
+        stagger: 0.02,
+      }, 0.05);
+    } else if (homeBrand) {
+      gsap.fromTo(homeBrand, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3 }, 0.05);
     }
   }
 

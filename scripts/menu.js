@@ -1,5 +1,4 @@
 import { getLenis } from "./lenis-scroll.js";
-import { ensureHapticsUnlock } from "./link-hover.js";
 
 let isMenuOpen = false;
 let isAnimating = false;
@@ -96,9 +95,6 @@ function closeMenu() {
 function initMenu() {
   if (menuInitialized) return;
   menuInitialized = true;
-  // Ensure haptics unlock capture-listeners are installed early so
-  // menu haptics work on first trusted gestures on mobile.
-  try { ensureHapticsUnlock(); } catch (e) { /* ignore */ }
   cachedMenuToggleBtn = document.querySelector(".menu-toggle-btn");
   const receiptCloseButtons = document.querySelectorAll(".receipt-close");
 
@@ -146,7 +142,6 @@ function initMenu() {
     };
     button.addEventListener("click", onClick);
     receiptCloseHandlers.set(button, onClick);
-
   });
 
   // Populate receipt datetime with current time
@@ -190,7 +185,6 @@ function destroyMenu() {
       button.removeEventListener("click", onClick);
       receiptCloseHandlers.delete(button);
     }
-
   });
 
   // Ensure menu is closed visually

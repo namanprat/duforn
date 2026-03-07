@@ -1,13 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-
-// Polyfill AudioContext for iOS Safari so web-haptics can detect and use it
-if (typeof window !== 'undefined') {
-  window.AudioContext = window.AudioContext || window.webkitAudioContext;
-}
-
-import { useWebHaptics } from 'web-haptics/react';
+import { useEffect, useRef } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import gsap from 'gsap';
 
 import SiteLayout from './components/layout/SiteLayout.jsx';
 import HomePage from './routes/HomePage.jsx';
@@ -19,7 +11,7 @@ import FilmPage from './routes/FilmPage.jsx';
 import webgl, { destroyWebgl, isWebglRunning, setScenePage, setBaseSceneOverlayMode, setBaseSceneVisibility, swapModel } from '../scripts/three.js';
 import { initMenu, destroyMenu } from '../scripts/menu.js';
 import { initLinkHover, destroyLinkHover } from '../scripts/link-hover.js';
-import { animateRevealEnter, animateRevealLeave, cleanupSplits } from '../scripts/text-reveal.js';
+import { animateRevealEnter, cleanupSplits } from '../scripts/text-reveal.js';
 import { initLenis, destroyLenis } from '../scripts/lenis-scroll.js';
 import { initWork, destroyWork, startWorkTexturePreload } from '../scripts/work.js';
 import { initArchive, destroyArchive } from '../scripts/archive.js';
@@ -88,18 +80,12 @@ function NavigationBridge() {
   return null;
 }
 
-function AppShell({ routeLocation }) {
+function AppShell() {
+  const location = useLocation();
   const contentRef = useRef(null);
-  const previousNamespaceRef = useRef(getNamespace(routeLocation.pathname));
-  const initialRevealCompleteRef = useRef(!preloader.isBlockingContent());
+  const previousNamespaceRef = useRef(getNamespace(location.pathname));
 
   useClock();
-
-  const { trigger: hapticTrigger } = useWebHaptics({ debug: true, showSwitch: false });
-  useEffect(() => {
-    window.hapticTrigger = hapticTrigger;
-    window.hapticsEnabled = true;
-  }, [hapticTrigger]);
 
   useEffect(() => {
     preloader.init();
@@ -123,7 +109,7 @@ function AppShell({ routeLocation }) {
   }, []);
 
   useEffect(() => {
-    const currentPath = routeLocation.pathname;
+    const currentPath = location.pathname;
     document.title = TITLES[currentPath] || 'Duforn';
     const namespace = getNamespace(currentPath);
     const previousNamespace = previousNamespaceRef.current;
@@ -131,33 +117,10 @@ function AppShell({ routeLocation }) {
     runBrandHandoff({ fromNamespace: previousNamespace, toNamespace: namespace });
     previousNamespaceRef.current = namespace;
 
+    const stopEnterTween = runRouteEnterTransition(contentRef.current);
     const container = document.querySelector('[data-page-container="true"]');
+    if (container) animateRevealEnter(container, { excludeSelector: '.home-hero-brand' });
     initLinkHover();
-    let stopEnterTween = () => { };
-    let enterSequenceCancelled = false;
-
-    const runEnterAnimations = () => {
-      if (!contentRef.current) return;
-      stopEnterTween();
-      stopEnterTween = runRouteEnterTransition(contentRef.current);
-
-      const isRevealPage = namespace === 'home' || namespace === 'contact';
-      if (container && isRevealPage) {
-        animateRevealEnter(container);
-      }
-    };
-
-    if (!initialRevealCompleteRef.current && preloader.isBlockingContent()) {
-      gsap.set(contentRef.current, { autoAlpha: 0, y: 10 });
-      preloader.waitForExit().then(() => {
-        if (enterSequenceCancelled || initialRevealCompleteRef.current) return;
-        initialRevealCompleteRef.current = true;
-        runEnterAnimations();
-      });
-    } else {
-      initialRevealCompleteRef.current = true;
-      runEnterAnimations();
-    }
 
     const ensureWebgl = () => {
       if (!isWebglRunning()) webgl();
@@ -218,7 +181,6 @@ function AppShell({ routeLocation }) {
     setup();
 
     return () => {
-      enterSequenceCancelled = true;
       stopEnterTween();
       cleanupBrandHandoff();
       cleanupSplits();
@@ -232,7 +194,7 @@ function AppShell({ routeLocation }) {
       };
       pageCleanup[namespace]?.();
     };
-  }, [routeLocation.pathname]);
+  }, [location.pathname]);
 
   return (
     <>
@@ -247,50 +209,9 @@ function AppShell({ routeLocation }) {
 }
 
 export default function App() {
-  const liveLocation = useLocation();
-  const [displayedLocation, setDisplayedLocation] = useState(liveLocation);
-  const transitionTokenRef = useRef(0);
-
-  useEffect(() => {
-    const fromPath = displayedLocation.pathname;
-    const toPath = liveLocation.pathname;
-
-    if (fromPath === toPath) return;
-
-    const isLeavingRevealPage = fromPath === '/' || fromPath === '/contact';
-
-    // Only delay the route swap (to animate text out) when leaving home or contact.
-    if (!isLeavingRevealPage) {
-      setDisplayedLocation(liveLocation);
-      return;
-    }
-
-    let cancelled = false;
-    const token = ++transitionTokenRef.current;
-
-    const runLeaveThenSwap = async () => {
-      const currentContainer = document.querySelector('[data-page-container="true"]');
-      if (currentContainer) {
-        await animateRevealLeave(currentContainer);
-      }
-
-      if (cancelled || token !== transitionTokenRef.current) return;
-
-      // Reset split state before mounting the next route and running enter.
-      cleanupSplits();
-      setDisplayedLocation(liveLocation);
-    };
-
-    runLeaveThenSwap();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [liveLocation, displayedLocation.pathname]);
-
   return (
-    <Routes location={displayedLocation}>
-      <Route element={<AppShell routeLocation={displayedLocation} />}>
+    <Routes>
+      <Route element={<AppShell />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/work" element={<WorkPage />} />
         <Route path="/contact" element={<ContactPage />} />

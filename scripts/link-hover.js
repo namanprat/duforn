@@ -5,312 +5,211 @@ import { isCoarsePointerDevice } from './perf.js';
 
 gsap.registerPlugin(SplitText);
 
+// Shared animation config
 const ANIM_CONFIG = {
   duration: 0.5,
   ease: 'power2.inOut',
-  stagger: 0.02,
+  stagger: 0.02
 };
 
 const isTouchDevice = isCoarsePointerDevice();
-const LINK_SELECTOR = '.nav-wrap a, .bottom-nav-wrap a, .contact-contain a';
-const MOBILE_CLICK_GUARD_MS = 450;
-export const CLICK_HAPTIC_PATTERN = [
-  { duration: 80, intensity: 0.8 },
-  { delay: 80, duration: 50, intensity: 0.3 },
-];
 
+// Store instances for cleanup
 const linkInstances = new WeakMap();
 
+// Shared haptics instance – debug:true produces synthesised audio clicks
+// on devices without the Vibration API (i.e. desktop browsers).
 let haptics = null;
-let hapticsUnlocked = !isTouchDevice;
-let hapticsUnlockBound = false;
 
 export function getHaptics() {
   if (!haptics) haptics = new WebHaptics({ debug: true });
   return haptics;
 }
 
-function unlockHaptics() {
-  hapticsUnlocked = true;
-}
-
-export function ensureHapticsUnlock() {
-  if (hapticsUnlockBound || hapticsUnlocked) return;
-
-  const markUnlocked = () => {
-    unlockHaptics();
-    window.removeEventListener('pointerdown', markUnlocked, true);
-    window.removeEventListener('keydown', markUnlocked, true);
-  };
-
-  // Capture-phase unlock ensures the first trusted gesture unlocks before any button/link handler fires.
-  window.addEventListener('pointerdown', markUnlocked, { capture: true, passive: true });
-  window.addEventListener('keydown', markUnlocked, { capture: true });
-  hapticsUnlockBound = true;
-}
-
-export function triggerHapticFeedback(pattern = CLICK_HAPTIC_PATTERN) {
-  if (!hapticsUnlocked) return Promise.resolve();
-  if (typeof window.hapticTrigger === 'function') {
-    return Promise.resolve(window.hapticTrigger(pattern));
-  }
-  return getHaptics().trigger(pattern);
-}
-
-export function bindHapticTap(target, pattern = CLICK_HAPTIC_PATTERN) {
-  if (!target) return () => {};
-
-  if (isTouchDevice) {
-    let lastPointerDownAt = 0;
-
-    const handlePointerDown = () => {
-      lastPointerDownAt = Date.now();
-      triggerHapticFeedback(pattern);
-    };
-
-    const handleClick = () => {
-      if (Date.now() - lastPointerDownAt < MOBILE_CLICK_GUARD_MS) return;
-      triggerHapticFeedback(pattern);
-    };
-
-    target.addEventListener('pointerdown', handlePointerDown, { passive: true });
-    target.addEventListener('click', handleClick);
-
-    return () => {
-      target.removeEventListener('pointerdown', handlePointerDown);
-      target.removeEventListener('click', handleClick);
-    };
-  }
-
-  const handleClick = () => {
-    triggerHapticFeedback(pattern);
-  };
-
-  target.addEventListener('click', handleClick);
-  return () => {
-    target.removeEventListener('click', handleClick);
-  };
-}
-
-function shouldSkipLink(link) {
-  if (linkInstances.has(link)) return true;
-  if (link.id === 'time') return true;
-  if (link.classList.contains('menu-item')) return true;
-  return false;
-}
-
-function wrapCharsWithMasks(chars) {
-  return chars.map((charNode) => {
-    if (charNode.textContent === ' ') {
-      charNode.textContent = '\u00A0';
-    }
-
-    const mask = document.createElement('span');
-    Object.assign(mask.style, {
-      display: 'inline-block',
-      overflow: 'hidden',
-      verticalAlign: 'top',
-      lineHeight: '1em',
-      pointerEvents: 'none',
-    });
-
-    const parent = charNode.parentNode;
-    if (parent) {
-      parent.insertBefore(mask, charNode);
-      mask.appendChild(charNode);
-    }
-
-    gsap.set(charNode, {
-      display: 'inline-block',
-      willChange: 'transform, opacity',
-      force3D: true,
-      pointerEvents: 'none',
-    });
-
-    return charNode;
-  });
-}
-
-function animateChars(baseChars, hoverChars, isHover) {
-  const tl = gsap.timeline();
-
-  if (isHover) {
-    // Current text exits upward, hover text enters from bottom.
-    tl.to(baseChars, {
-      yPercent: -110,
-      opacity: 0,
-      ...ANIM_CONFIG,
-    }, 0)
-      .to(hoverChars, {
-        yPercent: 0,
-        opacity: 1,
-        ...ANIM_CONFIG,
-      }, 0);
-  } else {
-    tl.to(baseChars, {
-      yPercent: 0,
-      opacity: 1,
-      ...ANIM_CONFIG,
-    }, 0)
-      .to(hoverChars, {
-        yPercent: 110,
-        opacity: 0,
-        ...ANIM_CONFIG,
-      }, 0);
-  }
-
-  return tl;
-}
+const LINK_SELECTOR = '.nav-wrap a, .bottom-nav-wrap a, .contact-contain a';
 
 export function initLinkHover() {
-  ensureHapticsUnlock();
-  const links = document.querySelectorAll(LINK_SELECTOR);
+  const navLinks = document.querySelectorAll(LINK_SELECTOR);
 
-  links.forEach((link) => {
-    if (shouldSkipLink(link)) return;
+  navLinks.forEach(link => {
+    // Skip if already initialized or excluded
+    if (link.id === 'time' || link.classList.contains('menu-toggle-btn') || linkInstances.has(link)) return;
+
+    if (isTouchDevice) {
+      const handleTouchStart = () => {
+        getHaptics().trigger('nudge');
+      };
+
+      link.addEventListener('touchstart', handleTouchStart, { passive: true });
+      linkInstances.set(link, { handleTouchStart });
+      return;
+    }
 
     const originalText = (link.textContent || '').trim();
     if (!originalText) return;
 
-    if (isTouchDevice) {
-      // Haptics for nav/contact links are handled via React onClick (trusted gesture on iOS).
-      // Skip imperative binding here to avoid double-triggering.
-      linkInstances.set(link, { mode: 'touch', originalText, cleanupTapHaptics: null });
-      return;
-    }
-
-    const root = document.createElement('span');
-    Object.assign(root.style, {
+    gsap.set(link, {
       position: 'relative',
-      display: 'inline-block',
-      pointerEvents: 'none',
-      verticalAlign: 'baseline',
+      display: 'inline-block'
     });
 
-    const baseLayer = document.createElement('span');
-    baseLayer.textContent = originalText;
-    Object.assign(baseLayer.style, {
-      display: 'inline-block',
-      whiteSpace: 'nowrap',
-      pointerEvents: 'none',
-    });
-
-    const hoverLayer = document.createElement('span');
-    hoverLayer.textContent = originalText;
-    Object.assign(hoverLayer.style, {
-      position: 'absolute',
-      top: '0',
-      left: '0',
-      width: '100%',
-      display: 'inline-block',
-      whiteSpace: 'nowrap',
-      pointerEvents: 'none',
-    });
-
-    root.appendChild(baseLayer);
-    root.appendChild(hoverLayer);
+    // Create dual text structure
+    const originalSpan = createTextSpan(originalText, false);
+    const italicSpan = createTextSpan(originalText, true);
 
     link.textContent = '';
-    link.appendChild(root);
+    link.appendChild(originalSpan);
+    link.appendChild(italicSpan);
 
-    const baseSplit = new SplitText(baseLayer, { type: 'chars' });
-    const hoverSplit = new SplitText(hoverLayer, { type: 'chars' });
+    // Split once and reuse
+    const originalSplit = new SplitText(originalSpan, { type: 'chars' });
+    const italicSplit = new SplitText(italicSpan, { type: 'chars' });
 
-    const baseChars = wrapCharsWithMasks(baseSplit.chars);
-    const hoverChars = wrapCharsWithMasks(hoverSplit.chars);
-
-    gsap.set(baseChars, {
+    // Initial positions: vertical "dive" animation instead of 3D flip.
+    gsap.set(originalSplit.chars, {
       yPercent: 0,
       opacity: 1,
+      display: 'inline-block'
     });
 
-    gsap.set(hoverChars, {
-      yPercent: 110,
+    gsap.set(italicSplit.chars, {
+      yPercent: -110,
       opacity: 0,
+      display: 'inline-block'
     });
 
-    let timeline = null;
+    // Animation state
+    let tl = null;
 
+    // Event handlers
     const handleEnter = () => {
-      timeline?.kill();
-      timeline = animateChars(baseChars, hoverChars, true);
-      if (typeof window.hapticTrigger === 'function') {
-        window.hapticTrigger([{ duration: 10 }], { intensity: 1 });
-      } else {
-        getHaptics().trigger([{ duration: 10 }], { intensity: 1 });
-      }
-    };
+      if (link.getAttribute('aria-current') === 'page') return;
 
-    const handleLeave = () => {
-      timeline?.kill();
-      timeline = animateChars(baseChars, hoverChars, false);
+      tl?.kill();
+      tl = animateChars(originalSplit.chars, italicSplit.chars, true);
+
+      // Light haptic pulse on hover
+      getHaptics().trigger([
+        { duration: 10 },
+      ], { intensity: 1 });
     };
 
     const handleClick = () => {
-      triggerHapticFeedback(CLICK_HAPTIC_PATTERN);
+      // Stronger nudge haptic on click
+      getHaptics().trigger([
+        { duration: 80, intensity: 0.8 },
+        { delay: 80, duration: 50, intensity: 0.3 },
+      ]);
+    };
+
+    const handleLeave = () => {
+      if (link.getAttribute('aria-current') === 'page') return;
+
+      tl?.kill();
+      tl = animateChars(originalSplit.chars, italicSplit.chars, false);
     };
 
     link.addEventListener('mouseenter', handleEnter);
     link.addEventListener('mouseleave', handleLeave);
     link.addEventListener('click', handleClick);
 
-    linkInstances.set(link, {
-      mode: 'desktop',
-      originalText,
-      baseSplit,
-      hoverSplit,
-      getTimeline: () => timeline,
+    // Store for cleanup (include tween getter for destroy)
+    const instance = {
+      originalSplit,
+      italicSplit,
       handleEnter,
       handleLeave,
       handleClick,
-    });
-  });
-
-  // Menu items — haptic only (no char-flip, their internal DOM is complex)
-  document.querySelectorAll('.menu-item').forEach((item) => {
-    if (linkInstances.has(item)) return;
-
-    const cleanupTapHaptics = bindHapticTap(item, CLICK_HAPTIC_PATTERN);
-
-    linkInstances.set(item, {
-      mode: 'haptic-only',
-      cleanupTapHaptics,
-    });
+      getTween: () => tl,
+    };
+    linkInstances.set(link, instance);
   });
 }
 
-export function destroyLinkHover() {
-  const links = document.querySelectorAll(LINK_SELECTOR);
+function createTextSpan(text, isItalic) {
+  const span = document.createElement('span');
+  span.textContent = text;
 
-  links.forEach((link) => {
-    const instance = linkInstances.get(link);
-    if (!instance) return;
-
-    if (instance.mode === 'touch') {
-      instance.cleanupTapHaptics?.();
-      linkInstances.delete(link);
-      return;
-    }
-
-    const activeTimeline = instance.getTimeline?.();
-    if (activeTimeline) activeTimeline.kill();
-
-    if (instance.handleEnter) link.removeEventListener('mouseenter', instance.handleEnter);
-    if (instance.handleLeave) link.removeEventListener('mouseleave', instance.handleLeave);
-    if (instance.handleClick) link.removeEventListener('click', instance.handleClick);
-
-    instance.baseSplit?.revert?.();
-    instance.hoverSplit?.revert?.();
-
-    link.textContent = instance.originalText;
-    linkInstances.delete(link);
+  gsap.set(span, {
+    display: 'inline-block',
+    whiteSpace: 'pre-wrap',
+    ...(isItalic && {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      fontStyle: 'normal',
+    })
   });
 
-  // Clean up menu item haptic handlers
-  document.querySelectorAll('.menu-item').forEach((item) => {
-    const instance = linkInstances.get(item);
-    if (!instance) return;
-    instance.cleanupTapHaptics?.();
-    linkInstances.delete(item);
+  return span;
+}
+
+function animateChars(originalChars, italicChars, isHover) {
+  const tl = gsap.timeline();
+
+  if (isHover) {
+    tl.to(originalChars, {
+      yPercent: 110,
+      opacity: 0,
+      ...ANIM_CONFIG
+    }, 0)
+      .to(italicChars, {
+        yPercent: 0,
+        opacity: 1,
+        ...ANIM_CONFIG
+      }, 0);
+  } else {
+    tl.to(originalChars, {
+      yPercent: 0,
+      opacity: 1,
+      ...ANIM_CONFIG
+    }, 0)
+      .to(italicChars, {
+        yPercent: -110,
+        opacity: 0,
+        ...ANIM_CONFIG
+      }, 0);
+  }
+
+  return tl;
+}
+
+export function destroyLinkHover() {
+  const navLinks = document.querySelectorAll(LINK_SELECTOR);
+
+  navLinks.forEach(link => {
+    const instance = linkInstances.get(link);
+
+    if (instance) {
+      // Kill active tween before reverting splits
+      if (instance.handleTouchStart) {
+        link.removeEventListener('touchstart', instance.handleTouchStart);
+      }
+
+      if (instance.getTween) {
+        const activeTween = instance.getTween();
+        if (activeTween) activeTween.kill();
+      }
+      if (instance.originalSplit && instance.italicSplit) {
+        instance.originalSplit.revert();
+        instance.italicSplit.revert();
+      }
+
+      // Remove listeners
+      if (instance.handleEnter) link.removeEventListener('mouseenter', instance.handleEnter);
+      if (instance.handleLeave) link.removeEventListener('mouseleave', instance.handleLeave);
+      if (instance.handleClick) link.removeEventListener('click', instance.handleClick);
+
+      // Clear WeakMap entry
+      linkInstances.delete(link);
+    }
+
+    // Restore original text
+    const firstSpan = link.querySelector('span');
+    if (firstSpan && !isTouchDevice) {
+      const text = firstSpan.textContent;
+      link.textContent = text;
+      gsap.set(link, { clearProps: 'all' });
+    }
   });
 }

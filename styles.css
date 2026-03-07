@@ -2198,13 +2198,12 @@ body:not(.brand-home) .nav-brand {
   position: relative;
   display: flex;
   flex-direction: column;
-  align-self: center;
+  align-self: flex-start;
   padding: 0;
-  margin: auto;
+  margin-left: auto;
+  margin-right: auto;
   width: 100%;
-  height: auto;
-  max-height: calc(100dvh - var(--spacing-space-8));
-  max-height: calc(100svh - var(--spacing-space-8));
+  height: fit-content;
   max-width: 450px;
   clip-path: polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%);
   transform-origin: top center;
@@ -2224,25 +2223,18 @@ body:not(.brand-home) .nav-brand {
 
 .menu-box>img {
   display: block;
-  width: 100%;
-  height: auto;
   margin: 0;
   padding: 0;
   line-height: 0;
-  flex-shrink: 0;
 }
 
 .receipt-menu {
-  margin: 0;
-  padding: var(--size-1-25rem) var(--size-1-5rem);
+  margin: -2px 0;
+  padding: var(--size-1-5rem);
   display: flex;
   flex-direction: column;
   align-items: center;
   background-color: #FFFDF8;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  width: 100%;
-  min-height: 0;
 }
 
 .menu-toggle-btn {
@@ -2264,8 +2256,7 @@ button:focus-visible {
   left: 0;
   bottom: 0;
   max-width: 100vw;
-  height: 100dvh;
-  height: 100svh;
+  height: 100%;
   margin: auto;
   padding-top: var(--spacing-space-4);
   pointer-events: none;
@@ -2284,23 +2275,18 @@ button:focus-visible {
   transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
 }
 
-.menu-box *{
-    font-family: var(--text-style-font-tertiary);
-  font-size: var(--typography-font-size-text-main);
-  line-height: var(--typography-line-height-medium);
-  letter-spacing: var(--typography-letter-spacing);
-  font-weight: 500;
-  white-space: nowrap;
+.menu-box a,
+.menu-box h5,
+.menu-box p,
+.menu-box button {
+  font-family: var(--text-style-font-tertiary);
   color: inherit;
 }
 
 .menu-content {
+  margin: auto;
   position: static;
-  min-height: 100%;
-  min-height: 100dvh;
-  min-height: 100svh;
-  place-items: center;
-  padding-block: var(--size-0-5rem);
+  margin-top: var(--size-0-5rem);
 }
 
 .receipt-divider {
@@ -2324,35 +2310,27 @@ button:focus-visible {
   height: auto;
   display: block;
 }
-.barcode-contain {
-  padding-top: var(--spacing-space-2);
-}
 
 .menu-item {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
   align-items: center;
-  column-gap: var(--spacing-space-2);
+  gap: var(--spacing-space-1);
   width: 100%;
-  text-decoration: none;
-
-  span {
-    font-size: var(--typography-font-size-h6);
-  }
+  padding: var(--spacing-space-1);
 }
-
 
 .receipt-dots {
   width: 100%;
-  min-width: 0;
-  height: 3px;
+  height: 5px;
   line-height: 0;
   font-size: 0;
   background-image: url('/menu/bill-dot.svg');
   background-repeat: repeat-x;
-  background-position: left center;
-  background-size: 3px 3px;
-  margin: 0 var(--spacing-space-0-5rem);
+  background-position: center;
+  background-size: 6px 5px;
+  margin: 0;
 }
 
 .receipt-star {
@@ -2468,11 +2446,7 @@ img {
 }
 
 .slider {
-  transform-style: flat;
-}
-
-body.preloader-active .slider {
-  pointer-events: none !important;
+  transform-style: preserve-3d;
 }
 
 .slide {

@@ -74,39 +74,25 @@ function hideChars(element, { duration = 0.4, stagger = 0.015, ease = "power2.in
   const splitType = element.getAttribute("data-split-type") || "lines, words, chars";
   const split = getOrSplit(element, splitType);
   if (!split?.chars?.length) return null;
-  return gsap.to(split.chars, { y: 100, opacity: 0, duration, stagger, ease });
+  return gsap.to(split.chars, { y: -100, opacity: 0, duration, stagger, ease });
 }
 
 // ─── Line animations (reveal-body) ─────────────────────────────────────────────
 
-function revealLines(element, { duration = 0.7, stagger = 0.08, ease = "power4.out", delay = 0 } = {}) {
+function revealLines(element, { duration = 0.7, stagger = 0.08, ease = "power4.out" } = {}) {
   const split = getOrSplit(element, "lines");
   if (!split?.lines?.length) return null;
   return gsap.fromTo(
     split.lines,
     { yPercent: 100, opacity: 0 },
-    { yPercent: 0, opacity: 1, duration, stagger, ease, delay }
+    { yPercent: 0, opacity: 1, duration, stagger, ease }
   );
 }
 
-function hideLines(element, { duration = 0.35, stagger = 0.05, ease = "power2.in", delay = 0 } = {}) {
+function hideLines(element, { duration = 0.35, stagger = 0.05, ease = "power2.in" } = {}) {
   const split = getOrSplit(element, "lines");
   if (!split?.lines?.length) return null;
-  return gsap.to(split.lines, { yPercent: 100, opacity: 0, duration, stagger, ease, delay });
-}
-
-function getBodyStaggerMeta(element) {
-  const parent = element.closest("[data-reveal-body-stagger]");
-  if (!parent) return null;
-
-  const siblings = Array.from(parent.querySelectorAll(".reveal-body"));
-  const index = siblings.indexOf(element);
-  if (index < 0) return null;
-
-  const stepAttr = Number(parent.getAttribute("data-reveal-body-stagger"));
-  const step = Number.isFinite(stepAttr) && stepAttr >= 0 ? stepAttr : 0.08;
-
-  return { index, total: siblings.length, step };
+  return gsap.to(split.lines, { yPercent: -100, opacity: 0, duration, stagger, ease });
 }
 
 // ─── Public API ─────────────────────────────────────────────────────────────────
@@ -142,40 +128,33 @@ async function animateRevealEnter(container, options = {}) {
   for (let i = 0; i < bodies.length; i++) {
     const el = bodies[i];
     if (!el.textContent.trim()) continue;
-    const meta = getBodyStaggerMeta(el);
-    const tween = revealLines(el, {
-      delay: meta ? meta.index * meta.step : 0,
-    });
+    const tween = revealLines(el);
     if (tween) animations.push(tweenToPromise(tween));
   }
 
   if (animations.length) await Promise.all(animations);
 }
 
-async function animateRevealLeave(container, options = {}) {
+async function animateRevealLeave(container) {
   if (!container) return;
-  const { excludeSelector } = options;
 
-  const titles = filterByExcludeSelector(container.querySelectorAll(".reveal-title"), excludeSelector);
-  const bodies = filterByExcludeSelector(container.querySelectorAll(".reveal-body"), excludeSelector);
+  const titles = container.querySelectorAll(".reveal-title");
+  const bodies = container.querySelectorAll(".reveal-body");
   if (!titles.length && !bodies.length) return;
 
   const animations = [];
 
   for (let i = 0; i < titles.length; i++) {
     const el = titles[i];
-    if (!el.isConnected || !el.textContent.trim()) continue;
+    if (!el.textContent.trim()) continue;
     const tween = hideChars(el);
     if (tween) animations.push(tweenToPromise(tween));
   }
 
   for (let i = 0; i < bodies.length; i++) {
     const el = bodies[i];
-    if (!el.isConnected || !el.textContent.trim()) continue;
-    const meta = getBodyStaggerMeta(el);
-    const tween = hideLines(el, {
-      delay: meta ? (meta.total - 1 - meta.index) * meta.step : 0,
-    });
+    if (!el.textContent.trim()) continue;
+    const tween = hideLines(el);
     if (tween) animations.push(tweenToPromise(tween));
   }
 

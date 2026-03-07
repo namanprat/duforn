@@ -431,12 +431,14 @@ function loadModels() {
 
 
   modelLoadPromise = new Promise(async (resolve) => {
+    // Run animation and asset load concurrently — init() only resolves when
+    // both the progress animation finishes AND assetsLoaded is true.
     const homeUrl = '/models/scene.glb';
     const workUrl = '/models/work.glb';
 
-    preloader.init();
-    preloader.hold(); // Keep the preloader blocking until models are inserted.
-    await preloader.load([homeUrl, workUrl]);
+    await Promise.all([preloader.init(), preloader.load([homeUrl, workUrl])]);
+
+    preloader.hold(); // Wait for actual model insertion
 
     // Reuse preloader's parsed GLTF scenes instead of re-parsing
     const cachedHome = preloader.getAsset(homeUrl);
@@ -913,15 +915,29 @@ export function webgl() {
     cameraTarget.y = y * parallaxConfig.yRange * 1.1; // +10% vertical gyro influence
     cameraTarget.tilt = x * parallaxConfig.tiltRange;
   };
-  // Defer deviceorientation registration until gyro permission is granted.
-  // Registering eagerly before permission causes iOS 13+ to silently drop events.
-  const registerGyro = () => {
-    window.addEventListener('deviceorientation', window.__gyroHandler, { passive: true });
+  window.addEventListener('deviceorientation', window.__gyroHandler, { passive: true });
+
+  // Request gyroscope permissions on first interaction (needed for iOS 13+)
+  const initGyro = () => {
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      DeviceOrientationEvent.requestPermission()
+        .then(permissionState => {
+          if (permissionState === 'granted') {
+            window.gyroEnabled = true;
+          }
+        })
+        .catch(console.error);
+    } else {
+      // Non-iOS 13+ devices don't need permission
+      window.gyroEnabled = true;
+    }
+    window.removeEventListener('click', initGyro);
+    window.removeEventListener('touchstart', initGyro);
   };
-  if (window.gyroEnabled) {
-    registerGyro();
-  } else {
-    window.addEventListener('gyro-enabled', registerGyro, { once: true });
+
+  if (!window.gyroEnabled) {
+    window.addEventListener('click', initGyro, { once: true });
+    window.addEventListener('touchstart', initGyro, { once: true });
   }
 
   let lastFrameTime = performance.now();
@@ -1053,7 +1069,6 @@ export function destroyWebgl() {
   }
   if (window.__gyroHandler) {
     window.removeEventListener('deviceorientation', window.__gyroHandler);
-    window.removeEventListener('gyro-enabled', window.__gyroHandler);
     window.__gyroHandler = null;
   }
 

@@ -49,104 +49,6 @@ let workGyroInitHandler = null;
 
 const paintDebugMark = createPaintDebugLogger('paint-debug');
 const stripBridge = getWorkStripBridge();
-let workDebugBadge = null;
-let workDebugGui = null;
-const workDebugControls = {
-  windMultiplier: 1,
-};
-
-function forceGuiTextToParagraphs(gui) {
-  const root = gui?.domElement;
-  if (!root) return;
-  const apply = () => {
-    const targets = root.querySelectorAll('.title, .name');
-    targets.forEach((node) => {
-      const text = (node.textContent || '').trim();
-      if (!text) return;
-      const onlyPChild =
-        node.childElementCount === 1 &&
-        node.firstElementChild &&
-        node.firstElementChild.tagName === 'P';
-      if (onlyPChild) {
-        node.firstElementChild.textContent = text;
-        return;
-      }
-      node.textContent = '';
-      const p = document.createElement('p');
-      p.textContent = text;
-      p.style.margin = '0';
-      p.style.fontSize = '12px';
-      p.style.lineHeight = '1.2';
-      p.style.fontWeight = '500';
-      node.appendChild(p);
-    });
-  };
-  apply();
-  requestAnimationFrame(apply);
-}
-
-function ensureWorkDebugBadge() {
-  if (workDebugBadge && workDebugBadge.isConnected) return workDebugBadge;
-  const badge = document.createElement('div');
-  badge.id = 'work-rapier-debug-badge';
-  Object.assign(badge.style, {
-    position: 'fixed',
-    top: '12px',
-    left: '12px',
-    zIndex: '2147483647',
-    background: 'rgba(10,10,10,0.88)',
-    color: '#9df7b6',
-    fontFamily: 'monospace',
-    fontSize: '12px',
-    lineHeight: '1.2',
-    padding: '8px 10px',
-    borderRadius: '6px',
-    pointerEvents: 'none',
-    maxWidth: '92vw',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-  });
-  badge.textContent = 'Work debug: initializing...';
-  document.body.appendChild(badge);
-  workDebugBadge = badge;
-  return badge;
-}
-
-function setWorkDebugStatus(text) {
-  const badge = ensureWorkDebugBadge();
-  badge.textContent = text;
-}
-
-function destroyWorkDebugBadge() {
-  if (workDebugBadge?.isConnected) {
-    workDebugBadge.remove();
-  }
-  workDebugBadge = null;
-}
-
-function initWorkDebugGui() {
-  if (workDebugGui) return;
-  import('lil-gui')
-    .then(({ default: GUI }) => {
-      if (workDebugGui || !isWorkInitialized) return;
-      const gui = new GUI({ title: 'Work Strip Debug', width: 280 });
-      gui.domElement.style.zIndex = '2147483647';
-      gui.add(workDebugControls, 'windMultiplier', 0, 3, 0.01).name('Wind Multiplier');
-      forceGuiTextToParagraphs(gui);
-      workDebugGui = gui;
-    })
-    .catch((error) => {
-      console.warn('[work-strip] Failed to load debug GUI', error);
-    });
-}
-
-function destroyWorkDebugGui() {
-  if (workDebugGui) {
-    workDebugGui.destroy();
-    workDebugGui = null;
-  }
-}
 
 function resolveFirstFrameGateWithDebug() {
   resolveWorkFirstFrameGate();
@@ -919,9 +821,11 @@ export function startWorkTexturePreload() {
 async function loadWorkModel() {
   const workUrl = '/models/work.glb';
 
-  preloader.init();
+  // Run concurrently — init() only resolves when animation AND assets are both
+  // done, so load() must be in-flight at the same time or init() hangs.
+  await Promise.all([preloader.init(), preloader.load([workUrl])]);
+
   preloader.hold();
-  await preloader.load([workUrl]);
 
   const releasePreloader = () => {
     setTimeout(() => {
@@ -1269,7 +1173,7 @@ function updateStrip(time) {
       Math.sin(time * CONFIG.WIND_GUST_FREQ_2) * 0.5) +
     0.5;
   const clampedGust = Math.max(0, gust);
-  const windStrength = (CONFIG.WIND_BASE_STRENGTH + clampedGust * CONFIG.WIND_GUST_SCALE) * workDebugControls.windMultiplier;
+  const windStrength = CONFIG.WIND_BASE_STRENGTH + clampedGust * CONFIG.WIND_GUST_SCALE;
   stripBridge.setScrollTarget(state.scrollTarget);
   stripBridge.setScrollCurrent(state.scrollCurrent);
   stripBridge.setWindStrength(windStrength);
@@ -2157,31 +2061,23 @@ function setupWorkGyroscope() {
     state.gyro.y = mapped.y;
     state.gyro.active = true;
   };
+  window.addEventListener('deviceorientation', workGyroHandler, { passive: true });
 
-  // Defer deviceorientation registration until permission is granted
-  const registerGyro = () => window.addEventListener('deviceorientation', workGyroHandler, { passive: true });
-  if (window.gyroEnabled) {
-    registerGyro();
-    return;
-  }
-  window.addEventListener('gyro-enabled', registerGyro, { once: true });
+  if (window.gyroEnabled) return;
 
-  // Fallback: request permission on first interaction if preloader didn't handle it
   workGyroInitHandler = () => {
-    if (window.gyroPermissionRequested) return;
-    window.gyroPermissionRequested = true;
     if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
       DeviceOrientationEvent.requestPermission()
         .then((permissionState) => {
           if (permissionState === 'granted') {
             window.gyroEnabled = true;
-            window.dispatchEvent(new CustomEvent('gyro-enabled'));
           }
         })
-        .catch(() => {});
+        .catch((error) => {
+          console.error('[work] gyro permission request failed', error);
+        });
     } else {
       window.gyroEnabled = true;
-      window.dispatchEvent(new CustomEvent('gyro-enabled'));
     }
     if (workGyroInitHandler) {
       window.removeEventListener('click', workGyroInitHandler);
@@ -2584,7 +2480,6 @@ export function destroyWork({ keepCoverPlane = false, preserveTexture = null } =
   stripBridge.setScrollCurrent(0);
   stripBridge.setScrollTarget(0);
   stripBridge.setStripMetrics({ axis: 'horizontal' });
-  // Debug GUI and badge removed in production build to avoid overlaying UI
 
   // Clean up cover plane (unless transition wants to keep it)
   if (!keepCoverPlane) {

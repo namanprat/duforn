@@ -21,14 +21,9 @@ export class Preloader {
 
         this.animationComplete = false;
         this.pendingLoadBatches = 0;
-        this.readyPromise = null;
-        this.readyResolver = null;
-        this.exitPromise = null;
-        this.exitResolver = null;
+        this.runPromise = null;
+        this.runResolver = null;
         this.isCompleting = false;
-        this.hasCompleted = false;
-        this.enterConfirmed = false;
-        this.isBlocking = false;
         this.loadedAssets = new Map();
         this.resizeHandler = null;
         this._lastGridWidth = 0;
@@ -91,31 +86,34 @@ export class Preloader {
         this.cacheDom();
         this.generateGrid();
 
+        const hasSeenPreloader = sessionStorage.getItem('preloaderSeen') === 'true';
+        // const hasSeenPreloader = false; // FORCE SHOW for debugging
+
         if (!this.container) return Promise.resolve();
-        if (this.readyPromise) return this.readyPromise;
-        if (this.hasCompleted) return Promise.resolve();
+        if (this.runPromise) return this.runPromise;
+
+        if (hasSeenPreloader) {
+            this.teardownResizeListener();
+            this.container.style.display = 'none';
+            paintDebugMark('preloader hidden (already seen)');
+            window.audioEnabled = true;
+            window.gyroEnabled = true;
+            return Promise.resolve();
+        }
 
         this.setupResizeListener();
         this.container.style.display = 'flex';
-        this.container.style.opacity = '1';
-        this.container.style.pointerEvents = '';
-        document.body.classList.add('preloader-active');
         paintDebugMark('preloader shown');
         this.animationComplete = false;
         this.pendingLoadBatches = 0;
         this.isCompleting = false;
-        this.enterConfirmed = false;
-        this.isBlocking = true;
 
-        this.readyPromise = new Promise((resolve) => {
-            this.readyResolver = resolve;
+        this.runPromise = new Promise((resolve) => {
+            this.runResolver = resolve;
+            this.startSequence();
         });
-        this.exitPromise = new Promise((resolve) => {
-            this.exitResolver = resolve;
-        });
-        this.startSequence();
 
-        return this.readyPromise;
+        return this.runPromise;
     }
 
     async load(urls) {
@@ -258,43 +256,19 @@ export class Preloader {
     }
 
     checkCompletion() {
-        if (!this.readyPromise) return;
+        if (!this.runPromise) return;
         if (this.pendingLoadBatches === 0 && this.animationComplete) {
             this.complete();
         }
     }
 
-    isBlockingContent() {
-        return this.isBlocking;
-    }
-
-    hasEntered() {
-        return this.enterConfirmed;
-    }
-
-    waitForExit() {
-        if (this.hasCompleted || !this.container) return Promise.resolve();
-        return this.exitPromise || Promise.resolve();
-    }
-
-    resolveReady() {
-        if (this.readyResolver) {
-            this.readyResolver();
+    resolveRun() {
+        if (this.runResolver) {
+            this.runResolver();
         }
-        this.readyResolver = null;
-        this.readyPromise = null;
-    }
-
-    resolveExit() {
-        if (this.exitResolver) {
-            this.exitResolver();
-        }
-        this.exitResolver = null;
-        this.exitPromise = null;
+        this.runResolver = null;
+        this.runPromise = null;
         this.isCompleting = false;
-        this.hasCompleted = true;
-        this.isBlocking = false;
-        document.body.classList.remove('preloader-active');
         this.teardownResizeListener();
     }
 
@@ -315,25 +289,42 @@ export class Preloader {
 
     complete() {
         if (!this.container) {
-            this.resolveReady();
-            this.resolveExit();
+            this.resolveRun();
             return;
         }
         if (this.isCompleting) return;
         this.isCompleting = true;
 
-        // preloaderSeen flag removed — permission prompt shows on every visit
+        sessionStorage.setItem('preloaderSeen', 'true');
 
         setTimeout(() => {
-            // Fade progress bar, then show ENTER button over the solid grid
-            gsap.to(this.progressBar, {
-                opacity: 0,
-                duration: 0.3,
-                ease: 'power2.inOut',
-                onComplete: () => {
-                    this.showEnterButton();
-                    this.resolveReady();
-                },
+            if (!this.preloaderBlocks || this.preloaderBlocks.length === 0) {
+                this.showEnterButton();
+                return;
+            }
+
+            // Fade progress bar and scatter blocks simultaneously
+            gsap.to(this.progressBar, { opacity: 0, duration: 0.3, ease: 'power2.inOut' });
+
+            const maxDelay = 0.5;
+            let completedAnimations = 0;
+            const totalBlocks = this.preloaderBlocks.length;
+
+            this.preloaderBlocks.forEach((block) => {
+                const randomDelay = Math.random() * maxDelay;
+                gsap.to(block, {
+                    opacity: 0,
+                    duration: 0.1,
+                    ease: 'power1.out',
+                    delay: randomDelay,
+                    onComplete: () => {
+                        gsap.set(block, { opacity: 0 });
+                        completedAnimations++;
+                        if (completedAnimations >= totalBlocks) {
+                            this.showEnterButton();
+                        }
+                    },
+                });
             });
         }, 500);
     }
@@ -355,7 +346,7 @@ export class Preloader {
         });
 
         const hint = document.createElement('p');
-        hint.textContent = '// audio + haptics + motion';
+        hint.textContent = '// audio + motion';
         Object.assign(hint.style, {
             fontFamily: 'inherit',
             fontSize: '0.75rem',
@@ -384,101 +375,52 @@ export class Preloader {
 
         gsap.to(wrapper, { opacity: 1, duration: 0.5, ease: 'power2.out' });
 
-        const onEnter = (e) => {
-            if (e.type === 'touchstart') e.preventDefault();
-            if (!this.enterConfirmed) this.handleEnterClick(wrapper);
-        };
-        enterBtn.addEventListener('click', onEnter);
-        enterBtn.addEventListener('touchstart', onEnter, { passive: false });
+        enterBtn.addEventListener('click', () => {
+            this.handleEnterClick(wrapper);
+        });
     }
 
     handleEnterClick(wrapper) {
-        this.enterConfirmed = true;
-        window.gyroPermissionRequested = true;
+        // 1. Audio Permission
+        window.audioEnabled = true;
+        if (typeof window.AudioContext !== 'undefined' || typeof window.webkitAudioContext !== 'undefined') {
+            // Unlock AudioContext (needed for Web Audio API users)
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            audioCtx.resume();
+        }
 
-        // 1. Gyroscope Permission (first — opens system prompt on iOS, must be in user gesture)
+        // 2. Gyroscope Permission
         if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
             DeviceOrientationEvent.requestPermission()
                 .then(permissionState => {
                     if (permissionState === 'granted') {
                         window.gyroEnabled = true;
-                        window.dispatchEvent(new CustomEvent('gyro-enabled'));
+                    } else {
+                        console.warn('Gyroscope permission denied');
                     }
-                    this.outroAnimation(wrapper);
+                    this.finishPreloader(wrapper);
                 })
                 .catch(err => {
-                    this.outroAnimation(wrapper);
+                    console.error('Error requesting gyro permission:', err);
+                    this.finishPreloader(wrapper); // Continue even if gyro fails
                 });
         } else {
             // Android or older devices where permission isn't requested explicitly
             window.gyroEnabled = true;
-            window.dispatchEvent(new CustomEvent('gyro-enabled'));
-            this.outroAnimation(wrapper);
-        }
-
-        // 2. Audio Permission (must also be in user gesture to unlock on iOS)
-        window.audioEnabled = true;
-        window.hapticsEnabled = true;
-        try {
-            const AudioCtx = window.AudioContext || window.webkitAudioContext;
-            if (AudioCtx) {
-                const audioCtx = new AudioCtx();
-                audioCtx.resume();
-                window.__unlockedAudioCtx = audioCtx;
-            }
-        } catch (_) { /* audio unlock failed, continue */ }
-
-        // 3. Haptics warm-up
-        if (typeof window.hapticTrigger === 'function') {
-            window.hapticTrigger([{ duration: 10, intensity: 0.1 }]);
-        } else if (typeof navigator.vibrate === 'function') {
-            navigator.vibrate(10);
-        }
-    }
-
-    outroAnimation(wrapper) {
-        // Fade out the enter button immediately
-        gsap.to(wrapper, { opacity: 0, duration: 0.25, ease: 'power2.inOut' });
-
-        if (!this.preloaderBlocks || this.preloaderBlocks.length === 0) {
             this.finishPreloader(wrapper);
-            return;
         }
-
-        // Scatter blocks as the outro
-        const maxDelay = 0.5;
-        let completedAnimations = 0;
-        const totalBlocks = this.preloaderBlocks.length;
-
-        this.preloaderBlocks.forEach((block) => {
-            const randomDelay = Math.random() * maxDelay;
-            gsap.to(block, {
-                opacity: 0,
-                duration: 0.1,
-                ease: 'power1.out',
-                delay: randomDelay,
-                onComplete: () => {
-                    completedAnimations++;
-                    if (completedAnimations >= totalBlocks) {
-                        this.finishPreloader(wrapper);
-                    }
-                },
-            });
-        });
     }
 
     finishPreloader(wrapper) {
-        // wrapper already faded in outroAnimation — only fade the container
-        gsap.to(this.container, {
+        gsap.to([wrapper, this.container], {
             opacity: 0,
             duration: 0.5,
             ease: 'power2.inOut',
             onComplete: () => {
                 this.container.style.display = 'none';
-                this.container.style.pointerEvents = '';
                 paintDebugMark('preloader hidden');
                 wrapper.remove();
-                this.resolveExit();
+                this.resolveRun();
             }
         });
     }

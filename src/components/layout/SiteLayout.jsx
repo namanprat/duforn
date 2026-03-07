@@ -1,10 +1,5 @@
 import { Link } from 'react-router-dom';
 import { closeMenuIfOpen } from '../../../scripts/menu.js';
-import { CLICK_HAPTIC_PATTERN } from '../../../scripts/link-hover.js';
-
-function triggerNavHaptic() {
-  window.hapticTrigger?.(CLICK_HAPTIC_PATTERN);
-}
 
 function ReceiptMenu() {
   return (
@@ -41,36 +36,34 @@ function ReceiptMenu() {
               <div className="receipt-divider" />
             </div>
 
-            <div className="menu-item-contain u-flex-vertical-nowrap u-width-full">
-              <Link className="menu-item" to="/work" onClick={(e) => { closeMenuIfOpen(e); triggerNavHaptic(); }}>
-              <span className="menu-item-label">WORK</span>
+            <Link className="menu-item" to="/work" onClick={closeMenuIfOpen}>
+              <h5>WORK</h5>
               <div className="receipt-dots" aria-hidden="true" />
-              <span className="menu-item-index">01</span>
+              <h5>01</h5>
             </Link>
-            <Link className="menu-item" to="/contact" onClick={(e) => { closeMenuIfOpen(e); triggerNavHaptic(); }}>
-              <span className="menu-item-label">CONTACT</span>
+            <Link className="menu-item" to="/contact" onClick={closeMenuIfOpen}>
+              <h5>CONTACT</h5>
               <div className="receipt-dots" aria-hidden="true" />
-              <span className="menu-item-index">02</span>
+              <h5>02</h5>
             </Link>
-            <Link className="menu-item" to="/archive" onClick={(e) => { closeMenuIfOpen(e); triggerNavHaptic(); }}>
-              <span className="menu-item-label">ARCHIVE</span>
+            <Link className="menu-item" to="/archive" onClick={closeMenuIfOpen}>
+              <h5>ARCHIVE</h5>
               <div className="receipt-dots" aria-hidden="true" />
-              <span className="menu-item-index">03</span>
+              <h5>03</h5>
             </Link>
-              </div>
 
-            <div className="barcode-contain u-flex-vertical-nowrap u-width-full">
+            <div className="u-flex-vertical-nowrap u-gap-3 u-width-full">
               <div className="receipt-star" aria-hidden="true" />
               <div className="receipt-barcode">
                 <img src="/menu/barcode.svg" alt="Barcode" className="receipt-svg" loading="lazy" decoding="async" />
               </div>
               <div className="receipt-star" aria-hidden="true" />
             </div>
-{/* 
-            <button className="receipt-close" type="button" onClick={(e) => { closeMenuIfOpen(e); triggerNavHaptic(); }}>
+
+            <button className="receipt-close" type="button" onClick={closeMenuIfOpen}>
               <h5 className="receipt-close-text">CLOSE</h5>
               <span className="receipt-close-arrow">→</span>
-            </button> */}
+            </button>
           </div>
           <img
             src="/menu/bill-top.svg"
@@ -108,16 +101,16 @@ export default function SiteLayout({ children }) {
       <header>
         <nav className="nav-wrap u-position-fixed">
           <div className="nav-contain u-container-full">
-            <Link className="u-mobile-hidden" to="/work" onClick={(e) => { closeMenuIfOpen(e); triggerNavHaptic(); }}>
+            <Link className="u-mobile-hidden" to="/work" onClick={closeMenuIfOpen}>
               work
             </Link>
-            <Link to="/" className="link-main nav-brand" onClick={(e) => { closeMenuIfOpen(e); triggerNavHaptic(); }}>
+            <Link to="/" className="link-main nav-brand" onClick={closeMenuIfOpen}>
               duforn
             </Link>
-            <Link className="u-mobile-hidden" to="/contact" onClick={(e) => { closeMenuIfOpen(e); triggerNavHaptic(); }}>
+            <Link className="u-mobile-hidden" to="/contact" onClick={closeMenuIfOpen}>
               contact
             </Link>
-            <button className="menu-toggle-btn" type="button" aria-label="Open menu" aria-haspopup="dialog" aria-controls="site-menu" aria-expanded="false" onClick={triggerNavHaptic}>
+            <button className="menu-toggle-btn" type="button" aria-label="Open menu" aria-haspopup="dialog" aria-controls="site-menu" aria-expanded="false">
               <span className="menu-toggle-btn-wrapper">MENU</span>
             </button>
           </div>
@@ -125,7 +118,7 @@ export default function SiteLayout({ children }) {
 
         <div className="bottom-nav-wrap u-position-fixed u-container-full u-mobile-hidden">
           <div className="bottom-nav-contain">
-            <Link to="/archive" onClick={(e) => { closeMenuIfOpen(e); triggerNavHaptic(); }}>archive</Link>
+            <Link to="/archive" onClick={closeMenuIfOpen}>archive</Link>
             <a id="time" aria-live="polite">
               12:34:56 IST
             </a>
