@@ -17,6 +17,16 @@ const isTouchDevice = isCoarsePointerDevice();
 // Store instances for cleanup
 const linkInstances = new WeakMap();
 
+const TEXT_LINK_SELECTOR = '.nav-wrap a, .bottom-nav-wrap a, .contact-contain a';
+const HAPTIC_TARGET_SELECTOR = 'a[href], button, [role="button"]';
+
+let delegatedHapticsInitialized = false;
+let lastTouchTarget = null;
+let lastTouchTimestamp = 0;
+let handleDelegatedHover = null;
+let handleDelegatedTouchStart = null;
+let handleDelegatedClick = null;
+
 // Shared haptics instance – debug:true produces synthesised audio clicks
 // on devices without the Vibration API (i.e. desktop browsers).
 let haptics = null;
@@ -26,22 +36,17 @@ export function getHaptics() {
   return haptics;
 }
 
-const LINK_SELECTOR = '.nav-wrap a, .bottom-nav-wrap a, .contact-contain a';
-
 export function initLinkHover() {
-  const navLinks = document.querySelectorAll(LINK_SELECTOR);
+  initDelegatedHaptics();
+
+  const navLinks = document.querySelectorAll(TEXT_LINK_SELECTOR);
 
   navLinks.forEach(link => {
     // Skip if already initialized or excluded
     if (link.id === 'time' || link.classList.contains('menu-toggle-btn') || linkInstances.has(link)) return;
 
     if (isTouchDevice) {
-      const handleTouchStart = () => {
-        getHaptics().trigger('nudge');
-      };
-
-      link.addEventListener('touchstart', handleTouchStart, { passive: true });
-      linkInstances.set(link, { handleTouchStart });
+      linkInstances.set(link, {});
       return;
     }
 
@@ -87,19 +92,6 @@ export function initLinkHover() {
 
       tl?.kill();
       tl = animateChars(originalSplit.chars, italicSplit.chars, true);
-
-      // Light haptic pulse on hover
-      getHaptics().trigger([
-        { duration: 10 },
-      ], { intensity: 1 });
-    };
-
-    const handleClick = () => {
-      // Stronger nudge haptic on click
-      getHaptics().trigger([
-        { duration: 80, intensity: 0.8 },
-        { delay: 80, duration: 50, intensity: 0.3 },
-      ]);
     };
 
     const handleLeave = () => {
@@ -111,7 +103,6 @@ export function initLinkHover() {
 
     link.addEventListener('mouseenter', handleEnter);
     link.addEventListener('mouseleave', handleLeave);
-    link.addEventListener('click', handleClick);
 
     // Store for cleanup (include tween getter for destroy)
     const instance = {
@@ -119,11 +110,63 @@ export function initLinkHover() {
       italicSplit,
       handleEnter,
       handleLeave,
-      handleClick,
       getTween: () => tl,
     };
     linkInstances.set(link, instance);
   });
+}
+
+function initDelegatedHaptics() {
+  if (delegatedHapticsInitialized) return;
+
+  handleDelegatedHover = (event) => {
+    if (isTouchDevice) return;
+
+    const target = getHapticTarget(event.target);
+    if (!target) return;
+
+    const previousTarget = getHapticTarget(event.relatedTarget);
+    if (previousTarget === target) return;
+
+    getHaptics().trigger('light');
+  };
+
+  handleDelegatedTouchStart = (event) => {
+    const target = getHapticTarget(event.target);
+    if (!target) return;
+
+    lastTouchTarget = target;
+    lastTouchTimestamp = Date.now();
+    getHaptics().trigger('nudge');
+  };
+
+  handleDelegatedClick = (event) => {
+    const target = getHapticTarget(event.target);
+    if (!target) return;
+
+    const now = Date.now();
+    const isSyntheticTouchClick = target === lastTouchTarget && now - lastTouchTimestamp < 700;
+    if (isSyntheticTouchClick) return;
+
+    getHaptics().trigger('nudge');
+  };
+
+  document.addEventListener('mouseover', handleDelegatedHover);
+  document.addEventListener('touchstart', handleDelegatedTouchStart, { passive: true });
+  document.addEventListener('click', handleDelegatedClick);
+  delegatedHapticsInitialized = true;
+}
+
+function getHapticTarget(node) {
+  if (!(node instanceof Element)) return null;
+
+  const target = node.closest(HAPTIC_TARGET_SELECTOR);
+  if (!target || !document.contains(target)) return null;
+  if (target.id === 'time') return null;
+  if (target.getAttribute('aria-hidden') === 'true') return null;
+  if (target.matches('[disabled], [aria-disabled="true"]')) return null;
+
+  return target;
 }
 
 function createTextSpan(text, isItalic) {
@@ -175,17 +218,25 @@ function animateChars(originalChars, italicChars, isHover) {
 }
 
 export function destroyLinkHover() {
-  const navLinks = document.querySelectorAll(LINK_SELECTOR);
+  if (delegatedHapticsInitialized) {
+    document.removeEventListener('mouseover', handleDelegatedHover);
+    document.removeEventListener('touchstart', handleDelegatedTouchStart);
+    document.removeEventListener('click', handleDelegatedClick);
+    delegatedHapticsInitialized = false;
+    lastTouchTarget = null;
+    lastTouchTimestamp = 0;
+    handleDelegatedHover = null;
+    handleDelegatedTouchStart = null;
+    handleDelegatedClick = null;
+  }
+
+  const navLinks = document.querySelectorAll(TEXT_LINK_SELECTOR);
 
   navLinks.forEach(link => {
     const instance = linkInstances.get(link);
 
     if (instance) {
       // Kill active tween before reverting splits
-      if (instance.handleTouchStart) {
-        link.removeEventListener('touchstart', instance.handleTouchStart);
-      }
-
       if (instance.getTween) {
         const activeTween = instance.getTween();
         if (activeTween) activeTween.kill();
@@ -198,7 +249,6 @@ export function destroyLinkHover() {
       // Remove listeners
       if (instance.handleEnter) link.removeEventListener('mouseenter', instance.handleEnter);
       if (instance.handleLeave) link.removeEventListener('mouseleave', instance.handleLeave);
-      if (instance.handleClick) link.removeEventListener('click', instance.handleClick);
 
       // Clear WeakMap entry
       linkInstances.delete(link);
