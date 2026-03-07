@@ -1,6 +1,17 @@
 import { Link } from 'react-router-dom';
 import { closeMenuIfOpen } from '../../../scripts/menu.js';
 
+function NavLink({ to, className, children, ...props }) {
+  const handleClick = (e) => {
+    closeMenuIfOpen(e);
+  };
+  return (
+    <Link to={to} className={className} onClick={handleClick} {...props}>
+      {children}
+    </Link>
+  );
+}
+
 function ReceiptMenu() {
   return (
     <div className="menu-wrap" id="site-menu" role="dialog" aria-modal="true" aria-label="Site menu" aria-hidden="true">
@@ -14,9 +25,9 @@ function ReceiptMenu() {
             decoding="async"
           />
           <div className="receipt-menu u-flex-vertical-nowrap u-gap-3">
-            <div className="receipt-header">
+            <NavLink className="receipt-header" to="/">
               <img src="/menu/bill-logo.svg" alt="bill-logo" className="receipt-logo" loading="lazy" decoding="async" />
-            </div>
+            </NavLink>
             <p className="u-text-align-center">
               Commodo excepteur irure culpa aute
               <br />
@@ -36,34 +47,31 @@ function ReceiptMenu() {
               <div className="receipt-divider" />
             </div>
 
-            <Link className="menu-item" to="/work" onClick={closeMenuIfOpen}>
-              <h5>WORK</h5>
-              <div className="receipt-dots" aria-hidden="true" />
-              <h5>01</h5>
-            </Link>
-            <Link className="menu-item" to="/contact" onClick={closeMenuIfOpen}>
-              <h5>CONTACT</h5>
-              <div className="receipt-dots" aria-hidden="true" />
-              <h5>02</h5>
-            </Link>
-            <Link className="menu-item" to="/archive" onClick={closeMenuIfOpen}>
-              <h5>ARCHIVE</h5>
-              <div className="receipt-dots" aria-hidden="true" />
-              <h5>03</h5>
-            </Link>
+            <div className="menu-item-contain u-flex-vertical-nowrap u-width-full">
+              <NavLink className="menu-item" to="/work">
+                <span className="menu-item-label">WORK</span>
+                <div className="receipt-dots" aria-hidden="true" />
+                <span className="menu-item-index">01</span>
+              </NavLink>
+              <NavLink className="menu-item" to="/contact">
+                <span className="menu-item-label">CONTACT</span>
+                <div className="receipt-dots" aria-hidden="true" />
+                <span className="menu-item-index">02</span>
+              </NavLink>
+              <NavLink className="menu-item" to="/archive">
+                <span className="menu-item-label">ARCHIVE</span>
+                <div className="receipt-dots" aria-hidden="true" />
+                <span className="menu-item-index">03</span>
+              </NavLink>
+            </div>
 
-            <div className="u-flex-vertical-nowrap u-gap-3 u-width-full">
+            <div className="barcode-contain u-flex-vertical-nowrap u-width-full">
               <div className="receipt-star" aria-hidden="true" />
               <div className="receipt-barcode">
                 <img src="/menu/barcode.svg" alt="Barcode" className="receipt-svg" loading="lazy" decoding="async" />
               </div>
               <div className="receipt-star" aria-hidden="true" />
             </div>
-
-            <button className="receipt-close" type="button" onClick={closeMenuIfOpen}>
-              <h5 className="receipt-close-text">CLOSE</h5>
-              <span className="receipt-close-arrow">→</span>
-            </button>
           </div>
           <img
             src="/menu/bill-top.svg"
@@ -96,20 +104,23 @@ export default function SiteLayout({ children }) {
             </p>
           </div>
         </div>
+        <div className="preloader-enter-wrap" style={{ display: 'none' }}>
+          <button className="preloader-enter-btn" type="button">ENTER</button>
+        </div>
       </div>
 
       <header>
         <nav className="nav-wrap u-position-fixed">
           <div className="nav-contain u-container-full">
-            <Link className="u-mobile-hidden" to="/work" onClick={closeMenuIfOpen}>
+            <NavLink className="u-mobile-hidden" to="/work">
               work
-            </Link>
-            <Link to="/" className="link-main nav-brand" onClick={closeMenuIfOpen}>
+            </NavLink>
+            <NavLink to="/" className="link-main nav-brand">
               duforn
-            </Link>
-            <Link className="u-mobile-hidden" to="/contact" onClick={closeMenuIfOpen}>
+            </NavLink>
+            <NavLink className="u-mobile-hidden" to="/contact">
               contact
-            </Link>
+            </NavLink>
             <button className="menu-toggle-btn" type="button" aria-label="Open menu" aria-haspopup="dialog" aria-controls="site-menu" aria-expanded="false">
               <span className="menu-toggle-btn-wrapper">MENU</span>
             </button>
@@ -118,7 +129,7 @@ export default function SiteLayout({ children }) {
 
         <div className="bottom-nav-wrap u-position-fixed u-container-full u-mobile-hidden">
           <div className="bottom-nav-contain">
-            <Link to="/archive" onClick={closeMenuIfOpen}>archive</Link>
+            <NavLink to="/archive">archive</NavLink>
             <a id="time" aria-live="polite">
               12:34:56 IST
             </a>
