@@ -130,9 +130,9 @@ export default function SiteLayout({ children }) {
         <div className="bottom-nav-wrap u-position-fixed u-container-full u-mobile-hidden">
           <div className="bottom-nav-contain">
             <NavLink to="/archive">archive</NavLink>
-            <a id="time" aria-live="polite">
+            <div id="time" aria-live="polite">
               12:34:56 IST
-            </a>
+            </div>
           </div>
         </div>
 

@@ -7,7 +7,7 @@ import { debounce } from './runtime/timing.js';
 
 const paintDebugMark = createPaintDebugLogger('paint-debug');
 
-export class Preloader {
+class Preloader {
     constructor() {
         this.cacheDom();
 

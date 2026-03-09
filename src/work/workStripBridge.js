@@ -28,6 +28,7 @@ const bridgeState = {
     itemsOnStrip: 11,
     numUnique: 6,
     gapSize: 0.03,
+    arcSpan: 3.5,
     axis: 'horizontal',
   },
   itemClickHandlers: new Set(),
@@ -49,6 +50,7 @@ function applySnapshot(api) {
     itemsOnStrip: snapshot.itemsOnStrip,
     numUnique: snapshot.numUnique,
     gapSize: snapshot.gapSize,
+    arcSpan: snapshot.arcSpan,
     axis: snapshot.axis,
   });
 }
@@ -145,11 +147,13 @@ export function getWorkStripBridge() {
       bridgeState.snapshot.itemsOnStrip = next?.itemsOnStrip ?? bridgeState.snapshot.itemsOnStrip;
       bridgeState.snapshot.numUnique = next?.numUnique ?? bridgeState.snapshot.numUnique;
       bridgeState.snapshot.gapSize = next?.gapSize ?? bridgeState.snapshot.gapSize;
+      bridgeState.snapshot.arcSpan = next?.arcSpan ?? bridgeState.snapshot.arcSpan;
       bridgeState.snapshot.axis = next?.axis ?? bridgeState.snapshot.axis;
       bridgeState.api?.setStripMetrics?.({
         itemsOnStrip: bridgeState.snapshot.itemsOnStrip,
         numUnique: bridgeState.snapshot.numUnique,
         gapSize: bridgeState.snapshot.gapSize,
+        arcSpan: bridgeState.snapshot.arcSpan,
         axis: bridgeState.snapshot.axis,
       });
     },

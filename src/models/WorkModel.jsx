@@ -10,7 +10,8 @@ Title: White round exhibition gallery
 import React from 'react'
 import { useGLTF } from '@react-three/drei'
 
-export function WorkModel(props) {
+/* eslint-disable react/no-unknown-property */
+function WorkModel(props) {
   const { nodes, materials } = useGLTF('/models/work.glb')
   return (
     <group {...props} dispose={null}>

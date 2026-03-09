@@ -31,7 +31,7 @@ import {
   resetWorkFirstFrameGate,
   resolveWorkFirstFrameGate,
 } from './work/transitions.js';
-export { resetWorkFirstFrameGate, whenWorkFirstFrame } from './work/transitions.js';
+
 
 
 // Cinematic 3D strip carousel — one continuous curved mesh wrapping an arc,
@@ -136,6 +136,58 @@ const CONFIG = {
 
 const perf = getPerformanceProfile();
 const isTouchDevice = isCoarsePointerDevice();
+const MOBILE_STRIP_BREAKPOINT = 768;
+
+function getStripAxisRotation() {
+  return state.stripAxis === 'vertical' ? Math.PI * 0.5 : 0;
+}
+
+function syncFallbackStripAxis() {
+  const isVertical = state.stripAxis === 'vertical';
+  if (state.stripMaterial?.uniforms?.uAxisVertical) {
+    state.stripMaterial.uniforms.uAxisVertical.value = isVertical ? 1.0 : 0.0;
+  }
+  if (state.stripMaterial?.uniforms?.uArcSpan) {
+    state.stripMaterial.uniforms.uArcSpan.value = isVertical ? VERTICAL_ARC_SPAN : CONFIG.ARC_SPAN;
+  }
+  if (state.stripMesh) {
+    state.stripMesh.rotation.z = getStripAxisRotation();
+  }
+}
+
+function getResponsiveStripAxis() {
+  if (typeof window === 'undefined') return 'horizontal';
+  return window.innerWidth <= MOBILE_STRIP_BREAKPOINT ? 'vertical' : 'horizontal';
+}
+
+// Vertical-mode overrides
+const VERTICAL_ARC_SPAN = 2.2;
+const VERTICAL_MESH_X_OFFSET = CONFIG.STRIP_Y_OFFSET; // counter the baked Y offset that rotates into X
+
+function syncStripAxis(force = false) {
+  const nextAxis = getResponsiveStripAxis();
+  if (!force && state.stripAxis === nextAxis) return false;
+
+  state.stripAxis = nextAxis;
+  const isVertical = state.stripAxis === 'vertical';
+
+  stripBridge.setStripMetrics({
+    itemsOnStrip: CONFIG.ITEMS_ON_STRIP,
+    numUnique: CONFIG.NUM_UNIQUE,
+    gapSize: CONFIG.GAP_SIZE,
+    arcSpan: isVertical ? VERTICAL_ARC_SPAN : CONFIG.ARC_SPAN,
+    axis: state.stripAxis,
+  });
+  syncFallbackStripAxis();
+
+  // The baked STRIP_Y_OFFSET (-1.2) rotates to X=+1.2 after 90° CCW rotation.
+  // Counter it so the strip is centered on the camera orbit target.
+  if (state.stripMesh) {
+    state.stripMesh.position.x = isVertical ? VERTICAL_MESH_X_OFFSET : 0;
+  }
+
+  return true;
+}
 
 // ─── SHADERS ────────────────────────────────────────────────────────────────────
 
@@ -331,6 +383,7 @@ const STRIP_FRAGMENT_SHADER = /* glsl */ `
   uniform float uRevealProgress;
   uniform float uRevealSoftness;
   uniform float uArcSpan;
+  uniform float uAxisVertical;
 
   varying vec2 vUv;
   varying vec3 vViewPosition;
@@ -349,7 +402,9 @@ const STRIP_FRAGMENT_SHADER = /* glsl */ `
     vec3 normal = normalize(vNormal);
 
     // ─── TEXTURE MAPPING ───
-    float totalU = vUv.x * uItemsOnStrip + uScrollOffset;
+    // axisCoord is always vUv.x — mesh rotation handles vertical orientation
+    float axisCoord = vUv.x;
+    float totalU = axisCoord * uItemsOnStrip + uScrollOffset;
     float itemFract = fract(totalU);
     float itemIndex = floor(totalU);
 
@@ -360,7 +415,11 @@ const STRIP_FRAGMENT_SHADER = /* glsl */ `
     if (itemFract < halfGap || itemFract > 1.0 - halfGap) discard;
 
     float texU = (itemFract - halfGap) / (1.0 - uGapSize);
-    vec2 texCoord = vec2(texU, vUv.y);
+    // Horizontal: image u = texU (along arc), image v = vUv.y (strip height)
+    // Vertical (mesh rotated 90°): swap to keep images upright
+    vec2 texCoordHorizontal = vec2(texU, vUv.y);
+    vec2 texCoordVertical = vec2(1.0 - vUv.y, texU);
+    vec2 texCoord = mix(texCoordHorizontal, texCoordVertical, clamp(uAxisVertical, 0.0, 1.0));
     
     // Clamp UVs to prevent texture edge bleeding / stretched-pixel artifacts
     texCoord = clamp(texCoord, vec2(0.001), vec2(0.999));
@@ -414,7 +473,7 @@ const STRIP_FRAGMENT_SHADER = /* glsl */ `
 
     // Sweep in arc-angle space (right -> left) so reveal starts on the visible edge.
     float progress = clamp(uRevealProgress, 0.0, 1.0);
-    float angle = (vUv.x - 0.5) * uArcSpan;
+    float angle = (axisCoord - 0.5) * uArcSpan;
     float startAngle = uArcSpan * 0.52;
     float endAngle = -uArcSpan * 0.52;
     float revealHead = mix(startAngle, endAngle, progress);
@@ -977,13 +1036,7 @@ function setupGalleryScene() {
 
 function setupStrip() {
   state.usingBridgeStrip = stripBridge.isReady();
-  state.stripAxis = isTouchDevice ? 'vertical' : 'horizontal';
-  stripBridge.setStripMetrics({
-    itemsOnStrip: CONFIG.ITEMS_ON_STRIP,
-    numUnique: CONFIG.NUM_UNIQUE,
-    gapSize: CONFIG.GAP_SIZE,
-    axis: state.stripAxis,
-  });
+  syncStripAxis(true);
   stripBridge.setVisible(true);
 
   if (state.usingBridgeStrip) {
@@ -1039,6 +1092,7 @@ function setupStrip() {
       uRevealSoftness: { value: CONFIG.REVEAL_SOFTNESS },
       uArcRadius: { value: CONFIG.ARC_RADIUS },
       uArcSpan: { value: CONFIG.ARC_SPAN },
+      uAxisVertical: { value: state.stripAxis === 'vertical' ? 1.0 : 0.0 },
     },
     extensions: {
       derivatives: true,
@@ -1052,6 +1106,7 @@ function setupStrip() {
   state.stripMesh.frustumCulled = false;
   state.stripMesh.castShadow = true;
   state.stripMesh.receiveShadow = false;
+  state.stripMesh.rotation.z = getStripAxisRotation();
 
   state.stripGroup.add(state.stripMesh);
 }
@@ -1086,7 +1141,7 @@ function updateTitle() {
   const idx = ((Math.floor(centerItem) % CONFIG.NUM_UNIQUE) + CONFIG.NUM_UNIQUE) % CONFIG.NUM_UNIQUE;
   state.activeIndex = idx;
 
-      const item = workItems[idx];
+  const item = workItems[idx];
   if (!item) return;
 
   if (state.lastActiveTitle !== item.title) {
@@ -1172,6 +1227,7 @@ function updateStrip(time) {
   u.uScrollOffset.value = state.scrollCurrent;
   u.uTime.value = time;
   u.uWindStrength.value = windStrength;
+  u.uAxisVertical.value = state.stripAxis === 'vertical' ? 1.0 : 0.0;
 }
 
 // ─── FLOATING PARTICLES ─────────────────────────────────────────────────────────
@@ -1620,6 +1676,10 @@ function getStripPointForUv(u, v, flatten) {
     THREE.MathUtils.lerp(zCurve, 0, flatten)
   );
 
+  if (state.stripMesh) {
+    state.stripMesh.updateMatrixWorld(true);
+    return local.applyMatrix4(state.stripMesh.matrixWorld);
+  }
   if (!state.stripGroup) return local;
   state.stripGroup.updateMatrixWorld(true);
   return local.applyMatrix4(state.stripGroup.matrixWorld);
@@ -2029,7 +2089,8 @@ function getCurrentStripAxis() {
 
 function getUvAxisCoord(uv) {
   if (!uv) return 0;
-  return getCurrentStripAxis() === 'vertical' ? (1 - uv.y) : uv.x;
+  // Always use uv.x — mesh rotation handles vertical orientation
+  return uv.x;
 }
 
 function setupWorkGyroscope() {
@@ -2124,9 +2185,9 @@ function onPointerMove(event) {
     const deltaY = event.clientY - state.lastPointerY;
     const primaryDelta = getCurrentStripAxis() === 'vertical' ? deltaY : deltaX;
     const dt = now - state.lastDragTime;
-    state.scrollTarget -= primaryDelta * CONFIG.DRAG_MULTIPLIER;
+    state.scrollTarget += primaryDelta * CONFIG.DRAG_MULTIPLIER;
     // Track instantaneous velocity for momentum on release
-    if (dt > 0) state.scrollVelocity = -primaryDelta * CONFIG.DRAG_MULTIPLIER / (dt / 16);
+    if (dt > 0) state.scrollVelocity = primaryDelta * CONFIG.DRAG_MULTIPLIER / (dt / 16);
     state.lastPointerX = event.clientX;
     state.lastPointerY = event.clientY;
     state.lastDragTime = now;
@@ -2228,15 +2289,15 @@ function handleClick(event) {
   }
 }
 
-export function prepareWorkToFilmTransition(item, options = {}) {
+function prepareWorkToFilmTransition(item, options = {}) {
   return prepareWorkToProjectTransition(item, options);
 }
 
-export function runWorkStripUnwrapToRect(targetRect) {
+function runWorkStripUnwrapToRect(targetRect) {
   return runStripUnwrapToRect(targetRect || getFallbackTransitionRect());
 }
 
-export function finalizeWorkToFilmVisualState() {
+function finalizeWorkToFilmVisualState() {
   if (state.transitionTimeline) {
     state.transitionTimeline.kill();
     state.transitionTimeline = null;
@@ -2257,6 +2318,7 @@ const onResize = debounce(() => {
   if (!state.camera) return;
   const w = window.innerWidth;
   const h = window.innerHeight;
+  syncStripAxis();
   state.camera.aspect = w / h;
   state.camera.updateProjectionMatrix();
 
@@ -2461,7 +2523,7 @@ export function destroyWork({ keepCoverPlane = false, preserveTexture = null } =
   stripBridge.setRevealProgress(1);
   stripBridge.setScrollCurrent(0);
   stripBridge.setScrollTarget(0);
-  stripBridge.setStripMetrics({ axis: 'horizontal' });
+  syncStripAxis(true);
 
   // Clean up cover plane (unless transition wants to keep it)
   if (!keepCoverPlane) {
@@ -2617,7 +2679,7 @@ export function destroyWork({ keepCoverPlane = false, preserveTexture = null } =
   state.bridgeReadyCleanup = null;
   state.cinematicExitSnapshot = null;
   state.clickNdc.set(0, 0);
-  state.stripAxis = 'horizontal';
+  state.stripAxis = getResponsiveStripAxis();
   state.gyro.x = 0;
   state.gyro.y = 0;
   state.gyro.active = false;

@@ -75,7 +75,8 @@ const STRIP_FRAGMENT_SHADER = /* glsl */ `
   }
 
   void main() {
-    float axisCoord = mix(vUv.x, 1.0 - vUv.y, clamp(uAxisVertical, 0.0, 1.0));
+    // axisCoord is always vUv.x — mesh rotation handles vertical orientation
+    float axisCoord = vUv.x;
     float totalU = axisCoord * uItemsOnStrip + uScrollOffset;
     float itemFract = fract(totalU);
     float itemIndex = floor(totalU);
@@ -88,7 +89,7 @@ const STRIP_FRAGMENT_SHADER = /* glsl */ `
 
     float texU = (itemFract - halfGap) / (1.0 - uGapSize);
     vec2 texCoordHorizontal = vec2(texU, vUv.y);
-    vec2 texCoordVertical = vec2(vUv.x, texU);
+    vec2 texCoordVertical = vec2(1.0 - vUv.y, texU);
     vec2 texCoord = clamp(mix(texCoordHorizontal, texCoordVertical, clamp(uAxisVertical, 0.0, 1.0)), vec2(0.001), vec2(0.999));
 
     vec3 col;
@@ -145,8 +146,8 @@ function isPinnedSideAnchor(row, col, rows, cols) {
   return row % 4 === 0;
 }
 
-function getBasePoint(u, v) {
-  const angle = (u - 0.5) * STRIP_CONFIG.arcSpan;
+function getBasePoint(u, v, arcSpan = STRIP_CONFIG.arcSpan) {
+  const angle = (u - 0.5) * arcSpan;
   return {
     curve: [
       Math.sin(angle) * STRIP_CONFIG.arcRadius,
@@ -161,7 +162,7 @@ function getBasePoint(u, v) {
   };
 }
 
-function buildGrid(cols, rows) {
+function buildGrid(cols, rows, arcSpan = STRIP_CONFIG.arcSpan) {
   const nodeCount = cols * rows;
   const positions = new Float32Array(nodeCount * 3);
   const flatPositions = new Float32Array(nodeCount * 3);
@@ -172,7 +173,7 @@ function buildGrid(cols, rows) {
       const u = col / (cols - 1);
       const v = row / (rows - 1);
       const index = getGridIndex(col, row, cols);
-      const base = getBasePoint(u, v);
+      const base = getBasePoint(u, v, arcSpan);
       positions[index * 3 + 0] = base.curve[0];
       positions[index * 3 + 1] = base.curve[1];
       positions[index * 3 + 2] = base.curve[2];
@@ -204,6 +205,8 @@ function loadTextures(uniqueImages) {
   });
 }
 
+/* eslint-disable react/no-unknown-property */
+/* eslint-disable react-doctor/no-giant-component */
 function WorkClothStripScene({ onStatus }) {
   const bridge = useMemo(() => getWorkStripBridge(), []);
   const { size, camera } = useThree();
@@ -211,6 +214,13 @@ function WorkClothStripScene({ onStatus }) {
   const isMobile = size.width <= 1024;
   const cols = isMobile ? CLOTH_CONFIG.mobileCols : CLOTH_CONFIG.desktopCols;
   const rows = isMobile ? CLOTH_CONFIG.mobileRows : CLOTH_CONFIG.desktopRows;
+  const [stripMetricsState, setStripMetricsState] = useState({
+    itemsOnStrip: STRIP_CONFIG.itemsOnStrip,
+    numUnique: STRIP_CONFIG.numUnique,
+    gapSize: STRIP_CONFIG.gapSize,
+    arcSpan: STRIP_CONFIG.arcSpan,
+    axis: 'horizontal',
+  });
 
   const groupRef = useRef();
   const meshRef = useRef();
@@ -240,7 +250,7 @@ function WorkClothStripScene({ onStatus }) {
   const liveLocalPositionsRef = useRef(new Float32Array(cols * rows * 3));
   const lockedLocalPositionsRef = useRef(null);
   const wasDeterministicRef = useRef(false);
-  
+
   const tweakRef = useRef({
     windBase: CLOTH_CONFIG.windBase,
     windMultiplier: 1.0,
@@ -281,12 +291,16 @@ function WorkClothStripScene({ onStatus }) {
       itemsOnStrip: STRIP_CONFIG.itemsOnStrip,
       numUnique: STRIP_CONFIG.numUnique,
       gapSize: STRIP_CONFIG.gapSize,
+      arcSpan: STRIP_CONFIG.arcSpan,
       axis: 'horizontal',
     },
     cameraPose: null,
   });
 
-  const geometryData = useMemo(() => buildGrid(cols, rows), [cols, rows]);
+  const geometryData = useMemo(
+    () => buildGrid(cols, rows, stripMetricsState.arcSpan),
+    [cols, rows, stripMetricsState.arcSpan]
+  );
 
   useEffect(() => {
     onStatus?.('Rapier: initializing cloth strip...');
@@ -351,7 +365,10 @@ function WorkClothStripScene({ onStatus }) {
   function getWorldPointForUv(u, v, flattenOverride = lastBridgeState.current.transition.flatten) {
     const local = getLocalPointForUv(u, v, flattenOverride);
     const worldPoint = worldPointScratchRef.current.copy(local);
-    if (groupRef.current) {
+    if (meshRef.current) {
+      meshRef.current.updateMatrixWorld(true);
+      worldPoint.applyMatrix4(meshRef.current.matrixWorld);
+    } else if (groupRef.current) {
       groupRef.current.updateMatrixWorld(true);
       worldPoint.applyMatrix4(groupRef.current.matrixWorld);
     }
@@ -365,8 +382,11 @@ function WorkClothStripScene({ onStatus }) {
     const center = tempCenterRef.current;
     const hit = tempVecRef.current;
 
-    if (groupRef.current) {
-      center.copy(groupRef.current.position);
+    if (meshRef.current) {
+      center.set(0, 0, 0);
+      meshRef.current.localToWorld(center);
+    } else if (groupRef.current) {
+      center.set(0, 0, 0);
       groupRef.current.localToWorld(center);
     } else {
       center.set(0, 0, -1.5);
@@ -562,10 +582,23 @@ function WorkClothStripScene({ onStatus }) {
         lastBridgeState.current.windStrength = value;
       },
       setStripMetrics(value) {
-        lastBridgeState.current.stripMetrics = {
+        const nextMetrics = {
           ...lastBridgeState.current.stripMetrics,
           ...value,
         };
+        lastBridgeState.current.stripMetrics = nextMetrics;
+        setStripMetricsState((prev) => {
+          if (
+            prev.itemsOnStrip === nextMetrics.itemsOnStrip &&
+            prev.numUnique === nextMetrics.numUnique &&
+            prev.gapSize === nextMetrics.gapSize &&
+            prev.arcSpan === nextMetrics.arcSpan &&
+            prev.axis === nextMetrics.axis
+          ) {
+            return prev;
+          }
+          return nextMetrics;
+        });
       },
       setCameraPose(value) {
         lastBridgeState.current.cameraPose = value;
@@ -577,23 +610,16 @@ function WorkClothStripScene({ onStatus }) {
         const metrics = lastBridgeState.current.stripMetrics;
         const scrollCurrent = lastBridgeState.current.scrollCurrent;
         const gapInset = (metrics.gapSize * 0.5) / metrics.itemsOnStrip;
-        const isVertical = metrics.axis === 'vertical';
         const start = (slotIndex - scrollCurrent) / metrics.itemsOnStrip + gapInset;
         const end = (slotIndex + 1 - scrollCurrent) / metrics.itemsOnStrip - gapInset;
 
-        const corners = isVertical
-          ? [
-            getWorldPointForUv(0, 1 - start, flatten).clone(),
-            getWorldPointForUv(1, 1 - start, flatten).clone(),
-            getWorldPointForUv(0, 1 - end, flatten).clone(),
-            getWorldPointForUv(1, 1 - end, flatten).clone(),
-          ]
-          : [
-            getWorldPointForUv(start, 0, flatten).clone(),
-            getWorldPointForUv(end, 0, flatten).clone(),
-            getWorldPointForUv(start, 1, flatten).clone(),
-            getWorldPointForUv(end, 1, flatten).clone(),
-          ];
+        // Always use UV.x for slot position — mesh rotation handles vertical orientation
+        const corners = [
+          getWorldPointForUv(start, 0, flatten).clone(),
+          getWorldPointForUv(end, 0, flatten).clone(),
+          getWorldPointForUv(start, 1, flatten).clone(),
+          getWorldPointForUv(end, 1, flatten).clone(),
+        ];
 
         const projected = corners.map((point) => {
           const p = point.clone().project(camera);
@@ -639,11 +665,17 @@ function WorkClothStripScene({ onStatus }) {
     if (groupRef.current) {
       const [px, py, pz] = state.groupTransform.position;
       const [sx, sy, sz] = state.groupTransform.scale;
-      const axisRotation = state.stripMetrics.axis === 'vertical' ? Math.PI * 0.5 : 0;
       groupRef.current.position.set(px, py, pz);
       groupRef.current.scale.set(sx, sy, sz);
-      groupRef.current.rotation.set(0, 0, state.groupTransform.rotationZ + axisRotation);
+      groupRef.current.rotation.set(0, 0, state.groupTransform.rotationZ);
       groupRef.current.visible = state.visible;
+    }
+
+    // Counter the baked stripYOffset that rotates into X after 90° CCW rotation
+    if (meshRef.current) {
+      const isVertical = state.stripMetrics.axis === 'vertical';
+      meshRef.current.rotation.z = isVertical ? Math.PI * 0.5 : 0;
+      meshRef.current.position.x = isVertical ? STRIP_CONFIG.stripYOffset : 0;
     }
 
     if (state.cameraPose) {
@@ -698,6 +730,7 @@ function WorkClothStripScene({ onStatus }) {
       u.uItemsOnStrip.value = state.stripMetrics.itemsOnStrip;
       u.uNumUnique.value = state.stripMetrics.numUnique;
       u.uGapSize.value = state.stripMetrics.gapSize;
+      u.uArcSpan.value = state.stripMetrics.arcSpan ?? STRIP_CONFIG.arcSpan;
       u.uAxisVertical.value = state.stripMetrics.axis === 'vertical' ? 1 : 0;
     }
 
@@ -919,7 +952,8 @@ function WorkClothStripScene({ onStatus }) {
             if (wasDrag) return;
             if (!event.uv) return;
             const metrics = lastBridgeState.current.stripMetrics;
-            const axisCoord = metrics.axis === 'vertical' ? (1 - event.uv.y) : event.uv.x;
+            // Always use uv.x — mesh rotation handles vertical orientation
+            const axisCoord = event.uv.x;
             const totalU = axisCoord * metrics.itemsOnStrip + lastBridgeState.current.scrollCurrent;
             const itemIdx = ((Math.floor(totalU) % metrics.numUnique) + metrics.numUnique) % metrics.numUnique;
             const slotIndex = Math.floor(totalU);
@@ -955,7 +989,7 @@ function WorkClothStripScene({ onStatus }) {
   );
 }
 
-export function WorkClothStripHost() {
+function WorkClothStripHost() {
   const [statusText, setStatusText] = useState('Rapier: loading...');
 
   return (

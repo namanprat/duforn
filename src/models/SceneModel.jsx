@@ -10,7 +10,8 @@ Title: Art Gallery
 import React from 'react'
 import { useGLTF } from '@react-three/drei'
 
-export function SceneModel(props) {
+/* eslint-disable react/no-unknown-property */
+function SceneModel(props) {
   const { nodes, materials } = useGLTF('/models/scene.glb')
   return (
     <group {...props} dispose={null}>

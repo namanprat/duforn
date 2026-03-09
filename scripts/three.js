@@ -558,7 +558,7 @@ export function onNextGalleryOverlayFrame(callback) {
   pendingGalleryOverlayFrameCallbacks.push(callback);
 }
 
-export function closeMenuIfOpen() {
+function closeMenuIfOpen() {
   const btn = document.querySelector('.menu-toggle-btn');
   if (btn && btn.classList.contains('menu-open')) btn.click();
 }
@@ -773,7 +773,7 @@ function applyBaseSceneOpacity() {
 
 // ── Main webgl init/destroy ──
 
-export function webgl() {
+function webgl() {
   if (isRunning) {
     return { scene, camera, renderer };
   }
@@ -1184,7 +1184,7 @@ export function setBaseSceneOverlayMode(active) {
   applyBaseSceneBackgroundState();
 }
 
-export function setBaseSceneBackgroundVisible(visible) {
+function setBaseSceneBackgroundVisible(visible) {
   baseSceneBackgroundVisible = Boolean(visible);
   applyBaseSceneBackgroundState();
 }

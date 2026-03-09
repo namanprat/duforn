@@ -196,4 +196,4 @@ function animateStaggerEnter(targets, options = {}) {
   });
 }
 
-export { animateRevealEnter, animateRevealLeave, animateStaggerEnter, cleanupSplits };
+export { animateRevealEnter, animateStaggerEnter, cleanupSplits };

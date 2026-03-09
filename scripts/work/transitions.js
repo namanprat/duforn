@@ -13,7 +13,7 @@ export function resolveWorkFirstFrameGate() {
   workFirstFrameResolver = null;
 }
 
-export function whenWorkFirstFrame() {
+function whenWorkFirstFrame() {
   return workFirstFramePromise;
 }
 

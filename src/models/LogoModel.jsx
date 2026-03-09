@@ -6,7 +6,8 @@ Command: npx gltfjsx@6.5.3 public/models/logo.glb -o src/models/LogoModel.jsx
 import React from 'react'
 import { useGLTF } from '@react-three/drei'
 
-export function LogoModel(props) {
+/* eslint-disable react/no-unknown-property */
+function LogoModel(props) {
   const { nodes, materials } = useGLTF('/models/logo.glb')
   return (
     <group {...props} dispose={null}>
