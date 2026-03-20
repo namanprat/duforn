@@ -2,49 +2,53 @@
   "name": "duforn-portfolio",
   "version": "1.0.0",
   "description": "High-performance interactive portfolio with WebGL backgrounds and GSAP animations",
+  "keywords": [
+    "gsap",
+    "portfolio",
+    "three.js",
+    "vite",
+    "webgl"
+  ],
+  "license": "MIT",
+  "author": "",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "host": "vite --host",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest",
+    "test": "vitest run",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest run --coverage"
   },
-  "keywords": [
-    "portfolio",
-    "webgl",
-    "three.js",
-    "gsap",
-    "vite"
-  ],
-  "author": "",
-  "license": "MIT",
   "dependencies": {
     "@react-three/drei": "^10.7.6",
     "@react-three/fiber": "^9.4.0",
+    "@react-three/postprocessing": "^3.0.4",
     "@react-three/rapier": "^2.2.0",
     "@vercel/speed-insights": "^1.3.1",
-    "gltfjsx": "^6.5.3",
     "gsap": "^3.14.2",
     "lenis": "^1.1.13",
+    "leva": "^0.10.1",
+    "postprocessing": "^6.38.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.9.5",
     "three": "^0.183.0",
     "three-stdlib": "^2.29.9",
-    "web-haptics": "^0.0.6"
+    "web-haptics": "^0.0.6",
+    "zustand": "^5.0.11"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^5.1.0",
-    "@vitest/coverage-v8": "^4.0.18",
-    "@vitest/ui": "^4.0.18",
+    "@vitejs/plugin-react": "^6.0.1",
+    "@vitest/coverage-v8": "^4.1.0",
+    "@vitest/ui": "^4.1.0",
     "happy-dom": "^20.6.1",
     "jsdom": "^28.1.0",
     "jsdom-global": "^3.0.2",
     "lil-gui": "^0.19.2",
-    "vite": "^7.3.1",
-    "vitest": "^4.0.18"
-  }
+    "vite": "^8.0.1",
+    "vitest": "^4.1.0"
+  },
+  "packageManager": "npm@11.12.0"
 }

@@ -1,3 +1,5 @@
+import React from "react";
+
 export default function ArchivePage() {
   return (
     <main
@@ -7,7 +9,9 @@ export default function ArchivePage() {
       data-page-namespace="archive"
     >
       <h1 className="u-visually-hidden">Archive</h1>
-      <p className="u-visually-hidden">A collection of past projects, design experiments, and creative explorations by Duforn.</p>
+      <p className="u-visually-hidden">
+        A collection of past projects, design experiments, and creative explorations by Duforn.
+      </p>
       <div className="whiteEdgeGradient" aria-hidden="true" />
     </main>
   );

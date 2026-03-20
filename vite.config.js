@@ -4,7 +4,7 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   optimizeDeps: {
-    include: ["three"],
+    include: ["three", "three/webgpu", "three/tsl"],
   },
   esbuild: {
     drop: process.env.NODE_ENV === "production" ? ["console", "debugger"] : [],
@@ -12,11 +12,16 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          three: ["three"],
-          gsap: ["gsap"],
-          r3f: ["@react-three/fiber", "@react-three/drei"],
-          react: ["react", "react-dom", "react-router-dom"],
+        manualChunks(id) {
+          if (id.includes("node_modules/three/")) return "three";
+          if (id.includes("node_modules/gsap/")) return "gsap";
+          if (id.includes("node_modules/@react-three/")) return "r3f";
+          if (
+            id.includes("node_modules/react/") ||
+            id.includes("node_modules/react-dom/") ||
+            id.includes("node_modules/react-router-dom/")
+          )
+            return "react";
         },
       },
     },

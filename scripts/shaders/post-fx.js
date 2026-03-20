@@ -11,12 +11,9 @@
 
 // ── Vignette ────────────────────────────────────────────────────────────────────
 
-export function VignetteShader({
-  darkness = 0.15,
-  offset = 1.0,
-} = {}) {
+export function VignetteShader({ darkness = 0.15, offset = 1.0 } = {}) {
   return {
-    name: 'VignetteShader',
+    name: "VignetteShader",
     uniforms: {
       tDiffuse: { value: null },
       uDarkness: { value: darkness },
@@ -47,11 +44,9 @@ export function VignetteShader({
 
 // ── Film Grain ──────────────────────────────────────────────────────────────────
 
-export function GrainShader({
-  grain = 0.015,
-} = {}) {
+export function GrainShader({ grain = 0.015 } = {}) {
   return {
-    name: 'GrainShader',
+    name: "GrainShader",
     uniforms: {
       tDiffuse: { value: null },
       uTime: { value: 0 },
@@ -102,7 +97,7 @@ export function EdgeDistortionShader({
   preserveAlpha = false,
 } = {}) {
   return {
-    name: 'EdgeDistortionShader',
+    name: "EdgeDistortionShader",
     uniforms: {
       tDiffuse: { value: null },
       uShift: { value: shift },
@@ -134,7 +129,7 @@ export function EdgeDistortionShader({
         vec4 g = texture2D(tDiffuse, uv);
         vec4 b = texture2D(tDiffuse, uv - vec2(shift, 0.0));
 
-        gl_FragColor = vec4(r.r, g.g, b.b, ${preserveAlpha ? 'g.a' : '1.0'});
+        gl_FragColor = vec4(r.r, g.g, b.b, ${preserveAlpha ? "g.a" : "1.0"});
       }
     `,
   };
@@ -167,7 +162,7 @@ export const CRTShader = {
     adaptiveIntensity: { value: 0.5 },
     vignetteStrength: { value: 0.3 },
     curvature: { value: 0.15 },
-    flickerStrength: { value: 0.01 }
+    flickerStrength: { value: 0.01 },
   },
 
   vertexShader: /* glsl */ `
@@ -336,5 +331,5 @@ export const CRTShader = {
 
       gl_FragColor = pixel;
     }
-  `
+  `,
 };

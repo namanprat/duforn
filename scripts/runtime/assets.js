@@ -1,12 +1,9 @@
-import * as THREE from 'three';
+import * as THREE from "three";
 
 export function cloneSceneGraph(root, options = {}) {
   if (!root) return null;
 
-  const {
-    cloneMaterials = true,
-    cloneGeometries = false,
-  } = options;
+  const { cloneMaterials = true, cloneGeometries = false } = options;
 
   const clonedRoot = root.clone(true);
   if (!cloneMaterials && !cloneGeometries) return clonedRoot;
@@ -33,7 +30,9 @@ export function cloneSceneGraph(root, options = {}) {
 
     if (cloneMaterials && sourceNode.material) {
       if (Array.isArray(sourceNode.material)) {
-        clonedNode.material = sourceNode.material.map((material) => material?.clone?.() ?? material);
+        clonedNode.material = sourceNode.material.map(
+          (material) => material?.clone?.() ?? material,
+        );
       } else {
         clonedNode.material = sourceNode.material.clone?.() ?? sourceNode.material;
       }
@@ -73,12 +72,13 @@ export function configureTexture(texture, options = {}) {
 }
 
 export function createColorFallbackTexture(options = {}) {
-  const { rgba = [220, 218, 210, 255] } = options;
+  const { rgba = [220, 218, 210, 255], ...textureOptions } = options;
   const texture = new THREE.DataTexture(new Uint8Array(rgba), 1, 1, THREE.RGBAFormat);
   return configureTexture(texture, {
     minFilter: THREE.LinearFilter,
     magFilter: THREE.LinearFilter,
     generateMipmaps: false,
+    ...textureOptions,
   });
 }
 
@@ -86,24 +86,24 @@ export function createLabelFallbackTexture(label, options = {}) {
   const {
     width = 512,
     height = 512,
-    backgroundColor = '#333333',
-    textColor = '#666666',
-    font = '24px sans-serif',
+    backgroundColor = "#333333",
+    textColor = "#666666",
+    font = "24px sans-serif",
   } = options;
 
-  const canvas = document.createElement('canvas');
+  const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
 
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext("2d");
   if (!ctx) return createColorFallbackTexture();
 
   ctx.fillStyle = backgroundColor;
   ctx.fillRect(0, 0, width, height);
   ctx.fillStyle = textColor;
   ctx.font = font;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
   ctx.fillText(label, width / 2, height / 2);
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -122,7 +122,7 @@ export function loadTextureAsset(url, options = {}) {
       url,
       (texture) => resolve(configureTexture(texture, textureOptions)),
       undefined,
-      () => resolve(typeof onErrorTexture === 'function' ? onErrorTexture() : onErrorTexture)
+      () => resolve(typeof onErrorTexture === "function" ? onErrorTexture() : onErrorTexture),
     );
   });
 }

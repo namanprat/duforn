@@ -1,8 +1,0 @@
-{
-    "ignore": {
-        "rules": [
-            "react/no-unknown-property",
-            "react-doctor/no-giant-component"
-        ]
-    }
-}

@@ -7,12 +7,12 @@ Source: https://sketchfab.com/3d-models/art-gallery-3c3248e07296402ead6facab0a09
 Title: Art Gallery
 */
 
-import React from 'react'
-import { useGLTF } from '@react-three/drei'
+import React from "react";
+import { useGLTF } from "@react-three/drei";
 
 /* eslint-disable react/no-unknown-property */
-function SceneModel(props) {
-  const { nodes, materials } = useGLTF('/models/scene.glb')
+export default function SceneModel(props) {
+  const { nodes, materials } = useGLTF("/models/scene.glb");
   return (
     <group {...props} dispose={null}>
       <group scale={0.01}>
@@ -23,19 +23,58 @@ function SceneModel(props) {
           <mesh geometry={nodes.Walls_Emissive_0.geometry} material={materials.Emissive} />
         </group>
         <group rotation={[-Math.PI / 2, 0, 0]} scale={[50, 50, 22.5]}>
-          <mesh geometry={nodes.CeillingWire_CeillingWire_0.geometry} material={materials.CeillingWire} />
-          <mesh geometry={nodes.CeillingWire_CeillingWire_0_1.geometry} material={materials.CeillingWire} />
-          <mesh geometry={nodes.CeillingWire_CeillingWire_0_2.geometry} material={materials.CeillingWire} />
-          <mesh geometry={nodes.CeillingWire_CeillingWire_0_3.geometry} material={materials.CeillingWire} />
-          <mesh geometry={nodes.CeillingWire_CeillingWire_0_4.geometry} material={materials.CeillingWire} />
-          <mesh geometry={nodes.CeillingWire_CeillingWire_0_5.geometry} material={materials.CeillingWire} />
-          <mesh geometry={nodes.CeillingWire_CeillingWire_0_6.geometry} material={materials.CeillingWire} />
+          <mesh
+            geometry={nodes.CeillingWire_CeillingWire_0.geometry}
+            material={materials.CeillingWire}
+          />
+          <mesh
+            geometry={nodes.CeillingWire_CeillingWire_0_1.geometry}
+            material={materials.CeillingWire}
+          />
+          <mesh
+            geometry={nodes.CeillingWire_CeillingWire_0_2.geometry}
+            material={materials.CeillingWire}
+          />
+          <mesh
+            geometry={nodes.CeillingWire_CeillingWire_0_3.geometry}
+            material={materials.CeillingWire}
+          />
+          <mesh
+            geometry={nodes.CeillingWire_CeillingWire_0_4.geometry}
+            material={materials.CeillingWire}
+          />
+          <mesh
+            geometry={nodes.CeillingWire_CeillingWire_0_5.geometry}
+            material={materials.CeillingWire}
+          />
+          <mesh
+            geometry={nodes.CeillingWire_CeillingWire_0_6.geometry}
+            material={materials.CeillingWire}
+          />
         </group>
-        <mesh geometry={nodes.PaitingsInside_Painting_0.geometry} material={materials.Painting} rotation={[-Math.PI / 2, 0, 0.099]} scale={100} />
-        <mesh geometry={nodes.PaitingsOutside_Painting_0.geometry} material={materials.Painting} rotation={[-Math.PI / 2, 0, 0.099]} scale={100} />
-        <mesh geometry={nodes.PaitingsInside001_Painting_0.geometry} material={materials.Painting} rotation={[-Math.PI / 2, 0, 0.099]} scale={100} />
+        <mesh
+          geometry={nodes.PaitingsInside_Painting_0.geometry}
+          material={materials.Painting}
+          rotation={[-Math.PI / 2, 0, 0.099]}
+          scale={100}
+        />
+        <mesh
+          geometry={nodes.PaitingsOutside_Painting_0.geometry}
+          material={materials.Painting}
+          rotation={[-Math.PI / 2, 0, 0.099]}
+          scale={100}
+        />
+        <mesh
+          geometry={nodes.PaitingsInside001_Painting_0.geometry}
+          material={materials.Painting}
+          rotation={[-Math.PI / 2, 0, 0.099]}
+          scale={100}
+        />
         <group rotation={[-Math.PI / 2, 0, 0]} scale={[50, 50, 22.5]}>
-          <mesh geometry={nodes.LampBase_CeillingWire_0.geometry} material={materials.CeillingWire} />
+          <mesh
+            geometry={nodes.LampBase_CeillingWire_0.geometry}
+            material={materials.CeillingWire}
+          />
           <mesh geometry={nodes.LampBase_Emissive_0.geometry} material={materials.Emissive} />
         </group>
         <group rotation={[-Math.PI / 2, 0, 0]} scale={100}>
@@ -44,11 +83,14 @@ function SceneModel(props) {
         </group>
         <group rotation={[Math.PI, 0, 0]} scale={110.41}>
           <mesh geometry={nodes.Bench_BenchWood_0.geometry} material={materials.BenchWood} />
-          <mesh geometry={nodes.Bench_BenchConcreteBase_0.geometry} material={materials.BenchConcreteBase} />
+          <mesh
+            geometry={nodes.Bench_BenchConcreteBase_0.geometry}
+            material={materials.BenchConcreteBase}
+          />
         </group>
       </group>
     </group>
-  )
+  );
 }
 
-useGLTF.preload('/models/scene.glb')
+useGLTF.preload("/models/scene.glb");

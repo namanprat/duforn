@@ -99,7 +99,7 @@ function initMenu() {
   const receiptCloseButtons = document.querySelectorAll(".receipt-close");
 
   // reference menu-parent — CSS handles the default hidden state
-  menuParent = document.querySelector('.menu-wrap');
+  menuParent = document.querySelector(".menu-wrap");
   if (menuParent) {
     // click on blank space (menuParent itself) closes the popup
     menuOverlayClickHandler = (e) => {
@@ -107,7 +107,7 @@ function initMenu() {
         closeMenu();
       }
     };
-    menuParent.addEventListener('click', menuOverlayClickHandler);
+    menuParent.addEventListener("click", menuOverlayClickHandler);
   }
 
   if (cachedMenuToggleBtn) {
@@ -145,20 +145,20 @@ function initMenu() {
   });
 
   // Populate receipt datetime with current time
-  const receiptDatetime = document.getElementById('receipt-datetime');
+  const receiptDatetime = document.getElementById("receipt-datetime");
   if (receiptDatetime) {
     const now = new Date();
-    const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+    const days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
     const day = days[now.getDay()];
-    const dd = String(now.getDate()).padStart(2, '0');
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, "0");
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
     const yy = String(now.getFullYear()).slice(-2);
     let hours = now.getHours();
-    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const ampm = hours >= 12 ? "PM" : "AM";
     hours = hours % 12 || 12;
-    const hh = String(hours).padStart(2, '0');
-    const min = String(now.getMinutes()).padStart(2, '0');
-    const sec = String(now.getSeconds()).padStart(2, '0');
+    const hh = String(hours).padStart(2, "0");
+    const min = String(now.getMinutes()).padStart(2, "0");
+    const sec = String(now.getSeconds()).padStart(2, "0");
     receiptDatetime.textContent = `${day} ${dd}/${mm}/${yy} ${hh}:${min}:${sec} ${ampm}`;
   }
 }

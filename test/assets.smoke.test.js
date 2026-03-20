@@ -1,17 +1,17 @@
-import { describe, expect, it } from 'vitest';
-import * as THREE from 'three';
+import { describe, expect, it } from "vitest";
+import * as THREE from "three";
 import {
   cloneSceneGraph,
   configureTexture,
   createColorFallbackTexture,
-} from '../scripts/runtime/assets.js';
+} from "../scripts/runtime/assets.js";
 
-describe('runtime asset helpers', () => {
-  it('clones mesh materials independently', () => {
+describe("runtime asset helpers", () => {
+  it("clones mesh materials independently", () => {
     const original = new THREE.Group();
     const mesh = new THREE.Mesh(
       new THREE.BoxGeometry(1, 1, 1),
-      new THREE.MeshStandardMaterial({ color: '#ffffff' })
+      new THREE.MeshStandardMaterial({ color: "#ffffff" }),
     );
     original.add(mesh);
 
@@ -23,7 +23,7 @@ describe('runtime asset helpers', () => {
     expect(clonedMesh.material).not.toBe(originalMesh.material);
   });
 
-  it('configures fallback textures consistently', () => {
+  it("configures fallback textures consistently", () => {
     const texture = createColorFallbackTexture();
     configureTexture(texture);
 

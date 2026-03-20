@@ -1,22 +1,23 @@
-import gsap from 'gsap';
 import { GLTFLoader, DRACOLoader } from 'three-stdlib';
 import * as THREE from 'three';
 import { createPaintDebugLogger } from './runtime/debug.js';
 import { cloneSceneGraph } from './runtime/assets.js';
-import { debounce } from './runtime/timing.js';
 
 const paintDebugMark = createPaintDebugLogger('paint-debug');
 
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+const EXIT_ANIMATION_MS = 900;
+const FILL_DURATION_MS = 2600;
+const BAR_WIDTH = 30; // number of characters in the progress bar
+
 class Preloader {
     constructor() {
-        this.cacheDom();
-
         this.loadingManager = new THREE.LoadingManager();
         this.gltfLoader = new GLTFLoader(this.loadingManager);
 
         // Setup DRACOLoader for compressed geometry
         this.dracoLoader = new DRACOLoader(this.loadingManager);
-        // Serve Draco decoder locally from public/draco/ (copied from three/examples/jsm/libs/draco/gltf/)
         this.dracoLoader.setDecoderPath('/draco/');
         this.gltfLoader.setDRACOLoader(this.dracoLoader);
 
@@ -26,66 +27,37 @@ class Preloader {
         this.runResolver = null;
         this.isCompleting = false;
         this.loadedAssets = new Map();
-        this.resizeHandler = null;
-        this._lastGridWidth = 0;
-        this._lastGridHeight = 0;
+
+        // DOM references
+        this.container = null;
+        this.canvasWrap = null;
+        this.loadingText = null;
+        this.progressBar = null;
+        this.buttonWrap = null;
+        this.enterButton = null;
+        this.cursorEl = null;
 
         // Bind methods
         this.init = this.init.bind(this);
         this.load = this.load.bind(this);
     }
 
-    cacheDom() {
-        this.container = document.querySelector('.preloader');
-        this.progressBar = document.querySelector('.progress-bar');
-        this.progressIndicator = document.querySelector('.progress-bar-indicator');
-        this.progressText = document.querySelector('.progress-bar-copy span');
-        // this.preloaderBlocks will be populated after generation
-        this.resizeObserver = null;
+    isBlocking() {
+        return Boolean(this.runPromise);
     }
 
-    generateGrid(force = false) {
-        const gridContainer = document.querySelector('.preloader-grid');
-        if (!gridContainer) return;
-
-        // Calculate columns and rows for ~200 squares while keeping them 1:1
-        const width = window.innerWidth;
-        const height = window.innerHeight;
-
-        // Skip regeneration if viewport dimensions haven't changed
-        if (!force && width === this._lastGridWidth && height === this._lastGridHeight) return;
-        this._lastGridWidth = width;
-        this._lastGridHeight = height;
-
-        // Target roughly 200 blocks total
-        // area = w * h
-        // blockSize = sqrt(area / 200)
-        const area = width * height;
-        const targetBlockSize = Math.sqrt(area / 200);
-
-        const cols = Math.ceil(width / targetBlockSize);
-        const rows = Math.ceil(height / targetBlockSize);
-
-        gridContainer.style.setProperty('grid-template-columns', `repeat(${cols}, 1fr)`);
-        gridContainer.style.setProperty('grid-template-rows', `repeat(${rows}, 1fr)`);
-
-        gridContainer.innerHTML = ''; // Clear existing
-        const totalBlocks = cols * rows;
-
-        const fragment = document.createDocumentFragment();
-        for (let i = 0; i < totalBlocks; i++) {
-            const block = document.createElement('div');
-            block.classList.add('preloader-block');
-            fragment.appendChild(block);
-        }
-        gridContainer.appendChild(fragment);
-
-        this.preloaderBlocks = document.querySelectorAll('.preloader-block');
+    cacheDom() {
+        this.container = document.querySelector('.preloader');
+        this.canvasWrap = document.querySelector('.preloader-canvas-wrap');
+        this.loadingText = document.querySelector('.preloader-loading');
+        this.progressBar = document.querySelector('.preloader-progress-bar');
+        this.buttonWrap = document.querySelector('.preloader-button-wrap');
+        this.enterButton = document.querySelector('.preloader-enter-button');
+        this.cursorEl = document.querySelector('.preloader-cursor');
     }
 
     init() {
         this.cacheDom();
-        this.generateGrid();
 
         const hasSeenPreloader = sessionStorage.getItem('preloaderSeen') === 'true';
         // const hasSeenPreloader = false; // FORCE SHOW for debugging
@@ -94,28 +66,31 @@ class Preloader {
         if (this.runPromise) return this.runPromise;
 
         if (hasSeenPreloader) {
-            this.teardownResizeListener();
             this.container.style.display = 'none';
+            document.body.classList.remove('preloader-active');
             paintDebugMark('preloader hidden (already seen)');
             window.audioEnabled = true;
             window.gyroEnabled = true;
             return Promise.resolve();
         }
 
-        this.setupResizeListener();
         this.container.style.display = 'flex';
+        document.body.classList.add('preloader-active');
         paintDebugMark('preloader shown');
         this.animationComplete = false;
         this.pendingLoadBatches = 0;
         this.isCompleting = false;
 
+        // R3F handles its own initialization now
         this.runPromise = new Promise((resolve) => {
             this.runResolver = resolve;
-            this.startSequence();
+            this.startFillAnimation();
         });
 
         return this.runPromise;
     }
+
+    // ----- Asset loading (unchanged) -----
 
     async load(urls) {
         this.pendingLoadBatches += 1;
@@ -141,8 +116,7 @@ class Preloader {
 
         try {
             await Promise.all(promises);
-        } catch (error) {
-            console.error('Error loading assets:', error);
+        } catch {
         } finally {
             this.pendingLoadBatches = Math.max(0, this.pendingLoadBatches - 1);
             this.checkCompletion();
@@ -176,230 +150,93 @@ class Preloader {
         this.loadedAssets.clear();
     }
 
-    startSequence() {
-        if (!this.progressIndicator || !this.progressText || !this.progressBar) {
+    // ----- Terminal-style fill animation -----
+
+    buildProgressBar(percent) {
+        const filled = Math.round((percent / 100) * BAR_WIDTH);
+        const empty = BAR_WIDTH - filled;
+        return '█'.repeat(filled) + '░'.repeat(empty);
+    }
+
+    startFillAnimation() {
+        if (!this.loadingText && !this.progressBar) {
             this.animationComplete = true;
             this.checkCompletion();
             return;
         }
 
-        gsap.set(this.preloaderBlocks, { opacity: 1 });
-        gsap.set(this.progressIndicator, { '--progress': 0 });
-        if (this.progressText) this.progressText.textContent = '0%';
+        const startTime = performance.now();
 
-        gsap.to(this.progressBar, {
-            opacity: 1,
-            duration: 0.075,
-            ease: 'power2.inOut',
-            delay: 0.5,
-            repeat: 1,
-            yoyo: true,
-            onComplete: () => {
-                gsap.set(this.progressBar, { opacity: 1 });
-                this.startIncrements();
-            },
-        });
-    }
+        const tick = (now) => {
+            const elapsed = now - startTime;
+            const ratio = clamp(elapsed / FILL_DURATION_MS, 0, 1);
+            const percent = Math.round(ratio * 100);
 
-    startIncrements() {
-        let currentProgress = 0;
-        const totalSteps = 5;
-        let stepCount = 0;
-        const increments = this.generateRandomIncrements(totalSteps);
+            // Update terminal-style progress bar
+            if (this.progressBar) {
+                this.progressBar.textContent = `[${this.buildProgressBar(percent)}] ${String(percent).padStart(3, ' ')}%`;
+            }
+            window.dispatchEvent(new CustomEvent('preloader-progress', { detail: { percent, text: this.buildProgressBar(percent) } }));
 
-        const animateNextStep = () => {
-            // If we are at the last step but assets aren't loaded yet, wait
-            if (stepCount >= totalSteps) {
+            // Update loading text
+            if (this.loadingText) {
+                this.loadingText.textContent = '> LOADING ASSETS...';
+            }
+
+            if (percent >= 100) {
+                if (this.loadingText) {
+                    this.loadingText.textContent = '> LOADING COMPLETE';
+                }
                 this.animationComplete = true;
                 this.checkCompletion();
                 return;
             }
 
-            const increment = increments[stepCount];
-            // Cap at 99% until assets are actually loaded? 
-            // User's code goes to 100. Let's stick to user's logic but maybe pause at 99 if needed.
-            // For now, let's just run the animation. 
-            // If animation finishes before assets, it will sit at 100% until pending loads finish.
-
-            const targetProgress = Math.min(currentProgress + increment, 100);
-            const randomDelay = 30 + Math.random() * 70;
-
-            setTimeout(() => {
-                gsap.to(this.progressIndicator, {
-                    '--progress': targetProgress / 100,
-                    duration: 0.15,
-                    ease: 'power2.out',
-                    onUpdate: () => {
-                        // Update text
-                        const val = Math.round(gsap.getProperty(this.progressIndicator, '--progress') * 100);
-                        if (this.progressText) this.progressText.textContent = `${val}%`;
-                    },
-                    onComplete: () => {
-                        currentProgress = targetProgress;
-                        stepCount++;
-                        animateNextStep();
-                    },
-                });
-            }, randomDelay);
+            requestAnimationFrame(tick);
         };
 
-        animateNextStep();
+        requestAnimationFrame(tick);
     }
 
-    generateRandomIncrements(totalSteps) {
-        const increments = [];
-        let remaining = 100;
-        const maxSingleIncrement = 30;
-
-        for (let i = 0; i < totalSteps - 1; i++) {
-            const maxIncrement = Math.min(
-                maxSingleIncrement,
-                remaining - (totalSteps - 1 - i),
-            );
-            const minIncrement = Math.max(
-                5,
-                Math.floor((remaining / (totalSteps - i)) * 0.5),
-            );
-            const increment =
-                Math.floor(Math.random() * (maxIncrement - minIncrement)) + minIncrement;
-            increments.push(increment);
-            remaining -= increment;
-        }
-
-        increments.push(remaining);
-        return increments.sort(() => Math.random() - 0.5);
-    }
+    // ----- Completion -----
 
     checkCompletion() {
         if (!this.runPromise) return;
-        if (this.pendingLoadBatches === 0 && this.animationComplete) {
-            this.complete();
+
+        // If animation is complete AND no pending batches, we are done
+        if (this.pendingLoadBatches <= 0 && this.animationComplete) {
+            this.showEnterButton();
         }
-    }
-
-    resolveRun() {
-        if (this.runResolver) {
-            this.runResolver();
-        }
-        this.runResolver = null;
-        this.runPromise = null;
-        this.isCompleting = false;
-        this.teardownResizeListener();
-    }
-
-    setupResizeListener() {
-        if (this.resizeHandler) return;
-        this.resizeHandler = debounce(() => this.generateGrid(), 200);
-
-        window.addEventListener('resize', this.resizeHandler, { passive: true });
-    }
-
-    teardownResizeListener() {
-        if (this.resizeHandler) {
-            window.removeEventListener('resize', this.resizeHandler);
-            this.resizeHandler.cancel?.();
-            this.resizeHandler = null;
-        }
-    }
-
-    complete() {
-        if (!this.container) {
-            this.resolveRun();
-            return;
-        }
-        if (this.isCompleting) return;
-        this.isCompleting = true;
-
-        sessionStorage.setItem('preloaderSeen', 'true');
-
-        setTimeout(() => {
-            if (!this.preloaderBlocks || this.preloaderBlocks.length === 0) {
-                this.showEnterButton();
-                return;
-            }
-
-            // Fade progress bar and scatter blocks simultaneously
-            gsap.to(this.progressBar, { opacity: 0, duration: 0.3, ease: 'power2.inOut' });
-
-            const maxDelay = 0.5;
-            let completedAnimations = 0;
-            const totalBlocks = this.preloaderBlocks.length;
-
-            this.preloaderBlocks.forEach((block) => {
-                const randomDelay = Math.random() * maxDelay;
-                gsap.to(block, {
-                    opacity: 0,
-                    duration: 0.1,
-                    ease: 'power1.out',
-                    delay: randomDelay,
-                    onComplete: () => {
-                        gsap.set(block, { opacity: 0 });
-                        completedAnimations++;
-                        if (completedAnimations >= totalBlocks) {
-                            this.showEnterButton();
-                        }
-                    },
-                });
-            });
-        }, 500);
     }
 
     showEnterButton() {
-        const wrapper = document.createElement('div');
-        Object.assign(wrapper.style, {
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '0.75rem',
-            opacity: 0,
-            zIndex: 100,
-            color: 'var(--theme-accent)',
-        });
+        if (this.isCompleting) return;
+        this.isCompleting = true;
 
-        const hint = document.createElement('p');
-        hint.textContent = '// audio + motion';
-        Object.assign(hint.style, {
-            fontFamily: 'inherit',
-            fontSize: '0.75rem',
-            letterSpacing: '0.12em',
-            opacity: 0.5,
-            margin: 0,
-        });
+        // Hide progress, show enter button
+        if (this.progressBar) {
+            this.progressBar.style.opacity = '0.3';
+        }
+        if (this.buttonWrap) {
+            this.buttonWrap.classList.add('is-visible');
+        }
+        window.preloaderComplete = true;
+        window.dispatchEvent(new CustomEvent('preloader-complete'));
 
-        const enterBtn = document.createElement('button');
-        enterBtn.textContent = 'ENTER';
-        enterBtn.className = 'preloader-enter-btn';
-        Object.assign(enterBtn.style, {
-            background: 'transparent',
-            border: '1px solid currentColor',
-            color: 'inherit',
-            padding: '1rem 3rem',
-            fontFamily: 'inherit',
-            fontSize: '1rem',
-            letterSpacing: '0.1em',
-            cursor: 'pointer',
-        });
-
-        wrapper.appendChild(hint);
-        wrapper.appendChild(enterBtn);
-        this.container.appendChild(wrapper);
-
-        gsap.to(wrapper, { opacity: 1, duration: 0.5, ease: 'power2.out' });
-
-        enterBtn.addEventListener('click', () => {
-            this.handleEnterClick(wrapper);
-        });
+        // Bind enter button click
+        if (this.enterButton) {
+            this.enterButton.addEventListener('click', () => {
+                this.handleEnterClick();
+            }, { once: true });
+        }
     }
 
-    handleEnterClick(wrapper) {
+    handleEnterClick() {
+        window.dispatchEvent(new CustomEvent('preloader-exit-start'));
+
         // 1. Audio Permission
         window.audioEnabled = true;
         if (typeof window.AudioContext !== 'undefined' || typeof window.webkitAudioContext !== 'undefined') {
-            // Unlock AudioContext (needed for Web Audio API users)
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             audioCtx.resume();
         }
@@ -410,34 +247,46 @@ class Preloader {
                 .then(permissionState => {
                     if (permissionState === 'granted') {
                         window.gyroEnabled = true;
-                    } else {
-                        console.warn('Gyroscope permission denied');
                     }
-                    this.finishPreloader(wrapper);
+                    this.exitPreloader();
                 })
-                .catch(err => {
-                    console.error('Error requesting gyro permission:', err);
-                    this.finishPreloader(wrapper); // Continue even if gyro fails
+                .catch(() => {
+                    this.exitPreloader();
                 });
         } else {
-            // Android or older devices where permission isn't requested explicitly
             window.gyroEnabled = true;
-            this.finishPreloader(wrapper);
+            this.exitPreloader();
         }
     }
 
-    finishPreloader(wrapper) {
-        gsap.to([wrapper, this.container], {
-            opacity: 0,
-            duration: 0.5,
-            ease: 'power2.inOut',
-            onComplete: () => {
-                this.container.style.display = 'none';
-                paintDebugMark('preloader hidden');
-                wrapper.remove();
-                this.resolveRun();
-            }
-        });
+    exitPreloader() {
+        if (!this.container) {
+            this.resolveRun();
+            return;
+        }
+
+        sessionStorage.setItem('preloaderSeen', 'true');
+
+        // CRT power-off animation
+        this.container.classList.add('is-exiting');
+
+        // R3F handles its own destruction on display complete, or unmount, we just hide it
+
+        setTimeout(() => {
+            this.container.style.display = 'none';
+            document.body.classList.remove('preloader-active');
+            paintDebugMark('preloader hidden');
+            this.resolveRun();
+        }, EXIT_ANIMATION_MS);
+    }
+
+    resolveRun() {
+        if (this.runResolver) {
+            this.runResolver();
+        }
+        this.runResolver = null;
+        this.runPromise = null;
+        this.isCompleting = false;
     }
 }
 

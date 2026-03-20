@@ -41,5 +41,4 @@ export const workItems = [
     image: "/archive/11.webp",
     href: "/film",
   },
-
 ];

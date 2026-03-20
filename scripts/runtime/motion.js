@@ -1,7 +1,7 @@
 export const PARALLAX_MOTION_CONFIG = Object.freeze({
-  angleRange: 0.2,
-  yRange: 0.3,
-  tiltRange: 0.04,
+  angleRange: 0.25,
+  yRange: 0.35,
+  tiltRange: 0.05,
   lerp: 0.05,
   orbitRadius: 5,
 });

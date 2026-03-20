@@ -1,174 +1,213 @@
-import gsap from 'gsap';
-import { SplitText } from 'gsap/SplitText';
-import { WebHaptics } from 'web-haptics';
-import { isCoarsePointerDevice } from './perf.js';
+import gsap from "gsap";
+import { WebHaptics } from "web-haptics";
 
-gsap.registerPlugin(SplitText);
-
-// Shared animation config
 const ANIM_CONFIG = {
-  duration: 0.5,
-  ease: 'power2.inOut',
-  stagger: 0.02
+  duration: 0.42,
+  ease: "power2.inOut",
+  stagger: 0.014,
+  overlap: 0.08,
 };
 
-const isTouchDevice = isCoarsePointerDevice();
-
-// Store instances for cleanup
+const LINK_SELECTOR = ".nav-wrap a, .bottom-nav-wrap a, .contact-contain a";
 const linkInstances = new WeakMap();
 
-// Shared haptics instance – debug:true produces synthesised audio clicks
-// on devices without the Vibration API (i.e. desktop browsers).
 let haptics = null;
+
+function supportsTouchInput() {
+  if (typeof navigator !== "undefined" && navigator.maxTouchPoints > 0) return true;
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+  return window.matchMedia("(pointer: coarse)").matches;
+}
 
 export function getHaptics() {
   if (!haptics) haptics = new WebHaptics({ debug: true });
   return haptics;
 }
 
-const LINK_SELECTOR = '.nav-wrap a, .bottom-nav-wrap a, .contact-contain a';
-
 export function initLinkHover() {
   const navLinks = document.querySelectorAll(LINK_SELECTOR);
+  const isTouchDevice = supportsTouchInput();
 
-  navLinks.forEach(link => {
-    // Skip if already initialized or excluded
-    if (link.id === 'time' || link.classList.contains('menu-toggle-btn') || linkInstances.has(link)) return;
+  navLinks.forEach((link) => {
+    if (link.id === "time" || link.classList.contains("menu-toggle-btn") || linkInstances.has(link))
+      return;
 
     if (isTouchDevice) {
       const handleTouchStart = () => {
-        getHaptics().trigger('nudge');
+        getHaptics().trigger("nudge");
       };
 
-      link.addEventListener('touchstart', handleTouchStart, { passive: true });
+      link.addEventListener("touchstart", handleTouchStart, { passive: true });
       linkInstances.set(link, { handleTouchStart });
       return;
     }
 
-    const originalText = (link.textContent || '').trim();
-    if (!originalText) return;
+    const originalText = link.textContent || "";
+    const trimmedText = originalText.trim();
+    if (!trimmedText) return;
 
-    gsap.set(link, {
-      position: 'relative',
-      display: 'inline-block'
-    });
+    const viewport = createViewport();
+    const baseLayer = createLayer(trimmedText, false);
+    const hoverLayer = createLayer(trimmedText, true);
 
-    // Create dual text structure
-    const originalSpan = createTextSpan(originalText, false);
-    const italicSpan = createTextSpan(originalText, true);
+    link.textContent = "";
+    link.style.position = "relative";
+    link.style.display = "inline-block";
+    link.style.overflow = "visible";
+    viewport.appendChild(baseLayer.root);
+    viewport.appendChild(hoverLayer.root);
+    link.appendChild(viewport);
 
-    link.textContent = '';
-    link.appendChild(originalSpan);
-    link.appendChild(italicSpan);
-
-    // Split once and reuse
-    const originalSplit = new SplitText(originalSpan, { type: 'chars' });
-    const italicSplit = new SplitText(italicSpan, { type: 'chars' });
-
-    // Initial positions: vertical "dive" animation instead of 3D flip.
-    gsap.set(originalSplit.chars, {
-      yPercent: 0,
-      opacity: 1,
-      display: 'inline-block'
-    });
-
-    gsap.set(italicSplit.chars, {
-      yPercent: -110,
-      opacity: 0,
-      display: 'inline-block'
-    });
-
-    // Animation state
     let tl = null;
 
-    // Event handlers
     const handleEnter = () => {
-      if (link.getAttribute('aria-current') === 'page') return;
-
+      if (link.getAttribute("aria-current") === "page") return;
       tl?.kill();
-      tl = animateChars(originalSplit.chars, italicSplit.chars, true);
+      tl = animateChars(baseLayer.chars, hoverLayer.chars, true);
+      getHaptics().trigger([{ duration: 10 }], { intensity: 1 });
+    };
 
-      // Light haptic pulse on hover
-      getHaptics().trigger([
-        { duration: 10 },
-      ], { intensity: 1 });
+    const handleLeave = () => {
+      if (link.getAttribute("aria-current") === "page") return;
+      tl?.kill();
+      tl = animateChars(baseLayer.chars, hoverLayer.chars, false);
     };
 
     const handleClick = () => {
-      // Stronger nudge haptic on click
       getHaptics().trigger([
         { duration: 80, intensity: 0.8 },
         { delay: 80, duration: 50, intensity: 0.3 },
       ]);
     };
 
-    const handleLeave = () => {
-      if (link.getAttribute('aria-current') === 'page') return;
+    link.addEventListener("mouseenter", handleEnter);
+    link.addEventListener("mouseleave", handleLeave);
+    link.addEventListener("click", handleClick);
 
-      tl?.kill();
-      tl = animateChars(originalSplit.chars, italicSplit.chars, false);
-    };
-
-    link.addEventListener('mouseenter', handleEnter);
-    link.addEventListener('mouseleave', handleLeave);
-    link.addEventListener('click', handleClick);
-
-    // Store for cleanup (include tween getter for destroy)
-    const instance = {
-      originalSplit,
-      italicSplit,
+    linkInstances.set(link, {
+      originalText: trimmedText,
       handleEnter,
       handleLeave,
       handleClick,
       getTween: () => tl,
-    };
-    linkInstances.set(link, instance);
+      viewport,
+    });
   });
 }
 
-function createTextSpan(text, isItalic) {
-  const span = document.createElement('span');
-  span.textContent = text;
-
-  gsap.set(span, {
-    display: 'inline-block',
-    whiteSpace: 'pre-wrap',
-    ...(isItalic && {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      fontStyle: 'normal',
-    })
+function createViewport() {
+  const viewport = document.createElement("span");
+  Object.assign(viewport.style, {
+    position: "relative",
+    display: "inline-grid",
+    overflow: "hidden",
+    whiteSpace: "pre",
+    lineHeight: "1.05",
+    verticalAlign: "top",
+    paddingTop: "0.08em",
+    paddingBottom: "0.12em",
+    marginTop: "-0.08em",
+    marginBottom: "-0.12em",
   });
-
-  return span;
+  return viewport;
 }
 
-function animateChars(originalChars, italicChars, isHover) {
+function createLayer(text, isOverlay) {
+  const root = document.createElement("span");
+  Object.assign(root.style, {
+    display: "inline-flex",
+    gridArea: "1 / 1",
+    whiteSpace: "pre",
+    lineHeight: "1.05",
+    ...(isOverlay ? { position: "absolute", inset: "0 auto auto 0" } : {}),
+  });
+
+  const chars = Array.from(text).map((char) => {
+    const clip = document.createElement("span");
+    const glyph = document.createElement("span");
+
+    Object.assign(clip.style, {
+      display: "inline-block",
+      overflow: "hidden",
+      lineHeight: "1.05",
+      verticalAlign: "top",
+      paddingTop: "0.04em",
+      paddingBottom: "0.08em",
+      marginTop: "-0.04em",
+      marginBottom: "-0.08em",
+    });
+
+    Object.assign(glyph.style, {
+      display: "inline-block",
+      willChange: "transform, opacity",
+    });
+
+    glyph.textContent = char === " " ? "\u00A0" : char;
+    clip.appendChild(glyph);
+    root.appendChild(clip);
+
+    return glyph;
+  });
+
+  gsap.set(chars, {
+    yPercent: isOverlay ? 115 : 0,
+    opacity: isOverlay ? 0 : 1,
+  });
+
+  return { root, chars };
+}
+
+function animateChars(baseChars, hoverChars, isHover) {
   const tl = gsap.timeline();
 
   if (isHover) {
-    tl.to(originalChars, {
-      yPercent: 110,
-      opacity: 0,
-      ...ANIM_CONFIG
-    }, 0)
-      .to(italicChars, {
+    tl.to(
+      baseChars,
+      {
+        yPercent: -115,
+        opacity: 0,
+        duration: ANIM_CONFIG.duration,
+        ease: ANIM_CONFIG.ease,
+        stagger: { each: ANIM_CONFIG.stagger, from: "start" },
+      },
+      0,
+    );
+
+    tl.to(
+      hoverChars,
+      {
         yPercent: 0,
         opacity: 1,
-        ...ANIM_CONFIG
-      }, 0);
+        duration: ANIM_CONFIG.duration,
+        ease: ANIM_CONFIG.ease,
+        stagger: { each: ANIM_CONFIG.stagger, from: "start" },
+      },
+      ANIM_CONFIG.overlap,
+    );
   } else {
-    tl.to(originalChars, {
-      yPercent: 0,
-      opacity: 1,
-      ...ANIM_CONFIG
-    }, 0)
-      .to(italicChars, {
-        yPercent: -110,
+    tl.to(
+      baseChars,
+      {
+        yPercent: 0,
+        opacity: 1,
+        duration: ANIM_CONFIG.duration,
+        ease: ANIM_CONFIG.ease,
+        stagger: { each: ANIM_CONFIG.stagger, from: "end" },
+      },
+      0,
+    );
+
+    tl.to(
+      hoverChars,
+      {
+        yPercent: 115,
         opacity: 0,
-        ...ANIM_CONFIG
-      }, 0);
+        duration: ANIM_CONFIG.duration,
+        ease: ANIM_CONFIG.ease,
+        stagger: { each: ANIM_CONFIG.stagger, from: "end" },
+      },
+      ANIM_CONFIG.overlap,
+    );
   }
 
   return tl;
@@ -177,39 +216,28 @@ function animateChars(originalChars, italicChars, isHover) {
 export function destroyLinkHover() {
   const navLinks = document.querySelectorAll(LINK_SELECTOR);
 
-  navLinks.forEach(link => {
+  navLinks.forEach((link) => {
     const instance = linkInstances.get(link);
+    if (!instance) return;
 
-    if (instance) {
-      // Kill active tween before reverting splits
-      if (instance.handleTouchStart) {
-        link.removeEventListener('touchstart', instance.handleTouchStart);
-      }
-
-      if (instance.getTween) {
-        const activeTween = instance.getTween();
-        if (activeTween) activeTween.kill();
-      }
-      if (instance.originalSplit && instance.italicSplit) {
-        instance.originalSplit.revert();
-        instance.italicSplit.revert();
-      }
-
-      // Remove listeners
-      if (instance.handleEnter) link.removeEventListener('mouseenter', instance.handleEnter);
-      if (instance.handleLeave) link.removeEventListener('mouseleave', instance.handleLeave);
-      if (instance.handleClick) link.removeEventListener('click', instance.handleClick);
-
-      // Clear WeakMap entry
-      linkInstances.delete(link);
+    if (instance.handleTouchStart) {
+      link.removeEventListener("touchstart", instance.handleTouchStart);
     }
 
-    // Restore original text
-    const firstSpan = link.querySelector('span');
-    if (firstSpan && !isTouchDevice) {
-      const text = firstSpan.textContent;
-      link.textContent = text;
-      gsap.set(link, { clearProps: 'all' });
+    if (instance.getTween) {
+      const activeTween = instance.getTween();
+      if (activeTween) activeTween.kill();
     }
+
+    if (instance.handleEnter) link.removeEventListener("mouseenter", instance.handleEnter);
+    if (instance.handleLeave) link.removeEventListener("mouseleave", instance.handleLeave);
+    if (instance.handleClick) link.removeEventListener("click", instance.handleClick);
+
+    link.textContent = instance.originalText || link.textContent;
+    link.style.position = "";
+    link.style.display = "";
+    link.style.overflow = "";
+
+    linkInstances.delete(link);
   });
 }
