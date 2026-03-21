@@ -28,7 +28,7 @@ export default function FilmCanvas() {
         left: 0,
         width: "100vw",
         height: "100vh",
-        zIndex: 1,
+        zIndex: -1,
         pointerEvents: "none",
       }}
     >
@@ -58,7 +58,7 @@ export default function FilmCanvas() {
           window.addEventListener("resize", onResize);
           gl.__filmResizeCleanup = () => window.removeEventListener("resize", onResize);
         }}
-        onPointerMissed={() => {}}
+        onPointerMissed={() => { }}
       >
         <Suspense fallback={null}>
           <FilmBackground />
