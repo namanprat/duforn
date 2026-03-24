@@ -206,11 +206,16 @@ export default function SiteLayout({ children }) {
           <div className="preloader-canvas-wrap">
             <PreloaderScene />
           </div>
-          <div className="preloader-terminal u-flex-vertical-nowrap u-align-items-center" style={{ opacity: 0, pointerEvents: 'none' }}>
+          <div
+            className="preloader-terminal u-flex-vertical-nowrap u-align-items-center"
+            style={{ opacity: 0, pointerEvents: "none" }}
+          >
             <p className="preloader-loading u-text-align-center" aria-live="polite"></p>
             <p className="preloader-progress-bar u-text-align-center" aria-live="polite"></p>
             <div className="preloader-button-wrap u-flex-horizontal-nowrap u-justify-content-center">
-              <button type="button" className="preloader-enter-button">ENTER</button>
+              <button type="button" className="preloader-enter-button">
+                ENTER
+              </button>
             </div>
           </div>
         </div>

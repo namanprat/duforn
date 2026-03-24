@@ -3,7 +3,7 @@ import { workItems } from "../data/work-items.js";
 import { preloader } from "./preloader.js";
 import { loadTextureAsset } from "./runtime/assets.js";
 
-export const workTextureCache = new Map();
+const workTextureCache = new Map();
 
 /**
  * Returns preloaded textures for the given URLs, or null if any are missing.

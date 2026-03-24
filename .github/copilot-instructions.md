@@ -13,15 +13,15 @@ npm run dev        # http://localhost:5173
 
 ## Commands
 
-| Command | Purpose |
-|---------|---------|
-| `npm run dev` | Development server |
-| `npm run host` | Dev server on LAN |
-| `npm run build` | Production build to `dist/` |
-| `npm run preview` | Preview production build |
-| `npm test` | Run unit tests (Vitest) |
-| `npm run test:ui` | Tests with browser UI |
-| `npm run test:coverage` | Tests with coverage report |
+| Command                 | Purpose                     |
+| ----------------------- | --------------------------- |
+| `npm run dev`           | Development server          |
+| `npm run host`          | Dev server on LAN           |
+| `npm run build`         | Production build to `dist/` |
+| `npm run preview`       | Preview production build    |
+| `npm test`              | Run unit tests (Vitest)     |
+| `npm run test:ui`       | Tests with browser UI       |
+| `npm run test:coverage` | Tests with coverage report  |
 
 ## Current Structure
 

@@ -13,21 +13,24 @@
   "author": "",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "host": "vite --host",
-    "build": "vite build",
-    "preview": "vite preview",
-    "test": "vitest run",
-    "test:ui": "vitest --ui",
-    "test:coverage": "vitest run --coverage"
+    "dev": "vp dev",
+    "host": "vp dev --host",
+    "build": "vp build",
+    "preview": "vp preview",
+    "test": "vp test run",
+    "test:ui": "vp test --ui",
+    "test:coverage": "vp test run --coverage",
+    "lint": "vp lint src scripts",
+    "check": "vp check src scripts",
+    "prepare": "vp config"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.6",
     "@react-three/fiber": "^9.4.0",
     "@react-three/postprocessing": "^3.0.4",
+    "@voidzero-dev/vite-plus-test": "^0.1.9",
     "gsap": "^3.14.2",
     "lenis": "^1.1.13",
-    "leva": "^0.10.1",
     "postprocessing": "^6.38.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -40,11 +43,19 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^6.0.1",
     "@vitest/coverage-v8": "^4.1.0",
-    "@vitest/ui": "^4.1.0",
+    "@vitest/ui": "^4.0.18",
     "happy-dom": "^20.6.1",
     "jsdom": "^28.1.0",
-    "vite": "^8.0.1",
-    "vitest": "^4.1.0"
+    "vite": "npm:@voidzero-dev/vite-plus-core@latest",
+    "vite-plus": "^0.1.9",
+    "vitest": "npm:@voidzero-dev/vite-plus-test@latest"
   },
-  "packageManager": "npm@11.12.0"
+  "overrides": {
+    "vite": "npm:@voidzero-dev/vite-plus-core@latest",
+    "vitest": "npm:@voidzero-dev/vite-plus-test@latest"
+  },
+  "packageManager": "npm@11.12.0",
+  "staged": {
+    "*": "vp check --fix"
+  }
 }

@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useEffect, useCallback } from "react";
+import React, { useRef, useEffect, useCallback } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { archiveItems } from "../../data/archive-items.js";

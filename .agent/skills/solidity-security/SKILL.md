@@ -436,8 +436,7 @@ describe("Security Tests", function () {
     const token = await Token.deploy();
 
     // Attempt overflow
-    await expect(token.transfer(attacker.address, ethers.constants.MaxUint256))
-      .to.be.reverted;
+    await expect(token.transfer(attacker.address, ethers.constants.MaxUint256)).to.be.reverted;
   });
 
   it("Should enforce access control", async function () {

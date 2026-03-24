@@ -64,10 +64,7 @@ module.exports = {
 ```javascript
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
-const {
-  loadFixture,
-  time,
-} = require("@nomicfoundation/hardhat-network-helpers");
+const { loadFixture, time } = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("Token Contract", function () {
   // Fixture for test setup
@@ -108,9 +105,9 @@ describe("Token Contract", function () {
       const { token, addr1 } = await loadFixture(deployTokenFixture);
       const initialBalance = await token.balanceOf(addr1.address);
 
-      await expect(
-        token.connect(addr1).transfer(owner.address, 1),
-      ).to.be.revertedWith("Insufficient balance");
+      await expect(token.connect(addr1).transfer(owner.address, 1)).to.be.revertedWith(
+        "Insufficient balance",
+      );
     });
 
     it("Should emit Transfer event", async function () {
@@ -273,10 +270,7 @@ describe("Mainnet Fork Tests", function () {
       "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
     );
 
-    dai = await ethers.getContractAt(
-      "IERC20",
-      "0x6B175474E89094C44Da98b954EedeAC495271d0F",
-    );
+    dai = await ethers.getContractAt("IERC20", "0x6B175474E89094C44Da98b954EedeAC495271d0F");
   });
 
   it("Should swap on Uniswap", async function () {
@@ -299,9 +293,7 @@ it("Should impersonate whale account", async function () {
   const whale = await ethers.getSigner(whaleAddress);
 
   // Use whale's tokens
-  await dai
-    .connect(whale)
-    .transfer(addr1.address, ethers.utils.parseEther("1000"));
+  await dai.connect(whale).transfer(addr1.address, ethers.utils.parseEther("1000"));
 });
 ```
 
@@ -312,11 +304,8 @@ const { expect } = require("chai");
 
 describe("Gas Optimization", function () {
   it("Compare gas usage between implementations", async function () {
-    const Implementation1 =
-      await ethers.getContractFactory("OptimizedContract");
-    const Implementation2 = await ethers.getContractFactory(
-      "UnoptimizedContract",
-    );
+    const Implementation1 = await ethers.getContractFactory("OptimizedContract");
+    const Implementation2 = await ethers.getContractFactory("UnoptimizedContract");
 
     const contract1 = await Implementation1.deploy();
     const contract2 = await Implementation2.deploy();

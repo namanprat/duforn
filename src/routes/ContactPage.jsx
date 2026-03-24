@@ -12,10 +12,7 @@ export default function ContactPage() {
           >
             naman@duforn.com
           </a>
-          <div
-            className="middle u-flex-horizontal-nowrap u-alignment-center u-gap-2 reveal-body"
-            data-split-type="element"
-          >
+          <div className="middle u-flex-horizontal-nowrap u-alignment-center u-gap-2 reveal-body">
             <a
               href="https://www.instagram.com/namanprat_"
               target="_blank"
@@ -45,6 +42,8 @@ export default function ContactPage() {
           </div>
           <a
             href="https://cal.com/namanprat/discovery-call"
+            target="_blank"
+            rel="noopener noreferrer"
             className="u-text-style-h2 u-text-style-font-primary reveal-body"
           >
             schedule a discovery call

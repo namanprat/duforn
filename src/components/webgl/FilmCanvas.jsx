@@ -1,10 +1,16 @@
 import { Canvas } from "@react-three/fiber";
 import React, { Suspense, useRef, useEffect, useState } from "react";
-import { createRendererAlpha, getRendererType } from "./createWebGPURenderer.js";
+import { createWebGLRendererAlpha, getRendererType } from "./createWebGPURenderer.js";
 import FilmBackground from "../../film/FilmBackground.jsx";
 import FilmImagePlanes from "../../film/FilmImagePlanes.jsx";
 import FilmEffects from "../../film/FilmEffects.jsx";
+import { useFilmController } from "../../film/useFilmController.js";
 import { logWebGPU } from "../../lib/webgpu/debugWebGPU.js";
+
+function FilmController() {
+  useFilmController();
+  return null;
+}
 
 export default function FilmCanvas() {
   const containerRef = useRef(null);
@@ -43,23 +49,13 @@ export default function FilmCanvas() {
           far: 1000,
           position: [0, 0, 10],
         }}
-        gl={createRendererAlpha}
-        onCreated={({ gl, camera }) => {
+        gl={createWebGLRendererAlpha}
+        onCreated={({ gl }) => {
           logWebGPU("FilmCanvas", "Canvas created", { rendererType: getRendererType(gl) });
-          const onResize = () => {
-            const w = window.innerWidth;
-            const h = window.innerHeight;
-            camera.left = -w / 2;
-            camera.right = w / 2;
-            camera.top = h / 2;
-            camera.bottom = -h / 2;
-            camera.updateProjectionMatrix();
-          };
-          window.addEventListener("resize", onResize);
-          gl.__filmResizeCleanup = () => window.removeEventListener("resize", onResize);
         }}
-        onPointerMissed={() => { }}
+        onPointerMissed={() => {}}
       >
+        <FilmController />
         <Suspense fallback={null}>
           <FilmBackground />
           {ready && <FilmImagePlanes containerRef={containerRef} />}

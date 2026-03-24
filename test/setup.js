@@ -1,4 +1,4 @@
-import { afterEach } from "vitest";
+import { afterEach } from "vite-plus/test";
 
 afterEach(() => {
   document.body.innerHTML = "";

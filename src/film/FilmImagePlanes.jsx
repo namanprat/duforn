@@ -1,9 +1,13 @@
 import React, { useRef, useEffect, useState } from "react";
 import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { configureTexture } from "../../scripts/runtime/assets.js";
 import { isWebGPURenderer } from "../components/webgl/createWebGPURenderer.js";
 import { logWebGPUOnce } from "../lib/webgpu/debugWebGPU.js";
+
+gsap.registerPlugin(ScrollTrigger);
 
 const sharedPointer = new THREE.Vector2(-9999, -9999);
 
@@ -13,17 +17,29 @@ function createWebGLMaterial(texture) {
     uniforms: {
       uTex: { value: texture },
       uCursorUV: { value: new THREE.Vector2(-1, -1) },
-      uBlurRadius: { value: 0.15 },
-      uBlurStrength: { value: 0.008 },
-      uGrainStrength: { value: 0.08 },
+      uBlurRadius: { value: 0.25 },
+      uBlurStrength: { value: 0.014 },
+      uGrainStrength: { value: 0.06 },
       uTime: { value: 0 },
+      uReveal: { value: 0 },
+      uRevealEdge: { value: 0.15 },
     },
     vertexShader: `
+      uniform float uReveal;
+      uniform float uTime;
       varying vec2 vUv;
 
       void main() {
         vUv = uv;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+
+        // Fabric wave vertex displacement — amplitude peaks at mid-reveal.
+        // Displaced in X (primary) and Y (secondary) — Z is invisible in orthographic.
+        float amplitude = sin(uReveal * 3.14159265) * 0.055;
+        float dispX = sin(uv.y * 7.0 + uTime * 2.2) * amplitude;
+        float dispY = cos(uv.x * 5.0 - uTime * 1.5) * amplitude * 0.45;
+
+        vec3 displaced = position + vec3(dispX, dispY, 0.0);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(displaced, 1.0);
       }
     `,
     fragmentShader: `
@@ -33,6 +49,8 @@ function createWebGLMaterial(texture) {
       uniform float uBlurStrength;
       uniform float uGrainStrength;
       uniform float uTime;
+      uniform float uReveal;
+      uniform float uRevealEdge;
       varying vec2 vUv;
 
       float random(vec2 st) {
@@ -40,33 +58,49 @@ function createWebGLMaterial(texture) {
       }
 
       void main() {
-        vec4 baseColor = texture2D(uTex, vUv);
-        float d = distance(vUv, uCursorUV);
+        // Ripple reveal distortion
+        float wipePos = uReveal * (1.0 + uRevealEdge * 2.0) - uRevealEdge;
+        // Reversed smoothstep: wipeMask=0 when uReveal=0, sweeps top-to-bottom as uReveal→1
+        float wipeMask = smoothstep(wipePos + uRevealEdge, wipePos - uRevealEdge, vUv.y);
+
+        float edgeDist = abs(vUv.y - wipePos);
+        float edgeProximity = 1.0 - smoothstep(0.0, uRevealEdge * 3.0, edgeDist);
+        float ripple = sin(edgeDist * 40.0 - uTime * 3.0) * edgeProximity * 0.015 * (1.0 - uReveal);
+        vec2 distortedUv = clamp(vUv + vec2(ripple, ripple * 0.5), 0.0, 1.0);
+
+        // Base color with distorted UVs
+        vec4 baseColor = texture2D(uTex, distortedUv);
+
+        // Cursor blur
+        float d = distance(distortedUv, uCursorUV);
         float t = smoothstep(uBlurRadius, 0.0, d);
         vec2 off = vec2(uBlurStrength);
 
         vec4 blurred =
-          texture2D(uTex, vUv + vec2(off.x, 0.0)) +
-          texture2D(uTex, vUv - vec2(off.x, 0.0)) +
-          texture2D(uTex, vUv + vec2(0.0, off.y)) +
-          texture2D(uTex, vUv - vec2(0.0, off.y)) +
-          texture2D(uTex, vUv + off) +
-          texture2D(uTex, vUv - off) +
-          texture2D(uTex, vUv + vec2(off.x, -off.y)) +
-          texture2D(uTex, vUv + vec2(-off.x, off.y));
-
+          texture2D(uTex, distortedUv + vec2(off.x, 0.0)) +
+          texture2D(uTex, distortedUv - vec2(off.x, 0.0)) +
+          texture2D(uTex, distortedUv + vec2(0.0, off.y)) +
+          texture2D(uTex, distortedUv - vec2(0.0, off.y)) +
+          texture2D(uTex, distortedUv + off) +
+          texture2D(uTex, distortedUv - off) +
+          texture2D(uTex, distortedUv + vec2(off.x, -off.y)) +
+          texture2D(uTex, distortedUv + vec2(-off.x, off.y));
         blurred /= 8.0;
 
-        float grain = (random(vUv * 200.0 + uTime) - 0.5) * uGrainStrength;
+        // Film grain
+        float grain = (random(distortedUv * 200.0 + uTime) - 0.5) * uGrainStrength;
         vec4 blurredWithGrain = blurred + vec4(vec3(grain), 0.0);
         vec4 result = mix(baseColor, blurredWithGrain, t);
-        gl_FragColor = vec4(result.rgb, baseColor.a);
+
+        // Apply wipe alpha
+        float alpha = wipeMask * result.a;
+        gl_FragColor = vec4(result.rgb, alpha);
       }
     `,
   });
 }
 
-function FilmImagePlane({ imgElement }) {
+function FilmImagePlane({ imgElement, progressMapRef, index }) {
   const meshRef = useRef();
   const textureRef = useRef(null);
   const materialRef = useRef(null);
@@ -81,13 +115,18 @@ function FilmImagePlane({ imgElement }) {
     let cancelled = false;
 
     async function buildWebGPUTextureMaterial(texture) {
-      logWebGPUOnce("film-imageplanes-webgpu", "FilmImagePlanes", "Building WebGPU TSL image-plane materials");
+      logWebGPUOnce(
+        "film-imageplanes-webgpu",
+        "FilmImagePlanes",
+        "Building WebGPU TSL image-plane materials",
+      );
       const { MeshBasicNodeMaterial } = await import("three/webgpu");
       const tsl = await import("three/tsl");
       const {
         Fn,
         float,
         vec2,
+        vec3,
         vec4,
         uniform,
         uv,
@@ -97,7 +136,12 @@ function FilmImagePlane({ imgElement }) {
         smoothstep,
         fract,
         sin,
+        cos,
         dot,
+        abs: tslAbs,
+        clamp: tslClamp,
+        positionLocal,
+        PI,
       } = tsl;
 
       if (cancelled) return null;
@@ -105,40 +149,83 @@ function FilmImagePlane({ imgElement }) {
       const uniforms = {
         uTex: uniformTexture(texture),
         uCursorUV: uniform(new THREE.Vector2(-1, -1)),
-        uBlurRadius: uniform(0.15),
-        uBlurStrength: uniform(0.008),
-        uGrainStrength: uniform(0.08),
+        uBlurRadius: uniform(0.25),
+        uBlurStrength: uniform(0.014),
+        uGrainStrength: uniform(0.06),
         uTime: uniform(0),
+        uReveal: uniform(0),
+        uRevealEdge: uniform(0.15),
       };
 
       const fragmentFn = Fn(() => {
         const coord = uv();
-        const baseColor = tslTexture(uniforms.uTex, coord);
-        const d = coord.sub(uniforms.uCursorUV).length();
+
+        // Ripple reveal
+        const wipePos = uniforms.uReveal
+          .mul(uniforms.uRevealEdge.mul(2).add(1))
+          .sub(uniforms.uRevealEdge);
+        // Reversed smoothstep: wipeMask=0 when uReveal=0, sweeps top-to-bottom as uReveal→1
+        const wipeMask = smoothstep(
+          wipePos.add(uniforms.uRevealEdge), // from (high)
+          wipePos.sub(uniforms.uRevealEdge), // to (low) — reversed
+          coord.y,
+        );
+
+        const edgeDist = tslAbs(coord.y.sub(wipePos));
+        const edgeProximity = float(1).sub(
+          smoothstep(float(0), uniforms.uRevealEdge.mul(3), edgeDist),
+        );
+        const ripple = sin(edgeDist.mul(40).sub(uniforms.uTime.mul(3)))
+          .mul(edgeProximity)
+          .mul(0.015)
+          .mul(float(1).sub(uniforms.uReveal));
+        const distortedCoord = tslClamp(
+          coord.add(vec2(ripple, ripple.mul(0.5))),
+          float(0),
+          float(1),
+        );
+
+        // Base color
+        const baseColor = tslTexture(uniforms.uTex, distortedCoord);
+
+        // Cursor blur
+        const d = distortedCoord.sub(uniforms.uCursorUV).length();
         const t = smoothstep(uniforms.uBlurRadius, float(0), d);
         const off = uniforms.uBlurStrength;
 
-        const s1 = tslTexture(uniforms.uTex, coord.add(vec2(off, float(0))));
-        const s2 = tslTexture(uniforms.uTex, coord.add(vec2(off.negate(), float(0))));
-        const s3 = tslTexture(uniforms.uTex, coord.add(vec2(float(0), off)));
-        const s4 = tslTexture(uniforms.uTex, coord.add(vec2(float(0), off.negate())));
-        const s5 = tslTexture(uniforms.uTex, coord.add(vec2(off, off)));
-        const s6 = tslTexture(uniforms.uTex, coord.add(vec2(off.negate(), off.negate())));
-        const s7 = tslTexture(uniforms.uTex, coord.add(vec2(off, off.negate())));
-        const s8 = tslTexture(uniforms.uTex, coord.add(vec2(off.negate(), off)));
+        const s1 = tslTexture(uniforms.uTex, distortedCoord.add(vec2(off, float(0))));
+        const s2 = tslTexture(uniforms.uTex, distortedCoord.add(vec2(off.negate(), float(0))));
+        const s3 = tslTexture(uniforms.uTex, distortedCoord.add(vec2(float(0), off)));
+        const s4 = tslTexture(uniforms.uTex, distortedCoord.add(vec2(float(0), off.negate())));
+        const s5 = tslTexture(uniforms.uTex, distortedCoord.add(vec2(off, off)));
+        const s6 = tslTexture(uniforms.uTex, distortedCoord.add(vec2(off.negate(), off.negate())));
+        const s7 = tslTexture(uniforms.uTex, distortedCoord.add(vec2(off, off.negate())));
+        const s8 = tslTexture(uniforms.uTex, distortedCoord.add(vec2(off.negate(), off)));
 
         const blurred = s1.add(s2).add(s3).add(s4).add(s5).add(s6).add(s7).add(s8).div(8);
-        const seed = coord.mul(vec2(12.9898, 78.233)).add(uniforms.uTime);
+
+        // Grain
+        const seed = distortedCoord.mul(vec2(12.9898, 78.233)).add(uniforms.uTime);
         const noise = fract(sin(dot(seed, vec2(12.9898, 78.233))).mul(43758.5453));
         const grain = noise.sub(0.5).mul(uniforms.uGrainStrength);
         const blurredWithGrain = blurred.add(vec4(grain, grain, grain, float(0)));
         const result = mix(baseColor, blurredWithGrain, t);
 
-        return vec4(result.rgb, baseColor.a);
+        return vec4(result.rgb, wipeMask.mul(baseColor.a));
       });
 
       const webgpuMaterial = new MeshBasicNodeMaterial({ transparent: true });
       webgpuMaterial.fragmentNode = fragmentFn();
+
+      // Fabric wave vertex displacement — displaced in X/Y (Z is invisible in orthographic).
+      // Amplitude peaks at mid-reveal, settles to zero when fully revealed.
+      const amplitude = sin(uniforms.uReveal.mul(Math.PI)).mul(0.055);
+      const uvCoord2 = uv();
+      const dispX = sin(uvCoord2.y.mul(7.0).add(uniforms.uTime.mul(2.2))).mul(amplitude);
+      const dispY = cos(uvCoord2.x.mul(5.0).sub(uniforms.uTime.mul(1.5)))
+        .mul(amplitude)
+        .mul(0.45);
+      webgpuMaterial.positionNode = positionLocal.add(vec3(dispX, dispY, float(0)));
 
       return { material: webgpuMaterial, uniforms };
     }
@@ -163,7 +250,11 @@ function FilmImagePlane({ imgElement }) {
             return;
           }
 
-          logWebGPUOnce("film-imageplanes-webgl", "FilmImagePlanes", "Using WebGL shader image-plane materials");
+          logWebGPUOnce(
+            "film-imageplanes-webgl",
+            "FilmImagePlanes",
+            "Using WebGL shader image-plane materials",
+          );
           const webglMaterial = createWebGLMaterial(tex);
           uniformsRef.current = webglMaterial.uniforms;
           materialRef.current = webglMaterial;
@@ -231,6 +322,15 @@ function FilmImagePlane({ imgElement }) {
 
       uniforms.uTime.value = state.clock.elapsedTime;
       cursorUniform.set(cursorUVx, 1 - cursorUVy);
+
+      // Drive reveal from ScrollTrigger progress
+      const targetReveal = progressMapRef.current[index] ?? 0;
+      const currentReveal =
+        typeof uniforms.uReveal.value === "number"
+          ? uniforms.uReveal.value
+          : uniforms.uReveal.value;
+      const nextReveal = currentReveal + (targetReveal - currentReveal) * 0.08;
+      uniforms.uReveal.value = nextReveal;
     }
   });
 
@@ -238,7 +338,7 @@ function FilmImagePlane({ imgElement }) {
 
   return (
     <mesh ref={meshRef} renderOrder={1}>
-      <planeGeometry args={[1, 1]} />
+      <planeGeometry args={[1, 1, 40, 40]} />
       <primitive object={material} attach="material" />
     </mesh>
   );
@@ -246,7 +346,10 @@ function FilmImagePlane({ imgElement }) {
 
 export default function FilmImagePlanes({ containerRef }) {
   const [images, setImages] = useState([]);
+  const progressMapRef = useRef({});
+  const triggersRef = useRef([]);
 
+  // Discover DOM images
   useEffect(() => {
     const container = containerRef?.current;
     if (!container) return;
@@ -259,6 +362,36 @@ export default function FilmImagePlanes({ containerRef }) {
     return () => cancelAnimationFrame(raf);
   }, [containerRef]);
 
+  // Create ScrollTrigger instances per image
+  useEffect(() => {
+    if (images.length === 0) return;
+
+    const triggers = images.map((img, i) => {
+      const triggerEl = img.closest(".coverimg, .project-img");
+      if (!triggerEl) return null;
+
+      progressMapRef.current[i] = 0;
+
+      return ScrollTrigger.create({
+        trigger: triggerEl,
+        start: "top 85%",
+        end: "top 25%",
+        onUpdate: (self) => {
+          progressMapRef.current[i] = self.progress;
+        },
+      });
+    });
+
+    triggersRef.current = triggers;
+
+    return () => {
+      triggers.forEach((t) => t?.kill());
+      triggersRef.current = [];
+      progressMapRef.current = {};
+    };
+  }, [images]);
+
+  // Global mouse tracking for cursor blur
   useEffect(() => {
     const onMouseMove = (e) => {
       sharedPointer.set(e.clientX, e.clientY);
@@ -271,7 +404,7 @@ export default function FilmImagePlanes({ containerRef }) {
   return (
     <>
       {images.map((img, i) => (
-        <FilmImagePlane key={i} imgElement={img} />
+        <FilmImagePlane key={i} imgElement={img} progressMapRef={progressMapRef} index={i} />
       ))}
     </>
   );

@@ -1,1 +1,0 @@
-import"./r3f-BW5jUzJx.js";import{n as e}from"./three-Dby_S1j7.js";export{e as film};

@@ -20,9 +20,11 @@ Master comprehensive evaluation strategies for LLM applications, from automated 
 ## Core Evaluation Types
 
 ### 1. Automated Metrics
+
 Fast, repeatable, scalable evaluation using computed scores.
 
 **Text Generation:**
+
 - **BLEU**: N-gram overlap (translation)
 - **ROUGE**: Recall-oriented (summarization)
 - **METEOR**: Semantic similarity
@@ -30,21 +32,25 @@ Fast, repeatable, scalable evaluation using computed scores.
 - **Perplexity**: Language model confidence
 
 **Classification:**
+
 - **Accuracy**: Percentage correct
 - **Precision/Recall/F1**: Class-specific performance
 - **Confusion Matrix**: Error patterns
 - **AUC-ROC**: Ranking quality
 
 **Retrieval (RAG):**
+
 - **MRR**: Mean Reciprocal Rank
 - **NDCG**: Normalized Discounted Cumulative Gain
 - **Precision@K**: Relevant in top K
 - **Recall@K**: Coverage in top K
 
 ### 2. Human Evaluation
+
 Manual assessment for quality aspects difficult to automate.
 
 **Dimensions:**
+
 - **Accuracy**: Factual correctness
 - **Coherence**: Logical flow
 - **Relevance**: Answers the question
@@ -53,9 +59,11 @@ Manual assessment for quality aspects difficult to automate.
 - **Helpfulness**: Useful to the user
 
 ### 3. LLM-as-Judge
+
 Use stronger LLMs to evaluate weaker model outputs.
 
 **Approaches:**
+
 - **Pointwise**: Score individual responses
 - **Pairwise**: Compare two responses
 - **Reference-based**: Compare to gold standard
@@ -97,6 +105,7 @@ print(f"BLEU Score: {results.metrics['bleu']}")
 ## Automated Metrics Implementation
 
 ### BLEU Score
+
 ```python
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 
@@ -118,6 +127,7 @@ bleu = calculate_bleu(
 ```
 
 ### ROUGE Score
+
 ```python
 from rouge_score import rouge_scorer
 
@@ -134,6 +144,7 @@ def calculate_rouge(reference, hypothesis):
 ```
 
 ### BERTScore
+
 ```python
 from bert_score import score
 
@@ -154,6 +165,7 @@ def calculate_bertscore(references, hypotheses):
 ```
 
 ### Custom Metrics
+
 ```python
 def calculate_groundedness(response, context):
     """Check if response is grounded in provided context."""
@@ -184,6 +196,7 @@ def calculate_factuality(claim, knowledge_base):
 ## LLM-as-Judge Patterns
 
 ### Single Output Evaluation
+
 ```python
 def llm_judge_quality(response, question):
     """Use GPT-5 to judge response quality."""
@@ -214,6 +227,7 @@ Provide ratings in JSON format:
 ```
 
 ### Pairwise Comparison
+
 ```python
 def compare_responses(question, response_a, response_b):
     """Compare two responses using LLM judge."""
@@ -247,6 +261,7 @@ Answer with JSON:
 ## Human Evaluation Frameworks
 
 ### Annotation Guidelines
+
 ```python
 class AnnotationTask:
     """Structure for human annotation task."""
@@ -286,6 +301,7 @@ class AnnotationTask:
 ```
 
 ### Inter-Rater Agreement
+
 ```python
 from sklearn.metrics import cohen_kappa_score
 
@@ -311,6 +327,7 @@ def calculate_agreement(rater1_scores, rater2_scores):
 ## A/B Testing
 
 ### Statistical Testing Framework
+
 ```python
 from scipy import stats
 import numpy as np
@@ -368,6 +385,7 @@ class ABTest:
 ## Regression Testing
 
 ### Regression Detection
+
 ```python
 class RegressionDetector:
     def __init__(self, baseline_results, threshold=0.05):
@@ -406,6 +424,7 @@ class RegressionDetector:
 ## Benchmarking
 
 ### Running Benchmarks
+
 ```python
 class BenchmarkRunner:
     def __init__(self, benchmark_dataset):

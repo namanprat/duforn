@@ -93,7 +93,6 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
     normalize,
     cross,
     dot,
-    abs,
     max,
     min,
     mix,
@@ -106,7 +105,6 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
     floor,
     fract,
     exp,
-    sqrt,
     length,
     mod,
     dFdx,
@@ -672,7 +670,9 @@ export function WorkClothStripScene() {
     let cancelled = false;
     if (!activeTextures) return;
 
-    const createClothSystem = isWebGPURenderer(gl) ? createWebGPUClothSystem : createWebGLClothSystem;
+    const createClothSystem = isWebGPURenderer(gl)
+      ? createWebGPUClothSystem
+      : createWebGLClothSystem;
 
     Promise.resolve(createClothSystem(gl, activeTextures, stripConfig))
       .then((system) => {

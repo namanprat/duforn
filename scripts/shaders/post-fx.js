@@ -88,53 +88,6 @@ export function GrainShader({ grain = 0.015 } = {}) {
   };
 }
 
-// ── Chromatic Edge Distortion ────────────────────────────────────────────────────
-
-export function EdgeDistortionShader({
-  shift = 0.0056,
-  edgeStart = 0.2,
-  edgeEnd = 0.75,
-  preserveAlpha = false,
-} = {}) {
-  return {
-    name: "EdgeDistortionShader",
-    uniforms: {
-      tDiffuse: { value: null },
-      uShift: { value: shift },
-      uEdgeStart: { value: edgeStart },
-      uEdgeEnd: { value: edgeEnd },
-    },
-    vertexShader: /* glsl */ `
-      varying vec2 vUv;
-      void main() {
-        vUv = uv;
-        gl_Position = vec4(position.xy, 0.0, 1.0);
-      }
-    `,
-    fragmentShader: /* glsl */ `
-      uniform sampler2D tDiffuse;
-      uniform float uShift;
-      uniform float uEdgeStart;
-      uniform float uEdgeEnd;
-      varying vec2 vUv;
-
-      void main() {
-        vec2 uv = vUv;
-        vec2 center = uv - 0.5;
-        float dist = length(center);
-        float edge = smoothstep(uEdgeStart, uEdgeEnd, dist);
-
-        float shift = uShift * edge;
-        vec4 r = texture2D(tDiffuse, uv + vec2(shift, 0.0));
-        vec4 g = texture2D(tDiffuse, uv);
-        vec4 b = texture2D(tDiffuse, uv - vec2(shift, 0.0));
-
-        gl_FragColor = vec4(r.r, g.g, b.b, ${preserveAlpha ? "g.a" : "1.0"});
-      }
-    `,
-  };
-}
-
 // ── Shared post-FX uniform block ────────────────────────────────────────────────
 
 export function createPostFXUniforms() {

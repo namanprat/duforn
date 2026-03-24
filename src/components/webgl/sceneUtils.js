@@ -14,13 +14,13 @@ export function normalizeModelBounds(model) {
   return { box, center, size };
 }
 
-export function tuneMaterialMaps(material) {
+function tuneMaterialMaps(material) {
   if (material.map) material.map.colorSpace = THREE.SRGBColorSpace;
   if (material.emissiveMap) material.emissiveMap.colorSpace = THREE.SRGBColorSpace;
   material.needsUpdate = true;
 }
 
-export function getFallbackPhysicalMaterial(sourceMaterial, overrides = {}) {
+function getFallbackPhysicalMaterial(sourceMaterial, overrides = {}) {
   return new THREE.MeshPhysicalMaterial({
     color: sourceMaterial?.color?.clone ? sourceMaterial.color.clone() : new THREE.Color(0xffffff),
     map: sourceMaterial?.map || null,

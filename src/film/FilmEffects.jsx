@@ -52,7 +52,7 @@ function WebGPUFilmEffects() {
     async function buildPipeline() {
       try {
         const { RenderPipeline } = await import("three/webgpu");
-        const { pass, Fn, float, vec2, vec4, uv, uniform, smoothstep, convertToTexture } =
+        const { pass, Fn, vec2, vec4, uv, uniform, smoothstep, convertToTexture } =
           await import("three/tsl");
         const { film } = await import("three/addons/tsl/display/FilmNode.js");
 
@@ -122,9 +122,14 @@ function WebGPUFilmEffects() {
 
 export default function FilmEffects() {
   const { gl } = useThree();
-  logWebGPUOnce(`film-effects-${gl.uuid || "renderer"}`, "FilmEffects", "Resolved post-processing branch", {
-    mode: isWebGLRenderer(gl) ? "webgl-postprocessing" : "webgpu-postprocessing",
-  });
+  logWebGPUOnce(
+    `film-effects-${gl.uuid || "renderer"}`,
+    "FilmEffects",
+    "Resolved post-processing branch",
+    {
+      mode: isWebGLRenderer(gl) ? "webgl-postprocessing" : "webgpu-postprocessing",
+    },
+  );
 
   if (isWebGLRenderer(gl)) {
     return <WebGLFilmEffects />;

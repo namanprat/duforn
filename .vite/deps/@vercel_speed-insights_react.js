@@ -1,8 +1,5 @@
 "use client";
-import {
-  __toESM,
-  require_react
-} from "./chunk-G4V7ITBN.js";
+import { __toESM, require_react } from "./chunk-G4V7ITBN.js";
 
 // node_modules/@vercel/speed-insights/dist/react/index.mjs
 var import_react = __toESM(require_react(), 1);
@@ -23,8 +20,7 @@ function detectEnvironment() {
     if (env === "development" || env === "test") {
       return "development";
     }
-  } catch (e) {
-  }
+  } catch (e) {}
   return "production";
 }
 function isDevelopment() {
@@ -112,14 +108,14 @@ function injectSpeedInsights(props = {}) {
   }
   script.onerror = () => {
     console.log(
-      `[Vercel Speed Insights] Failed to load script from ${src}. Please check if any content blockers are enabled and try again.`
+      `[Vercel Speed Insights] Failed to load script from ${src}. Please check if any content blockers are enabled and try again.`,
     );
   };
   document.head.appendChild(script);
   return {
     setRoute: (route) => {
       script.dataset.route = route ?? void 0;
-    }
+    },
   };
 }
 function getBasePath() {
@@ -141,7 +137,7 @@ function SpeedInsights(props) {
       const script = injectSpeedInsights({
         framework: props.framework ?? "react",
         basePath: props.basePath ?? getBasePath(),
-        ...props
+        ...props,
       });
       if (script) {
         setScriptRoute.current = script.setRoute;
@@ -152,8 +148,5 @@ function SpeedInsights(props) {
   }, [props.route]);
   return null;
 }
-export {
-  SpeedInsights,
-  computeRoute
-};
+export { SpeedInsights, computeRoute };
 //# sourceMappingURL=@vercel_speed-insights_react.js.map

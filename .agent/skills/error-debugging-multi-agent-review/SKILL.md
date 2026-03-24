@@ -21,12 +21,14 @@ The Multi-Agent Review Tool leverages a distributed, specialized agent network t
 ## Tool Arguments and Configuration
 
 ### Input Parameters
+
 - `$ARGUMENTS`: Target code/project for review
   - Supports: File paths, Git repositories, code snippets
   - Handles multiple input formats
   - Enables context extraction and agent routing
 
 ### Agent Types
+
 1. Code Quality Reviewers
 2. Security Auditors
 3. Architecture Specialists
@@ -37,6 +39,7 @@ The Multi-Agent Review Tool leverages a distributed, specialized agent network t
 ## Multi-Agent Coordination Strategy
 
 ### 1. Agent Selection and Routing Logic
+
 - **Dynamic Agent Matching**:
   - Analyze input characteristics
   - Select most appropriate agent types
@@ -56,11 +59,13 @@ The Multi-Agent Review Tool leverages a distributed, specialized agent network t
   ```
 
 ### 2. Context Management and State Passing
+
 - **Contextual Intelligence**:
   - Maintain shared context across agent interactions
   - Pass refined insights between agents
   - Support incremental review refinement
 - **Context Propagation Model**:
+
   ```python
   class ReviewContext:
       def __init__(self, target, metadata):
@@ -73,11 +78,13 @@ The Multi-Agent Review Tool leverages a distributed, specialized agent network t
   ```
 
 ### 3. Parallel vs Sequential Execution
+
 - **Hybrid Execution Strategy**:
   - Parallel execution for independent reviews
   - Sequential processing for dependent insights
   - Intelligent timeout and fallback mechanisms
 - **Execution Flow**:
+
   ```python
   def execute_review(review_context):
       # Parallel independent agents
@@ -94,6 +101,7 @@ The Multi-Agent Review Tool leverages a distributed, specialized agent network t
   ```
 
 ### 4. Result Aggregation and Synthesis
+
 - **Intelligent Consolidation**:
   - Merge insights from multiple agents
   - Resolve conflicting recommendations
@@ -111,6 +119,7 @@ The Multi-Agent Review Tool leverages a distributed, specialized agent network t
   ```
 
 ### 5. Conflict Resolution Mechanism
+
 - **Smart Conflict Handling**:
   - Detect contradictory agent recommendations
   - Apply weighted scoring
@@ -123,6 +132,7 @@ The Multi-Agent Review Tool leverages a distributed, specialized agent network t
   ```
 
 ### 6. Performance Optimization
+
 - **Efficiency Techniques**:
   - Minimal redundant processing
   - Cached intermediate results
@@ -134,6 +144,7 @@ The Multi-Agent Review Tool leverages a distributed, specialized agent network t
   ```
 
 ### 7. Quality Validation Framework
+
 - **Comprehensive Validation**:
   - Cross-agent result verification
   - Statistical confidence scoring
@@ -148,6 +159,7 @@ The Multi-Agent Review Tool leverages a distributed, specialized agent network t
 ## Example Implementations
 
 ### 1. Parallel Code Review Scenario
+
 ```python
 multi_agent_review(
     target="/path/to/project",
@@ -160,6 +172,7 @@ multi_agent_review(
 ```
 
 ### 2. Sequential Workflow
+
 ```python
 sequential_review_workflow = [
     {"phase": "design-review", "agent": "architect-reviewer"},
@@ -170,6 +183,7 @@ sequential_review_workflow = [
 ```
 
 ### 3. Hybrid Orchestration
+
 ```python
 hybrid_review_strategy = {
     "parallel_agents": ["security", "performance"],

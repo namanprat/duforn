@@ -63,10 +63,6 @@ export function createWebGLRendererAlpha(defaultProps) {
   return createWebGLRenderer(defaultProps, { alpha: true });
 }
 
-export function createWebGLRendererOpaque(defaultProps) {
-  return createWebGLRenderer(defaultProps, { alpha: false });
-}
-
 async function createBestRenderer(defaultProps, { alpha = false } = {}) {
   if (await canUseWebGPU()) {
     try {
@@ -114,14 +110,6 @@ export function isWebGPURenderer(renderer) {
 
 export function isWebGLRenderer(renderer) {
   return getRendererType(renderer) === "webgl";
-}
-
-export default function createWebGPURenderer(defaultProps) {
-  return createBestRenderer(defaultProps, { alpha: false });
-}
-
-export function createWebGPURendererAlpha(defaultProps) {
-  return createBestRenderer(defaultProps, { alpha: true });
 }
 
 export function createRendererAlpha(defaultProps) {

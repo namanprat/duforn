@@ -36,13 +36,7 @@ function WebGLEffects({ bloomStrength, vignetteDarkness, grain, chromaticShift, 
   );
 }
 
-function WebGPUEffects({
-  bloomStrength,
-  vignetteDarkness,
-  grain,
-  chromaticShift,
-  dofMaxBlur,
-}) {
+function WebGPUEffects({ bloomStrength, vignetteDarkness, grain, chromaticShift, dofMaxBlur }) {
   const { gl, scene, camera } = useThree();
   const ppRef = useRef(null);
   const uniformsRef = useRef(null);
@@ -129,7 +123,16 @@ function WebGPUEffects({
           const s5 = dofInput.sample(coord.add(vec2(blur.mul(-0.707), blur.mul(-0.707))));
           const s6 = dofInput.sample(coord.add(vec2(float(0), blur.negate())));
           const s7 = dofInput.sample(coord.add(vec2(blur.mul(0.707), blur.mul(-0.707))));
-          const blurred = sharp.add(s0).add(s1).add(s2).add(s3).add(s4).add(s5).add(s6).add(s7).div(float(9));
+          const blurred = sharp
+            .add(s0)
+            .add(s1)
+            .add(s2)
+            .add(s3)
+            .add(s4)
+            .add(s5)
+            .add(s6)
+            .add(s7)
+            .div(float(9));
           return mix(sharp, blurred, edgeFactor);
         });
         output = dof();
