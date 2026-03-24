@@ -548,7 +548,7 @@ export function WorkClothStripScene() {
     clothSolidity: 14.0,
   };
 
-  const arcConfig = { arcRadius: 14.0, arcSpan: 2.8, stripHeight: 5.5, stripYOffset: -1.2 };
+  const arcConfig = { arcRadius: 14.0, arcSpan: 2.8, stripHeight: 4.95, stripYOffset: -1.2 };
 
   // ── Scroll state ──
   const scrollRef = useRef({ target: 0, current: 0, velocity: 0 });
