@@ -28,7 +28,7 @@
     "@react-three/drei": "^10.7.6",
     "@react-three/fiber": "^9.4.0",
     "@react-three/postprocessing": "^3.0.4",
-    "@voidzero-dev/vite-plus-test": "^0.1.9",
+    "@voidzero-dev/vite-plus-test": "^0.1.14",
     "gsap": "^3.14.2",
     "lenis": "^1.1.13",
     "postprocessing": "^6.38.3",
@@ -47,7 +47,7 @@
     "happy-dom": "^20.6.1",
     "jsdom": "^28.1.0",
     "vite": "npm:@voidzero-dev/vite-plus-core@latest",
-    "vite-plus": "^0.1.9",
+    "vite-plus": "^0.1.14",
     "vitest": "npm:@voidzero-dev/vite-plus-test@latest"
   },
   "overrides": {
@@ -56,6 +56,6 @@
   },
   "packageManager": "npm@11.12.0",
   "staged": {
-    "*": "vp check --fix"
+    "{src,scripts}/**/*.{js,jsx}": "vp check --fix"
   }
 }
