@@ -3,56 +3,8 @@ import { SplitText } from "gsap/SplitText";
 
 gsap.registerPlugin(SplitText);
 
-const bodySplits = new Map();
-const bodySplitTracking = [];
+// ── Character-split state (used by brandHandoffTransition only) ────────
 const titleStates = new Map();
-
-function tweenToPromise(tween) {
-  return tween
-    ? new Promise((resolve) => tween.eventCallback("onComplete", resolve))
-    : Promise.resolve();
-}
-
-function getOrSplitBody(element, type = "lines") {
-  if (!element) return null;
-  if (bodySplits.has(element)) return bodySplits.get(element);
-
-  const split = new SplitText(element, { type, reduceWhiteSpace: false });
-
-  if (split.lines?.length) {
-    const lines = split.lines;
-    const len = lines.length;
-
-    const computedStyle = window.getComputedStyle(element);
-    const textIndent = computedStyle.textIndent;
-    const hasIndent = textIndent && textIndent !== "0px";
-
-    if (hasIndent) {
-      lines[0].style.paddingLeft = textIndent;
-      element.style.textIndent = "0";
-    }
-
-    const wrappers = new Array(len);
-    for (let i = 0; i < len; i++) {
-      const wrapper = document.createElement("div");
-      wrapper.className = "u-overflow-hidden";
-      wrapper.style.cssText = "display:block;width:100%;padding:0.2em 0;margin:-0.2em 0;";
-      wrappers[i] = wrapper;
-    }
-
-    for (let i = 0; i < len; i++) {
-      const line = lines[i];
-      const wrapper = wrappers[i];
-      line.parentNode.insertBefore(wrapper, line);
-      wrapper.appendChild(line);
-      line.style.cssText = "display:block;width:100%;overflow:visible";
-    }
-  }
-
-  bodySplits.set(element, split);
-  bodySplitTracking.push(split);
-  return split;
-}
 
 function normalizeTitleText(text) {
   return `${text ?? ""}`;
@@ -60,12 +12,8 @@ function normalizeTitleText(text) {
 
 function getTitleAccessibilityMeta(element, previousState = null) {
   if (previousState) {
-    return {
-      hadAriaLabel: previousState.hadAriaLabel,
-      ariaLabel: previousState.ariaLabel,
-    };
+    return { hadAriaLabel: previousState.hadAriaLabel, ariaLabel: previousState.ariaLabel };
   }
-
   return {
     hadAriaLabel: element.hasAttribute("aria-label"),
     ariaLabel: element.getAttribute("aria-label"),
@@ -74,7 +22,6 @@ function getTitleAccessibilityMeta(element, previousState = null) {
 
 function restoreTitleAccessibility(element, state) {
   if (!state) return;
-
   if (state.hadAriaLabel) {
     element.setAttribute("aria-label", state.ariaLabel ?? "");
   } else {
@@ -85,13 +32,10 @@ function restoreTitleAccessibility(element, state) {
 function clearTitleState(element, { restoreText = true } = {}) {
   const state = titleStates.get(element);
   if (!state) return;
-
   gsap.killTweensOf(state.characters);
-
   if (restoreText && element.isConnected && element.contains(state.clip)) {
     element.textContent = state.sourceText;
   }
-
   restoreTitleAccessibility(element, state);
   titleStates.delete(element);
 }
@@ -121,29 +65,17 @@ function buildTitleState(element, sourceText, accessibilityMeta) {
   element.replaceChildren(clip);
   element.setAttribute("aria-label", sourceText);
 
-  const state = {
-    sourceText,
-    clip,
-    textBlock,
-    characters,
-    ...accessibilityMeta,
-  };
-
+  const state = { sourceText, clip, textBlock, characters, ...accessibilityMeta };
   titleStates.set(element, state);
   return state;
 }
 
 function prepareRevealTitle(element) {
   if (!element) return null;
-
   const currentState = titleStates.get(element);
-  if (currentState && element.contains(currentState.clip)) {
-    return currentState;
-  }
-
+  if (currentState && element.contains(currentState.clip)) return currentState;
   const accessibilityMeta = getTitleAccessibilityMeta(element, currentState);
   clearTitleState(element, { restoreText: false });
-
   const sourceText = normalizeTitleText(element.textContent);
   return buildTitleState(element, sourceText, accessibilityMeta);
 }
@@ -155,215 +87,230 @@ function getRevealTitleCharacters(element) {
 function clearRevealTitleStyles(element) {
   const state = prepareRevealTitle(element);
   if (!state) return null;
-
   gsap.set(state.characters, { clearProps: "transform,opacity" });
   return state;
 }
 
 function setRevealTitleText(element, text) {
   if (!element) return null;
-
   const value = normalizeTitleText(text);
   const currentState = titleStates.get(element);
   const accessibilityMeta = getTitleAccessibilityMeta(element, currentState);
-
   clearTitleState(element, { restoreText: false });
   element.textContent = value;
-
   return buildTitleState(element, value, accessibilityMeta);
 }
 
-function revealTitleLetters(
-  element,
-  { duration = 0.6, stagger = 0.02, ease = "power2.out", delay = 0 } = {},
-) {
-  const state = clearRevealTitleStyles(element);
-  if (!state?.characters?.length) return null;
-
-  return gsap.fromTo(
-    state.characters,
-    { yPercent: 110, opacity: 0 },
-    { yPercent: 0, opacity: 1, duration, stagger, ease, delay },
-  );
-}
-
-function hideTitleLetters(
-  element,
-  { duration = 0.4, stagger = 0.015, ease = "power2.in", delay = 0 } = {},
-) {
-  const state = clearRevealTitleStyles(element);
-  if (!state?.characters?.length) return null;
-
-  return gsap.to(state.characters, {
-    yPercent: -110,
-    opacity: 0,
-    duration,
-    stagger,
-    ease,
-    delay,
-  });
-}
-
-function revealLines(
-  element,
-  { duration = 0.7, stagger = 0.08, ease = "power4.out", delay = 0 } = {},
-) {
-  if (element.getAttribute("data-split-type") === "element") {
-    return gsap.fromTo(
-      element,
-      { y: 100, opacity: 0 },
-      { y: 0, opacity: 1, duration, ease, delay },
-    );
-  }
-
-  const split = getOrSplitBody(element, "lines");
-  if (!split?.lines?.length) return null;
-
-  return gsap.fromTo(
-    split.lines,
-    { yPercent: 100, opacity: 0 },
-    { yPercent: 0, opacity: 1, duration, stagger, ease, delay },
-  );
-}
-
-function hideLines(
-  element,
-  { duration = 0.35, stagger = 0.05, ease = "power2.in", delay = 0 } = {},
-) {
-  if (element.getAttribute("data-split-type") === "element") {
-    return gsap.to(element, { y: -100, opacity: 0, duration, ease, delay });
-  }
-
-  const split = getOrSplitBody(element, "lines");
-  if (!split?.lines?.length) return null;
-
-  return gsap.to(split.lines, { yPercent: -100, opacity: 0, duration, stagger, ease, delay });
-}
+// ── Page reveal helpers ────────────────────────────────────────────────
 
 function filterByExcludeSelector(elements, excludeSelector) {
   if (!excludeSelector) return elements;
-  return Array.from(elements).filter((element) => !element.matches(excludeSelector));
+  return Array.from(elements).filter((el) => !el.matches(excludeSelector));
 }
+
+function getRevealTitles(container, options = {}) {
+  return Array.from(
+    filterByExcludeSelector(container.querySelectorAll(".reveal-title"), options.excludeSelector),
+  );
+}
+
+function getRevealBodies(container, options = {}) {
+  return Array.from(
+    filterByExcludeSelector(container.querySelectorAll(".reveal-body"), options.excludeSelector),
+  );
+}
+
+// ── Clip wrapper (for .reveal-title whole-element reveals) ──────────────
+
+const revealClips = new Map(); // element → wrapperDiv
+
+function wrapInClip(element) {
+  if (revealClips.has(element)) return revealClips.get(element);
+  if (!element.parentNode) return null;
+  const wrapper = document.createElement("div");
+  wrapper.style.cssText = "overflow:hidden;";
+  element.parentNode.insertBefore(wrapper, element);
+  wrapper.appendChild(element);
+  revealClips.set(element, wrapper);
+  return wrapper;
+}
+
+function unwrapFromClip(element) {
+  const wrapper = revealClips.get(element);
+  revealClips.delete(element);
+  if (!wrapper?.isConnected) return;
+  wrapper.parentNode?.insertBefore(element, wrapper);
+  wrapper.remove();
+}
+
+// ── SplitText line splits (for .reveal-body line-by-line reveals) ───────
+
+const bodySplits = new Map(); // element → { split, wrappers, lines }
+
+function splitBodyLines(element) {
+  if (bodySplits.has(element)) return bodySplits.get(element);
+
+  const split = new SplitText(element, { type: "lines", linesClass: "reveal-line" });
+  const wrappers = [];
+
+  for (const line of split.lines) {
+    const wrapper = document.createElement("div");
+    wrapper.style.cssText = "overflow:hidden;";
+    line.parentNode.insertBefore(wrapper, line);
+    wrapper.appendChild(line);
+    wrappers.push(wrapper);
+  }
+
+  const state = { split, wrappers, lines: [...split.lines] };
+  bodySplits.set(element, state);
+  return state;
+}
+
+function revertBodySplit(element) {
+  const state = bodySplits.get(element);
+  if (!state) return;
+  bodySplits.delete(element);
+
+  // Kill any running tweens on split lines
+  gsap.killTweensOf(state.lines);
+
+  // Unwrap lines from clip wrappers
+  for (const wrapper of state.wrappers) {
+    if (wrapper.isConnected && wrapper.firstChild) {
+      wrapper.parentNode.insertBefore(wrapper.firstChild, wrapper);
+      wrapper.remove();
+    }
+  }
+
+  // Restore original DOM
+  state.split.revert();
+}
+
+function revertAllBodySplits() {
+  for (const el of Array.from(bodySplits.keys())) {
+    revertBodySplit(el);
+  }
+}
+
+// ── Prepare: hide all reveal elements before animation ──────────────────
 
 async function prepareRevealHidden(container, options = {}) {
   if (!container) return;
-  const { excludeSelector } = options;
-
-  const titles = filterByExcludeSelector(
-    container.querySelectorAll(".reveal-title"),
-    excludeSelector,
-  );
-  const bodies = filterByExcludeSelector(
-    container.querySelectorAll(".reveal-body"),
-    excludeSelector,
-  );
-  if (!titles.length && !bodies.length) return;
-
   await document.fonts.ready;
 
-  for (let i = 0; i < titles.length; i++) {
-    const el = titles[i];
-    if (!el.textContent.trim()) continue;
-    const chars = getRevealTitleCharacters(el);
-    if (chars.length) gsap.set(chars, { yPercent: 110, opacity: 0 });
+  // Titles: wrap whole element in clip, push below
+  const titles = getRevealTitles(container, options);
+  for (const el of titles) {
+    wrapInClip(el);
+    gsap.set(el, { yPercent: 105 });
   }
 
-  for (let i = 0; i < bodies.length; i++) {
-    const el = bodies[i];
-    if (!el.textContent.trim()) continue;
-
-    if (el.getAttribute("data-split-type") === "element") {
-      gsap.set(el, { y: 100, opacity: 0 });
-      continue;
-    }
-
-    const split = getOrSplitBody(el, "lines");
-    if (split?.lines?.length) {
-      gsap.set(split.lines, { yPercent: 100, opacity: 0 });
-    }
+  // Bodies: split into lines, wrap each line in clip, push below
+  const bodies = getRevealBodies(container, options);
+  for (const el of bodies) {
+    const { lines } = splitBodyLines(el);
+    gsap.set(lines, { yPercent: 105 });
   }
 }
+
+// ── Enter: reveal titles + body lines, staggered ────────────────────────
 
 async function animateRevealEnter(container, options = {}) {
   if (!container) return;
-  const { excludeSelector } = options;
-
-  const titles = filterByExcludeSelector(
-    container.querySelectorAll(".reveal-title"),
-    excludeSelector,
-  );
-  const bodies = filterByExcludeSelector(
-    container.querySelectorAll(".reveal-body"),
-    excludeSelector,
-  );
-  if (!titles.length && !bodies.length) return;
-
   await document.fonts.ready;
 
-  gsap.set(bodies, { clearProps: "all" });
+  const timeline = gsap.timeline({ defaults: { ease: "power4.out" } });
+  let offset = 0;
 
-  const animations = [];
-
-  for (let i = 0; i < titles.length; i++) {
-    const el = titles[i];
-    if (!el.textContent.trim()) continue;
-    const tween = revealTitleLetters(el, { delay: i * 0.06 });
-    if (tween) animations.push(tweenToPromise(tween));
+  // Titles: whole-element slide up
+  const titles = getRevealTitles(container, options);
+  if (titles.length) {
+    timeline.fromTo(
+      titles,
+      { yPercent: 105 },
+      {
+        yPercent: 0,
+        duration: 0.75,
+        stagger: 0.07,
+        onComplete() {
+          for (const el of titles) {
+            gsap.set(el, { clearProps: "transform" });
+            unwrapFromClip(el);
+          }
+        },
+      },
+      offset,
+    );
+    offset += 0.1;
   }
 
-  let bodyDelay = 0;
-  for (let i = 0; i < bodies.length; i++) {
-    const el = bodies[i];
-    if (!el.textContent.trim()) continue;
-    const tween = revealLines(el, { delay: bodyDelay });
-    if (tween) {
-      bodyDelay += 0.1;
-      animations.push(tweenToPromise(tween));
+  // Bodies: each line slides up, staggered across all lines
+  const bodies = getRevealBodies(container, options);
+  const allLines = [];
+  const bodyEls = [];
+  for (const el of bodies) {
+    const state = bodySplits.get(el);
+    if (state?.lines.length) {
+      allLines.push(...state.lines);
+      bodyEls.push(el);
     }
   }
 
-  if (animations.length) await Promise.all(animations);
+  if (allLines.length) {
+    timeline.fromTo(
+      allLines,
+      { yPercent: 105 },
+      {
+        yPercent: 0,
+        duration: 0.7,
+        stagger: 0.06,
+        onComplete() {
+          for (const el of bodyEls) {
+            revertBodySplit(el);
+          }
+        },
+      },
+      offset,
+    );
+  }
 }
 
-async function animateRevealLeave(container) {
-  if (!container) return;
+// ── Leave: slide everything out upward, returns Promise ─────────────────
 
-  const titles = Array.from(container.querySelectorAll(".reveal-title")).filter(
-    (el) => !el.classList.contains("home-hero-brand"),
-  );
-  const bodies = container.querySelectorAll(".reveal-body");
-  if (!titles.length && !bodies.length) return;
+function animateRevealLeave(container) {
+  if (!container) return Promise.resolve();
 
-  const animations = [];
+  const opts = { excludeSelector: ".home-hero-brand" };
+  const titles = getRevealTitles(container, opts);
+  const bodies = getRevealBodies(container, opts);
 
-  for (let i = 0; i < titles.length; i++) {
-    const el = titles[i];
-    if (!el.textContent.trim()) continue;
-    const tween = hideTitleLetters(el);
-    if (tween) animations.push(tweenToPromise(tween));
-  }
+  if (!titles.length && !bodies.length) return Promise.resolve();
 
-  for (let i = 0; i < bodies.length; i++) {
-    const el = bodies[i];
-    if (!el.textContent.trim()) continue;
-    const tween = hideLines(el);
-    if (tween) animations.push(tweenToPromise(tween));
-  }
+  return new Promise((resolve) => {
+    const tl = gsap.timeline({ defaults: { ease: "power2.in" }, onComplete: resolve });
 
-  if (animations.length) await Promise.all(animations);
+    if (titles.length) {
+      tl.to(titles, { yPercent: -110, opacity: 0, duration: 0.32, stagger: 0.04 }, 0);
+    }
+
+    // Split bodies into lines for a clean per-line exit
+    const leaveLines = [];
+    for (const el of bodies) {
+      const { lines } = splitBodyLines(el);
+      leaveLines.push(...lines);
+    }
+
+    if (leaveLines.length) {
+      tl.to(leaveLines, { yPercent: -110, opacity: 0, duration: 0.32, stagger: 0.03 }, 0);
+    }
+  });
 }
+
+// ── Cleanup ─────────────────────────────────────────────────────────────
 
 function cleanupSplits() {
-  for (let i = bodySplitTracking.length - 1; i >= 0; i--) {
-    const split = bodySplitTracking[i];
-    if (split && typeof split.revert === "function") {
-      split.revert();
-    }
-  }
-
-  bodySplitTracking.length = 0;
-  bodySplits.clear();
-
+  revealClips.clear();
+  revertAllBodySplits();
   for (const element of Array.from(titleStates.keys())) {
     clearTitleState(element);
   }

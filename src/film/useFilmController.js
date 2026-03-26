@@ -43,7 +43,7 @@ export function useFilmController() {
           .forEach((st) => st.kill());
       }
     };
-  }, [gl]);
+  }, [gl, camera]);
 
   return { isVisibleRef };
 }

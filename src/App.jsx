@@ -93,7 +93,6 @@ function AppShell() {
   const previousNamespaceRef = useRef(getNamespace(location.pathname));
   const setActivePage = useWebglStore((s) => s.setActivePage);
   const preloaderPromiseRef = useRef(null);
-  const isFirstRenderRef = useRef(true);
 
   useClock();
 
@@ -152,22 +151,31 @@ function AppShell() {
 
     const stopEnterTween = runRouteEnterTransition(contentRef.current);
     const container = document.querySelector('[data-page-container="true"]');
+    let cancelled = false;
 
-    // On first render, defer text reveal until preloader exits
-    if (isFirstRenderRef.current) {
-      isFirstRenderRef.current = false;
-      const p = preloaderPromiseRef.current || Promise.resolve();
-      if (container) {
-        prepareRevealHidden(container, { excludeSelector: ".home-hero-brand" });
-      }
-      p.then(() => {
-        if (container) animateRevealEnter(container, { excludeSelector: ".home-hero-brand" });
-      });
+    const REVEAL_OPTS = { excludeSelector: ".home-hero-brand" };
+
+    function runReveal(c) {
+      const live = c ?? document.querySelector('[data-page-container="true"]');
+      if (live && !cancelled) animateRevealEnter(live, REVEAL_OPTS);
+    }
+
+    if (preloader.isBlocking()) {
+      // Preloader is active: wait for fonts → preloader exit → animate
+      const p = preloaderPromiseRef.current ?? Promise.resolve();
+      const prepare = container ? prepareRevealHidden(container, REVEAL_OPTS) : Promise.resolve();
+      // Chain: fonts ready (in prepare) → preloader exits (p) → animate
+      prepare.then(() => p).then(() => runReveal(null));
     } else {
-      if (container) animateRevealEnter(container, { excludeSelector: ".home-hero-brand" });
+      // No preloader (return visit or navigation): hide first, then animate.
+      const prepare = container ? prepareRevealHidden(container, REVEAL_OPTS) : Promise.resolve();
+      prepare.then(() => {
+        if (!cancelled) runReveal(null);
+      });
     }
 
     return () => {
+      cancelled = true;
       stopEnterTween();
       cleanupBrandHandoff();
       cleanupSplits();

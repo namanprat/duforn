@@ -1,1 +1,0 @@
-import"./r3f-DodhM_-a.js";import{n as e}from"./three-D-B2nkcc.js";export{e as film};

@@ -318,6 +318,10 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
     col.assign(mix(col, texture(uniforms.uTex4, texCoord).rgb, float(idx.equal(int(4)))));
     col.assign(mix(col, texture(uniforms.uTex5, texCoord).rgb, float(idx.equal(int(5)))));
 
+    // Saturation boost +20% — pulls color away from luminance
+    const luma = dot(col, vec3(0.299, 0.587, 0.114));
+    col.assign(mix(vec3(luma), col, float(1.2)));
+
     // ── Filament Cloth BRDF ──
 
     const viewDir = normalize(tslCameraPosition.sub(worldPos));
@@ -516,6 +520,10 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
         int wrappedIndex = int(mod(itemFloor + uNumUnique, uNumUnique));
         vec3 color = sampleStripTexture(wrappedIndex, texCoord);
 
+        // Saturation boost +20%
+        float luma = dot(color, vec3(0.299, 0.587, 0.114));
+        color = mix(vec3(luma), color, 1.2);
+
         float light = 0.75 + vLooseness * 0.2 + (1.0 - abs(vUv.x - 0.5) * 2.0) * 0.08;
         float rim = pow(1.0 - abs(vUv.x - 0.5) * 2.0, 2.0) * 0.05;
         gl_FragColor = vec4(color * light + rim, 1.0);
@@ -548,7 +556,7 @@ export function WorkClothStripScene() {
     clothSolidity: 14.0,
   };
 
-  const arcConfig = { arcRadius: 14.0, arcSpan: 2.8, stripHeight: 4.95, stripYOffset: -1.2 };
+  const arcConfig = { arcRadius: 14.0, arcSpan: 2.8, stripHeight: 4.46, stripYOffset: -1.2 };
 
   // ── Scroll state ──
   const scrollRef = useRef({ target: 0, current: 0, velocity: 0 });

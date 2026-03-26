@@ -1,17 +1,18 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useMemo } from "react";
 import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
-import { logWebGPUOnce } from "../lib/webgpu/debugWebGPU.js";
 
-const POINTER_LERP = 0.1;
-const COLOR_1 = new THREE.Color(0.96, 0.96, 0.96);
-const COLOR_2 = new THREE.Color(0.72, 0.72, 0.76);
+const TRAIL_SCALE = 0.25;
 
-const SHADER_UTILS = `
-  vec4 permute(vec4 x){return mod(x*x*34.+x,289.);}
+/* ------------------------------------------------------------------ */
+/*  Noise utilities (shared GLSL)                                      */
+/* ------------------------------------------------------------------ */
 
-  float snoise(vec3 v){
-    const vec2 C = 1. / vec2(6.0, 3.0);
+const NOISE_GLSL = `
+  vec4 permute(vec4 x) { return mod(x * x * 34.0 + x, 289.0); }
+
+  float snoise(vec3 v) {
+    const vec2 C = 1.0 / vec2(6.0, 3.0);
     const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
     vec3 i = floor(v + dot(v, C.yyy));
     vec3 x0 = v - i + dot(i, C.xxx);
@@ -78,124 +79,288 @@ const SHADER_UTILS = `
   }
 `;
 
-function createWebGLMaterial() {
-  return new THREE.ShaderMaterial({
-    depthWrite: false,
-    depthTest: false,
-    uniforms: {
-      uTime: { value: 0 },
-      uPointer: { value: new THREE.Vector2(0, 0) },
-      uResolution: { value: new THREE.Vector2(1, 1) },
-      uColor1: { value: COLOR_1.clone() },
-      uColor2: { value: COLOR_2.clone() },
-    },
-    vertexShader: `
-      varying vec2 vUv;
-      void main() {
-        vUv = uv;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-    fragmentShader: `
-      uniform float uTime;
-      uniform vec2 uPointer;
-      uniform vec2 uResolution;
-      uniform vec3 uColor1;
-      uniform vec3 uColor2;
-      varying vec2 vUv;
+/* ------------------------------------------------------------------ */
+/*  Trail computation shader (ping-pong)                               */
+/* ------------------------------------------------------------------ */
 
-      ${SHADER_UTILS}
+const TRAIL_FRAGMENT = `
+  uniform vec2 uResolution;
+  uniform sampler2D uMap;
+  uniform vec2 uPointer;
+  uniform float uDt;
+  uniform float uSpeed;
+  uniform float uTime;
 
-      void main() {
-        vec2 uv = vUv;
-        float aspect = uResolution.x / max(uResolution.y, 1.0);
+  // GUI-driven uniforms
+  uniform float uFadeRate;
+  uniform float uAdvectionStrength1;
+  uniform float uAdvectionStrength2;
+  uniform float uSpeedMin;
+  uniform float uSpeedMax;
+  uniform float uSpeedScale;
+  uniform vec3 uColorOuter;
+  uniform vec3 uColorMid;
+  uniform vec3 uColorCore;
 
-        // Pointer influence in aspect-corrected space
-        vec2 uvAspect = vec2(uv.x * aspect, uv.y);
-        vec2 pointerAspect = vec2((uPointer.x * 0.5 + 0.5) * aspect, uPointer.y * 0.5 + 0.5);
-        float dist = distance(uvAspect, pointerAspect);
-        float influence = smoothstep(0.7, 0.0, dist);
+  ${NOISE_GLSL}
 
-        // Curl noise warp near cursor
-        vec3 curlInput = vec3(uv * 3.0, uTime * 0.08);
-        vec2 warp = curlNoise(curlInput).xy * 0.07 * influence;
-        vec2 warpedUv = uv + warp;
+  void main() {
+    vec2 uv = gl_FragCoord.xy / uResolution;
 
-        // Layered noise for organic movement
-        float n1 = snoise(vec3(warpedUv * 3.0, uTime * 0.06));
-        float n2 = snoise(vec3(warpedUv * 6.0 + 100.0, uTime * 0.04)) * 0.5;
-        float noise = (n1 + n2) * 0.5;
+    // Curl noise advection — organic trail movement
+    vec2 uv2 = uv + curlNoise(vec3(uv * 4.0 + uTime * 0.1, uTime * 0.1)).xy * uDt * uAdvectionStrength2;
+    uv += curlNoise(vec3(uv * 2.0 + uTime * 0.1, uTime * 0.1)).xy * uDt * uAdvectionStrength1;
 
-        // Vertical gradient base
-        float dimple = influence * 0.04;
-        float gradient = uv.y * 0.3 + 0.35;
-        gradient += noise * 0.18;
-        gradient += influence * 0.08;
-        gradient -= dimple;
+    vec3 mapColor = texture2D(uMap, uv).rgb;
+    vec3 mapColor2 = texture2D(uMap, uv2).rgb;
 
-        vec3 color = mix(uColor1, uColor2, clamp(gradient, 0.0, 1.0));
-        gl_FragColor = vec4(color, 1.0);
-      }
-    `,
-  });
-}
+    // Aspect-corrected cursor distance
+    vec2 centered = (uv - 0.5) * 2.0;
+    centered.x *= uResolution.x / uResolution.y;
+    vec2 pointer = uPointer;
+    pointer.x *= uResolution.x / uResolution.y;
+    float d = distance(centered, pointer);
 
-export default function FilmBackground() {
+    vec3 color = mix(mapColor, mapColor2, 0.5);
+
+    // Fade toward white
+    color = mix(color, vec3(1.0), uDt * uFadeRate);
+
+    // Cursor trail — size scales with movement speed
+    float speed = clamp(uSpeed * 2.0, uSpeedMin, uSpeedMax);
+    float t  = smoothstep(speed, 0.0, d);
+    float t2 = pow(t, 10.0);
+    float t3 = pow(t, 4.0);
+    float scale = speed * uSpeedScale;
+    t  *= scale;
+    t2 *= scale;
+    t3 *= scale;
+
+    // Trail colors (outer halo → mid → core)
+    color = mix(color, uColorOuter, t);
+    color = mix(color, uColorMid, t3);
+    color = mix(color, uColorCore, t2);
+
+    color = clamp(color, 0.0, 1.0);
+    gl_FragColor = vec4(color, 1.0);
+  }
+`;
+
+/* ------------------------------------------------------------------ */
+/*  Component                                                          */
+/* ------------------------------------------------------------------ */
+
+export default function FilmBackground({ controls }) {
   const { gl, size } = useThree();
-  const materialRef = useRef(null);
   const pointerRef = useRef(new THREE.Vector2(0, 0));
   const pointerTargetRef = useRef(new THREE.Vector2(0, 0));
-  const [material, setMaterial] = useState(null);
+  const rtRef = useRef({ input: null, output: null });
+  const initializedRef = useRef(false);
 
+  // Fullscreen triangle geometry (clip-space, camera-independent)
+  const fsGeometry = useMemo(() => {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute(
+      "position",
+      new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3),
+    );
+    geo.setAttribute("uv", new THREE.BufferAttribute(new Float32Array([0, 0, 2, 0, 0, 2]), 2));
+    return geo;
+  }, []);
+
+  // Dummy camera for manual renders (vertex shader ignores it)
+  const dummyCamera = useMemo(() => new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), []);
+
+  // Trail scene (rendered manually, not part of R3F tree)
+  const trailScene = useMemo(() => new THREE.Scene(), []);
+
+  // Trail material
+  const trailMaterial = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        vertexShader: `void main() { gl_Position = vec4(position, 1.0); }`,
+        fragmentShader: TRAIL_FRAGMENT,
+        depthWrite: false,
+        depthTest: false,
+        uniforms: {
+          uResolution: { value: new THREE.Vector2(1, 1) },
+          uMap: { value: null },
+          uPointer: { value: new THREE.Vector2(0, 0) },
+          uDt: { value: 0 },
+          uSpeed: { value: 0 },
+          uTime: { value: 0 },
+          uFadeRate: { value: 1.5 },
+          uAdvectionStrength1: { value: 0.15 },
+          uAdvectionStrength2: { value: 0.3 },
+          uSpeedMin: { value: 0.075 },
+          uSpeedMax: { value: 0.25 },
+          uSpeedScale: { value: 5.0 },
+          uColorOuter: { value: new THREE.Vector3(0.78, 0.78, 0.8) },
+          uColorMid: { value: new THREE.Vector3(0.85, 0.85, 0.87) },
+          uColorCore: { value: new THREE.Vector3(0.72, 0.72, 0.75) },
+        },
+      }),
+    [],
+  );
+
+  // Background display material (samples trail texture)
+  const bgMaterial = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        vertexShader: `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform sampler2D uTrailMap;
+          varying vec2 vUv;
+          void main() {
+            vec3 color = texture2D(uTrailMap, vUv).rgb;
+            gl_FragColor = vec4(color, 1.0);
+          }
+        `,
+        depthWrite: false,
+        depthTest: false,
+        uniforms: {
+          uTrailMap: { value: null },
+        },
+      }),
+    [],
+  );
+
+  // Setup trail mesh in manual scene
+  useEffect(() => {
+    const mesh = new THREE.Mesh(fsGeometry, trailMaterial);
+    trailScene.add(mesh);
+    return () => {
+      trailScene.remove(mesh);
+    };
+  }, [fsGeometry, trailMaterial, trailScene]);
+
+  // Create render targets
+  useEffect(() => {
+    const w = Math.max(1, Math.floor(size.width * TRAIL_SCALE));
+    const h = Math.max(1, Math.floor(size.height * TRAIL_SCALE));
+
+    const createRT = () =>
+      new THREE.WebGLRenderTarget(w, h, {
+        type: THREE.HalfFloatType,
+        minFilter: THREE.LinearFilter,
+        magFilter: THREE.LinearFilter,
+        depthBuffer: false,
+      });
+
+    const rt1 = createRT();
+    const rt2 = createRT();
+    rtRef.current = { input: rt1, output: rt2 };
+    initializedRef.current = false;
+
+    trailMaterial.uniforms.uResolution.value.set(w, h);
+
+    return () => {
+      rt1.dispose();
+      rt2.dispose();
+      rtRef.current = { input: null, output: null };
+    };
+  }, [size, trailMaterial]);
+
+  // Pointer tracking
   useEffect(() => {
     const onPointerMove = (event) => {
       pointerTargetRef.current.set(
         (event.clientX / window.innerWidth) * 2 - 1,
-        -((event.clientY / window.innerHeight) * 2 - 1),
+        -((event.clientY / window.innerHeight) * 2 + 1) + 2,
       );
     };
     window.addEventListener("pointermove", onPointerMove, { passive: true });
     return () => window.removeEventListener("pointermove", onPointerMove);
   }, []);
 
-  // Intentionally split into two effects: material creation is tied to `gl` (renderer
-  // identity), while resolution updates are tied to `size` (viewport changes). Combining
-  // them would recreate the material on every resize.
-  useEffect(() => {
-    logWebGPUOnce("film-background", "FilmBackground", "Using single-pass fluid background");
-    const mat = createWebGLMaterial();
-    mat.uniforms.uResolution.value.set(size.width, size.height);
-    materialRef.current = mat;
-    setMaterial(mat);
+  // Frame loop: ping-pong trail rendering
+  useFrame((state, delta) => {
+    const { input, output } = rtRef.current;
+    if (!input || !output) return;
 
-    return () => {
-      mat.dispose();
-      materialRef.current = null;
-      setMaterial(null);
-    };
-  }, [gl]);
+    // Initialize render targets to white on first frame
+    if (!initializedRef.current) {
+      const prevClear = new THREE.Color();
+      gl.getClearColor(prevClear);
+      const prevAlpha = gl.getClearAlpha();
 
-  useEffect(() => {
-    if (materialRef.current) {
-      materialRef.current.uniforms.uResolution.value.set(size.width, size.height);
+      gl.setClearColor(0xffffff, 1);
+      gl.setRenderTarget(input);
+      gl.clear();
+      gl.setRenderTarget(output);
+      gl.clear();
+      gl.setRenderTarget(null);
+
+      gl.setClearColor(prevClear, prevAlpha);
+      initializedRef.current = true;
     }
-  }, [size]);
 
-  useFrame((state) => {
-    const mat = materialRef.current;
-    if (!mat) return;
+    const dt = Math.min(delta, 0.05);
 
-    pointerRef.current.lerp(pointerTargetRef.current, POINTER_LERP);
-    mat.uniforms.uPointer.value.copy(pointerRef.current);
-    mat.uniforms.uTime.value = state.clock.elapsedTime;
+    // Sync GUI controls → uniforms
+    trailMaterial.uniforms.uFadeRate.value = controls.fadeRate;
+    trailMaterial.uniforms.uAdvectionStrength1.value = controls.advection1;
+    trailMaterial.uniforms.uAdvectionStrength2.value = controls.advection2;
+    trailMaterial.uniforms.uSpeedMin.value = controls.speedMin;
+    trailMaterial.uniforms.uSpeedMax.value = controls.speedMax;
+    trailMaterial.uniforms.uSpeedScale.value = controls.speedScale;
+    trailMaterial.uniforms.uColorOuter.value.set(
+      controls.colorOuter.r / 255,
+      controls.colorOuter.g / 255,
+      controls.colorOuter.b / 255,
+    );
+    trailMaterial.uniforms.uColorMid.value.set(
+      controls.colorMid.r / 255,
+      controls.colorMid.g / 255,
+      controls.colorMid.b / 255,
+    );
+    trailMaterial.uniforms.uColorCore.value.set(
+      controls.colorCore.r / 255,
+      controls.colorCore.g / 255,
+      controls.colorCore.b / 255,
+    );
+
+    // Lerp pointer
+    pointerRef.current.lerp(pointerTargetRef.current, dt * controls.pointerLerp);
+
+    // Track cursor speed
+    const prevPointer = trailMaterial.uniforms.uPointer.value;
+    const dx = pointerRef.current.x - prevPointer.x;
+    const dy = pointerRef.current.y - prevPointer.y;
+    trailMaterial.uniforms.uSpeed.value = THREE.MathUtils.lerp(
+      trailMaterial.uniforms.uSpeed.value,
+      Math.sqrt(dx * dx + dy * dy),
+      dt * 3,
+    );
+
+    // Update trail uniforms
+    trailMaterial.uniforms.uTime.value = state.clock.elapsedTime;
+    trailMaterial.uniforms.uDt.value = dt;
+    trailMaterial.uniforms.uPointer.value.copy(pointerRef.current);
+    trailMaterial.uniforms.uMap.value = input.texture;
+
+    // Render trail to output RT
+    gl.setRenderTarget(output);
+    gl.render(trailScene, dummyCamera);
+    gl.setRenderTarget(null);
+
+    // Display trail on background
+    bgMaterial.uniforms.uTrailMap.value = output.texture;
+
+    // Swap
+    rtRef.current = { input: output, output: input };
   });
 
-  if (!material) return null;
-
   return (
-    <mesh renderOrder={-1} position={[0, 0, -5]} scale={[size.width, size.height, 1]}>
-      <planeGeometry args={[1, 1]} />
-      <primitive object={material} attach="material" />
+    <mesh renderOrder={-1}>
+      <primitive object={fsGeometry} attach="geometry" />
+      <primitive object={bgMaterial} attach="material" />
     </mesh>
   );
 }
