@@ -5,18 +5,34 @@ import { isWebGPURenderer } from "./createWebGPURenderer.js";
 import { logWebGPUOnce } from "../../lib/webgpu/debugWebGPU.js";
 
 const DEFAULT_COUNT = 200;
-const BOUNDS = { xHalf: 6, yMin: -2, yMax: 4, zMin: -10, zMax: 2 };
-const Y_RANGE = BOUNDS.yMax - BOUNDS.yMin;
-const Z_RANGE = BOUNDS.zMax - BOUNDS.zMin;
+const DEFAULT_BOUNDS = { xHalf: 6, yMin: -2, yMax: 4, zMin: -10, zMax: 2 };
+const DEFAULT_MOTION = {
+  xAmplitude: 0.35,
+  zAmplitude: 0.22,
+  xSpeed: 0.3,
+  zSpeed: 0.24,
+  ySpeed: 0.28,
+};
 
 function randomBetween(min, max) {
   return min + Math.random() * (max - min);
 }
 
-function WebGLParticles({ count }) {
+function resolveBounds(bounds) {
+  return { ...DEFAULT_BOUNDS, ...bounds };
+}
+
+function resolveMotion(motion) {
+  return { ...DEFAULT_MOTION, ...motion };
+}
+
+function WebGLParticles({ count, bounds, color, size, opacity, motion }) {
   const pointsRef = useRef(null);
   const positionsRef = useRef(null);
   const seedsRef = useRef(null);
+  const resolvedBounds = useMemo(() => resolveBounds(bounds), [bounds]);
+  const resolvedMotion = useMemo(() => resolveMotion(motion), [motion]);
+  const yRange = resolvedBounds.yMax - resolvedBounds.yMin;
 
   const positions = useMemo(() => {
     const values = new Float32Array(count * 3);
@@ -24,9 +40,9 @@ function WebGLParticles({ count }) {
 
     for (let i = 0; i < count; i += 1) {
       const offset = i * 3;
-      values[offset] = randomBetween(-BOUNDS.xHalf, BOUNDS.xHalf);
-      values[offset + 1] = randomBetween(BOUNDS.yMin, BOUNDS.yMax);
-      values[offset + 2] = randomBetween(BOUNDS.zMin, BOUNDS.zMax);
+      values[offset] = randomBetween(-resolvedBounds.xHalf, resolvedBounds.xHalf);
+      values[offset + 1] = randomBetween(resolvedBounds.yMin, resolvedBounds.yMax);
+      values[offset + 2] = randomBetween(resolvedBounds.zMin, resolvedBounds.zMax);
 
       const seedOffset = i * 4;
       seeds[seedOffset] = values[offset];
@@ -38,7 +54,7 @@ function WebGLParticles({ count }) {
     positionsRef.current = values;
     seedsRef.current = seeds;
     return values;
-  }, [count]);
+  }, [count, resolvedBounds]);
 
   useEffect(() => {
     logWebGPUOnce("particles-webgl", "Particles", "Using WebGL particles", { count });
@@ -60,10 +76,13 @@ function WebGLParticles({ count }) {
       const baseZ = seeds[seedOffset + 2];
       const seed = seeds[seedOffset + 3];
 
-      const yOffset = (baseY - BOUNDS.yMin + time * 0.28 + seed * Y_RANGE) % Y_RANGE;
-      values[positionOffset] = baseX + Math.sin(time * 0.3 + seed * 20) * 0.35;
-      values[positionOffset + 1] = BOUNDS.yMin + yOffset;
-      values[positionOffset + 2] = baseZ + Math.cos(time * 0.24 + seed * 15) * 0.22;
+      const yOffset =
+        (baseY - resolvedBounds.yMin + time * resolvedMotion.ySpeed + seed * yRange) % yRange;
+      values[positionOffset] =
+        baseX + Math.sin(time * resolvedMotion.xSpeed + seed * 20) * resolvedMotion.xAmplitude;
+      values[positionOffset + 1] = resolvedBounds.yMin + yOffset;
+      values[positionOffset + 2] =
+        baseZ + Math.cos(time * resolvedMotion.zSpeed + seed * 15) * resolvedMotion.zAmplitude;
     }
 
     pointCloud.geometry.attributes.position.needsUpdate = true;
@@ -75,11 +94,11 @@ function WebGLParticles({ count }) {
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
       <pointsMaterial
-        color="#ffffff"
-        size={0.03}
+        color={color}
+        size={size}
         sizeAttenuation
         transparent
-        opacity={0.58}
+        opacity={opacity}
         depthWrite={false}
         blending={THREE.AdditiveBlending}
       />
@@ -87,10 +106,15 @@ function WebGLParticles({ count }) {
   );
 }
 
-function WebGPUParticles({ count, gl }) {
+function WebGPUParticles({ count, gl, bounds, color, size, opacity, motion }) {
   const meshRef = useRef(null);
   const systemRef = useRef(null);
   const [ready, setReady] = useState(false);
+  const resolvedBounds = useMemo(() => resolveBounds(bounds), [bounds]);
+  const resolvedMotion = useMemo(() => resolveMotion(motion), [motion]);
+  const particleColor = useMemo(() => new THREE.Color(color), [color]);
+  const yRange = resolvedBounds.yMax - resolvedBounds.yMin;
+  const zRange = resolvedBounds.zMax - resolvedBounds.zMin;
 
   useEffect(() => {
     let cancelled = false;
@@ -132,13 +156,13 @@ function WebGPUParticles({ count, gl }) {
         const seed = hash(uint(idx).add(uint(73856093)));
         const seed2 = hash(uint(idx).add(uint(19349669)));
 
-        const px = seed.x.mul(BOUNDS.xHalf * 2).sub(BOUNDS.xHalf);
-        const py = seed.y.mul(Y_RANGE).add(BOUNDS.yMin);
-        const pz = seed.z.mul(Z_RANGE).add(BOUNDS.zMin);
+        const px = seed.x.mul(resolvedBounds.xHalf * 2).sub(resolvedBounds.xHalf);
+        const py = seed.y.mul(yRange).add(resolvedBounds.yMin);
+        const pz = seed.z.mul(zRange).add(resolvedBounds.zMin);
         posBuffer.element(idx).assign(vec3(px, py, pz));
 
-        const aSize = seed2.x.mul(0.016).add(0.008);
-        const aOpacity = seed2.y.mul(0.6).add(0.35);
+        const aSize = seed2.x.mul(size * 0.8).add(size * 0.4);
+        const aOpacity = seed2.y.mul(opacity * 0.45).add(opacity * 0.55);
         const aSeed = seed2.z;
         paramsBuffer.element(idx).assign(vec3(aSize, aOpacity, aSeed));
       })().compute(count);
@@ -158,12 +182,19 @@ function WebGPUParticles({ count, gl }) {
         const aSeed = params.z;
 
         const yOffset = mod(
-          basePos.y.sub(BOUNDS.yMin).add(uTime.mul(0.06)).add(aSeed.mul(Y_RANGE)),
-          float(Y_RANGE),
+          basePos.y
+            .sub(resolvedBounds.yMin)
+            .add(uTime.mul(resolvedMotion.ySpeed))
+            .add(aSeed.mul(yRange)),
+          float(yRange),
         );
-        const y = yOffset.add(BOUNDS.yMin);
-        const swayX = sin(uTime.mul(0.3).add(aSeed.mul(100))).mul(0.4);
-        const swayZ = cos(uTime.mul(0.25).add(aSeed.mul(70))).mul(0.3);
+        const y = yOffset.add(resolvedBounds.yMin);
+        const swayX = sin(uTime.mul(resolvedMotion.xSpeed).add(aSeed.mul(100))).mul(
+          resolvedMotion.xAmplitude,
+        );
+        const swayZ = cos(uTime.mul(resolvedMotion.zSpeed).add(aSeed.mul(70))).mul(
+          resolvedMotion.zAmplitude,
+        );
         const worldPos = vec3(basePos.x.add(swayX), y, basePos.z.add(swayZ));
         const s = aSize.mul(1.0);
         const lp = tslPositionLocal;
@@ -181,7 +212,7 @@ function WebGPUParticles({ count, gl }) {
         return vec3(bx, by, bz).add(worldPos);
       })();
 
-      mat.colorNode = vec3(1.0, 1.0, 1.0);
+      mat.colorNode = vec3(particleColor.r, particleColor.g, particleColor.b);
       mat.opacityNode = Fn(() => {
         const idx = instanceIndex;
         const params = paramsBuffer.element(idx);
@@ -212,7 +243,7 @@ function WebGPUParticles({ count, gl }) {
       }
       setReady(false);
     };
-  }, [count, gl]);
+  }, [count, gl, opacity, particleColor, resolvedBounds, resolvedMotion, size, yRange, zRange]);
 
   useFrame((state) => {
     const sys = systemRef.current;
@@ -236,12 +267,38 @@ function WebGPUParticles({ count, gl }) {
   );
 }
 
-export default function Particles({ count = DEFAULT_COUNT }) {
+export default function Particles({
+  count = DEFAULT_COUNT,
+  bounds = DEFAULT_BOUNDS,
+  color = "#ffffff",
+  size = 0.03,
+  opacity = 0.58,
+  motion = DEFAULT_MOTION,
+}) {
   const { gl } = useThree();
 
   if (isWebGPURenderer(gl)) {
-    return <WebGPUParticles count={count} gl={gl} />;
+    return (
+      <WebGPUParticles
+        count={count}
+        gl={gl}
+        bounds={bounds}
+        color={color}
+        size={size}
+        opacity={opacity}
+        motion={motion}
+      />
+    );
   }
 
-  return <WebGLParticles count={count} />;
+  return (
+    <WebGLParticles
+      count={count}
+      bounds={bounds}
+      color={color}
+      size={size}
+      opacity={opacity}
+      motion={motion}
+    />
+  );
 }

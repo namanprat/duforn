@@ -2,9 +2,9 @@ export const workItems = [
   {
     id: "money-me",
     slug: "money-me",
-    title: "Money.me",
+    title: "money.me",
     image: "/archive/15.webp",
-    href: "/film",
+    href: "/money-me",
   },
   {
     id: "haptic",

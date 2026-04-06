@@ -31,13 +31,11 @@
     "@voidzero-dev/vite-plus-test": "^0.1.14",
     "gsap": "^3.14.2",
     "lenis": "^1.1.13",
-    "leva": "^0.10.1",
     "postprocessing": "^6.38.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.9.5",
     "three": "^0.183.0",
-    "three-stdlib": "^2.29.9",
     "web-haptics": "^0.0.6",
     "zustand": "^5.0.11"
   },
@@ -46,7 +44,6 @@
     "@vitest/coverage-v8": "^4.1.0",
     "@vitest/ui": "^4.0.18",
     "happy-dom": "^20.6.1",
-    "jsdom": "^28.1.0",
     "vite": "npm:@voidzero-dev/vite-plus-core@latest",
     "vite-plus": "^0.1.14",
     "vitest": "npm:@voidzero-dev/vite-plus-test@latest"

@@ -15,5 +15,3 @@ export default function LogoModel(props) {
     </group>
   );
 }
-
-useGLTF.preload("/models/logo.glb");

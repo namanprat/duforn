@@ -59,10 +59,6 @@ function createWebGLRenderer(defaultProps, { alpha }) {
   return renderer;
 }
 
-export function createWebGLRendererAlpha(defaultProps) {
-  return createWebGLRenderer(defaultProps, { alpha: true });
-}
-
 async function createBestRenderer(defaultProps, { alpha = false } = {}) {
   if (await canUseWebGPU()) {
     try {

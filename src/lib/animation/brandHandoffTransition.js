@@ -6,6 +6,7 @@ import {
 } from "../../../scripts/text-reveal.js";
 
 const HOME_NAMESPACE = "home";
+const CONTACT_NAMESPACE = "contact";
 
 let activeTimeline = null;
 let activeGhost = null;
@@ -89,14 +90,19 @@ function getNavBrandNode() {
   return document.querySelector(".nav-brand");
 }
 
+function getBrandTitleNode(namespace) {
+  return document.querySelector(`[data-brand-handoff-title="${namespace}"]`);
+}
+
 function getHomeBrandNode() {
-  return document.querySelector(".home-hero-brand");
+  return getBrandTitleNode(HOME_NAMESPACE);
 }
 
 function setRestingState(namespace) {
   const isHome = namespace === HOME_NAMESPACE;
   const navBrand = getNavBrandNode();
-  const homeBrand = getHomeBrandNode();
+  const homeBrand = getBrandTitleNode(HOME_NAMESPACE);
+  const contactBrand = getBrandTitleNode(CONTACT_NAMESPACE);
 
   if (navBrand) {
     gsap.set(navBrand, {
@@ -109,6 +115,14 @@ function setRestingState(namespace) {
   if (homeBrand) {
     clearRevealTitleStyles(homeBrand);
     gsap.set(homeBrand, {
+      autoAlpha: 1,
+      clearProps: "transform",
+    });
+  }
+
+  if (contactBrand) {
+    clearRevealTitleStyles(contactBrand);
+    gsap.set(contactBrand, {
       autoAlpha: 1,
       clearProps: "transform",
     });
@@ -152,6 +166,8 @@ export async function runBrandHandoff({ fromNamespace, toNamespace }) {
   const navBrand = getNavBrandNode();
   const leavingHome = fromNamespace === HOME_NAMESPACE && toNamespace !== HOME_NAMESPACE;
   const enteringHome = toNamespace === HOME_NAMESPACE && fromNamespace !== HOME_NAMESPACE;
+  const enteringContact = toNamespace === CONTACT_NAMESPACE;
+  const contactBrand = getBrandTitleNode(CONTACT_NAMESPACE);
   const timeline = gsap.timeline({
     defaults: { ease: "power2.out" },
     onComplete: () => {
@@ -182,6 +198,27 @@ export async function runBrandHandoff({ fromNamespace, toNamespace }) {
         },
         0,
       );
+    }
+
+    if (enteringContact && contactBrand) {
+      prepareRevealTitle(contactBrand);
+      const contactChars = getRevealTitleCharacters(contactBrand);
+      if (contactChars.length) {
+        gsap.set(contactChars, { yPercent: 120, opacity: 0 });
+        gsap.set(contactBrand, { autoAlpha: 1 });
+        timeline.to(
+          contactChars,
+          {
+            yPercent: 0,
+            opacity: 1,
+            duration: 0.52,
+            stagger: 0.02,
+          },
+          0.05,
+        );
+      } else {
+        gsap.fromTo(contactBrand, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3 }, 0.05);
+      }
     }
 
     if (navBrand) {

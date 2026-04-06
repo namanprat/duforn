@@ -72,9 +72,15 @@ export function applyModelMaterialTuning(
       }
 
       tuneMaterialMaps(material);
-      material.userData.baseRoughness = material.roughness ?? 0.8;
-      material.userData.baseMetalness = material.metalness ?? 0.0;
-      material.userData.baseEnvMapIntensity = material.envMapIntensity ?? 1;
+      if (material.userData.baseRoughness === undefined) {
+        material.userData.baseRoughness = material.roughness ?? 0.8;
+      }
+      if (material.userData.baseMetalness === undefined) {
+        material.userData.baseMetalness = material.metalness ?? 0.0;
+      }
+      if (material.userData.baseEnvMapIntensity === undefined) {
+        material.userData.baseEnvMapIntensity = material.envMapIntensity ?? 1;
+      }
 
       material.roughness = THREE.MathUtils.clamp(
         material.userData.baseRoughness * roughnessScale,

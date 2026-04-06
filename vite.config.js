@@ -2,7 +2,7 @@ import { defineConfig } from "vite-plus";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig({
-  staged: { '{src,scripts}/**/*.{js,jsx}': 'vp check --fix' },
+  staged: { "{src,scripts}/**/*.{js,jsx}": "vp check --fix" },
   plugins: [react()],
   optimizeDeps: {
     include: ["three", "three/webgpu", "three/tsl"],

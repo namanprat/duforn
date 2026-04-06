@@ -1,5 +1,6 @@
-import { Canvas } from "@react-three/fiber";
 import React, { Suspense } from "react";
+import { PerspectiveCamera } from "@react-three/drei";
+import CanvasSurface from "./CanvasSurface.jsx";
 import { createRendererAlpha, getRendererType } from "./createWebGPURenderer.js";
 import EnvironmentSetup from "./EnvironmentSetup.jsx";
 import CameraRig from "./CameraRig.jsx";
@@ -7,37 +8,57 @@ import Effects from "./Effects.jsx";
 import Particles from "./Particles.jsx";
 import HomeScene from "./HomeScene.jsx";
 import { logWebGPU } from "../../lib/webgpu/debugWebGPU.js";
+import ProjectDetailScene from "../../projectDetail/ProjectDetailScene.jsx";
+import { useProjectDetailSceneControlsStore } from "../../store/projectDetailSceneControls.js";
+import ShaderCompiler from "./ShaderCompiler.jsx";
 
-export default function GlobalCanvas() {
+function HomeCanvasBranch() {
   return (
-    <div
+    <>
+      <PerspectiveCamera makeDefault position={[0, 1, 5]} fov={75} />
+      <EnvironmentSetup />
+      <CameraRig />
+      <HomeScene />
+      <Particles count={200} />
+      <Effects bloomStrength={0.045} dofMaxBlur={0.008} />
+    </>
+  );
+}
+
+function ProjectDetailCanvasBranch() {
+  const effects = useProjectDetailSceneControlsStore((state) => state.controls.effects);
+
+  return (
+    <>
+      <ProjectDetailScene />
+      <Effects
+        bloomStrength={effects.bloomStrength}
+        vignetteDarkness={effects.vignetteDarkness}
+        grain={effects.grain}
+        chromaticShift={effects.chromaticShift}
+        dofMaxBlur={effects.dofMaxBlur}
+      />
+    </>
+  );
+}
+
+export default function GlobalCanvas({ activePage = "home" }) {
+  const isProjectDetailPage = activePage === "projectDetail";
+
+  return (
+    <CanvasSurface
       id="background"
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
-        zIndex: -1,
-        pointerEvents: "none",
-        background: "transparent",
+      key={isProjectDetailPage ? "project-detail-canvas" : "global-canvas"}
+      gl={createRendererAlpha}
+      onCreated={({ gl }) => {
+        logWebGPU("GlobalCanvas", "Canvas created", { rendererType: getRendererType(gl) });
       }}
+      onPointerMissed={isProjectDetailPage ? () => {} : undefined}
     >
-      <Canvas
-        camera={{ position: [0, 1, 5], fov: 75 }}
-        gl={createRendererAlpha}
-        onCreated={({ gl }) => {
-          logWebGPU("GlobalCanvas", "Canvas created", { rendererType: getRendererType(gl) });
-        }}
-      >
-        <Suspense fallback={null}>
-          <EnvironmentSetup />
-          <CameraRig />
-          <Particles count={200} />
-          <HomeScene />
-          <Effects bloomStrength={0.045} dofMaxBlur={0.008} />
-        </Suspense>
-      </Canvas>
-    </div>
+      <Suspense fallback={null}>
+        {isProjectDetailPage ? <ProjectDetailCanvasBranch /> : <HomeCanvasBranch />}
+        <ShaderCompiler />
+      </Suspense>
+    </CanvasSurface>
   );
 }

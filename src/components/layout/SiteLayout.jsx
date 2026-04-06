@@ -1,36 +1,26 @@
-import React, { useRef, useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { closeMenuIfOpen } from "../../../scripts/menu.js";
-import { animateRevealLeave } from "../../../scripts/text-reveal.js";
-import PreloaderScene from "./PreloaderScene.jsx";
+import React, { useRef, useEffect, useState, useCallback } from "react";
+import { useLocation } from "react-router-dom";
+import { navigateTo } from "../../lib/navigationBridge.js";
 import GlobalCanvas from "../webgl/GlobalCanvas.jsx";
-import RiverCanvas from "../webgl/RiverCanvas.jsx";
 import WorkCanvas from "../webgl/WorkCanvas.jsx";
-import ArchiveCanvas from "../webgl/ArchiveCanvas.jsx";
-import FilmCanvas from "../webgl/FilmCanvas.jsx";
 import { useWebglStore } from "../../store/webgl.js";
+import { useLoadingStore } from "../../store/loading.js";
 
 function NavLink({ to, className, children, ...props }) {
-  const navigate = useNavigate();
   const location = useLocation();
 
-  const handleClick = async (e) => {
+  const handleClick = (e) => {
     // Allow default behavior for modifier keys (open in new tab, etc.)
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
       return;
     }
 
     e.preventDefault();
-    closeMenuIfOpen(e);
 
-    // Only animate and navigate if the path is actually changing
+    // Only navigate if the path is actually changing.
+    // All leave animation + canvas transition is handled by the NavigationBridge.
     if (location.pathname !== to) {
-      const container = document.querySelector('[data-page-container="true"]');
-      if (container) {
-        // Run the leave animation on the current page content
-        await animateRevealLeave(container);
-      }
-      navigate(to);
+      navigateTo(to);
     }
   };
 
@@ -145,30 +135,69 @@ function ReceiptMenu() {
 }
 
 function getCanvasKey(page) {
-  if (page === "river" || page === "work" || page === "archive" || page === "film") return page;
-  return "global"; // home + contact share GlobalCanvas
+  if (page === "work") return page;
+  return "global"; // home + contact + archive share GlobalCanvas
 }
 
 function PageCanvas({ activePage }) {
   switch (activePage) {
-    case "river":
-      return <RiverCanvas />;
     case "work":
       return <WorkCanvas />;
-    case "archive":
-      return <ArchiveCanvas />;
-    case "film":
-      return <FilmCanvas />;
     default:
-      return <GlobalCanvas />;
+      return <GlobalCanvas activePage={activePage} />;
   }
 }
 
 export default function SiteLayout({ children }) {
   const activePage = useWebglStore((s) => s.activePage);
+  const phase = useLoadingStore((s) => s.phase);
+  const [preloaderFading, setPreloaderFading] = useState(false);
+  const [preloaderVisible, setPreloaderVisible] = useState(true);
   const [displayedPage, setDisplayedPage] = useState(activePage);
   const [transitioning, setTransitioning] = useState(false);
   const prevPageRef = useRef(activePage);
+  const preloaderTimerRef = useRef(0);
+
+  useEffect(() => {
+    document.body.classList.toggle("preloader-active", preloaderVisible);
+    return () => document.body.classList.remove("preloader-active");
+  }, [preloaderVisible]);
+
+  const dismissPreloader = useCallback(() => {
+    if (phase !== "ready") return;
+    if (!preloaderVisible || preloaderFading) return;
+
+    setPreloaderFading(true);
+    preloaderTimerRef.current = window.setTimeout(() => {
+      setPreloaderVisible(false);
+      setPreloaderFading(false);
+      preloaderTimerRef.current = 0;
+      window.dispatchEvent(
+        new CustomEvent("duforn:preloader-dismissed", {
+          detail: { pathname: window.location.pathname },
+        }),
+      );
+    }, 600);
+  }, [phase, preloaderFading, preloaderVisible]);
+
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      dismissPreloader();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [dismissPreloader]);
+
+  useEffect(() => {
+    return () => {
+      if (preloaderTimerRef.current) {
+        window.clearTimeout(preloaderTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (activePage === prevPageRef.current) return;
@@ -200,38 +229,43 @@ export default function SiteLayout({ children }) {
         Skip to content
       </a>
 
-      <section className="preloader" aria-label="Website preloader">
-        <div className="preloader-scanline-overlay" aria-hidden="true" />
-        <div className="preloader-inner u-flex-vertical-nowrap u-align-items-center u-justify-content-center">
-          <div className="preloader-canvas-wrap">
-            <PreloaderScene />
-          </div>
-          <div
-            className="preloader-terminal u-flex-vertical-nowrap u-align-items-center"
-            style={{ opacity: 0, pointerEvents: "none" }}
-          >
-            <p className="preloader-loading u-text-align-center" aria-live="polite"></p>
-            <p className="preloader-progress-bar u-text-align-center" aria-live="polite"></p>
-            <div className="preloader-button-wrap u-flex-horizontal-nowrap u-justify-content-center">
-              <button type="button" className="preloader-enter-button">
-                ENTER
+      {preloaderVisible && (
+        <section
+          className="preloader"
+          aria-label="Website preloader"
+          data-state={preloaderFading ? "fading" : "visible"}
+        >
+          <div className="preloader-scanline-overlay" aria-hidden="true" />
+          <div className="preloader-inner u-flex-vertical-nowrap u-align-items-center u-justify-content-center">
+            <h1 className="preloader-brand u-text-style-display">DUFORN</h1>
+            <div className="preloader-actions u-flex-vertical-nowrap u-align-items-center">
+              <button
+                type="button"
+                className="preloader-continue-btn"
+                onClick={dismissPreloader}
+                disabled={phase !== "ready"}
+              >
+                Enter
               </button>
+              <p className="preloader-status">
+                {phase === "ready" ? "Press Enter to continue" : "Loading experience..."}
+              </p>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <header>
         <nav className="nav-wrap u-position-fixed">
           <div className="nav-contain u-container-full">
-            <NavLink className="u-mobile-hidden" to="/work">
-              work
-            </NavLink>
-            <NavLink to="/" className="link-main nav-brand">
-              duforn
-            </NavLink>
             <NavLink className="u-mobile-hidden" to="/contact">
               contact
+            </NavLink>
+            <NavLink to="/" className="link-main nav-brand">
+              DUFORN
+            </NavLink>
+            <NavLink className="u-mobile-hidden" to="/work">
+              work
             </NavLink>
             <button
               className="menu-toggle-btn"
@@ -258,19 +292,14 @@ export default function SiteLayout({ children }) {
         <ReceiptMenu />
       </header>
 
-      <div
-        style={{
-          opacity: transitioning ? 0 : 1,
-          transition: "opacity 0.3s ease",
-        }}
-      >
+      <div className="page-canvas" data-state={transitioning ? "transitioning" : "ready"}>
         <PageCanvas activePage={displayedPage} />
       </div>
 
       {children}
 
       <footer className="u-visually-hidden">
-        <p>&copy; 2026 Duforn. All rights reserved.</p>
+        <p>&copy; 2026 DUFORN. All rights reserved.</p>
       </footer>
     </>
   );

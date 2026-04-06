@@ -1,46 +1,55 @@
 import React, { useEffect, useRef } from "react";
-import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useNavigate, useOutlet } from "react-router-dom";
 
 import SiteLayout from "./components/layout/SiteLayout.jsx";
 import HomePage from "./routes/HomePage.jsx";
-import RiverPage from "./routes/RiverPage.jsx";
 import WorkPage from "./routes/WorkPage.jsx";
 import ContactPage from "./routes/ContactPage.jsx";
 import ArchivePage from "./routes/ArchivePage.jsx";
 import FilmPage from "./routes/FilmPage.jsx";
+import MoneyMePage from "./routes/MoneyMePage.jsx";
 
 import { useWebglStore } from "./store/webgl.js";
-import { initMenu, destroyMenu } from "../scripts/menu.js";
 import { initLinkHover, destroyLinkHover } from "../scripts/link-hover.js";
-import { animateRevealEnter, cleanupSplits, prepareRevealHidden } from "../scripts/text-reveal.js";
+import {
+  prepareRouteReveal,
+  runRouteEnter,
+  runRouteLeave,
+  initScrollReveals,
+  destroyAllReveals,
+} from "../scripts/text-reveal.js";
 import { initLenis, destroyLenis } from "../scripts/lenis-scroll.js";
-import { startWorkTexturePreload } from "../scripts/work-preload.js";
 import { setNavigateHandler } from "./lib/navigationBridge.js";
-import { runRouteEnterTransition } from "./lib/animation/routeTransition.js";
+import {
+  getCanvasKey,
+  runRouteEnterTransition,
+  runRouteLeaveTransition,
+} from "./lib/animation/routeTransition.js";
 import { cleanupBrandHandoff, runBrandHandoff } from "./lib/animation/brandHandoffTransition.js";
-import { preloader } from "../scripts/preloader.js";
+
+const BRAND_HANDOFF_SELECTOR = "[data-brand-handoff-title]";
 
 const TITLES = {
   "/": "Duforn | Home",
-  "/river": "Duforn | River",
   "/work": "Duforn | Work",
   "/contact": "Duforn | Contact",
   "/archive": "Duforn | Archive",
-  "/film": "Duforn | Project",
+  "/film": "Duforn | Project Details",
+  "/money-me": "Duforn | money.me Project Details",
 };
 
 const PATH_TO_NAMESPACE = {
   "/": "home",
-  "/river": "river",
   "/work": "work",
   "/contact": "contact",
   "/archive": "archive",
-  "/film": "film",
+  "/film": "projectDetail",
+  "/money-me": "projectDetail",
 };
 
 function normalizePath(pathname) {
-  // Strip trailing slashes so "/river/" matches "/river".
-  const cleaned = pathname.replace(/\/\/+$/, "");
+  // Strip trailing slashes so route lookups stay stable.
+  const cleaned = pathname.replace(/\/+$/, "");
   return cleaned === "" ? "/" : cleaned;
 }
 
@@ -50,9 +59,7 @@ function getNamespace(pathname) {
 
 function applyBodyRouteClasses(namespace) {
   document.body.classList.add("page-wrap");
-  document.body.classList.toggle("page-wrap--archive", namespace === "archive");
-  document.body.classList.toggle("page-wrap--scrollable", namespace === "film");
-  document.body.classList.toggle("brand-home", namespace === "home");
+  document.body.classList.toggle("page-wrap--scrollable", namespace === "projectDetail");
 }
 
 function useClock() {
@@ -78,9 +85,53 @@ function useClock() {
 
 function NavigationBridge() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const transitionRef = useRef({ inFlight: false, targetPath: null });
+  const currentPathRef = useRef(normalizePath(location.pathname));
 
   useEffect(() => {
-    setNavigateHandler((path) => navigate(path));
+    currentPathRef.current = normalizePath(location.pathname);
+    if (
+      transitionRef.current.inFlight &&
+      transitionRef.current.targetPath === currentPathRef.current
+    ) {
+      transitionRef.current.inFlight = false;
+      transitionRef.current.targetPath = null;
+    }
+  }, [location.pathname]);
+
+  useEffect(() => {
+    setNavigateHandler(async (path) => {
+      const nextPath = normalizePath(path);
+      const currentPath = currentPathRef.current;
+
+      if (nextPath === currentPath) return;
+      if (transitionRef.current.inFlight) return;
+
+      transitionRef.current.inFlight = true;
+      transitionRef.current.targetPath = nextPath;
+
+      const currentNamespace = getNamespace(currentPath);
+      const nextNamespace = getNamespace(nextPath);
+      const pageElement = document.querySelector('[data-page-container="true"]');
+      const canvasElement =
+        getCanvasKey(currentNamespace) === getCanvasKey(nextNamespace)
+          ? null
+          : document.querySelector('[data-active-canvas="true"]');
+
+      try {
+        await runRouteLeave(pageElement, { excludeSelector: BRAND_HANDOFF_SELECTOR });
+        await runRouteLeaveTransition({ canvasElement });
+        navigate(nextPath);
+      } finally {
+        const completed = currentPathRef.current === nextPath;
+        if (completed || transitionRef.current.targetPath === nextPath) {
+          transitionRef.current.inFlight = false;
+          transitionRef.current.targetPath = null;
+        }
+      }
+    });
+
     return () => setNavigateHandler(null);
   }, [navigate]);
 
@@ -89,96 +140,114 @@ function NavigationBridge() {
 
 function AppShell() {
   const location = useLocation();
-  const contentRef = useRef(null);
-  const previousNamespaceRef = useRef(getNamespace(location.pathname));
+  const outlet = useOutlet();
   const setActivePage = useWebglStore((s) => s.setActivePage);
-  const preloaderPromiseRef = useRef(null);
+  const currentPath = normalizePath(location.pathname);
+  const previousPathRef = useRef(currentPath);
+  const namespace = getNamespace(currentPath);
 
   useClock();
+
+  useEffect(() => {
+    const onPreloaderDismissed = async (event) => {
+      const dismissedPath = normalizePath(event?.detail?.pathname || window.location.pathname);
+      const livePath = normalizePath(window.location.pathname);
+      if (dismissedPath !== livePath) return;
+
+      const container = document.querySelector('[data-page-container="true"]');
+      if (!container) return;
+
+      await prepareRouteReveal(container);
+      await runRouteEnter(container);
+      window.__refreshLinkHover?.();
+    };
+
+    window.addEventListener("duforn:preloader-dismissed", onPreloaderDismissed);
+    return () => {
+      window.removeEventListener("duforn:preloader-dismissed", onPreloaderDismissed);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     let rafId = 0;
 
-    const refreshLinkHover = () => {
-      document.fonts.ready.then(() => {
+    const refreshLinkHover = async () => {
+      await document.fonts.ready;
+      if (cancelled) return;
+      destroyLinkHover();
+      rafId = requestAnimationFrame(() => {
         if (cancelled) return;
-        destroyLinkHover();
-        rafId = requestAnimationFrame(() => {
-          if (cancelled) return;
-          initLinkHover();
-        });
+        initLinkHover();
       });
     };
 
+    window.__refreshLinkHover = refreshLinkHover;
     refreshLinkHover();
 
     return () => {
       cancelled = true;
       cancelAnimationFrame(rafId);
       destroyLinkHover();
-    };
-  }, [location.pathname]);
-
-  useEffect(() => {
-    preloaderPromiseRef.current = preloader.init();
-    startWorkTexturePreload();
-    document.fonts.ready.then(() => {
-      initMenu();
-    });
-
-    return () => {
-      destroyLenis();
-      cleanupSplits();
-      cleanupBrandHandoff();
-      destroyMenu();
+      delete window.__refreshLinkHover;
     };
   }, []);
 
   useEffect(() => {
-    const currentPath = normalizePath(location.pathname);
+    return () => {
+      destroyLenis();
+      destroyAllReveals();
+      cleanupBrandHandoff();
+    };
+  }, []);
+
+  useEffect(() => {
     document.title = TITLES[currentPath] || "Duforn";
-    const namespace = getNamespace(currentPath);
-    const previousNamespace = previousNamespaceRef.current;
+    const previousPath = previousPathRef.current;
+    const previousNamespace = getNamespace(previousPath);
+    const shouldAnimateCanvas = getCanvasKey(previousNamespace) !== getCanvasKey(namespace);
+
+    previousPathRef.current = currentPath;
+    document.body.dataset.routePathname = currentPath;
     applyBodyRouteClasses(namespace);
     runBrandHandoff({ fromNamespace: previousNamespace, toNamespace: namespace });
-    previousNamespaceRef.current = namespace;
     setActivePage(namespace);
 
-    // Lenis for film only
-    if (namespace === "film") initLenis();
+    // Lenis for project detail pages only
+    if (namespace === "projectDetail") initLenis();
     else destroyLenis();
 
-    const stopEnterTween = runRouteEnterTransition(contentRef.current);
     const container = document.querySelector('[data-page-container="true"]');
+    let stopEnterTween = () => {};
     let cancelled = false;
 
-    const REVEAL_OPTS = { excludeSelector: ".home-hero-brand" };
+    const REVEAL_OPTS = { excludeSelector: BRAND_HANDOFF_SELECTOR };
 
-    function runReveal(c) {
-      const live = c ?? document.querySelector('[data-page-container="true"]');
-      if (live && !cancelled) animateRevealEnter(live, REVEAL_OPTS);
-    }
-
-    if (preloader.isBlocking()) {
-      // Preloader is active: wait for fonts → preloader exit → animate
-      const p = preloaderPromiseRef.current ?? Promise.resolve();
-      const prepare = container ? prepareRevealHidden(container, REVEAL_OPTS) : Promise.resolve();
-      // Chain: fonts ready (in prepare) → preloader exits (p) → animate
-      prepare.then(() => p).then(() => runReveal(null));
-    } else {
-      // No preloader (return visit or navigation): hide first, then animate.
-      const prepare = container ? prepareRevealHidden(container, REVEAL_OPTS) : Promise.resolve();
-      prepare.then(() => {
-        if (!cancelled) runReveal(null);
+    const prepare = container ? prepareRouteReveal(container, REVEAL_OPTS) : Promise.resolve();
+    prepare.then(() => {
+      if (cancelled) return;
+      const live = container ?? document.querySelector('[data-page-container="true"]');
+      if (document.body.classList.contains("preloader-active")) {
+        return;
+      }
+      stopEnterTween = runRouteEnterTransition({
+        canvasElement: shouldAnimateCanvas
+          ? document.querySelector('[data-active-canvas="true"]')
+          : null,
       });
-    }
+      runRouteEnter(live, REVEAL_OPTS).then(() => {
+        if (cancelled) return;
+        window.__refreshLinkHover?.();
+      });
+      if (namespace === "projectDetail" && live) {
+        initScrollReveals(live);
+      }
+    });
 
     return () => {
       cancelled = true;
       stopEnterTween();
-      cleanupBrandHandoff();
-      cleanupSplits();
+      destroyAllReveals();
       destroyLenis();
     };
   }, [location.pathname, setActivePage]);
@@ -186,11 +255,7 @@ function AppShell() {
   return (
     <>
       <NavigationBridge />
-      <SiteLayout>
-        <div ref={contentRef}>
-          <Outlet />
-        </div>
-      </SiteLayout>
+      <SiteLayout>{outlet}</SiteLayout>
     </>
   );
 }
@@ -200,11 +265,11 @@ export default function App() {
     <Routes>
       <Route element={<AppShell />}>
         <Route path="/" element={<HomePage />} />
-        <Route path="/river" element={<RiverPage />} />
         <Route path="/work" element={<WorkPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/archive" element={<ArchivePage />} />
         <Route path="/film" element={<FilmPage />} />
+        <Route path="/money-me" element={<MoneyMePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

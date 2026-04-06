@@ -1,42 +1,14 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import React, { useEffect, useRef } from "react";
-import {
-  Bloom,
-  ChromaticAberration,
-  DepthOfField,
-  EffectComposer,
-  Noise,
-  Vignette,
-} from "@react-three/postprocessing";
-import { BlendFunction } from "postprocessing";
-import { Vector2 } from "three";
-import { isWebGLRenderer, getRendererType } from "./createWebGPURenderer.js";
-import { useWebglStore } from "../../store/webgl.js";
 import { logWebGPU } from "../../lib/webgpu/debugWebGPU.js";
 
-function WebGLEffects({ bloomStrength, vignetteDarkness, grain, chromaticShift, dofMaxBlur }) {
-  return (
-    <EffectComposer multisampling={0} disableNormalPass>
-      <Bloom intensity={bloomStrength * 2.8} luminanceThreshold={0.72} luminanceSmoothing={0.32} />
-      <DepthOfField
-        focusDistance={0.018}
-        focalLength={0.02}
-        bokehScale={Math.max(dofMaxBlur * 12, 0.01)}
-        height={480}
-      />
-      <ChromaticAberration
-        blendFunction={BlendFunction.NORMAL}
-        offset={new Vector2(chromaticShift, chromaticShift * 0.45)}
-        radialModulation
-        modulationOffset={0.2}
-      />
-      <Vignette offset={0.35} darkness={vignetteDarkness} />
-      <Noise blendFunction={BlendFunction.OVERLAY} opacity={grain} />
-    </EffectComposer>
-  );
-}
-
-function WebGPUEffects({ bloomStrength, vignetteDarkness, grain, chromaticShift, dofMaxBlur }) {
+export default function Effects({
+  bloomStrength = 0.045,
+  vignetteDarkness = 0.15,
+  grain = 0.03,
+  chromaticShift = 0.003,
+  dofMaxBlur = 0.008,
+}) {
   const { gl, scene, camera } = useThree();
   const ppRef = useRef(null);
   const uniformsRef = useRef(null);
@@ -68,6 +40,7 @@ function WebGPUEffects({ bloomStrength, vignetteDarkness, grain, chromaticShift,
 
   useEffect(() => {
     let cancelled = false;
+    disabledRef.current = false;
 
     async function buildPipeline() {
       try {
@@ -191,48 +164,7 @@ function WebGPUEffects({ bloomStrength, vignetteDarkness, grain, chromaticShift,
       }
       uniformsRef.current = null;
     };
-  }, [gl, scene, camera, bloomStrength, vignetteDarkness, grain, chromaticShift, dofMaxBlur]);
+  }, [gl, scene, camera]);
 
   return null;
-}
-
-export default function Effects({
-  bloomStrength = 0.045,
-  vignetteDarkness = 0.15,
-  grain = 0.03,
-  chromaticShift = 0.003,
-  dofMaxBlur = 0.008,
-}) {
-  const { gl } = useThree();
-  const setRendererType = useWebglStore((state) => state.setRendererType);
-
-  useEffect(() => {
-    setRendererType(getRendererType(gl));
-    logWebGPU("Effects", "Resolved post-processing branch", {
-      rendererType: getRendererType(gl),
-      mode: isWebGLRenderer(gl) ? "webgl-postprocessing" : "webgpu-postprocessing",
-    });
-  }, [gl, setRendererType]);
-
-  if (isWebGLRenderer(gl)) {
-    return (
-      <WebGLEffects
-        bloomStrength={bloomStrength}
-        vignetteDarkness={vignetteDarkness}
-        grain={grain}
-        chromaticShift={chromaticShift}
-        dofMaxBlur={dofMaxBlur}
-      />
-    );
-  }
-
-  return (
-    <WebGPUEffects
-      bloomStrength={bloomStrength}
-      vignetteDarkness={vignetteDarkness}
-      grain={grain}
-      chromaticShift={chromaticShift}
-      dofMaxBlur={dofMaxBlur}
-    />
-  );
 }

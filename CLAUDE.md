@@ -20,7 +20,7 @@ npm run test:coverage # Coverage report
 
 - `index.html` mounts the React app.
 - `src/main.jsx` bootstraps `BrowserRouter`, imports the global stylesheet, and imports `src/models/preload.js` so gltfjsx-generated preload hooks warm the GLB assets.
-- `src/App.jsx` is the route and lifecycle orchestrator. On each route change it sets `activePage` in the Zustand store, applies body classes, runs brand handoff transitions, and initialises Lenis scrolling for the film page.
+- `src/App.jsx` is the route and lifecycle orchestrator. On each route change it sets `activePage` in the Zustand store, applies body classes, runs brand handoff transitions, and initialises Lenis scrolling for project detail pages.
 
 ### Route Model
 
@@ -30,13 +30,14 @@ Routes are handled by React Router:
 - `/work` → `src/routes/WorkPage.jsx`
 - `/contact` → `src/routes/ContactPage.jsx`
 - `/archive` → `src/routes/ArchivePage.jsx`
-- `/film` → `src/routes/FilmPage.jsx`
+- `/film` → `src/routes/FilmPage.jsx` (project detail page)
+- `/money-me` → `src/routes/MoneyMePage.jsx` (project detail page)
 
 ### State Management
 
 `src/store/webgl.js` is a Zustand store with two fields:
 
-- `activePage` — current route namespace string (e.g. `'home'`, `'work'`, `'archive'`, `'film'`, `'contact'`)
+- `activePage` — current route namespace string (e.g. `'home'`, `'work'`, `'archive'`, `'projectDetail'`, `'contact'`)
 - `setActivePage(page)` — setter
 
 All page-specific WebGL behaviour is derived from `activePage`.
@@ -45,12 +46,12 @@ All page-specific WebGL behaviour is derived from `activePage`.
 
 `src/components/layout/SiteLayout.jsx` renders a `PageCanvas` component that selects the correct canvas based on `activePage`:
 
-| `activePage`          | Canvas component                         | Purpose                                                |
-| --------------------- | ---------------------------------------- | ------------------------------------------------------ |
-| `'home'`, `'contact'` | `src/components/webgl/GlobalCanvas.jsx`  | Home scene with logo model, particles, HDR environment |
-| `'work'`              | `src/components/webgl/WorkCanvas.jsx`    | Work gallery with cloth strip meshes                   |
-| `'archive'`           | `src/components/webgl/ArchiveCanvas.jsx` | Archive cylindrical tube, shader grid, logo            |
-| `'film'`              | `src/components/webgl/FilmCanvas.jsx`    | Film FBM background, DOM-synced image planes           |
+| `activePage`          | Canvas component                         | Purpose                                                       |
+| --------------------- | ---------------------------------------- | ------------------------------------------------------------- |
+| `'home'`, `'contact'` | `src/components/webgl/GlobalCanvas.jsx`  | Home scene with logo model, particles, HDR environment        |
+| `'work'`              | `src/components/webgl/WorkCanvas.jsx`    | Work gallery with TSL wavy strip slider                       |
+| `'archive'`           | `src/components/webgl/ArchiveCanvas.jsx` | Archive cylindrical tube, shader grid, logo                   |
+| `'projectDetail'`     | `src/components/webgl/GlobalCanvas.jsx`  | Project detail scene: FBM background, DOM-synced image planes |
 
 Canvases transition with a 300ms opacity fade managed by `PageCanvas`.
 
@@ -66,23 +67,30 @@ Canvases transition with a 300ms opacity fade managed by `PageCanvas`.
 | `ArchiveEffects.jsx`      | Post-processing (Bloom, Vignette, Noise)                               |
 | `useArchiveController.js` | Interaction hook: wheel → rotation, mousemove → grid warp + raycasting |
 
-#### Film (`src/film/`)
+#### Project Detail (`src/projectDetail/`)
 
-| Module                 | Purpose                                                                 |
-| ---------------------- | ----------------------------------------------------------------------- |
-| `FilmBackground.jsx`   | FBM warp shader background on fullscreen quad                           |
-| `FilmImagePlanes.jsx`  | DOM-synced image planes overlaying `.coverimg img` / `.project-img img` |
-| `FilmEffects.jsx`      | Post-processing (Noise)                                                 |
-| `useFilmController.js` | Resize and visibility change handling                                   |
+Project detail is a shared namespace for all project case study pages (e.g. `/film`, `/money-me`). Add new project detail pages by creating a route file in `src/routes/` and a content file in `src/projectDetail/`, then register in `App.jsx`.
+
+| Module                          | Purpose                                                                 |
+| ------------------------------- | ----------------------------------------------------------------------- |
+| `ProjectDetailScene.jsx`        | R3F scene composition: camera, controller, background, image planes     |
+| `ProjectDetailBackground.jsx`   | FBM warp shader background on fullscreen quad                           |
+| `ProjectDetailImagePlanes.jsx`  | DOM-synced image planes overlaying `[data-film-plane-trigger]` elements |
+| `ProjectBg.jsx`                 | Fallback background while ProjectDetailBackground suspends              |
+| `useProjectDetailController.js` | Resize and visibility change handling                                   |
+| `projectDetailSceneConfig.js`   | Scene control defaults and reveal animation settings                    |
+| `ProjectDetailsPageShell.jsx`   | Reusable page shell component for case study layouts                    |
+| `filmCaseStudyContent.js`       | Content data for the Film project detail page                           |
+| `moneyMeCaseStudyContent.js`    | Content data for the money.me project detail page                       |
 
 #### Work (`src/work/`)
 
-| Module                     | Purpose                                                                                                                 |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `WorkClothStrip.jsx`       | Cloth strip mesh with 5-layer vertex displacement: pin influence, gravity sag, traveling waves, billowing, edge flutter |
-| `useWorkPageController.js` | Scroll/drag/click controller with wind breathing cycle                                                                  |
-| `workStripBridge.js`       | Bridge between controller and R3F strips (slot state, wind, visibility)                                                 |
-| `stripLayoutConfig.js`     | Grid layout configuration for work strips                                                                               |
+| Module                  | Purpose                                                                                                 |
+| ----------------------- | ------------------------------------------------------------------------------------------------------- |
+| `WorkStrip.jsx`         | Single continuous strip mesh with TSL edge-curl + sin/noise wave displacement and infinite-scroll items |
+| `workStripGeometry.js`  | Plane geometry builder (plain typed arrays — no Three import)                                           |
+| `workStripConfig.js`    | Layout, edge curl, wave, noise, and scroll constants                                                    |
+| `useWorkStripScroll.js` | Wheel/drag/momentum/snap controller, click-to-navigate, and `.slide-title` DOM sync                     |
 
 #### Home / Contact (`src/components/webgl/`)
 
@@ -101,7 +109,7 @@ Canvases transition with a 300ms opacity fade managed by `PageCanvas`.
 | ------------------------- | ---------------------------------------- | ----------------------------------------------------------- |
 | `scripts/menu.js`         | `initMenu()` / `destroyMenu()`           | Global navigation overlay.                                  |
 | `scripts/link-hover.js`   | `initLinkHover()` / `destroyLinkHover()` | Hover interaction effect for link text.                     |
-| `scripts/lenis-scroll.js` | `initLenis()` / `destroyLenis()`         | Smooth scrolling for film page.                             |
+| `scripts/lenis-scroll.js` | `initLenis()` / `destroyLenis()`         | Smooth scrolling for project detail pages.                  |
 | `scripts/preloader.js`    | —                                        | Shared GLTFLoader/DRACOLoader setup, preload orchestration. |
 | `scripts/work-preload.js` | `startWorkTexturePreload()`              | Preloads work textures during preloader window.             |
 
@@ -129,16 +137,24 @@ Guard imperative modules against double init and always remove listeners, cancel
 
 ## Data Sources
 
-- `data/work-items.js` drives work page media and cloth strip surfaces.
+- `data/work-items.js` drives work page media and the work strip surfaces.
 - `data/archive-items.js` drives archive page tube textures.
 
 ## Adding or Changing Pages
 
 1. Add or update the route component under `src/routes/`.
-2. Register the route in `src/App.jsx`.
-3. Create an R3F canvas component under `src/components/webgl/` and add it to the `PageCanvas` switch in `src/components/layout/SiteLayout.jsx`.
+2. Register the route in `src/App.jsx` — add the path to `PATH_TO_NAMESPACE` and `TITLES`.
+3. For entirely new page types: create an R3F canvas component under `src/components/webgl/` and add it to the `PageCanvas` switch in `src/components/layout/SiteLayout.jsx`.
 4. Place page-specific R3F sub-components in `src/<pagename>/`.
 5. The route effect in `App.jsx` sets `activePage` which drives the canvas switch automatically.
+
+### Adding a New Project Detail Page
+
+Project detail pages all share the `'projectDetail'` namespace and the same R3F scene (`ProjectDetailScene`). To add one:
+
+1. Create a content file at `src/projectDetail/<name>CaseStudyContent.js` following the shape in `filmCaseStudyContent.js`.
+2. Create a route at `src/routes/<Name>Page.jsx` that renders `<ProjectDetailsPageShell {...contentData} />`.
+3. In `src/App.jsx`, add the path to `PATH_TO_NAMESPACE` (value: `"projectDetail"`) and `TITLES`.
 
 ## Testing
 

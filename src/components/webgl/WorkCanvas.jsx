@@ -1,53 +1,101 @@
-import { Canvas } from "@react-three/fiber";
-import React, { Suspense, useLayoutEffect, useRef } from "react";
-import { Environment } from "@react-three/drei";
+import React, { Suspense, useEffect, useLayoutEffect, useRef } from "react";
+import CanvasSurface from "./CanvasSurface.jsx";
 import { createRendererOpaque, getRendererType } from "./createWebGPURenderer.js";
 import CameraRig from "./CameraRig.jsx";
 import Effects from "./Effects.jsx";
 import Particles from "./Particles.jsx";
+import SceneExposure from "./SceneExposure.jsx";
 import WorkModel from "../../models/WorkModel.jsx";
 import { WorkClothStripScene } from "../../work/WorkClothStrip.jsx";
 import { applyModelMaterialTuning, normalizeModelBounds } from "./sceneUtils.js";
 import { logWebGPU } from "../../lib/webgpu/debugWebGPU.js";
+import { useWorkSceneControlsStore } from "../../store/workSceneControls.js";
+import ShaderCompiler from "./ShaderCompiler.jsx";
 
-const WORK_TUNE = {
-  roughnessScale: 1.0,
-  metalnessScale: 0.9,
-  envReflection: 1.2,
-  clearcoat: 0.05,
-  clearcoatRoughness: 0.25,
-};
+function WorkSceneBackground() {
+  const background = useWorkSceneControlsStore((state) => state.controls.scene.background);
+
+  return <color attach="background" args={[background]} />;
+}
 
 function WorkScene() {
-  const model = { x: 0.0, y: -5.6, z: -16, scale: 1.0 };
-
   const modelRef = useRef(null);
-  const didInitRef = useRef(false);
+  const didNormalizeRef = useRef(false);
+  const didCloneMaterialsRef = useRef(false);
+  const controls = useWorkSceneControlsStore((state) => state.controls);
+  const { scene, model, effects, particles, lights } = controls;
 
   useLayoutEffect(() => {
-    const m = modelRef.current;
-    if (!m || didInitRef.current) return;
-    normalizeModelBounds(m);
-    applyModelMaterialTuning(m, WORK_TUNE);
-    didInitRef.current = true;
+    const sceneModel = modelRef.current;
+    if (!sceneModel || didNormalizeRef.current) return;
+
+    normalizeModelBounds(sceneModel);
+    didNormalizeRef.current = true;
   }, []);
+
+  useEffect(() => {
+    const sceneModel = modelRef.current;
+    if (!sceneModel) return;
+
+    applyModelMaterialTuning(sceneModel, {
+      roughnessScale: model.roughnessScale,
+      metalnessScale: model.metalnessScale,
+      envReflection: model.envReflection,
+      clearcoat: model.clearcoat,
+      clearcoatRoughness: model.clearcoatRoughness,
+      cloneStandardMaterials: !didCloneMaterialsRef.current,
+    });
+
+    didCloneMaterialsRef.current = true;
+  }, [
+    model.clearcoat,
+    model.clearcoatRoughness,
+    model.envReflection,
+    model.metalnessScale,
+    model.roughnessScale,
+  ]);
 
   return (
     <>
-      <Environment files="/home.hdr" background={false} />
-      <fogExp2 attach="fog" color={0xe6e4dc} density={0.0715} />
+      <fogExp2 attach="fog" color={scene.fogColor} density={scene.fogDensity} />
 
       <CameraRig />
-      <Effects bloomStrength={0.04} vignetteDarkness={0.12} dofMaxBlur={0.006} />
-      <Particles count={200} />
+      <SceneExposure exposure={scene.exposure} />
+      <Effects
+        bloomStrength={effects.bloomStrength}
+        vignetteDarkness={effects.vignetteDarkness}
+        grain={effects.grain}
+        chromaticShift={effects.chromaticShift}
+        dofMaxBlur={effects.dofMaxBlur}
+      />
+      <Particles
+        count={Math.round(particles.count)}
+        color={particles.color}
+        size={particles.size}
+        opacity={particles.opacity}
+        bounds={{
+          xHalf: particles.xHalf,
+          yMin: particles.yMin,
+          yMax: particles.yMax,
+          zMin: particles.zMin,
+          zMax: particles.zMax,
+        }}
+        motion={{
+          xAmplitude: particles.xAmplitude,
+          zAmplitude: particles.zAmplitude,
+          xSpeed: particles.xSpeed,
+          zSpeed: particles.zSpeed,
+          ySpeed: particles.ySpeed,
+        }}
+      />
 
       <spotLight
-        position={[10, 15, 12]}
-        intensity={1260}
-        color="#fff5e6"
-        angle={Math.PI / 5}
-        penumbra={0.5}
-        decay={1.6}
+        position={[lights.keyX, lights.keyY, lights.keyZ]}
+        intensity={lights.keyIntensity}
+        color={lights.keyColor}
+        angle={lights.keyAngle}
+        penumbra={lights.keyPenumbra}
+        decay={lights.keyDecay}
         distance={60}
         castShadow
         shadow-mapSize={[2048, 2048]}
@@ -55,16 +103,22 @@ function WorkScene() {
         shadow-radius={4}
       />
       <spotLight
-        position={[0, 10, -15]}
-        intensity={1080}
-        color="#ffffff"
-        angle={Math.PI / 4}
-        penumbra={0.6}
-        decay={1.5}
+        position={[lights.fillX, lights.fillY, lights.fillZ]}
+        intensity={lights.fillIntensity}
+        color={lights.fillColor}
+        angle={lights.fillAngle}
+        penumbra={lights.fillPenumbra}
+        decay={lights.fillDecay}
         distance={60}
       />
-      <pointLight position={[-15, 0, 10]} intensity={0.9} color="#ffffff" decay={2} distance={30} />
-      <ambientLight intensity={0.54} color="#ffffff" />
+      <pointLight
+        position={[lights.pointX, lights.pointY, lights.pointZ]}
+        intensity={lights.pointIntensity}
+        color={lights.pointColor}
+        decay={lights.pointDecay}
+        distance={lights.pointDistance}
+      />
+      <ambientLight intensity={lights.ambientIntensity} color={lights.ambientColor} />
 
       <group position={[model.x, model.y, model.z]} scale={model.scale}>
         <group ref={modelRef}>
@@ -74,7 +128,7 @@ function WorkScene() {
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -6, 0]} receiveShadow>
         <planeGeometry args={[60, 60]} />
-        <shadowMaterial transparent opacity={0.15} />
+        <shadowMaterial transparent opacity={lights.shadowOpacity} />
       </mesh>
 
       <WorkClothStripScene />
@@ -84,31 +138,21 @@ function WorkScene() {
 
 export default function WorkCanvas() {
   return (
-    <div
+    <CanvasSurface
       id="work-background"
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
-        zIndex: -1,
-        pointerEvents: "auto",
+      pointerEvents="auto"
+      camera={{ position: [0, 1, 5], fov: 75 }}
+      gl={createRendererOpaque}
+      shadows
+      onCreated={({ gl }) => {
+        logWebGPU("WorkCanvas", "Canvas created", { rendererType: getRendererType(gl) });
       }}
     >
-      <Canvas
-        camera={{ position: [0, 1, 5], fov: 75 }}
-        gl={createRendererOpaque}
-        shadows
-        onCreated={({ gl }) => {
-          logWebGPU("WorkCanvas", "Canvas created", { rendererType: getRendererType(gl) });
-        }}
-      >
-        <color attach="background" args={["#e8e6de"]} />
-        <Suspense fallback={null}>
-          <WorkScene />
-        </Suspense>
-      </Canvas>
-    </div>
+      <WorkSceneBackground />
+      <Suspense fallback={null}>
+        <WorkScene />
+        <ShaderCompiler />
+      </Suspense>
+    </CanvasSurface>
   );
 }

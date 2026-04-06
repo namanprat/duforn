@@ -92,5 +92,3 @@ export default function SceneModel(props) {
     </group>
   );
 }
-
-useGLTF.preload("/models/scene.glb");

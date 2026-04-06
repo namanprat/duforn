@@ -1,11 +1,17 @@
 :root {
-  /* Site Layout */
-  --max-width--small: 50rem;
-  --max-width--main: calc(var(--site--viewport-max) * 1rem);
-  --site--column-count: 12;
+  /* Layout */
   --site--viewport-max: 110;
   --site--viewport-min: 20;
-  /* Container Sizes — margin and gutter are defined below in the Project Spacing section */
+  --site--column-count: 12;
+  --site--screen-height: 100svh;
+  --site--margin: clamp(1rem, 0.5556rem + 2.2222vw, 3rem);
+  --site--gutter: clamp(1rem, 0.7778rem + 1.1111vw, 2rem);
+  --site--gutter-total: calc(var(--site--gutter) * (var(--site--column-count) - 1));
+  --max-width--small: 50rem;
+  --max-width--main: calc(var(--site--viewport-max) * 1rem);
+  --container--main: var(--max-width--main);
+  --container--small: var(--max-width--small);
+  --container--full: calc(100vw - (var(--site--margin) * 2));
   --column-width: calc(
     (
         min(var(--max-width--main), 100% - var(--site--margin) * 2) -
@@ -13,12 +19,6 @@
       ) /
       var(--site--column-count)
   );
-  --site--gutter-total: calc(var(--site--gutter) * (var(--site--column-count) - 1));
-  --container--main: calc(var(--site--viewport-max) * 1rem);
-  --container--small: 50rem;
-  --container--full: calc(100vw - (var(--site--margin) * 2));
-
-  /* Column Widths */
   --column-width-plus-gutter: calc(var(--column-width) + var(--site--gutter));
   --column-width-2: calc(var(--column-width-plus-gutter) * 2 - var(--site--gutter));
   --column-width-3: calc(var(--column-width-plus-gutter) * 3 - var(--site--gutter));
@@ -32,10 +32,10 @@
   --column-width-11: calc(var(--column-width-plus-gutter) * 11 - var(--site--gutter));
   --column-width-12: calc(var(--column-width-plus-gutter) * 12 - var(--site--gutter));
 
-  /* Project Typography */
-  --typography-font-size-text-small: clamp(0.875rem, 0.8472rem + 0.1389vw, 1rem);
-  --typography-font-size-text-main: clamp(1rem, 0.9722rem + 0.1389vw, 1.125rem);
-  --typography-font-size-large: clamp(1.125rem, 1.0972rem + 0.1389vw, 1.25rem);
+  /* Typography */
+  --typography-font-size-text-small: clamp(0.875rem, 0.8393rem + 0.1786vw, 1.0625rem);
+  --typography-font-size-text-main: clamp(0.9375rem, 0.85rem + 0.1786vw, 1.46875rem);
+  --typography-font-size-large: clamp(1.125rem, 1.0893rem + 0.1786vw, 1.3125rem);
   --typography-font-size-h6: clamp(1.25rem, 1.3472rem + 0.1389vw, 1.25rem);
   --typography-font-size-h5: clamp(1.375rem, 1.3472rem + 0.1389vw, 1.5rem);
   --typography-font-size-h4: clamp(1.75rem, 1.6944rem + 0.2778vw, 2rem);
@@ -44,13 +44,11 @@
   --typography-font-size-h1: clamp(3rem, 2.5556rem + 2.2222vw, 5rem);
   --typography-font-size-display: clamp(6rem, 5.1111rem + 4.4444vw, 10rem);
 
-  /* Project Spacing */
+  /* Spacing */
   --spacing-section-space-small: clamp(3rem, 2.5556rem + 2.2222vw, 5rem);
   --spacing-section-space-medium: clamp(4rem, 3.3333rem + 3.3333vw, 7rem);
   --spacing-section-space-large: clamp(5.5rem, 4.5rem + 5vw, 10rem);
   --spacing-section-space-page-top: clamp(10rem, 9.1111rem + 4.4444vw, 14rem);
-  --site--margin: clamp(1rem, 0.5556rem + 2.2222vw, 3rem);
-  --site--gutter: clamp(1rem, 0.7778rem + 1.1111vw, 2rem);
   --spacing-space-1: clamp(
     0.375 * 1rem,
     (
@@ -192,37 +190,62 @@
     4 * 1rem
   );
 
-  /* System Typography (Extensive) */
-  --text-xs: clamp(0.75rem, 0.7222rem + 0.1389vw, 0.875rem);
-  --text-sm: clamp(0.875rem, 0.8472rem + 0.1389vw, 1rem);
-  --text-base: clamp(1rem, 0.9722rem + 0.1389vw, 1.125rem);
-  --text-lg: clamp(1.125rem, 1.0972rem + 0.1389vw, 1.25rem);
-  --text-xl: clamp(1.25rem, 1.1944rem + 0.2778vw, 1.5rem);
-  --text-2xl: clamp(1.5rem, 1.3889rem + 0.5556vw, 2rem);
-  --text-3xl: clamp(1.875rem, 1.625rem + 1.25vw, 3rem);
-  --text-4xl: clamp(2.25rem, 1.8611rem + 1.9444vw, 4rem);
-  --text-5xl: clamp(3rem, 2.5556rem + 2.2222vw, 5rem);
-  --text-6xl: clamp(3.75rem, 3.25rem + 2.5vw, 6rem);
-  --text-7xl: clamp(4.5rem, 3.9444rem + 2.7778vw, 7rem);
-  --text-8xl: clamp(6rem, 5.5556rem + 2.2222vw, 8rem);
-  --text-9xl: clamp(8rem, 7.5556rem + 2.2222vw, 10rem);
-
-  /* System Spacing (Extensive) */
-  --space-3xs: clamp(0.25rem, 0.1944rem + 0.2778vw, 0.5rem);
-  --space-2xs: clamp(0.5rem, 0.4444rem + 0.2778vw, 0.75rem);
-  --space-xs: clamp(0.75rem, 0.6944rem + 0.2778vw, 1rem);
-  --space-sm: clamp(1rem, 0.8889rem + 0.5556vw, 1.5rem);
-  --space-md: clamp(1.5rem, 1.3889rem + 0.5556vw, 2rem);
-  --space-lg: clamp(2rem, 1.7778rem + 1.1111vw, 3rem);
-  --space-xl: clamp(3rem, 2.7778rem + 1.1111vw, 4rem);
-  --space-2xl: clamp(4rem, 3.5556rem + 2.2222vw, 6rem);
-  --space-3xl: clamp(6rem, 5.3333rem + 3.3333vw, 9rem);
-  --space-4xl: clamp(8rem, 7.1111rem + 4.4444vw, 12rem);
-  --space-section-sm: clamp(3rem, 2.5556rem + 2.2222vw, 5rem);
-  --space-section-md: clamp(5rem, 4.3333rem + 3.3333vw, 8rem);
-  --space-section-lg: clamp(8rem, 7.1111rem + 4.4444vw, 12rem);
-  --space-section-xl: clamp(10rem, 8.8889rem + 5.5556vw, 15rem);
-
-  /* Misc */
-  --container-padding: clamp(1rem, 0.5556rem + 2.2222vw, 3rem);
+  /* Route And Layout Sizes */
+  --hero--min-height: var(--site--screen-height);
+  --menu--panel-max-width: 28.125rem;
+  --menu--panel-max-height: calc(var(--site--screen-height) - var(--spacing-space-8));
+  --menu--receipt-barcode-width: clamp(12.5rem, 100%, 18.125rem);
+  --contact--section-padding-top: clamp(4rem, 8vh, 6rem);
+  --contact--section-padding-bottom: clamp(10rem, 18vh, 14rem);
+  --contact--content-max-width: 56rem;
+  --contact--content-max-width-tablet: 50rem;
+  --contact--title-size: clamp(3rem, 8vw, 6.4rem);
+  --contact--title-size-tablet: clamp(2.7rem, 7vw, 4.8rem);
+  --contact--link-size: clamp(1.5rem, 3vw, 2.4rem);
+  --contact--cluster-gap: clamp(1rem, 2.5vw, 2rem);
+  --contact--mobile-section-padding-top: clamp(7rem, 14vw, 8rem);
+  --contact--mobile-section-padding-bottom: clamp(8rem, 14vh, 11rem);
+  --contact--mobile-content-gap: clamp(1.5rem, 3vw, 2.5rem);
+  --contact--mobile-content-padding: clamp(1.25rem, 4vw, 2rem);
+  --contact--footer-max-width: 18.75rem;
+  --project-details--page-padding-top: clamp(4.5rem, 6vw, 6rem);
+  --project-details--page-padding-bottom: clamp(5rem, 9vw, 10rem);
+  --project-details--section-spacing: clamp(4rem, 9vw, 10rem);
+  --project-details--story-gap: clamp(4rem, 7vw, 6rem);
+  --project-details--grid-gap: clamp(1rem, 2vw, 2rem);
+  --project-details--stagger-offset: clamp(3rem, 6vw, 6rem);
+  --project-details--layout-gap: clamp(2rem, 5vw, 5rem);
+  --project-details--content-width-desktop: var(--column-width-10);
+  --project-details--content-width-tablet: var(--column-width-11);
+  --project-details--content-width-mobile: 100%;
+  --project-details--hero-top-gap: var(--spacing-space-6);
+  --project-details--hero-stage-min-height: clamp(22rem, 50vw, 40rem);
+  --project-details--hero-media-size: clamp(18rem, 35vw, 34rem);
+  --project-details--hero-media-offset-y: clamp(1rem, 3vw, 3rem);
+  --project-details--hero-label-width: var(--column-width-3);
+  --project-details--hero-info-gap: var(--spacing-space-6);
+  --project-details--hero-info-column-gap: var(--spacing-space-8);
+  --project-details--hero-kicker-size: var(--typography-font-size-text-small);
+  --project-details--hero-title-size: clamp(4.5rem, 8vw, 8.5rem);
+  --project-details--hero-title-accent-size: clamp(3.75rem, 7vw, 7rem);
+  --project-details--hero-title-line-gap: calc(var(--spacing-space-1) * -1);
+  --project-details--hero-outline-size: clamp(2.25rem, 4vw, 3.5rem);
+  --project-details--hero-overview-max-width: var(--column-width-5);
+  --project-details--info-copy-gap: var(--spacing-space-4);
+  --project-details--meta-grid-gap-row: var(--spacing-space-4);
+  --project-details--meta-grid-gap-column: var(--spacing-space-5);
+  --project-details--meta-item-gap: var(--spacing-space-1);
+  --project-details--cover-meta-gap-row: var(--spacing-space-3);
+  --project-details--story-copy-gap: var(--spacing-space-4);
+  --project-details--question-gap: var(--spacing-space-2);
+  --project-details--question-indent: 1.2rem;
+  --project-details--finding-card-padding: var(--spacing-space-3);
+  --project-details--media-card-gap: var(--spacing-space-3);
+  --project-details--screen-grid-margin-top: var(--spacing-space-5);
+  --project-details--cover-min-height: min(88svh, 62rem);
+  --project-details--supporting-image-max-height: min(78svh, 60rem);
+  --project-details--mobile-page-padding-top: 4.75rem;
+  --project-details--mobile-cover-min-height: 56svh;
+  --preloader--min-height: 100vh;
+  --preloader--asset-max-width: min(32rem, 70vw);
 }

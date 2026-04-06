@@ -8,8 +8,8 @@ const ANIM_CONFIG = {
   overlap: 0.08,
 };
 
-const LINK_SELECTOR = ".nav-wrap a, .bottom-nav-wrap a, .contact-contain a";
-const linkInstances = new WeakMap();
+const LINK_SELECTOR = ".nav-wrap a, .bottom-nav-wrap a, .contact-info a";
+const linkInstances = new Map();
 
 let haptics = null;
 
@@ -19,26 +19,39 @@ function supportsTouchInput() {
   return window.matchMedia("(pointer: coarse)").matches;
 }
 
+function supportsHoverInput() {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return true;
+  return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+}
+
 export function getHaptics() {
   if (!haptics) haptics = new WebHaptics({ debug: true });
   return haptics;
 }
 
 export function initLinkHover() {
+  cleanupStaleLinkHover();
   const navLinks = document.querySelectorAll(LINK_SELECTOR);
-  const isTouchDevice = supportsTouchInput();
+  const hasTouchInput = supportsTouchInput();
+  const hasHoverInput = supportsHoverInput();
 
   navLinks.forEach((link) => {
     if (link.id === "time" || link.classList.contains("menu-toggle-btn") || linkInstances.has(link))
       return;
 
-    if (isTouchDevice) {
+    const instance = {};
+
+    if (hasTouchInput) {
       const handleTouchStart = () => {
         getHaptics().trigger("nudge");
       };
 
       link.addEventListener("touchstart", handleTouchStart, { passive: true });
-      linkInstances.set(link, { handleTouchStart });
+      instance.handleTouchStart = handleTouchStart;
+    }
+
+    if (!hasHoverInput) {
+      linkInstances.set(link, instance);
       return;
     }
 
@@ -46,17 +59,7 @@ export function initLinkHover() {
     const trimmedText = originalText.trim();
     if (!trimmedText) return;
 
-    const viewport = createViewport();
-    const baseLayer = createLayer(trimmedText, false);
-    const hoverLayer = createLayer(trimmedText, true);
-
-    link.textContent = "";
-    link.style.position = "relative";
-    link.style.display = "inline-block";
-    link.style.overflow = "visible";
-    viewport.appendChild(baseLayer.root);
-    viewport.appendChild(hoverLayer.root);
-    link.appendChild(viewport);
+    const { viewport, baseLayer, hoverLayer } = mountLayers(link, trimmedText);
 
     let tl = null;
 
@@ -85,14 +88,65 @@ export function initLinkHover() {
     link.addEventListener("click", handleClick);
 
     linkInstances.set(link, {
+      ...instance,
       originalText: trimmedText,
       handleEnter,
       handleLeave,
       handleClick,
       getTween: () => tl,
       viewport,
+      baseLayer,
+      hoverLayer,
     });
   });
+}
+
+function cleanupLink(link, instance, { restoreText = true } = {}) {
+  if (!instance) return;
+
+  if (instance.handleTouchStart) {
+    link.removeEventListener("touchstart", instance.handleTouchStart);
+  }
+
+  if (instance.getTween) {
+    const activeTween = instance.getTween();
+    if (activeTween) activeTween.kill();
+  }
+
+  if (instance.handleEnter) link.removeEventListener("mouseenter", instance.handleEnter);
+  if (instance.handleLeave) link.removeEventListener("mouseleave", instance.handleLeave);
+  if (instance.handleClick) link.removeEventListener("click", instance.handleClick);
+
+  if (restoreText) {
+    link.textContent = instance.originalText || link.textContent;
+    link.style.position = "";
+    link.style.display = "";
+    link.style.overflow = "";
+  }
+}
+
+function cleanupStaleLinkHover() {
+  for (const [link, instance] of linkInstances.entries()) {
+    if (link.isConnected) continue;
+    cleanupLink(link, instance, { restoreText: false });
+    linkInstances.delete(link);
+  }
+}
+
+function mountLayers(link, baseText) {
+  const viewport = createViewport();
+  const baseLayer = createLayer(baseText, false);
+  const hoverLayer = createLayer(baseText, true);
+
+  link.textContent = "";
+  link.style.position = "relative";
+  link.style.display = "inline-block";
+  link.style.overflow = "visible";
+  viewport.appendChild(baseLayer.root);
+  viewport.appendChild(hoverLayer.root);
+  link.appendChild(viewport);
+
+  return { viewport, baseLayer, hoverLayer };
 }
 
 function createViewport() {
@@ -214,30 +268,8 @@ function animateChars(baseChars, hoverChars, isHover) {
 }
 
 export function destroyLinkHover() {
-  const navLinks = document.querySelectorAll(LINK_SELECTOR);
-
-  navLinks.forEach((link) => {
-    const instance = linkInstances.get(link);
-    if (!instance) return;
-
-    if (instance.handleTouchStart) {
-      link.removeEventListener("touchstart", instance.handleTouchStart);
-    }
-
-    if (instance.getTween) {
-      const activeTween = instance.getTween();
-      if (activeTween) activeTween.kill();
-    }
-
-    if (instance.handleEnter) link.removeEventListener("mouseenter", instance.handleEnter);
-    if (instance.handleLeave) link.removeEventListener("mouseleave", instance.handleLeave);
-    if (instance.handleClick) link.removeEventListener("click", instance.handleClick);
-
-    link.textContent = instance.originalText || link.textContent;
-    link.style.position = "";
-    link.style.display = "";
-    link.style.overflow = "";
-
+  for (const [link, instance] of linkInstances.entries()) {
+    cleanupLink(link, instance);
     linkInstances.delete(link);
-  });
+  }
 }

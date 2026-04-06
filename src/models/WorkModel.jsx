@@ -31,5 +31,3 @@ export default function WorkModel(props) {
     </group>
   );
 }
-
-useGLTF.preload("/models/work.glb");

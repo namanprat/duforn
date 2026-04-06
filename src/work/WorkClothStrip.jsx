@@ -10,20 +10,12 @@ import { navigateTo } from "../lib/navigationBridge.js";
 import { isWebGPURenderer } from "../components/webgl/createWebGPURenderer.js";
 import { logWebGPUOnce } from "../lib/webgpu/debugWebGPU.js";
 
-/* ─────────────────────────────────────────────
-   Config
-   ───────────────────────────────────────────── */
-
 const NUM_UNIQUE = 6;
 const ITEMS_ON_STRIP = 11;
 const GAP_SIZE = 0.03;
 
 const COLS = 96;
 const ROWS = 48;
-
-/* ─────────────────────────────────────────────
-   Arc geometry builder
-   ───────────────────────────────────────────── */
 
 function buildArcGeometry(cols, rows, arcRadius, arcSpan, height, yOffset) {
   const count = cols * rows;
@@ -64,10 +56,6 @@ function buildArcGeometry(cols, rows, arcRadius, arcSpan, height, yOffset) {
   geometry.computeBoundingSphere();
   return geometry;
 }
-
-/* ─────────────────────────────────────────────
-   TSL Cloth System — Procedural Wind + Filament BRDF
-   ───────────────────────────────────────────── */
 
 async function createWebGPUClothSystem(gl, textures, stripConfig) {
   logWebGPUOnce("work-cloth-webgpu-build", "WorkCloth", "Building WebGPU TSL cloth system", {
@@ -116,7 +104,6 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
 
   const PI = Math.PI;
 
-  // ── Uniforms ───────────────────────────────────────────────
   const uniforms = {
     uTime: uniform(0),
     uScrollOffset: uniform(0),
@@ -127,24 +114,16 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
     uHoverStrength: uniform(0),
     uHoverVelocity: uniform(new THREE.Vector2(0, 0)),
     uHoverRadius: uniform(0.28),
-
-    // Wind & physics
     uWindStrength: uniform(12.0),
     uGravityScale: uniform(2.0),
     uWaveFrequency: uniform(8.0),
     uWaveAmplitude: uniform(0.16),
     uClothSolidity: uniform(15.0),
-
-    // Cloth BRDF
     uRoughness: uniform(0.7),
     uSheenColor: uniform(new THREE.Color(0.93, 0.92, 0.9)),
     uSubsurfaceColor: uniform(new THREE.Color(0.97, 0.9, 0.82)),
     uSubsurfaceStr: uniform(0.35),
-
-    // Light
     uLightDir: uniform(new THREE.Vector3(0.25, 0.75, 0.9)),
-
-    // Textures
     uTex0: uniformTexture(textures[0]),
     uTex1: uniformTexture(textures[1]),
     uTex2: uniformTexture(textures[2]),
@@ -153,43 +132,24 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
     uTex5: uniformTexture(textures[5]),
   };
 
-  // ── Varyings ───────────────────────────────────────────────
   const vWorldPos = varying(vec3(0), "vWorldPos");
   const vLooseness = varying(float(0), "vLooseness");
 
-  // ── Vertex Shader — Procedural Wind Displacement ───────────
-  //
-  // Adapted from Shadertoy mdBSWK windPos():
-  // - Wind force distributes via noise across the surface
-  // - Gravity vector field with root constraints (top pinned)
-  // - Sin wave displacement on cloth surface
-  // - Time speed driven by F = m*a
-  //
   const vertexFn = Fn(() => {
     const pos = positionLocal.toVar();
     const uvCoord = uv();
     const time = uniforms.uTime;
-
-    // uv.y = 0 at top (pinned), 1 at bottom (free)
     const v = uvCoord.y;
     const u = uvCoord.x;
-
-    // Looseness: how free this vertex is from the pin edge
     const looseness = smoothstep(float(0), float(0.25), v);
     vLooseness.assign(looseness);
-
-    // --- Wind physics (from Shadertoy) ---
-    // F = m * a => time speed = |windForce| / mass
     const area = float(stripConfig.arcSpan * stripConfig.stripHeight);
     const mass = uniforms.uClothSolidity.mul(area).mul(0.02);
     const windSpeed = uniforms.uWindStrength.div(max(mass, float(0.01)));
     const t = time.mul(windSpeed);
-
-    // Noise-distributed wind variation
     const windNoise = mx_noise_float(vec3(u.mul(2.0), v.mul(2.0), time.mul(0.1)))
       .mul(0.5)
       .add(0.5);
-
     const hoverDelta = uvCoord.sub(uniforms.uHoverUv);
     const hoverDistance = length(vec2(hoverDelta.x.mul(1.35), hoverDelta.y.mul(0.9)));
     const hoverCore = float(1).sub(
@@ -205,19 +165,12 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
     const hoverGust = hoverPresence.mul(
       mix(float(1.15), directionalBias.add(0.12), hoverVelocityLength),
     );
-
-    // Gravity sag: increases toward bottom and toward free edge
     const gravitySag = v.mul(v).mul(uniforms.uGravityScale).mul(0.08).mul(looseness);
-
-    // Wind push: forward displacement increasing with looseness
     const windPush = looseness
       .mul(looseness)
       .mul(uniforms.uWaveAmplitude)
       .mul(0.5)
       .mul(windNoise.mul(0.4).add(0.6));
-
-    // Sin waves on cloth surface (from Shadertoy)
-    // Multiple frequencies for organic motion
     const freq = uniforms.uWaveFrequency;
     const wave1 = sin(u.mul(freq).sub(t.mul(3.0))).mul(looseness);
     const wave2 = sin(v.mul(freq.mul(0.7)).sub(t.mul(2.0)))
@@ -227,15 +180,12 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
       .mul(looseness)
       .mul(0.25);
     const waveDisp = wave1.add(wave2).add(wave3).mul(uniforms.uWaveAmplitude);
-
-    // Cross-wave flutter (higher frequency, smaller amplitude)
     const flutter = sin(u.mul(freq.mul(3.0)).sub(t.mul(5.0)))
       .mul(cos(v.mul(freq.mul(2.0)).add(t.mul(1.5))))
       .mul(looseness)
       .mul(looseness)
       .mul(uniforms.uWaveAmplitude)
       .mul(0.15);
-
     const hoverLift = hoverGust
       .mul(uniforms.uWaveAmplitude)
       .mul(windNoise.mul(0.25).add(0.75))
@@ -258,13 +208,10 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
       .mul(0.069);
     const hoverSway = uniforms.uHoverVelocity.x.mul(hoverGust).mul(looseness).mul(0.075);
 
-    // Apply displacements
     pos.y.subAssign(gravitySag);
     pos.z.addAssign(waveDisp.add(flutter));
     pos.z.addAssign(windPush);
     pos.z.addAssign(hoverLift.add(hoverRipple).add(hoverMicroRipple));
-
-    // Lateral sway from wind
     const lateralSway = sin(time.mul(0.18)).mul(looseness).mul(0.04);
     pos.x.addAssign(lateralSway.add(hoverSway));
 
@@ -272,44 +219,27 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
     return pos;
   });
 
-  // ── Fragment Shader — Filament Cloth BRDF ──────────────────
-  //
-  // Ported from Shadertoy mdBSWK ClothLighting() + Filament docs:
-  // - Ashikhmin NDF for cloth specular
-  // - Ashikhmin visibility term
-  // - Fresnel Schlick with roughness
-  // - Wrapped diffuse with subsurface scattering
-  //
   const fragmentFn = Fn(() => {
     const uvCoord = uv();
     const worldPos = vWorldPos;
     const looseness = vLooseness;
-
-    // Normal from screen-space derivatives (fold detail)
     const dpdxVal = dFdx(worldPos);
     const dpdyVal = dFdy(worldPos);
     const foldNormal = normalize(cross(dpdxVal, dpdyVal));
     const geomNormal = normalLocal;
     const normal = normalize(mix(geomNormal, foldNormal, float(0.55)));
-
-    // ── Scrolling UV texture sampling ──
     const totalU = uvCoord.x.mul(uniforms.uItemsOnStrip).add(uniforms.uScrollOffset);
     const itemFract = fract(totalU);
     const itemIndex = floor(totalU);
-
     const wrappedIndex = mod(itemIndex, uniforms.uNumUnique).toVar();
     wrappedIndex.assign(
       mix(wrappedIndex, wrappedIndex.add(uniforms.uNumUnique), step(wrappedIndex, float(-0.001))),
     );
-
     const halfGap = uniforms.uGapSize.mul(0.5);
     const inGap = step(itemFract, halfGap).add(step(float(1).sub(halfGap), itemFract));
     inGap.greaterThan(float(0.5)).discard();
-
     const texU = itemFract.sub(halfGap).div(float(1).sub(uniforms.uGapSize));
     const texCoord = clamp(vec2(texU, uvCoord.y), vec2(0.001), vec2(0.999));
-
-    // Sample textures (6 unique)
     const col = texture(uniforms.uTex0, texCoord).rgb.toVar();
     const idx = int(wrappedIndex);
     col.assign(mix(col, texture(uniforms.uTex1, texCoord).rgb, float(idx.equal(int(1)))));
@@ -317,23 +247,14 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
     col.assign(mix(col, texture(uniforms.uTex3, texCoord).rgb, float(idx.equal(int(3)))));
     col.assign(mix(col, texture(uniforms.uTex4, texCoord).rgb, float(idx.equal(int(4)))));
     col.assign(mix(col, texture(uniforms.uTex5, texCoord).rgb, float(idx.equal(int(5)))));
-
-    // Saturation boost +20% — pulls color away from luminance
     const luma = dot(col, vec3(0.299, 0.587, 0.114));
     col.assign(mix(vec3(luma), col, float(1.2)));
-
-    // ── Filament Cloth BRDF ──
-
     const viewDir = normalize(tslCameraPosition.sub(worldPos));
     const lightDir = normalize(uniforms.uLightDir);
     const halfVec = normalize(viewDir.add(lightDir));
-
     const NdotV = max(float(0.001), dot(normal, viewDir));
     const NdotL = max(float(0.0), dot(normal, lightDir));
     const NdotH = max(float(0.001), dot(normal, halfVec));
-
-    // Ashikhmin NDF (from Shadertoy / Filament)
-    // D = (sin4h + 4 * exp(-cos2h / (sin2h * r²))) / (π * (1 + 4r²) * sin4h)
     const r = clamp(uniforms.uRoughness, float(0.01), float(1.0));
     const r2 = r.mul(r);
     const cos2h = NdotH.mul(NdotH);
@@ -349,63 +270,39 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
           float(0.1),
         ),
       );
-
-    // Ashikhmin visibility: V = 1 / (4 * (NdotL + NdotV - NdotL * NdotV))
     const ashikhminV = float(1).div(
       max(float(4).mul(NdotL.add(NdotV).sub(NdotL.mul(NdotV))), float(0.001)),
     );
-
-    // Cloth specular
     const specular = uniforms.uSheenColor.mul(ashikhminD).mul(ashikhminV).mul(NdotL);
-
-    // Wrap lighting — half-Lambert (preserves texture colors)
     const wrap = NdotL.mul(0.5).add(0.5);
     const primaryLight = float(0.55).add(wrap.mul(0.45));
-
-    // Fill light
     const fillDir = normalize(vec3(-0.6, -0.2, 0.5));
     const fillNdotL = max(float(0), dot(normal, fillDir));
     const fillContrib = fillNdotL.mul(0.5).add(0.5).mul(0.08);
-
-    // Rim light
     const rimDir = normalize(vec3(-0.2, 0.1, float(-1.0)));
     const rimNdotL = max(float(0), dot(normal, rimDir));
     const rimContrib = rimNdotL.mul(0.5).add(0.5);
     const rimFinal = rimContrib.mul(rimContrib).mul(0.07);
-
-    // Diffuse: texture * wrap lighting
     const diffuse = col.mul(primaryLight.add(fillContrib).add(rimFinal));
-
-    // Cloth specular sheen (subtle Fresnel edge highlight)
     const sheen = pow(float(1).sub(NdotV), float(2.6));
     const sheenContrib = uniforms.uSheenColor.mul(sheen).mul(0.15);
-
-    // Back-lighting SSS (warm translucency from behind)
     const backlight = max(float(0), dot(normal.negate(), lightDir));
     const sssScatter = backlight.mul(backlight).mul(backlight);
     const subsurface = uniforms.uSubsurfaceColor
       .mul(sssScatter)
       .mul(uniforms.uSubsurfaceStr)
       .mul(looseness.mul(0.6).add(0.4));
-
-    // Combine: diffuse + Ashikhmin specular + sheen + SSS
     const finalColor = diffuse.add(specular.mul(0.3)).add(sheenContrib).add(subsurface).toVar();
-
-    // ── Fold-based ambient occlusion ──
     const foldDeviation = float(1).sub(
       max(float(0), dot(normalize(foldNormal), normalize(geomNormal))),
     );
     const aoFactor = smoothstep(float(-0.15), float(0.3), dot(foldNormal, vec3(0, 1, 0)));
     finalColor.mulAssign(float(0.85).add(aoFactor.mul(0.1)).sub(foldDeviation.mul(0.06)));
-
-    // ── Grain — breaks banding ──
     const grainSeed = fract(uvCoord.mul(800).add(uniforms.uTime.mul(12)));
     const grain = fract(sin(dot(grainSeed, vec2(12.9898, 78.233))).mul(43758.5453))
       .sub(0.5)
       .mul(0.022);
     finalColor.addAssign(grain);
-
-    // ── Edge fade ──
     const edgeFade = smoothstep(float(0), float(0.06), uvCoord.x).mul(
       smoothstep(float(0), float(0.06), float(1).sub(uvCoord.x)),
     );
@@ -413,7 +310,6 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
     return vec4(finalColor, edgeFade);
   });
 
-  // ── Build material ─────────────────────────────────────────
   const mat = new MeshBasicNodeMaterial({
     transparent: true,
     depthWrite: false,
@@ -520,7 +416,6 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
         int wrappedIndex = int(mod(itemFloor + uNumUnique, uNumUnique));
         vec3 color = sampleStripTexture(wrappedIndex, texCoord);
 
-        // Saturation boost +20%
         float luma = dot(color, vec3(0.299, 0.587, 0.114));
         color = mix(vec3(luma), color, 1.2);
 
@@ -534,20 +429,12 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
   return { material, uniforms };
 }
 
-/* ─────────────────────────────────────────────
-   Main scene component
-   ───────────────────────────────────────────── */
-
 export function WorkClothStripScene() {
   const { gl } = useThree();
   const meshRef = useRef();
   const systemRef = useRef(null);
-
-  // ── Config ──
   const strip = { x: 0.0, y: -0.4, z: -4.6, scale: 0.55 };
-
   const cloth = { roughness: 0.7, sheenR: 0.93, sheenG: 0.92, sheenB: 0.9, subsurfaceStr: 0.35 };
-
   const wind = {
     windStrength: 5.5,
     waveAmplitude: 0.08,
@@ -555,10 +442,7 @@ export function WorkClothStripScene() {
     gravityScale: 2.0,
     clothSolidity: 14.0,
   };
-
   const arcConfig = { arcRadius: 14.0, arcSpan: 2.8, stripHeight: 4.46, stripYOffset: -1.2 };
-
-  // ── Scroll state ──
   const scrollRef = useRef({ target: 0, current: 0, velocity: 0 });
   const inputRef = useRef({ isDown: false, lastX: 0, startX: 0 });
   const hoverRef = useRef({
@@ -617,7 +501,6 @@ export function WorkClothStripScene() {
     };
   }, []);
 
-  // ── Textures ──
   const [textures, setTextures] = useState(null);
 
   const fallbackTextures = useMemo(
@@ -645,7 +528,6 @@ export function WorkClothStripScene() {
       .catch(() => {});
   }, []);
 
-  // ── Geometry (rebuilt when arc config changes) ──
   const geometry = useMemo(
     () =>
       buildArcGeometry(
@@ -670,7 +552,6 @@ export function WorkClothStripScene() {
     [arcConfig.arcSpan, arcConfig.stripHeight],
   );
 
-  // ── Create TSL material ──
   const [tslMaterial, setTslMaterial] = useState(null);
   const activeTextures = textures || fallbackTextures;
 
@@ -698,7 +579,6 @@ export function WorkClothStripScene() {
     };
   }, [gl, activeTextures, stripConfig]);
 
-  // ── Per-frame updates ──
   useFrame((state) => {
     const sys = systemRef.current;
     if (!sys) return;
@@ -706,13 +586,9 @@ export function WorkClothStripScene() {
     const time = state.clock.getElapsedTime();
     const u = sys.uniforms;
     const hover = hoverRef.current;
-
-    // Smooth scroll
     const s = scrollRef.current;
     s.current += (s.target - s.current) * 0.08;
     s.velocity *= 0.97;
-
-    // Smooth hover gust
     hover.currentStrength +=
       (hover.targetStrength - hover.currentStrength) * (hover.active ? 0.135 : 0.07);
     hover.currentUv.lerp(hover.targetUv, hover.active ? 0.18 : 0.07);
@@ -724,7 +600,6 @@ export function WorkClothStripScene() {
       hover.targetVelocity.set(0, 0);
     }
 
-    // Update uniforms
     u.uTime.value = time;
     u.uScrollOffset.value = s.current;
     if ("uHoverUv" in u) {
@@ -742,7 +617,6 @@ export function WorkClothStripScene() {
     u.uWaveAmplitude.value = wind.waveAmplitude;
     u.uWaveFrequency.value = wind.waveFrequency;
 
-    // Update title based on center item
     const centerU = 0.5 * ITEMS_ON_STRIP + s.current;
     const centerIdx = ((Math.floor(centerU) % NUM_UNIQUE) + NUM_UNIQUE) % NUM_UNIQUE;
     const newTitle = workItems[centerIdx]?.title || "";
@@ -795,7 +669,6 @@ export function WorkClothStripScene() {
   };
 
   const handleStripClick = (e) => {
-    // Ignore drags (>8px movement)
     if (inputRef.current.dragDist > 8) return;
     if (!e.uv) return;
     e.stopPropagation();
@@ -803,7 +676,6 @@ export function WorkClothStripScene() {
     const totalU = e.uv.x * ITEMS_ON_STRIP + scrollRef.current.current;
     const itemFract = totalU - Math.floor(totalU);
     const halfGap = GAP_SIZE * 0.5;
-    // Click landed in a gap between items
     if (itemFract < halfGap || itemFract > 1 - halfGap) return;
 
     navigateTo("/film");

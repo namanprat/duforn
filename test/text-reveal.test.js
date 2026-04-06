@@ -19,8 +19,8 @@ describe("text reveal titles", () => {
 
     const state = prepareRevealTitle(title);
 
-    expect(state.clip.className).toBe("reveal-title__clip");
-    expect(title.querySelector(".reveal-title__text")).not.toBeNull();
+    expect(state.clip.className).toBe("reveal-title-clip");
+    expect(title.querySelector(".reveal-title-text")).not.toBeNull();
     expect(getRevealTitleCharacters(title)).toHaveLength(5);
     expect(title.getAttribute("aria-label")).toBe("Hello");
   });
@@ -48,7 +48,7 @@ describe("text reveal titles", () => {
     cleanupSplits();
 
     expect(title.textContent).toBe("Archive");
-    expect(title.querySelector(".reveal-title__clip")).toBeNull();
+    expect(title.querySelector(".reveal-title-clip")).toBeNull();
     expect(title.hasAttribute("aria-label")).toBe(false);
   });
 });
