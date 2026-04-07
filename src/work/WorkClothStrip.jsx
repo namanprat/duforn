@@ -9,10 +9,11 @@ import { workItems } from "../../data/work-items.js";
 import { navigateTo } from "../lib/navigationBridge.js";
 import { isWebGPURenderer } from "../components/webgl/createWebGPURenderer.js";
 import { logWebGPUOnce } from "../lib/webgpu/debugWebGPU.js";
+import { useWorkSceneControlsStore } from "../store/workSceneControls.js";
+import { DEFAULT_GAP_SIZE, DEFAULT_VISIBLE_ITEMS } from "./workStripConfig.js";
+import { getActiveStripItemIndex, resolveVisibleSlotAtUv } from "./workStripMath.js";
 
 const NUM_UNIQUE = 6;
-const ITEMS_ON_STRIP = 11;
-const GAP_SIZE = 0.03;
 
 const COLS = 96;
 const ROWS = 48;
@@ -82,7 +83,6 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
     cross,
     dot,
     max,
-    min,
     mix,
     step,
     pow,
@@ -134,6 +134,7 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
 
   const vWorldPos = varying(vec3(0), "vWorldPos");
   const vLooseness = varying(float(0), "vLooseness");
+  const vHoverInfluence = varying(float(0), "vHoverInfluence");
 
   const vertexFn = Fn(() => {
     const pos = positionLocal.toVar();
@@ -151,20 +152,17 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
       .mul(0.5)
       .add(0.5);
     const hoverDelta = uvCoord.sub(uniforms.uHoverUv);
-    const hoverDistance = length(vec2(hoverDelta.x.mul(1.35), hoverDelta.y.mul(0.9)));
-    const hoverCore = float(1).sub(
-      smoothstep(uniforms.uHoverRadius.mul(0.22), uniforms.uHoverRadius, hoverDistance),
-    );
+    const hoverDistance = length(vec2(hoverDelta.x.mul(1.08), hoverDelta.y.mul(0.98)));
+    const hoverRadius = max(uniforms.uHoverRadius, float(0.001));
+    const hoverCore = float(1).sub(smoothstep(float(0), hoverRadius, hoverDistance));
     const hoverAnchorMask = smoothstep(float(0.18), float(0.92), v);
     const hoverPresence = hoverCore.mul(uniforms.uHoverStrength).mul(hoverAnchorMask);
-    const hoverVelocityLength = min(length(uniforms.uHoverVelocity), float(1.0));
-    const hoverLead = hoverDelta.x
-      .mul(uniforms.uHoverVelocity.x)
-      .add(hoverDelta.y.mul(uniforms.uHoverVelocity.y));
-    const directionalBias = clamp(float(0.7).sub(hoverLead.mul(3.4)), float(0.3), float(1.0));
-    const hoverGust = hoverPresence.mul(
-      mix(float(1.15), directionalBias.add(0.12), hoverVelocityLength),
-    );
+    const hoverRatio = clamp(hoverDistance.div(hoverRadius), float(0), float(1));
+    const hoverDome = hoverPresence.mul(float(1).sub(hoverRatio.mul(hoverRatio)));
+    const hoverSkirt = smoothstep(float(0.58), float(1.0), hoverRatio)
+      .mul(float(1).sub(hoverRatio))
+      .mul(uniforms.uHoverStrength)
+      .mul(hoverAnchorMask);
     const gravitySag = v.mul(v).mul(uniforms.uGravityScale).mul(0.08).mul(looseness);
     const windPush = looseness
       .mul(looseness)
@@ -186,34 +184,18 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
       .mul(looseness)
       .mul(uniforms.uWaveAmplitude)
       .mul(0.15);
-    const hoverLift = hoverGust
-      .mul(uniforms.uWaveAmplitude)
-      .mul(windNoise.mul(0.25).add(0.75))
-      .mul(0.48);
-    const hoverRipple = sin(hoverDistance.mul(24.0).sub(t.mul(6.2)))
-      .mul(
-        cos(
-          u
-            .mul(freq.mul(0.68))
-            .add(v.mul(freq.mul(0.44)))
-            .sub(t.mul(1.45)),
-        ),
-      )
-      .mul(hoverGust)
-      .mul(uniforms.uWaveAmplitude)
-      .mul(0.184);
-    const hoverMicroRipple = sin(hoverDistance.mul(38.0).sub(t.mul(8.2)))
-      .mul(hoverGust)
-      .mul(uniforms.uWaveAmplitude)
-      .mul(0.069);
-    const hoverSway = uniforms.uHoverVelocity.x.mul(hoverGust).mul(looseness).mul(0.075);
+    const hoverLift = hoverDome.mul(uniforms.uWaveAmplitude.mul(0.9).add(float(0.045)));
+    const hoverBlendDown = hoverSkirt.mul(uniforms.uWaveAmplitude.mul(0.22).add(float(0.014)));
+    const hoverLateralSoftness = uniforms.uHoverVelocity.x.mul(hoverDome).mul(looseness).mul(0.018);
 
     pos.y.subAssign(gravitySag);
     pos.z.addAssign(waveDisp.add(flutter));
     pos.z.addAssign(windPush);
-    pos.z.addAssign(hoverLift.add(hoverRipple).add(hoverMicroRipple));
+    pos.z.addAssign(hoverLift.sub(hoverBlendDown));
     const lateralSway = sin(time.mul(0.18)).mul(looseness).mul(0.04);
-    pos.x.addAssign(lateralSway.add(hoverSway));
+    pos.x.addAssign(lateralSway.add(hoverLateralSoftness));
+
+    vHoverInfluence.assign(hoverDome);
 
     vWorldPos.assign(modelWorldMatrix.mul(vec4(pos, 1)).xyz);
     return pos;
@@ -292,7 +274,12 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
       .mul(sssScatter)
       .mul(uniforms.uSubsurfaceStr)
       .mul(looseness.mul(0.6).add(0.4));
-    const finalColor = diffuse.add(specular.mul(0.3)).add(sheenContrib).add(subsurface).toVar();
+    const hoverSpecularBoost = vHoverInfluence.mul(0.06);
+    const finalColor = diffuse
+      .add(specular.mul(0.3).add(uniforms.uSheenColor.mul(hoverSpecularBoost)))
+      .add(sheenContrib)
+      .add(subsurface)
+      .toVar();
     const foldDeviation = float(1).sub(
       max(float(0), dot(normalize(foldNormal), normalize(geomNormal))),
     );
@@ -333,6 +320,10 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
     uGapSize: { value: stripConfig.gapSize },
     uItemsOnStrip: { value: stripConfig.itemsOnStrip },
     uNumUnique: { value: stripConfig.numUnique },
+    uHoverUv: { value: new THREE.Vector2(0.5, 0.5) },
+    uHoverStrength: { value: 0 },
+    uHoverVelocity: { value: new THREE.Vector2(0, 0) },
+    uHoverRadius: { value: 0.28 },
     uWaveAmplitude: { value: 0.08 },
     uWaveFrequency: { value: 13.0 },
     uWindStrength: { value: 5.5 },
@@ -354,9 +345,14 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
       uniform float uWaveAmplitude;
       uniform float uWaveFrequency;
       uniform float uWindStrength;
+      uniform vec2 uHoverUv;
+      uniform vec2 uHoverVelocity;
+      uniform float uHoverStrength;
+      uniform float uHoverRadius;
 
       varying vec2 vUv;
       varying float vLooseness;
+      varying float vHoverInfluence;
 
       void main() {
         vUv = uv;
@@ -368,10 +364,23 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
         float wave1 = sin(uv.x * uWaveFrequency - uTime * (2.0 + wind)) * looseness;
         float wave2 = sin((uv.x + uv.y) * (uWaveFrequency * 0.7) - uTime * 1.8) * looseness * 0.5;
         float flutter = sin(uv.x * (uWaveFrequency * 2.5) - uTime * 4.0) * looseness * looseness * 0.18;
+        vec2 hoverDelta = uv - uHoverUv;
+        float hoverRadius = max(uHoverRadius, 0.0001);
+        float hoverDistance = length(vec2(hoverDelta.x * 1.08, hoverDelta.y * 0.98));
+        float hoverCore = 1.0 - smoothstep(0.0, hoverRadius, hoverDistance);
+        float hoverRatio = clamp(hoverDistance / hoverRadius, 0.0, 1.0);
+        float hoverAnchorMask = smoothstep(0.18, 0.92, uv.y);
+        float hoverPresence = hoverCore * uHoverStrength * hoverAnchorMask;
+        float hoverDome = hoverPresence * (1.0 - hoverRatio * hoverRatio);
+        float hoverSkirt = smoothstep(0.58, 1.0, hoverRatio) * (1.0 - hoverRatio) * uHoverStrength * hoverAnchorMask;
 
         pos.y -= uv.y * uv.y * 0.16;
         pos.z += (wave1 + wave2) * uWaveAmplitude + flutter;
+        pos.z += hoverDome * (uWaveAmplitude * 0.9 + 0.045);
+        pos.z -= hoverSkirt * (uWaveAmplitude * 0.22 + 0.014);
         pos.x += sin(uTime * 0.18) * looseness * 0.04;
+        pos.x += uHoverVelocity.x * hoverDome * looseness * 0.018;
+        vHoverInfluence = hoverDome;
 
         gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
       }
@@ -390,6 +399,7 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
 
       varying vec2 vUv;
       varying float vLooseness;
+      varying float vHoverInfluence;
 
       vec3 sampleStripTexture(int index, vec2 coord) {
         if (index == 0) return texture2D(uTex0, coord).rgb;
@@ -421,7 +431,8 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
 
         float light = 0.75 + vLooseness * 0.2 + (1.0 - abs(vUv.x - 0.5) * 2.0) * 0.08;
         float rim = pow(1.0 - abs(vUv.x - 0.5) * 2.0, 2.0) * 0.05;
-        gl_FragColor = vec4(color * light + rim, 1.0);
+        vec3 hoverSpecular = vec3(vHoverInfluence * 0.06);
+        gl_FragColor = vec4(color * light + rim + hoverSpecular, 1.0);
       }
     `,
   });
@@ -431,18 +442,48 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
 
 export function WorkClothStripScene() {
   const { gl } = useThree();
-  const meshRef = useRef();
   const systemRef = useRef(null);
-  const strip = { x: 0.0, y: -0.4, z: -4.6, scale: 0.55 };
-  const cloth = { roughness: 0.7, sheenR: 0.93, sheenG: 0.92, sheenB: 0.9, subsurfaceStr: 0.35 };
-  const wind = {
-    windStrength: 5.5,
-    waveAmplitude: 0.08,
-    waveFrequency: 13.0,
-    gravityScale: 2.0,
-    clothSolidity: 14.0,
+  const stripControls = useWorkSceneControlsStore((state) => state.controls.strip);
+  const visibleItems = Math.max(1, stripControls.visibleItems ?? DEFAULT_VISIBLE_ITEMS);
+  const gapSize = stripControls.gapSize ?? DEFAULT_GAP_SIZE;
+  const strip = {
+    x: stripControls.x,
+    y: stripControls.y,
+    z: stripControls.z,
+    scale: stripControls.scale,
   };
-  const arcConfig = { arcRadius: 14.0, arcSpan: 2.8, stripHeight: 4.46, stripYOffset: -1.2 };
+  const cloth = {
+    roughness: stripControls.roughness,
+    sheenR: stripControls.sheenR,
+    sheenG: stripControls.sheenG,
+    sheenB: stripControls.sheenB,
+    subsurfaceStr: stripControls.subsurfaceStr,
+  };
+  const wind = {
+    windStrength: stripControls.windStrength,
+    waveAmplitude: stripControls.waveAmplitude,
+    waveFrequency: stripControls.waveFrequency,
+    gravityScale: stripControls.gravityScale,
+    clothSolidity: Math.max(0.0001, stripControls.constraintMix * 14.0),
+    hoverStrength: stripControls.hoverStrength,
+    hoverRadius: stripControls.hoverRadius,
+    hoverRadiusBoost: stripControls.hoverRadiusBoost,
+    wheelSensitivity: stripControls.wheelSensitivity,
+    dragSensitivity: stripControls.dragSensitivity,
+    dragVelocityScale: stripControls.dragVelocityScale,
+    scrollLerp: stripControls.scrollLerp,
+    scrollDamping: stripControls.scrollDamping,
+    scrollDraggingDamping: stripControls.scrollDraggingDamping,
+    snapVelocityThreshold: stripControls.snapVelocityThreshold,
+    snapLerp: stripControls.snapLerp,
+    snapEpsilon: stripControls.snapEpsilon,
+  };
+  const arcConfig = {
+    arcRadius: stripControls.curveRadius,
+    arcSpan: stripControls.curveAmount,
+    stripHeight: stripControls.stripHeight,
+    stripYOffset: stripControls.stripYOffset,
+  };
   const scrollRef = useRef({ target: 0, current: 0, velocity: 0 });
   const inputRef = useRef({ isDown: false, lastX: 0, startX: 0 });
   const hoverRef = useRef({
@@ -459,11 +500,13 @@ export function WorkClothStripScene() {
   const currentTitleRef = useRef("");
 
   useEffect(() => {
+    const element = gl.domElement;
+
     const onWheel = (e) => {
       e.preventDefault();
       const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-      scrollRef.current.target += delta * 0.004;
-      scrollRef.current.velocity += delta * 0.004 * 0.24;
+      scrollRef.current.target += delta * wind.wheelSensitivity;
+      scrollRef.current.velocity += delta * wind.wheelSensitivity * 0.24;
     };
 
     const onPointerDown = (e) => {
@@ -481,25 +524,25 @@ export function WorkClothStripScene() {
       const dx = e.clientX - inputRef.current.lastX;
       inputRef.current.dragDist = (inputRef.current.dragDist || 0) + Math.abs(dx);
       inputRef.current.lastX = e.clientX;
-      scrollRef.current.target -= dx * 0.008;
-      scrollRef.current.velocity = -dx * 0.008;
+      scrollRef.current.target -= dx * wind.dragSensitivity;
+      scrollRef.current.velocity = -dx * wind.dragVelocityScale;
     };
 
     const onPointerUp = () => {
       inputRef.current.isDown = false;
     };
 
-    window.addEventListener("wheel", onWheel, { passive: false });
-    window.addEventListener("pointerdown", onPointerDown);
+    element.addEventListener("wheel", onWheel, { passive: false });
+    element.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onPointerUp);
     return () => {
-      window.removeEventListener("wheel", onWheel);
-      window.removeEventListener("pointerdown", onPointerDown);
+      element.removeEventListener("wheel", onWheel);
+      element.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
     };
-  }, []);
+  }, [gl, wind.dragSensitivity, wind.dragVelocityScale, wind.wheelSensitivity]);
 
   const [textures, setTextures] = useState(null);
 
@@ -543,13 +586,13 @@ export function WorkClothStripScene() {
 
   const stripConfig = useMemo(
     () => ({
-      itemsOnStrip: ITEMS_ON_STRIP,
+      itemsOnStrip: visibleItems,
       numUnique: NUM_UNIQUE,
-      gapSize: GAP_SIZE,
+      gapSize,
       arcSpan: arcConfig.arcSpan,
       stripHeight: arcConfig.stripHeight,
     }),
-    [arcConfig.arcSpan, arcConfig.stripHeight],
+    [arcConfig.arcSpan, arcConfig.stripHeight, gapSize, visibleItems],
   );
 
   const [tslMaterial, setTslMaterial] = useState(null);
@@ -587,13 +630,22 @@ export function WorkClothStripScene() {
     const u = sys.uniforms;
     const hover = hoverRef.current;
     const s = scrollRef.current;
-    s.current += (s.target - s.current) * 0.08;
-    s.velocity *= 0.97;
+    const isDragging = inputRef.current.isDown;
+    s.current += (s.target - s.current) * wind.scrollLerp;
+    s.velocity *= isDragging ? wind.scrollDraggingDamping : wind.scrollDamping;
+    if (!isDragging && Math.abs(s.velocity) < wind.snapVelocityThreshold) {
+      const snapTarget = Math.round(s.target);
+      if (Math.abs(snapTarget - s.target) > wind.snapEpsilon) {
+        s.target += (snapTarget - s.target) * wind.snapLerp;
+      } else {
+        s.target = snapTarget;
+      }
+    }
     hover.currentStrength +=
       (hover.targetStrength - hover.currentStrength) * (hover.active ? 0.135 : 0.07);
     hover.currentUv.lerp(hover.targetUv, hover.active ? 0.18 : 0.07);
-    hover.currentVelocity.lerp(hover.targetVelocity, hover.active ? 0.16 : 0.08);
-    hover.targetVelocity.multiplyScalar(hover.active ? 0.88 : 0.74);
+    hover.currentVelocity.lerp(hover.targetVelocity, hover.active ? 0.1 : 0.06);
+    hover.targetVelocity.multiplyScalar(hover.active ? 0.7 : 0.55);
     if (!hover.active && hover.currentStrength < 0.001) {
       hover.currentStrength = 0;
       hover.currentVelocity.set(0, 0);
@@ -611,14 +663,14 @@ export function WorkClothStripScene() {
       u.uRoughness.value = cloth.roughness;
       u.uSheenColor.value.setRGB(cloth.sheenR, cloth.sheenG, cloth.sheenB);
       u.uSubsurfaceStr.value = cloth.subsurfaceStr;
+      u.uHoverRadius.value = wind.hoverRadius + hover.currentStrength * wind.hoverRadiusBoost;
     }
 
     u.uWindStrength.value = wind.windStrength;
     u.uWaveAmplitude.value = wind.waveAmplitude;
     u.uWaveFrequency.value = wind.waveFrequency;
 
-    const centerU = 0.5 * ITEMS_ON_STRIP + s.current;
-    const centerIdx = ((Math.floor(centerU) % NUM_UNIQUE) + NUM_UNIQUE) % NUM_UNIQUE;
+    const centerIdx = getActiveStripItemIndex(s.current, visibleItems, gapSize, NUM_UNIQUE);
     const newTitle = workItems[centerIdx]?.title || "";
     if (newTitle !== currentTitleRef.current) {
       currentTitleRef.current = newTitle;
@@ -639,10 +691,10 @@ export function WorkClothStripScene() {
     const dy = uv.y - hover.lastUv.y;
 
     hover.active = true;
-    hover.targetStrength = 1.25;
+    hover.targetStrength = wind.hoverStrength;
     hover.targetUv.set(uv.x, uv.y);
 
-    const velocityScale = 2.8;
+    const velocityScale = 5.2;
     hover.targetVelocity.set(
       THREE.MathUtils.clamp(dx / dt / velocityScale, -1, 1),
       THREE.MathUtils.clamp(dy / dt / velocityScale, -1, 1),
@@ -673,18 +725,23 @@ export function WorkClothStripScene() {
     if (!e.uv) return;
     e.stopPropagation();
 
-    const totalU = e.uv.x * ITEMS_ON_STRIP + scrollRef.current.current;
-    const itemFract = totalU - Math.floor(totalU);
-    const halfGap = GAP_SIZE * 0.5;
-    if (itemFract < halfGap || itemFract > 1 - halfGap) return;
+    const resolvedSlot = resolveVisibleSlotAtUv(
+      e.uv.x,
+      scrollRef.current.current,
+      visibleItems,
+      gapSize,
+      NUM_UNIQUE,
+    );
+    if (!resolvedSlot) return;
 
-    navigateTo("/film");
+    const href = workItems[resolvedSlot.itemIndex]?.href;
+    if (!href) return;
+    navigateTo(href);
   };
 
   return (
     <group position={[strip.x, strip.y, strip.z]} scale={strip.scale}>
       <mesh
-        ref={meshRef}
         geometry={geometry}
         material={tslMaterial}
         frustumCulled={false}

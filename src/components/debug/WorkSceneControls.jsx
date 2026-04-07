@@ -240,6 +240,7 @@ export default function WorkSceneControls() {
 
   return (
     <aside
+      data-work-scene-controls="true"
       style={{
         position: "fixed",
         top: 88,
