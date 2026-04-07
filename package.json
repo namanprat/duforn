@@ -28,7 +28,6 @@
     "@react-three/drei": "^10.7.6",
     "@react-three/fiber": "^9.4.0",
     "@react-three/postprocessing": "^3.0.4",
-    "@voidzero-dev/vite-plus-test": "^0.1.14",
     "gsap": "^3.14.2",
     "lenis": "^1.1.13",
     "postprocessing": "^6.38.3",
@@ -41,16 +40,16 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^6.0.1",
-    "@vitest/coverage-v8": "^4.1.0",
-    "@vitest/ui": "^4.0.18",
+    "@vitest/coverage-v8": "^4.1.1",
+    "@vitest/ui": "^4.1.1",
     "happy-dom": "^20.6.1",
     "vite": "npm:@voidzero-dev/vite-plus-core@latest",
     "vite-plus": "^0.1.14",
-    "vitest": "npm:@voidzero-dev/vite-plus-test@latest"
+    "vitest": "npm:@voidzero-dev/vite-plus-test@0.1.14"
   },
   "overrides": {
     "vite": "npm:@voidzero-dev/vite-plus-core@latest",
-    "vitest": "npm:@voidzero-dev/vite-plus-test@latest"
+    "vitest": "npm:@voidzero-dev/vite-plus-test@0.1.14"
   },
   "packageManager": "npm@11.12.0",
   "staged": {
