@@ -35,6 +35,7 @@ const TITLES = {
   "/contact": "Duforn | Contact",
   "/archive": "Duforn | Archive",
   "/money-me": "Duforn | money.me Project Details",
+  "/404": "Duforn | 404",
 };
 
 const PATH_TO_NAMESPACE = {
@@ -43,6 +44,7 @@ const PATH_TO_NAMESPACE = {
   "/contact": "contact",
   "/archive": "archive",
   "/money-me": "projectDetail",
+  "/404": "notFound",
 };
 
 const REVEAL_START_DELAY_MS = 400;
@@ -281,6 +283,7 @@ export default function App() {
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/archive" element={<ArchivePage />} />
         <Route path="/money-me" element={<ProjectDetailPage />} />
+        <Route path="/404" element={<NotFoundPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
