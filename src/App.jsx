@@ -1,13 +1,13 @@
 import React, { useEffect, useRef } from "react";
-import { Navigate, Route, Routes, useLocation, useNavigate, useOutlet } from "react-router-dom";
+import { Route, Routes, useLocation, useNavigate, useOutlet } from "react-router-dom";
 
 import SiteLayout from "./components/layout/SiteLayout.jsx";
 import HomePage from "./routes/HomePage.jsx";
 import WorkPage from "./routes/WorkPage.jsx";
 import ContactPage from "./routes/ContactPage.jsx";
 import ArchivePage from "./routes/ArchivePage.jsx";
-import FilmPage from "./routes/FilmPage.jsx";
-import MoneyMePage from "./routes/MoneyMePage.jsx";
+import ProjectDetailPage from "./routes/ProjectDetailPage.jsx";
+import NotFoundPage from "./routes/NotFoundPage.jsx";
 
 import { useWebglStore } from "./store/webgl.js";
 import { initLinkHover, destroyLinkHover } from "../scripts/link-hover.js";
@@ -34,7 +34,6 @@ const TITLES = {
   "/work": "Duforn | Work",
   "/contact": "Duforn | Contact",
   "/archive": "Duforn | Archive",
-  "/film": "Duforn | Project Details",
   "/money-me": "Duforn | money.me Project Details",
 };
 
@@ -43,9 +42,10 @@ const PATH_TO_NAMESPACE = {
   "/work": "work",
   "/contact": "contact",
   "/archive": "archive",
-  "/film": "projectDetail",
   "/money-me": "projectDetail",
 };
+
+const REVEAL_START_DELAY_MS = 400;
 
 function normalizePath(pathname) {
   // Strip trailing slashes so route lookups stay stable.
@@ -54,12 +54,18 @@ function normalizePath(pathname) {
 }
 
 function getNamespace(pathname) {
-  return PATH_TO_NAMESPACE[normalizePath(pathname)] || "home";
+  return PATH_TO_NAMESPACE[normalizePath(pathname)] || "notFound";
 }
 
 function applyBodyRouteClasses(namespace) {
   document.body.classList.add("page-wrap");
   document.body.classList.toggle("page-wrap--scrollable", namespace === "projectDetail");
+}
+
+function waitForRevealDelay(ms = REVEAL_START_DELAY_MS) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
 }
 
 function useClock() {
@@ -158,6 +164,7 @@ function AppShell() {
       if (!container) return;
 
       await prepareRouteReveal(container);
+      await waitForRevealDelay();
       await runRouteEnter(container);
       window.__refreshLinkHover?.();
     };
@@ -202,7 +209,7 @@ function AppShell() {
   }, []);
 
   useEffect(() => {
-    document.title = TITLES[currentPath] || "Duforn";
+    document.title = TITLES[currentPath] || "Duforn | 404";
     const previousPath = previousPathRef.current;
     const previousNamespace = getNamespace(previousPath);
     const shouldAnimateCanvas = getCanvasKey(previousNamespace) !== getCanvasKey(namespace);
@@ -235,10 +242,15 @@ function AppShell() {
           ? document.querySelector('[data-active-canvas="true"]')
           : null,
       });
-      runRouteEnter(live, REVEAL_OPTS).then(() => {
-        if (cancelled) return;
-        window.__refreshLinkHover?.();
-      });
+      waitForRevealDelay()
+        .then(() => {
+          if (cancelled) return Promise.resolve();
+          return runRouteEnter(live, REVEAL_OPTS);
+        })
+        .then(() => {
+          if (cancelled) return;
+          window.__refreshLinkHover?.();
+        });
       if (namespace === "projectDetail" && live) {
         initScrollReveals(live);
       }
@@ -268,9 +280,8 @@ export default function App() {
         <Route path="/work" element={<WorkPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/archive" element={<ArchivePage />} />
-        <Route path="/film" element={<FilmPage />} />
-        <Route path="/money-me" element={<MoneyMePage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="/money-me" element={<ProjectDetailPage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
   );

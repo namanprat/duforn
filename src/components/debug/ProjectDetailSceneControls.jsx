@@ -22,7 +22,6 @@ const CONTROL_SECTIONS = [
         max: 0.4,
         step: 0.005,
       },
-      { path: "effects.grain", label: "Grain", min: 0, max: 0.08, step: 0.001 },
       {
         path: "effects.chromaticShift",
         label: "Chromatic",

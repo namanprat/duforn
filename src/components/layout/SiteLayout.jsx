@@ -1,15 +1,21 @@
-import React, { useRef, useEffect, useState, useCallback } from "react";
+import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { useLocation } from "react-router-dom";
+import gsap from "gsap";
+import { attachLinkHoverEffect } from "../../../scripts/link-hover.js";
 import { navigateTo } from "../../lib/navigationBridge.js";
-import GlobalCanvas from "../webgl/GlobalCanvas.jsx";
-import WorkCanvas from "../webgl/WorkCanvas.jsx";
+import UnifiedCanvas from "../webgl/UnifiedCanvas.jsx";
 import { useWebglStore } from "../../store/webgl.js";
 import { useLoadingStore } from "../../store/loading.js";
+import { requestDeviceOrientationPermission } from "../../../scripts/runtime/motion.js";
 
 function NavLink({ to, className, children, ...props }) {
   const location = useLocation();
+  const { onClick: onClickProp, ...restProps } = props;
 
   const handleClick = (e) => {
+    onClickProp?.(e);
+    if (e.defaultPrevented) return;
+
     // Allow default behavior for modifier keys (open in new tab, etc.)
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
       return;
@@ -32,22 +38,31 @@ function NavLink({ to, className, children, ...props }) {
       className={className}
       onClick={handleClick}
       aria-current={isActive ? "page" : undefined}
-      {...props}
+      {...restProps}
     >
       {children}
     </a>
   );
 }
 
-function ReceiptMenu() {
+function ReceiptMenu({
+  isMenuOpen,
+  menuRef,
+  menuTimestamp,
+  receiptContextLine,
+  onCloseMenu,
+  onBackdropClick,
+}) {
   return (
     <div
-      className="menu-wrap"
+      className={`menu-wrap${isMenuOpen ? " is-open" : ""}`}
+      ref={menuRef}
       id="site-menu"
       role="dialog"
       aria-modal="true"
       aria-label="Site menu"
-      aria-hidden="true"
+      aria-hidden={!isMenuOpen}
+      onClick={onBackdropClick}
     >
       <div className="menu-content u-container-full">
         <div className="menu-box u-flex-vertical-nowrap u-justify-content-center">
@@ -82,25 +97,25 @@ function ReceiptMenu() {
               <div className="receipt-divider" />
               <div className="receipt-meta">
                 <p id="receipt-datetime" className="u-text-align-center">
-                  SUN 31/04/24 11:36:49 AM
+                  {menuTimestamp}
                 </p>
-                <p className="u-text-align-center">** SHOPPING BAG **</p>
+                <p className="u-text-align-center">{receiptContextLine}</p>
               </div>
               <div className="receipt-divider" />
             </div>
 
             <div className="menu-item-contain u-flex-vertical-nowrap u-width-full">
-              <NavLink className="menu-item" to="/work">
+              <NavLink className="menu-item" to="/work" onClick={onCloseMenu}>
                 <span className="menu-item-label">WORK</span>
                 <div className="receipt-dots" aria-hidden="true" />
                 <span className="menu-item-index">01</span>
               </NavLink>
-              <NavLink className="menu-item" to="/contact">
+              <NavLink className="menu-item" to="/contact" onClick={onCloseMenu}>
                 <span className="menu-item-label">CONTACT</span>
                 <div className="receipt-dots" aria-hidden="true" />
                 <span className="menu-item-index">02</span>
               </NavLink>
-              <NavLink className="menu-item" to="/archive">
+              <NavLink className="menu-item" to="/archive" onClick={onCloseMenu}>
                 <span className="menu-item-label">ARCHIVE</span>
                 <div className="receipt-dots" aria-hidden="true" />
                 <span className="menu-item-index">03</span>
@@ -120,6 +135,12 @@ function ReceiptMenu() {
               </div>
               <div className="receipt-star" aria-hidden="true" />
             </div>
+            <button type="button" className="receipt-close" onClick={onCloseMenu}>
+              <span className="receipt-close-text">CLOSE RECEIPT</span>
+              <span className="receipt-close-arrow" aria-hidden="true">
+                x
+              </span>
+            </button>
           </div>
           <img
             src="/menu/bill-top.svg"
@@ -134,37 +155,108 @@ function ReceiptMenu() {
   );
 }
 
-function getCanvasKey(page) {
-  if (page === "work") return page;
-  return "global"; // home + contact + archive share GlobalCanvas
-}
-
-function PageCanvas({ activePage }) {
-  switch (activePage) {
-    case "work":
-      return <WorkCanvas />;
-    default:
-      return <GlobalCanvas activePage={activePage} />;
-  }
-}
-
 export default function SiteLayout({ children }) {
+  const location = useLocation();
   const activePage = useWebglStore((s) => s.activePage);
+  const setGyroEnabled = useWebglStore((s) => s.setGyroEnabled);
   const phase = useLoadingStore((s) => s.phase);
   const [preloaderFading, setPreloaderFading] = useState(false);
   const [preloaderVisible, setPreloaderVisible] = useState(true);
-  const [displayedPage, setDisplayedPage] = useState(activePage);
-  const [transitioning, setTransitioning] = useState(false);
-  const prevPageRef = useRef(activePage);
+  const [introRingComplete, setIntroRingComplete] = useState(false);
+  const [permissionsPending, setPermissionsPending] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [menuTimestamp, setMenuTimestamp] = useState("SUN 31/04/24 11:36:49 AM");
   const preloaderTimerRef = useRef(0);
+  const introTimelineRef = useRef(null);
+  const preloaderRef = useRef(null);
+  const strokeTrackRef = useRef(null);
+  const strokeProgressRef = useRef(null);
+  const enterLabelRef = useRef(null);
+  const menuRef = useRef(null);
+  const menuToggleRef = useRef(null);
+  const previouslyFocusedElementRef = useRef(null);
+  const previousIsMenuOpenRef = useRef(false);
+  const menuAudioContextRef = useRef(null);
 
   useEffect(() => {
     document.body.classList.toggle("preloader-active", preloaderVisible);
     return () => document.body.classList.remove("preloader-active");
   }, [preloaderVisible]);
 
+  const triggerMenuHaptics = useCallback(() => {
+    if (typeof window === "undefined" || typeof navigator === "undefined") return;
+    if (typeof navigator.vibrate !== "function") return;
+    navigator.vibrate(8);
+  }, []);
+
+  const playMenuSound = useCallback(() => {
+    try {
+      let audioContext = menuAudioContextRef.current;
+      if (!audioContext) {
+        const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextCtor) return;
+        audioContext = new AudioContextCtor();
+        menuAudioContextRef.current = audioContext;
+      }
+
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.type = "triangle";
+      oscillator.frequency.value = 980;
+      gain.gain.value = 0.0001;
+      oscillator.connect(gain);
+      gain.connect(audioContext.destination);
+      const startTime = audioContext.currentTime;
+      const endTime = startTime + 0.06;
+      gain.gain.exponentialRampToValueAtTime(0.035, startTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, endTime);
+      oscillator.start(startTime);
+      oscillator.stop(endTime);
+    } catch {
+      // Audio is optional enhancement.
+    }
+  }, []);
+
+  const updateMenuTimestamp = useCallback(() => {
+    const now = new Date();
+    const weekday = now.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
+    const date = now.toLocaleDateString("en-GB");
+    const time = now.toLocaleTimeString("en-US", { hour12: true });
+    setMenuTimestamp(`${weekday} ${date} ${time}`);
+  }, []);
+
+  const receiptContextLine = useMemo(() => {
+    const labelMap = {
+      "/": "HOME",
+      "/work": "WORK",
+      "/contact": "CONTACT",
+      "/archive": "ARCHIVE",
+    };
+    const activeLabel = labelMap[location.pathname] ?? "PROJECT DETAIL";
+    return `** RECEIPT MODE : ${activeLabel} **`;
+  }, [location.pathname]);
+
+  const closeMenu = useCallback(() => {
+    setIsMenuOpen(false);
+  }, []);
+
+  const openMenu = useCallback(() => {
+    previouslyFocusedElementRef.current = document.activeElement;
+    updateMenuTimestamp();
+    setIsMenuOpen(true);
+    triggerMenuHaptics();
+    playMenuSound();
+  }, [playMenuSound, triggerMenuHaptics, updateMenuTimestamp]);
+
+  const toggleMenu = useCallback(() => {
+    if (isMenuOpen) {
+      closeMenu();
+      return;
+    }
+    openMenu();
+  }, [closeMenu, isMenuOpen, openMenu]);
+
   const dismissPreloader = useCallback(() => {
-    if (phase !== "ready") return;
     if (!preloaderVisible || preloaderFading) return;
 
     setPreloaderFading(true);
@@ -178,18 +270,143 @@ export default function SiteLayout({ children }) {
         }),
       );
     }, 600);
-  }, [phase, preloaderFading, preloaderVisible]);
+  }, [preloaderFading, preloaderVisible]);
 
   useEffect(() => {
-    const onKeyDown = (event) => {
-      if (event.key !== "Enter") return;
-      event.preventDefault();
-      dismissPreloader();
-    };
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [dismissPreloader]);
+    if (prefersReducedMotion) {
+      setIntroRingComplete(true);
+      return undefined;
+    }
+
+    if (!preloaderVisible) return undefined;
+    if (!preloaderRef.current || !strokeTrackRef.current || !strokeProgressRef.current)
+      return undefined;
+
+    const track = strokeTrackRef.current;
+    const progress = strokeProgressRef.current;
+    const pathLength = track.getTotalLength();
+    const ctx = gsap.context(() => {
+      gsap.set([track, progress], {
+        strokeDasharray: pathLength,
+        strokeDashoffset: pathLength,
+      });
+      gsap.set(preloaderRef.current, {
+        clipPath: "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)",
+        scale: 1,
+      });
+
+      const tl = gsap.timeline({
+        delay: 0.25,
+        onComplete: () => {
+          setIntroRingComplete(true);
+        },
+      });
+      introTimelineRef.current = tl;
+      tl.to(
+        track,
+        {
+          strokeDashoffset: 0,
+          duration: 2,
+          ease: "power3.inOut",
+        },
+        0.1,
+      )
+        .to(
+          ".intro-preloader .intro-preloader-ring svg",
+          {
+            rotation: 270,
+            duration: 2,
+            ease: "power3.inOut",
+          },
+          0.1,
+        )
+        .to(
+          progress,
+          {
+            strokeDashoffset: pathLength - pathLength * 0.2,
+            duration: 0.55,
+            ease: "power2.out",
+          },
+          0.65,
+        )
+        .to(progress, {
+          strokeDashoffset: pathLength - pathLength * 0.55,
+          duration: 0.55,
+          ease: "power2.out",
+        })
+        .to(progress, {
+          strokeDashoffset: pathLength - pathLength * 0.85,
+          duration: 0.55,
+          ease: "power2.out",
+        })
+        .to(progress, {
+          strokeDashoffset: 0,
+          duration: 0.5,
+          ease: "power2.out",
+        });
+    }, preloaderRef);
+
+    return () => {
+      introTimelineRef.current?.kill();
+      introTimelineRef.current = null;
+      setIntroRingComplete(false);
+      ctx.revert();
+    };
+  }, [preloaderVisible]);
+
+  useEffect(() => {
+    if (!introRingComplete || !preloaderVisible) return undefined;
+    const el = enterLabelRef.current;
+    if (!el) return undefined;
+    return attachLinkHoverEffect(el, { baseText: "DUFORN", hoverText: "ENTER" });
+  }, [introRingComplete, preloaderVisible]);
+
+  const requestExperiencePermissions = useCallback(async () => {
+    let gyroAllowed = false;
+    let localError = "";
+    try {
+      gyroAllowed = await requestDeviceOrientationPermission();
+    } catch {
+      localError = "Motion permission was blocked; continuing without gyro controls.";
+      gyroAllowed = false;
+    }
+    setGyroEnabled(gyroAllowed);
+
+    try {
+      const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+      if (AudioContextCtor) {
+        const audioContext = new AudioContextCtor();
+        if (audioContext.state !== "running") {
+          await audioContext.resume();
+        }
+      }
+    } catch {
+      if (!localError) {
+        localError = "Audio could not be enabled right now; continuing silently.";
+      }
+    }
+
+    return { gyroAllowed, localError };
+  }, [setGyroEnabled]);
+
+  const handleIntroEnter = useCallback(async () => {
+    if (!introRingComplete || phase !== "ready" || permissionsPending) return;
+    setPermissionsPending(true);
+    await requestExperiencePermissions();
+    setPermissionsPending(false);
+    dismissPreloader();
+  }, [
+    dismissPreloader,
+    introRingComplete,
+    permissionsPending,
+    phase,
+    requestExperiencePermissions,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -200,28 +417,85 @@ export default function SiteLayout({ children }) {
   }, []);
 
   useEffect(() => {
-    if (activePage === prevPageRef.current) return;
-    const prevKey = getCanvasKey(prevPageRef.current);
-    const nextKey = getCanvasKey(activePage);
+    if (!isMenuOpen) return;
+    const interval = window.setInterval(updateMenuTimestamp, 1000);
+    return () => window.clearInterval(interval);
+  }, [isMenuOpen, updateMenuTimestamp]);
 
-    if (prevKey === nextKey) {
-      // Same canvas type (e.g. home↔contact) — no transition needed
-      setDisplayedPage(activePage);
-      prevPageRef.current = activePage;
-    } else {
-      // Different canvas — fade out, swap immediately, fade in
-      setTransitioning(true);
-      // Swap canvas immediately so it can start loading
-      setDisplayedPage(activePage);
-      // Briefly keep opacity 0 to let the new canvas mount, then fade in
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setTransitioning(false);
-          prevPageRef.current = activePage;
-        });
-      });
+  useEffect(() => {
+    closeMenu();
+  }, [closeMenu, location.pathname]);
+
+  useEffect(() => {
+    document.body.classList.toggle("menu-open", isMenuOpen);
+    return () => document.body.classList.remove("menu-open");
+  }, [isMenuOpen]);
+
+  useEffect(() => {
+    const wasOpen = previousIsMenuOpenRef.current;
+    previousIsMenuOpenRef.current = isMenuOpen;
+
+    if (!isMenuOpen) {
+      if (!wasOpen) return;
+      const lastFocused = previouslyFocusedElementRef.current;
+      if (lastFocused && typeof lastFocused.focus === "function") {
+        window.setTimeout(() => lastFocused.focus(), 0);
+      } else {
+        menuToggleRef.current?.focus?.();
+      }
+      return;
     }
-  }, [activePage]);
+
+    const menuElement = menuRef.current;
+    if (!menuElement) return;
+
+    const getFocusable = () =>
+      Array.from(
+        menuElement.querySelectorAll(
+          'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"]), input, select, textarea',
+        ),
+      );
+
+    const focusableElements = getFocusable();
+    const first = focusableElements[0];
+    first?.focus?.();
+
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeMenu();
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+      const nodes = getFocusable();
+      if (!nodes.length) return;
+
+      const firstNode = nodes[0];
+      const lastNode = nodes[nodes.length - 1];
+      const activeElement = document.activeElement;
+
+      if (event.shiftKey && activeElement === firstNode) {
+        event.preventDefault();
+        lastNode.focus();
+      } else if (!event.shiftKey && activeElement === lastNode) {
+        event.preventDefault();
+        firstNode.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [closeMenu, isMenuOpen]);
+
+  const handleMenuBackdropClick = useCallback(
+    (event) => {
+      if (event.target === event.currentTarget) {
+        closeMenu();
+      }
+    },
+    [closeMenu],
+  );
 
   return (
     <>
@@ -231,26 +505,50 @@ export default function SiteLayout({ children }) {
 
       {preloaderVisible && (
         <section
-          className="preloader"
+          className="preloader intro-preloader"
           aria-label="Website preloader"
           data-state={preloaderFading ? "fading" : "visible"}
+          ref={preloaderRef}
         >
-          <div className="preloader-scanline-overlay" aria-hidden="true" />
-          <div className="preloader-inner u-flex-vertical-nowrap u-align-items-center u-justify-content-center">
-            <h1 className="preloader-brand u-text-style-display">DUFORN</h1>
-            <div className="preloader-actions u-flex-vertical-nowrap u-align-items-center">
-              <button
-                type="button"
-                className="preloader-continue-btn"
-                onClick={dismissPreloader}
-                disabled={phase !== "ready"}
+          <div className="intro-preloader-main intro-preloader-main--centered">
+            <button
+              type="button"
+              className="intro-preloader-center-hit"
+              onClick={handleIntroEnter}
+              disabled={!introRingComplete || phase !== "ready" || permissionsPending}
+              aria-label={
+                !introRingComplete
+                  ? "Playing intro animation"
+                  : phase !== "ready"
+                    ? "Loading experience"
+                    : permissionsPending
+                      ? "Requesting device permissions"
+                      : "Enter site"
+              }
+            >
+              <span
+                className={`intro-preloader-action-tagline${introRingComplete ? " intro-preloader-action-tagline--hidden" : ""}`}
               >
-                Enter
-              </button>
-              <p className="preloader-status">
-                {phase === "ready" ? "Press Enter to continue" : "Loading experience..."}
-              </p>
-            </div>
+                DUFORN
+              </span>
+              <span
+                ref={enterLabelRef}
+                className={`intro-preloader-enter-label${introRingComplete ? " intro-preloader-enter-label--active" : ""}`}
+                aria-hidden={!introRingComplete}
+              />
+              <div className="intro-preloader-ring" aria-hidden="true">
+                <svg viewBox="0 0 320 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle className="stroke-track" cx="160" cy="160" r="155" ref={strokeTrackRef} />
+                  <circle
+                    className="stroke-progress"
+                    cx="160"
+                    cy="160"
+                    r="155"
+                    ref={strokeProgressRef}
+                  />
+                </svg>
+              </div>
+            </button>
           </div>
         </section>
       )}
@@ -268,12 +566,14 @@ export default function SiteLayout({ children }) {
               work
             </NavLink>
             <button
+              ref={menuToggleRef}
               className="menu-toggle-btn"
               type="button"
-              aria-label="Open menu"
+              aria-label={isMenuOpen ? "Close menu" : "Open menu"}
               aria-haspopup="dialog"
               aria-controls="site-menu"
-              aria-expanded="false"
+              aria-expanded={isMenuOpen}
+              onClick={toggleMenu}
             >
               <span className="menu-toggle-btn-wrapper">MENU</span>
             </button>
@@ -289,11 +589,18 @@ export default function SiteLayout({ children }) {
           </div>
         </div>
 
-        <ReceiptMenu />
+        <ReceiptMenu
+          isMenuOpen={isMenuOpen}
+          menuRef={menuRef}
+          menuTimestamp={menuTimestamp}
+          receiptContextLine={receiptContextLine}
+          onCloseMenu={closeMenu}
+          onBackdropClick={handleMenuBackdropClick}
+        />
       </header>
 
-      <div className="page-canvas" data-state={transitioning ? "transitioning" : "ready"}>
-        <PageCanvas activePage={displayedPage} />
+      <div className="page-canvas">
+        <UnifiedCanvas activePage={activePage} />
       </div>
 
       {children}

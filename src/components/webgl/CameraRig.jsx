@@ -18,6 +18,7 @@ import {
  */
 export default function CameraRig({ orbitCenter = [0, -1, -5], enableContactOffset = true }) {
   const activePage = useWebglStore((state) => state.activePage);
+  const gyroEnabled = useWebglStore((state) => state.gyroEnabled);
   const { camera } = useThree();
 
   const orbitOffset = useRef({ x: 0, y: 0, z: 0 });
@@ -50,7 +51,7 @@ export default function CameraRig({ orbitCenter = [0, -1, -5], enableContactOffs
     };
 
     const onDeviceOrientation = (event) => {
-      if (!window.gyroEnabled) return;
+      if (!gyroEnabled) return;
       const mapped = mapDeviceOrientationToParallax(event);
       if (!mapped) return;
       target.current.angle = Math.PI / 2 + mapped.x * PARALLAX_MOTION_CONFIG.angleRange;
@@ -65,7 +66,7 @@ export default function CameraRig({ orbitCenter = [0, -1, -5], enableContactOffs
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("deviceorientation", onDeviceOrientation);
     };
-  }, []);
+  }, [gyroEnabled]);
 
   useFrame((state, delta) => {
     const safeDelta = Math.min(delta, 0.1);

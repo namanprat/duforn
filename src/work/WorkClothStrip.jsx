@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
 
@@ -9,6 +9,7 @@ import { workItems } from "../../data/work-items.js";
 import { navigateTo } from "../lib/navigationBridge.js";
 import { isWebGPURenderer } from "../components/webgl/createWebGPURenderer.js";
 import { logWebGPUOnce } from "../lib/webgpu/debugWebGPU.js";
+import { useWebglStore } from "../store/webgl.js";
 import { useWorkSceneControlsStore } from "../store/workSceneControls.js";
 import { DEFAULT_GAP_SIZE, DEFAULT_VISIBLE_ITEMS } from "./workStripConfig.js";
 import { getActiveStripItemIndex, resolveVisibleSlotAtUv } from "./workStripMath.js";
@@ -17,6 +18,8 @@ const NUM_UNIQUE = 6;
 
 const COLS = 96;
 const ROWS = 48;
+
+// (hover removed)
 
 function buildArcGeometry(cols, rows, arcRadius, arcSpan, height, yOffset) {
   const count = cols * rows;
@@ -93,7 +96,6 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
     floor,
     fract,
     exp,
-    length,
     mod,
     dFdx,
     dFdy,
@@ -110,14 +112,13 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
     uItemsOnStrip: uniform(stripConfig.itemsOnStrip),
     uNumUnique: uniform(stripConfig.numUnique),
     uGapSize: uniform(stripConfig.gapSize),
-    uHoverUv: uniform(new THREE.Vector2(0.5, 0.5)),
-    uHoverStrength: uniform(0),
-    uHoverVelocity: uniform(new THREE.Vector2(0, 0)),
-    uHoverRadius: uniform(0.28),
     uWindStrength: uniform(12.0),
     uGravityScale: uniform(2.0),
     uWaveFrequency: uniform(8.0),
     uWaveAmplitude: uniform(0.16),
+    uRevealProgress: uniform(0.0),
+    uRevealNoiseScale: uniform(6.5),
+    uRevealEdgeSoftness: uniform(0.16),
     uClothSolidity: uniform(15.0),
     uRoughness: uniform(0.7),
     uSheenColor: uniform(new THREE.Color(0.93, 0.92, 0.9)),
@@ -134,14 +135,15 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
 
   const vWorldPos = varying(vec3(0), "vWorldPos");
   const vLooseness = varying(float(0), "vLooseness");
-  const vHoverInfluence = varying(float(0), "vHoverInfluence");
 
   const vertexFn = Fn(() => {
     const pos = positionLocal.toVar();
     const uvCoord = uv();
     const time = uniforms.uTime;
+    const revealProgress = uniforms.uRevealProgress;
     const v = uvCoord.y;
     const u = uvCoord.x;
+    const revealMix = smoothstep(float(0), float(0.8), revealProgress);
     const looseness = smoothstep(float(0), float(0.25), v);
     vLooseness.assign(looseness);
     const area = float(stripConfig.arcSpan * stripConfig.stripHeight);
@@ -151,18 +153,6 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
     const windNoise = mx_noise_float(vec3(u.mul(2.0), v.mul(2.0), time.mul(0.1)))
       .mul(0.5)
       .add(0.5);
-    const hoverDelta = uvCoord.sub(uniforms.uHoverUv);
-    const hoverDistance = length(vec2(hoverDelta.x.mul(1.08), hoverDelta.y.mul(0.98)));
-    const hoverRadius = max(uniforms.uHoverRadius, float(0.001));
-    const hoverCore = float(1).sub(smoothstep(float(0), hoverRadius, hoverDistance));
-    const hoverAnchorMask = smoothstep(float(0.18), float(0.92), v);
-    const hoverPresence = hoverCore.mul(uniforms.uHoverStrength).mul(hoverAnchorMask);
-    const hoverRatio = clamp(hoverDistance.div(hoverRadius), float(0), float(1));
-    const hoverDome = hoverPresence.mul(float(1).sub(hoverRatio.mul(hoverRatio)));
-    const hoverSkirt = smoothstep(float(0.58), float(1.0), hoverRatio)
-      .mul(float(1).sub(hoverRatio))
-      .mul(uniforms.uHoverStrength)
-      .mul(hoverAnchorMask);
     const gravitySag = v.mul(v).mul(uniforms.uGravityScale).mul(0.08).mul(looseness);
     const windPush = looseness
       .mul(looseness)
@@ -177,25 +167,20 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
     const wave3 = sin(u.mul(freq.mul(2.0)).add(v.mul(freq)).sub(t.mul(4.0)))
       .mul(looseness)
       .mul(0.25);
-    const waveDisp = wave1.add(wave2).add(wave3).mul(uniforms.uWaveAmplitude);
+    const waveDisp = wave1.add(wave2).add(wave3).mul(uniforms.uWaveAmplitude).mul(revealMix);
     const flutter = sin(u.mul(freq.mul(3.0)).sub(t.mul(5.0)))
       .mul(cos(v.mul(freq.mul(2.0)).add(t.mul(1.5))))
       .mul(looseness)
       .mul(looseness)
       .mul(uniforms.uWaveAmplitude)
-      .mul(0.15);
-    const hoverLift = hoverDome.mul(uniforms.uWaveAmplitude.mul(0.9).add(float(0.045)));
-    const hoverBlendDown = hoverSkirt.mul(uniforms.uWaveAmplitude.mul(0.22).add(float(0.014)));
-    const hoverLateralSoftness = uniforms.uHoverVelocity.x.mul(hoverDome).mul(looseness).mul(0.018);
+      .mul(0.15)
+      .mul(revealMix);
 
-    pos.y.subAssign(gravitySag);
+    pos.y.subAssign(gravitySag.mul(revealMix));
     pos.z.addAssign(waveDisp.add(flutter));
-    pos.z.addAssign(windPush);
-    pos.z.addAssign(hoverLift.sub(hoverBlendDown));
-    const lateralSway = sin(time.mul(0.18)).mul(looseness).mul(0.04);
-    pos.x.addAssign(lateralSway.add(hoverLateralSoftness));
-
-    vHoverInfluence.assign(hoverDome);
+    pos.z.addAssign(windPush.mul(revealMix));
+    const lateralSway = sin(time.mul(0.18)).mul(looseness).mul(0.04).mul(revealMix);
+    pos.x.addAssign(lateralSway);
 
     vWorldPos.assign(modelWorldMatrix.mul(vec4(pos, 1)).xyz);
     return pos;
@@ -205,6 +190,7 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
     const uvCoord = uv();
     const worldPos = vWorldPos;
     const looseness = vLooseness;
+    const revealProgress = uniforms.uRevealProgress;
     const dpdxVal = dFdx(worldPos);
     const dpdyVal = dFdy(worldPos);
     const foldNormal = normalize(cross(dpdxVal, dpdyVal));
@@ -274,27 +260,37 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
       .mul(sssScatter)
       .mul(uniforms.uSubsurfaceStr)
       .mul(looseness.mul(0.6).add(0.4));
-    const hoverSpecularBoost = vHoverInfluence.mul(0.06);
-    const finalColor = diffuse
-      .add(specular.mul(0.3).add(uniforms.uSheenColor.mul(hoverSpecularBoost)))
-      .add(sheenContrib)
-      .add(subsurface)
-      .toVar();
+    const finalColor = diffuse.add(specular.mul(0.3)).add(sheenContrib).add(subsurface).toVar();
     const foldDeviation = float(1).sub(
       max(float(0), dot(normalize(foldNormal), normalize(geomNormal))),
     );
     const aoFactor = smoothstep(float(-0.15), float(0.3), dot(foldNormal, vec3(0, 1, 0)));
     finalColor.mulAssign(float(0.85).add(aoFactor.mul(0.1)).sub(foldDeviation.mul(0.06)));
-    const grainSeed = fract(uvCoord.mul(800).add(uniforms.uTime.mul(12)));
-    const grain = fract(sin(dot(grainSeed, vec2(12.9898, 78.233))).mul(43758.5453))
-      .sub(0.5)
-      .mul(0.022);
-    finalColor.addAssign(grain);
     const edgeFade = smoothstep(float(0), float(0.06), uvCoord.x).mul(
       smoothstep(float(0), float(0.06), float(1).sub(uvCoord.x)),
     );
+    const revealNoise = mx_noise_float(
+      vec3(
+        uvCoord.x.mul(uniforms.uRevealNoiseScale),
+        uvCoord.y.mul(uniforms.uRevealNoiseScale),
+        float(0),
+      ),
+    )
+      .mul(0.5)
+      .add(0.5);
+    const revealThreshold = mix(
+      float(1).add(uniforms.uRevealEdgeSoftness),
+      uniforms.uRevealEdgeSoftness.negate(),
+      revealProgress,
+    );
+    const revealMask = smoothstep(
+      revealThreshold.sub(uniforms.uRevealEdgeSoftness),
+      revealThreshold.add(uniforms.uRevealEdgeSoftness),
+      revealNoise,
+    );
+    revealMask.lessThan(float(0.01)).discard();
 
-    return vec4(finalColor, edgeFade);
+    return vec4(finalColor, edgeFade.mul(revealMask));
   });
 
   const mat = new MeshBasicNodeMaterial({
@@ -320,13 +316,12 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
     uGapSize: { value: stripConfig.gapSize },
     uItemsOnStrip: { value: stripConfig.itemsOnStrip },
     uNumUnique: { value: stripConfig.numUnique },
-    uHoverUv: { value: new THREE.Vector2(0.5, 0.5) },
-    uHoverStrength: { value: 0 },
-    uHoverVelocity: { value: new THREE.Vector2(0, 0) },
-    uHoverRadius: { value: 0.28 },
     uWaveAmplitude: { value: 0.08 },
     uWaveFrequency: { value: 13.0 },
     uWindStrength: { value: 5.5 },
+    uRevealProgress: { value: 0.0 },
+    uRevealNoiseScale: { value: 6.5 },
+    uRevealEdgeSoftness: { value: 0.16 },
     uTex0: { value: textures[0] },
     uTex1: { value: textures[1] },
     uTex2: { value: textures[2] },
@@ -345,17 +340,14 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
       uniform float uWaveAmplitude;
       uniform float uWaveFrequency;
       uniform float uWindStrength;
-      uniform vec2 uHoverUv;
-      uniform vec2 uHoverVelocity;
-      uniform float uHoverStrength;
-      uniform float uHoverRadius;
+      uniform float uRevealProgress;
 
       varying vec2 vUv;
       varying float vLooseness;
-      varying float vHoverInfluence;
 
       void main() {
         vUv = uv;
+        float revealMix = smoothstep(0.0, 0.8, uRevealProgress);
         float looseness = smoothstep(0.0, 0.25, uv.y);
         vLooseness = looseness;
 
@@ -364,23 +356,10 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
         float wave1 = sin(uv.x * uWaveFrequency - uTime * (2.0 + wind)) * looseness;
         float wave2 = sin((uv.x + uv.y) * (uWaveFrequency * 0.7) - uTime * 1.8) * looseness * 0.5;
         float flutter = sin(uv.x * (uWaveFrequency * 2.5) - uTime * 4.0) * looseness * looseness * 0.18;
-        vec2 hoverDelta = uv - uHoverUv;
-        float hoverRadius = max(uHoverRadius, 0.0001);
-        float hoverDistance = length(vec2(hoverDelta.x * 1.08, hoverDelta.y * 0.98));
-        float hoverCore = 1.0 - smoothstep(0.0, hoverRadius, hoverDistance);
-        float hoverRatio = clamp(hoverDistance / hoverRadius, 0.0, 1.0);
-        float hoverAnchorMask = smoothstep(0.18, 0.92, uv.y);
-        float hoverPresence = hoverCore * uHoverStrength * hoverAnchorMask;
-        float hoverDome = hoverPresence * (1.0 - hoverRatio * hoverRatio);
-        float hoverSkirt = smoothstep(0.58, 1.0, hoverRatio) * (1.0 - hoverRatio) * uHoverStrength * hoverAnchorMask;
 
-        pos.y -= uv.y * uv.y * 0.16;
-        pos.z += (wave1 + wave2) * uWaveAmplitude + flutter;
-        pos.z += hoverDome * (uWaveAmplitude * 0.9 + 0.045);
-        pos.z -= hoverSkirt * (uWaveAmplitude * 0.22 + 0.014);
-        pos.x += sin(uTime * 0.18) * looseness * 0.04;
-        pos.x += uHoverVelocity.x * hoverDome * looseness * 0.018;
-        vHoverInfluence = hoverDome;
+        pos.y -= uv.y * uv.y * 0.16 * revealMix;
+        pos.z += ((wave1 + wave2) * uWaveAmplitude + flutter) * revealMix;
+        pos.x += sin(uTime * 0.18) * looseness * 0.04 * revealMix;
 
         gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
       }
@@ -396,10 +375,13 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
       uniform float uGapSize;
       uniform float uItemsOnStrip;
       uniform float uNumUnique;
+      uniform float uTime;
+      uniform float uRevealProgress;
+      uniform float uRevealNoiseScale;
+      uniform float uRevealEdgeSoftness;
 
       varying vec2 vUv;
       varying float vLooseness;
-      varying float vHoverInfluence;
 
       vec3 sampleStripTexture(int index, vec2 coord) {
         if (index == 0) return texture2D(uTex0, coord).rgb;
@@ -408,6 +390,23 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
         if (index == 3) return texture2D(uTex3, coord).rgb;
         if (index == 4) return texture2D(uTex4, coord).rgb;
         return texture2D(uTex5, coord).rgb;
+      }
+
+      float hash21(vec2 p) {
+        p = fract(p * vec2(123.34, 345.45));
+        p += dot(p, p + 34.345);
+        return fract(p.x * p.y);
+      }
+
+      float noise2(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        float a = hash21(i);
+        float b = hash21(i + vec2(1.0, 0.0));
+        float c = hash21(i + vec2(0.0, 1.0));
+        float d = hash21(i + vec2(1.0, 1.0));
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
       }
 
       void main() {
@@ -431,8 +430,15 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
 
         float light = 0.75 + vLooseness * 0.2 + (1.0 - abs(vUv.x - 0.5) * 2.0) * 0.08;
         float rim = pow(1.0 - abs(vUv.x - 0.5) * 2.0, 2.0) * 0.05;
-        vec3 hoverSpecular = vec3(vHoverInfluence * 0.06);
-        gl_FragColor = vec4(color * light + rim + hoverSpecular, 1.0);
+        float revealNoise = noise2(vUv * uRevealNoiseScale);
+        float revealThreshold = mix(1.0 + uRevealEdgeSoftness, -uRevealEdgeSoftness, uRevealProgress);
+        float revealMask = smoothstep(
+          revealThreshold - uRevealEdgeSoftness,
+          revealThreshold + uRevealEdgeSoftness,
+          revealNoise
+        );
+        if (revealMask < 0.01) discard;
+        gl_FragColor = vec4(color * light + rim, revealMask);
       }
     `,
   });
@@ -442,6 +448,7 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
 
 export function WorkClothStripScene() {
   const { gl } = useThree();
+  const activePage = useWebglStore((state) => state.activePage);
   const systemRef = useRef(null);
   const stripControls = useWorkSceneControlsStore((state) => state.controls.strip);
   const visibleItems = Math.max(1, stripControls.visibleItems ?? DEFAULT_VISIBLE_ITEMS);
@@ -452,22 +459,12 @@ export function WorkClothStripScene() {
     z: stripControls.z,
     scale: stripControls.scale,
   };
-  const cloth = {
-    roughness: stripControls.roughness,
-    sheenR: stripControls.sheenR,
-    sheenG: stripControls.sheenG,
-    sheenB: stripControls.sheenB,
-    subsurfaceStr: stripControls.subsurfaceStr,
-  };
   const wind = {
     windStrength: stripControls.windStrength,
     waveAmplitude: stripControls.waveAmplitude,
     waveFrequency: stripControls.waveFrequency,
     gravityScale: stripControls.gravityScale,
     clothSolidity: Math.max(0.0001, stripControls.constraintMix * 14.0),
-    hoverStrength: stripControls.hoverStrength,
-    hoverRadius: stripControls.hoverRadius,
-    hoverRadiusBoost: stripControls.hoverRadiusBoost,
     wheelSensitivity: stripControls.wheelSensitivity,
     dragSensitivity: stripControls.dragSensitivity,
     dragVelocityScale: stripControls.dragVelocityScale,
@@ -486,18 +483,24 @@ export function WorkClothStripScene() {
   };
   const scrollRef = useRef({ target: 0, current: 0, velocity: 0 });
   const inputRef = useRef({ isDown: false, lastX: 0, startX: 0 });
-  const hoverRef = useRef({
-    active: false,
-    targetStrength: 0,
-    currentStrength: 0,
-    targetUv: new THREE.Vector2(0.5, 0.5),
-    currentUv: new THREE.Vector2(0.5, 0.5),
-    lastUv: new THREE.Vector2(0.5, 0.5),
-    targetVelocity: new THREE.Vector2(0, 0),
-    currentVelocity: new THREE.Vector2(0, 0),
-    lastMoveTime: 0,
-  });
   const currentTitleRef = useRef("");
+  const revealRef = useRef({ progress: 0, startTime: 0, playing: true });
+
+  const restartReveal = useCallback(() => {
+    revealRef.current.progress = 0;
+    revealRef.current.startTime = 0;
+    revealRef.current.playing = true;
+    const sys = systemRef.current;
+    if (sys && "uRevealProgress" in sys.uniforms) {
+      sys.uniforms.uRevealProgress.value = 0;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activePage === "work") {
+      restartReveal();
+    }
+  }, [activePage, restartReveal]);
 
   useEffect(() => {
     const element = gl.domElement;
@@ -514,9 +517,6 @@ export function WorkClothStripScene() {
       inputRef.current.lastX = e.clientX;
       inputRef.current.startX = e.clientX;
       inputRef.current.dragDist = 0;
-      hoverRef.current.active = false;
-      hoverRef.current.targetStrength = 0;
-      hoverRef.current.targetVelocity.set(0, 0);
     };
 
     const onPointerMove = (e) => {
@@ -584,6 +584,8 @@ export function WorkClothStripScene() {
     [arcConfig.arcRadius, arcConfig.arcSpan, arcConfig.stripHeight, arcConfig.stripYOffset],
   );
 
+  useEffect(() => () => geometry.dispose(), [geometry]);
+
   const stripConfig = useMemo(
     () => ({
       itemsOnStrip: visibleItems,
@@ -626,11 +628,13 @@ export function WorkClothStripScene() {
     const sys = systemRef.current;
     if (!sys) return;
 
+    const sc = useWorkSceneControlsStore.getState().controls.strip;
     const time = state.clock.getElapsedTime();
     const u = sys.uniforms;
-    const hover = hoverRef.current;
     const s = scrollRef.current;
     const isDragging = inputRef.current.isDown;
+    const reveal = revealRef.current;
+
     s.current += (s.target - s.current) * wind.scrollLerp;
     s.velocity *= isDragging ? wind.scrollDraggingDamping : wind.scrollDamping;
     if (!isDragging && Math.abs(s.velocity) < wind.snapVelocityThreshold) {
@@ -641,36 +645,41 @@ export function WorkClothStripScene() {
         s.target = snapTarget;
       }
     }
-    hover.currentStrength +=
-      (hover.targetStrength - hover.currentStrength) * (hover.active ? 0.135 : 0.07);
-    hover.currentUv.lerp(hover.targetUv, hover.active ? 0.18 : 0.07);
-    hover.currentVelocity.lerp(hover.targetVelocity, hover.active ? 0.1 : 0.06);
-    hover.targetVelocity.multiplyScalar(hover.active ? 0.7 : 0.55);
-    if (!hover.active && hover.currentStrength < 0.001) {
-      hover.currentStrength = 0;
-      hover.currentVelocity.set(0, 0);
-      hover.targetVelocity.set(0, 0);
-    }
-
     u.uTime.value = time;
     u.uScrollOffset.value = s.current;
-    if ("uHoverUv" in u) {
-      u.uHoverUv.value.copy(hover.currentUv);
-      u.uHoverStrength.value = hover.currentStrength;
-      u.uHoverVelocity.value.copy(hover.currentVelocity);
-      u.uGravityScale.value = wind.gravityScale;
-      u.uClothSolidity.value = wind.clothSolidity;
-      u.uRoughness.value = cloth.roughness;
-      u.uSheenColor.value.setRGB(cloth.sheenR, cloth.sheenG, cloth.sheenB);
-      u.uSubsurfaceStr.value = cloth.subsurfaceStr;
-      u.uHoverRadius.value = wind.hoverRadius + hover.currentStrength * wind.hoverRadiusBoost;
+
+    if ("uGravityScale" in u) {
+      u.uGravityScale.value = sc.gravityScale ?? 2;
+      u.uClothSolidity.value = Math.max(0.0001, (sc.constraintMix ?? 0.4) * 14.0);
+      u.uRoughness.value = sc.roughness ?? 0.72;
+      u.uSheenColor.value.setRGB(sc.sheenR ?? 0.92, sc.sheenG ?? 0.88, sc.sheenB ?? 0.82);
+      u.uSubsurfaceStr.value = sc.subsurfaceStr ?? 1;
     }
 
-    u.uWindStrength.value = wind.windStrength;
-    u.uWaveAmplitude.value = wind.waveAmplitude;
-    u.uWaveFrequency.value = wind.waveFrequency;
+    u.uWindStrength.value = sc.windStrength ?? 1.1;
+    u.uWaveAmplitude.value = sc.waveAmplitude ?? 0.08;
+    u.uWaveFrequency.value = sc.waveFrequency ?? 20;
+    if ("uRevealNoiseScale" in u) {
+      u.uRevealNoiseScale.value = sc.revealNoiseScale ?? 6.5;
+      u.uRevealEdgeSoftness.value = sc.revealEdgeSoftness ?? 0.16;
+    }
+    if ("uRevealProgress" in u) {
+      const revealDelay = Math.max(0, sc.revealDelay ?? 0);
+      const revealDuration = Math.max(0.001, sc.revealDuration ?? 1.8);
+      if (reveal.startTime <= 0) {
+        reveal.startTime = time + revealDelay;
+      }
+      if (reveal.playing) {
+        const elapsed = Math.max(0, time - reveal.startTime);
+        reveal.progress = THREE.MathUtils.clamp(elapsed / revealDuration, 0, 1);
+        if (reveal.progress >= 1) reveal.playing = false;
+      }
+      u.uRevealProgress.value = reveal.progress;
+    }
 
-    const centerIdx = getActiveStripItemIndex(s.current, visibleItems, gapSize, NUM_UNIQUE);
+    const vi = Math.max(1, sc.visibleItems ?? DEFAULT_VISIBLE_ITEMS);
+    const gs = sc.gapSize ?? DEFAULT_GAP_SIZE;
+    const centerIdx = getActiveStripItemIndex(s.current, vi, gs, NUM_UNIQUE);
     const newTitle = workItems[centerIdx]?.title || "";
     if (newTitle !== currentTitleRef.current) {
       currentTitleRef.current = newTitle;
@@ -680,45 +689,6 @@ export function WorkClothStripScene() {
   });
 
   if (!activeTextures || !tslMaterial) return null;
-
-  const updateHoverFromUv = (uv) => {
-    if (!uv || inputRef.current.isDown) return;
-
-    const hover = hoverRef.current;
-    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
-    const dt = hover.lastMoveTime ? Math.max((now - hover.lastMoveTime) / 1000, 1 / 240) : 1 / 60;
-    const dx = uv.x - hover.lastUv.x;
-    const dy = uv.y - hover.lastUv.y;
-
-    hover.active = true;
-    hover.targetStrength = wind.hoverStrength;
-    hover.targetUv.set(uv.x, uv.y);
-
-    const velocityScale = 5.2;
-    hover.targetVelocity.set(
-      THREE.MathUtils.clamp(dx / dt / velocityScale, -1, 1),
-      THREE.MathUtils.clamp(dy / dt / velocityScale, -1, 1),
-    );
-    hover.lastUv.copy(hover.targetUv);
-    hover.lastMoveTime = now;
-  };
-
-  const handlePointerEnter = (e) => {
-    if (!e.uv || inputRef.current.isDown) return;
-    updateHoverFromUv(e.uv);
-  };
-
-  const handlePointerMove = (e) => {
-    if (!e.uv || inputRef.current.isDown) return;
-    updateHoverFromUv(e.uv);
-  };
-
-  const handlePointerLeave = () => {
-    const hover = hoverRef.current;
-    hover.active = false;
-    hover.targetStrength = 0;
-    hover.lastMoveTime = 0;
-  };
 
   const handleStripClick = (e) => {
     if (inputRef.current.dragDist > 8) return;
@@ -746,9 +716,6 @@ export function WorkClothStripScene() {
         material={tslMaterial}
         frustumCulled={false}
         onClick={handleStripClick}
-        onPointerEnter={handlePointerEnter}
-        onPointerMove={handlePointerMove}
-        onPointerLeave={handlePointerLeave}
       />
     </group>
   );

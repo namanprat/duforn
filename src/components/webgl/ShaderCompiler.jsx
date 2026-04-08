@@ -3,31 +3,42 @@ import { useThree } from "@react-three/fiber";
 import { useLoadingStore } from "../../store/loading.js";
 
 /**
- * Pre-compiles all shaders in the current R3F scene so the first rendered frame
- * is free of GPU shader-compilation stalls.
+ * Pre-compiles shaders for the current R3F scene so the first rendered frame
+ * avoids GPU shader-compilation stalls. Re-runs when `sceneKey` changes (route /
+ * scene branch swap).
  *
- * Place this inside a <Suspense> boundary (after scene content) so it only runs
- * once all models and textures have been loaded and their materials are present
- * in the scene graph.
- *
- * Supports both WebGL (synchronous compile) and WebGPU (async compileAsync).
+ * Place inside <Suspense> so async assets are present before compile.
+ * Supports WebGL (synchronous compile) and WebGPU (async compileAsync).
  */
-export default function ShaderCompiler() {
+export default function ShaderCompiler({ sceneKey = "default" }) {
   const { gl, scene, camera } = useThree();
 
   useEffect(() => {
+    let cancelled = false;
     const markReady = useLoadingStore.getState().markReady;
 
-    if (gl.__rendererType === "webgpu" && typeof gl.compileAsync === "function") {
-      gl.compileAsync(scene, camera).then(markReady).catch(markReady);
-    } else if (typeof gl.compile === "function") {
-      gl.compile(scene, camera);
-      markReady();
-    } else {
-      markReady();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const finish = () => {
+      if (!cancelled) markReady();
+    };
+
+    const raf = requestAnimationFrame(() => {
+      if (cancelled) return;
+
+      if (gl.__rendererType === "webgpu" && typeof gl.compileAsync === "function") {
+        gl.compileAsync(scene, camera).then(finish).catch(finish);
+      } else if (typeof gl.compile === "function") {
+        gl.compile(scene, camera);
+        finish();
+      } else {
+        finish();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+    };
+  }, [sceneKey, gl, scene, camera]);
 
   return null;
 }

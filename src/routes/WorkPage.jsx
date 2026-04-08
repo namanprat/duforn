@@ -1,5 +1,4 @@
 import React from "react";
-import WorkSceneControls from "../components/debug/WorkSceneControls.jsx";
 import { navigateTo } from "../lib/navigationBridge.js";
 
 export default function WorkPage() {
@@ -17,7 +16,7 @@ export default function WorkPage() {
 
   return (
     <main id="main" data-page-container="true" data-page-namespace="work">
-      <div className="u-section-spacer-large" />
+      <div className="u-section-spacer-medium" />
       <h1
         className="reveal-title slide-title work-slide-title u-width-full u-text-align-center u-text-style-display"
         role="link"
@@ -28,7 +27,6 @@ export default function WorkPage() {
       >
         Selected Work
       </h1>
-      {import.meta.env.DEV ? <WorkSceneControls /> : null}
     </main>
   );
 }

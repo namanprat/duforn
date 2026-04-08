@@ -1,15 +1,18 @@
 import gsap from "gsap";
 import { WebHaptics } from "web-haptics";
+import { REVEAL_TEXT_TIME_SCALE } from "./reveal-timing.js";
 
 const ANIM_CONFIG = {
-  duration: 0.42,
+  duration: 0.42 * REVEAL_TEXT_TIME_SCALE,
   ease: "power2.inOut",
-  stagger: 0.014,
-  overlap: 0.08,
+  stagger: 0.014 * REVEAL_TEXT_TIME_SCALE,
+  overlap: 0.08 * REVEAL_TEXT_TIME_SCALE,
 };
 
 const LINK_SELECTOR = ".nav-wrap a, .bottom-nav-wrap a, .contact-info a";
 const linkInstances = new Map();
+/** Manually attached hosts (e.g. preloader CTA) — same char-layer hover as nav links. */
+const attachedHoverInstances = new Map();
 
 let haptics = null;
 
@@ -101,6 +104,103 @@ export function initLinkHover() {
   });
 }
 
+function resolveHoverTextConfig(input) {
+  if (typeof input === "string") {
+    const trimmed = input.trim();
+    return { baseText: trimmed, hoverText: trimmed };
+  }
+
+  if (!input || typeof input !== "object") return null;
+  const baseText = input.baseText?.trim();
+  const hoverText = input.hoverText?.trim();
+  if (!baseText || !hoverText) return null;
+  return { baseText, hoverText };
+}
+
+/**
+ * Mounts the same dual-layer character hover used on nav links.
+ * Accepts:
+ * - string: both layers use same text
+ * - object: { baseText, hoverText } for replacement transitions
+ * @returns {() => void} detach — call on unmount
+ */
+export function attachLinkHoverEffect(element, textOrConfig) {
+  const config = resolveHoverTextConfig(textOrConfig);
+  if (!element || !config) return () => {};
+
+  if (attachedHoverInstances.has(element)) {
+    return () => detachLinkHoverEffect(element);
+  }
+
+  const hasTouchInput = supportsTouchInput();
+  const hasHoverInput = supportsHoverInput();
+  const instance = {};
+
+  if (hasTouchInput) {
+    const handleTouchStart = () => {
+      getHaptics().trigger("nudge");
+    };
+    element.addEventListener("touchstart", handleTouchStart, { passive: true });
+    instance.handleTouchStart = handleTouchStart;
+  }
+
+  if (!hasHoverInput) {
+    element.textContent = config.hoverText;
+    attachedHoverInstances.set(element, instance);
+    return () => detachLinkHoverEffect(element);
+  }
+
+  const { viewport, baseLayer, hoverLayer } = mountLayers(
+    element,
+    config.baseText,
+    config.hoverText,
+  );
+  let tl = null;
+
+  const handleEnter = () => {
+    tl?.kill();
+    tl = animateChars(baseLayer.chars, hoverLayer.chars, true);
+    getHaptics().trigger([{ duration: 10 }], { intensity: 1 });
+  };
+
+  const handleLeave = () => {
+    tl?.kill();
+    tl = animateChars(baseLayer.chars, hoverLayer.chars, false);
+  };
+
+  const handleClick = () => {
+    getHaptics().trigger([
+      { duration: 80, intensity: 0.8 },
+      { delay: 80, duration: 50, intensity: 0.3 },
+    ]);
+  };
+
+  element.addEventListener("mouseenter", handleEnter);
+  element.addEventListener("mouseleave", handleLeave);
+  element.addEventListener("click", handleClick);
+
+  attachedHoverInstances.set(element, {
+    ...instance,
+    originalText: config.baseText,
+    handleEnter,
+    handleLeave,
+    handleClick,
+    getTween: () => tl,
+    viewport,
+    baseLayer,
+    hoverLayer,
+  });
+
+  return () => detachLinkHoverEffect(element);
+}
+
+export function detachLinkHoverEffect(element) {
+  const instance = attachedHoverInstances.get(element);
+  if (!instance) return;
+  cleanupLink(element, instance);
+  attachedHoverInstances.delete(element);
+}
+
 function cleanupLink(link, instance, { restoreText = true } = {}) {
   if (!instance) return;
 
@@ -133,10 +233,10 @@ function cleanupStaleLinkHover() {
   }
 }
 
-function mountLayers(link, baseText) {
+function mountLayers(link, baseText, hoverText = baseText) {
   const viewport = createViewport();
   const baseLayer = createLayer(baseText, false);
-  const hoverLayer = createLayer(baseText, true);
+  const hoverLayer = createLayer(hoverText, true);
 
   link.textContent = "";
   link.style.position = "relative";
@@ -271,5 +371,9 @@ export function destroyLinkHover() {
   for (const [link, instance] of linkInstances.entries()) {
     cleanupLink(link, instance);
     linkInstances.delete(link);
+  }
+  for (const [el, instance] of attachedHoverInstances.entries()) {
+    cleanupLink(el, instance);
+    attachedHoverInstances.delete(el);
   }
 }

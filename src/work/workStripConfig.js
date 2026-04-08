@@ -1,4 +1,4 @@
-// WorkStrip — curved cloth slider constants
+// Work cloth strip — defaults shared by WorkClothStrip
 
 // ── Cloth mesh resolution ──────────────────────────────────────────────────
 export const COLS = 144;

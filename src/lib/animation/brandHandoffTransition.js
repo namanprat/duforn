@@ -4,6 +4,9 @@ import {
   getRevealTitleCharacters,
   prepareRevealTitle,
 } from "../../../scripts/text-reveal.js";
+import { REVEAL_TEXT_TIME_SCALE } from "../../../scripts/reveal-timing.js";
+
+const rt = (s) => s * REVEAL_TEXT_TIME_SCALE;
 
 const HOME_NAMESPACE = "home";
 const CONTACT_NAMESPACE = "contact";
@@ -193,8 +196,8 @@ export async function runBrandHandoff({ fromNamespace, toNamespace }) {
         {
           yPercent: -120,
           opacity: 0,
-          duration: 0.42,
-          stagger: 0.015,
+          duration: rt(0.42),
+          stagger: rt(0.015),
         },
         0,
       );
@@ -211,13 +214,13 @@ export async function runBrandHandoff({ fromNamespace, toNamespace }) {
           {
             yPercent: 0,
             opacity: 1,
-            duration: 0.52,
-            stagger: 0.02,
+            duration: rt(0.52),
+            stagger: rt(0.02),
           },
-          0.05,
+          rt(0.05),
         );
       } else {
-        gsap.fromTo(contactBrand, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3 }, 0.05);
+        gsap.fromTo(contactBrand, { autoAlpha: 0 }, { autoAlpha: 1, duration: rt(0.3) }, rt(0.05));
       }
     }
 
@@ -228,9 +231,9 @@ export async function runBrandHandoff({ fromNamespace, toNamespace }) {
         {
           autoAlpha: 1,
           yPercent: 0,
-          duration: 0.48,
+          duration: rt(0.48),
         },
-        0.08,
+        rt(0.08),
       );
     }
   }
@@ -247,7 +250,7 @@ export async function runBrandHandoff({ fromNamespace, toNamespace }) {
         {
           autoAlpha: 0,
           yPercent: -15,
-          duration: 0.36,
+          duration: rt(0.36),
         },
         0,
       );
@@ -261,13 +264,13 @@ export async function runBrandHandoff({ fromNamespace, toNamespace }) {
         {
           yPercent: 0,
           opacity: 1,
-          duration: 0.52,
-          stagger: 0.02,
+          duration: rt(0.52),
+          stagger: rt(0.02),
         },
-        0.05,
+        rt(0.05),
       );
     } else if (homeBrand) {
-      gsap.fromTo(homeBrand, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3 }, 0.05);
+      gsap.fromTo(homeBrand, { autoAlpha: 0 }, { autoAlpha: 1, duration: rt(0.3) }, rt(0.05));
     }
   }
 

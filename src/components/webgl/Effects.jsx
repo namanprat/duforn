@@ -5,7 +5,6 @@ import { logWebGPU } from "../../lib/webgpu/debugWebGPU.js";
 export default function Effects({
   bloomStrength = 0.045,
   vignetteDarkness = 0.15,
-  grain = 0.03,
   chromaticShift = 0.003,
   dofMaxBlur = 0.008,
 }) {
@@ -21,7 +20,6 @@ export default function Effects({
     if (u) {
       u.uBloomStrength.value = bloomStrength;
       u.uVignetteDarkness.value = vignetteDarkness;
-      u.uGrain.value = grain;
       u.uChromaticShift.value = chromaticShift;
       u.uDofMaxBlur.value = dofMaxBlur;
     }
@@ -60,14 +58,12 @@ export default function Effects({
           mix,
         } = await import("three/tsl");
         const { bloom } = await import("three/addons/tsl/display/BloomNode.js");
-        const { film } = await import("three/addons/tsl/display/FilmNode.js");
 
         if (cancelled) return;
 
         const uniforms = {
           uBloomStrength: uniform(bloomStrength),
           uVignetteDarkness: uniform(vignetteDarkness),
-          uGrain: uniform(grain),
           uChromaticShift: uniform(chromaticShift),
           uCaEdgeStart: uniform(0.2),
           uCaEdgeEnd: uniform(0.7),
@@ -117,9 +113,6 @@ export default function Effects({
           return vec4(color.rgb.mul(mask), color.a);
         });
         output = vignette(output);
-
-        output = convertToTexture(output);
-        output = film(output, uniforms.uGrain);
 
         const caInput = convertToTexture(output);
         const chromaticAb = Fn(() => {

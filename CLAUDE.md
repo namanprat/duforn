@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This repository is a React SPA served by Vite. All 3D rendering is handled by React Three Fiber (R3F) canvases, each managed declaratively by React components.
+This repository is a React SPA served by Vite. All 3D rendering uses a single persistent React Three Fiber (R3F) canvas (`UnifiedCanvas`), with page-specific scene branches driven by `activePage`.
 
 ## Commands
 
@@ -30,8 +30,7 @@ Routes are handled by React Router:
 - `/work` → `src/routes/WorkPage.jsx`
 - `/contact` → `src/routes/ContactPage.jsx`
 - `/archive` → `src/routes/ArchivePage.jsx`
-- `/film` → `src/routes/FilmPage.jsx` (project detail page)
-- `/money-me` → `src/routes/MoneyMePage.jsx` (project detail page)
+- `/money-me` → `src/routes/ProjectDetailPage.jsx` (project detail page)
 
 ### State Management
 
@@ -44,16 +43,16 @@ All page-specific WebGL behaviour is derived from `activePage`.
 
 ### R3F Canvas Architecture
 
-`src/components/layout/SiteLayout.jsx` renders a `PageCanvas` component that selects the correct canvas based on `activePage`:
+`src/components/layout/SiteLayout.jsx` mounts a single [`UnifiedCanvas.jsx`](src/components/webgl/UnifiedCanvas.jsx). Only one scene branch is mounted at a time; switching routes unmounts the previous branch so GPU resources are released.
 
-| `activePage`          | Canvas component                         | Purpose                                                       |
-| --------------------- | ---------------------------------------- | ------------------------------------------------------------- |
-| `'home'`, `'contact'` | `src/components/webgl/GlobalCanvas.jsx`  | Home scene with logo model, particles, HDR environment        |
-| `'work'`              | `src/components/webgl/WorkCanvas.jsx`    | Work gallery with TSL wavy strip slider                       |
-| `'archive'`           | `src/components/webgl/ArchiveCanvas.jsx` | Archive cylindrical tube, shader grid, logo                   |
-| `'projectDetail'`     | `src/components/webgl/GlobalCanvas.jsx`  | Project detail scene: FBM background, DOM-synced image planes |
+| `activePage`          | Scene branch (inside `UnifiedCanvas`) | Purpose |
+| --------------------- | --------------------------------------- | ------- |
+| `'home'`, `'contact'` | `HomeCanvasBranch` in `GlobalSceneBranches.jsx` | Logo, particles, HDR, `Effects` |
+| `'work'`              | `WorkPageScene.jsx` | Work model, cloth strip, shadows, Leva-driven scene |
+| `'archive'`           | `ArchiveScene.jsx` | Archive tube / grid / logo (WebGPU path) |
+| `'projectDetail'`     | `ProjectDetailCanvasBranch` in `GlobalSceneBranches.jsx` | FBM background, DOM-synced image planes, `Effects` |
 
-Canvases transition with a 300ms opacity fade managed by `PageCanvas`.
+[`ShaderCompiler.jsx`](src/components/webgl/ShaderCompiler.jsx) runs `gl.compile` / `compileAsync` whenever `sceneKey` (`activePage`) changes to reduce first-frame shader hitches.
 
 ### Page-Specific R3F Modules
 
@@ -69,7 +68,7 @@ Canvases transition with a 300ms opacity fade managed by `PageCanvas`.
 
 #### Project Detail (`src/projectDetail/`)
 
-Project detail is a shared namespace for all project case study pages (e.g. `/film`, `/money-me`). Add new project detail pages by creating a route file in `src/routes/` and a content file in `src/projectDetail/`, then register in `App.jsx`.
+Project detail is a shared namespace for all project case study pages (e.g. `/money-me`). Add new project detail pages by creating a route file in `src/routes/` and content in `src/projectDetail/`, then register in `App.jsx`.
 
 | Module                          | Purpose                                                                 |
 | ------------------------------- | ----------------------------------------------------------------------- |
@@ -80,23 +79,23 @@ Project detail is a shared namespace for all project case study pages (e.g. `/fi
 | `useProjectDetailController.js` | Resize and visibility change handling                                   |
 | `projectDetailSceneConfig.js`   | Scene control defaults and reveal animation settings                    |
 | `ProjectDetailsPageShell.jsx`   | Reusable page shell component for case study layouts                    |
-| `filmCaseStudyContent.js`       | Content data for the Film project detail page                           |
-| `moneyMeCaseStudyContent.js`    | Content data for the money.me project detail page                       |
+| `projectDetailContent.js`       | Content data for project detail pages (e.g. money.me)                   |
 
 #### Work (`src/work/`)
 
-| Module                  | Purpose                                                                                                 |
-| ----------------------- | ------------------------------------------------------------------------------------------------------- |
-| `WorkStrip.jsx`         | Single continuous strip mesh with TSL edge-curl + sin/noise wave displacement and infinite-scroll items |
-| `workStripGeometry.js`  | Plane geometry builder (plain typed arrays — no Three import)                                           |
-| `workStripConfig.js`    | Layout, edge curl, wave, noise, and scroll constants                                                    |
-| `useWorkStripScroll.js` | Wheel/drag/momentum/snap controller, click-to-navigate, and `.slide-title` DOM sync                     |
+| Module                 | Purpose                                                                                       |
+| ---------------------- | --------------------------------------------------------------------------------------------- |
+| `WorkPageScene.jsx`    | Work 3D scene (model, lights, cloth strip) mounted only on `'work'` inside `UnifiedCanvas`   |
+| `WorkClothStrip.jsx`   | Work page strip: R3F `WorkClothStripScene`, WebGPU `MeshBasicNodeMaterial` + TSL (WebGL GLSL fallback), arc geometry, scroll/hover, title sync |
+| `workStripConfig.js`   | Default visible-items / gap-size fallbacks for the strip                                   |
+| `workStripMath.js`     | Scroll slot math: active item index, resolve clicked slot from UV                          |
 
 #### Home / Contact (`src/components/webgl/`)
 
 | Module                 | Purpose                                                        |
 | ---------------------- | -------------------------------------------------------------- |
-| `GlobalCanvas.jsx`     | R3F canvas for home/contact                                    |
+| `UnifiedCanvas.jsx`    | Single R3F canvas host; switches scene branches by `activePage` |
+| `GlobalSceneBranches.jsx` | `HomeCanvasBranch` and `ProjectDetailCanvasBranch`          |
 | `HomeScene.jsx`        | Home page 3D scene composition                                 |
 | `CameraRig.jsx`        | Orbital parallax camera; reads `activePage` for contact offset |
 | `EnvironmentSetup.jsx` | HDR environment and background                                 |
@@ -144,7 +143,7 @@ Guard imperative modules against double init and always remove listeners, cancel
 
 1. Add or update the route component under `src/routes/`.
 2. Register the route in `src/App.jsx` — add the path to `PATH_TO_NAMESPACE` and `TITLES`.
-3. For entirely new page types: create an R3F canvas component under `src/components/webgl/` and add it to the `PageCanvas` switch in `src/components/layout/SiteLayout.jsx`.
+3. For entirely new page types: add a scene branch inside `UnifiedCanvas.jsx` (and a matching `activePage` value in `App.jsx` / `webgl` store if needed).
 4. Place page-specific R3F sub-components in `src/<pagename>/`.
 5. The route effect in `App.jsx` sets `activePage` which drives the canvas switch automatically.
 

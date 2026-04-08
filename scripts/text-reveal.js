@@ -1,7 +1,17 @@
 import gsap from "gsap";
 import { SplitText } from "gsap/SplitText";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { REVEAL_TEXT_TIME_SCALE } from "./reveal-timing.js";
 
-gsap.registerPlugin(SplitText);
+gsap.registerPlugin(SplitText, ScrollTrigger);
+
+const rt = (seconds) => seconds * REVEAL_TEXT_TIME_SCALE;
+
+/** Visual ScrollTrigger start/end markers: dev server, or `VITE_SCROLL_REVEAL_MARKERS=true`. */
+const SCROLL_REVEAL_MARKERS =
+  typeof import.meta !== "undefined" &&
+  import.meta.env &&
+  (import.meta.env.DEV || import.meta.env.VITE_SCROLL_REVEAL_MARKERS === "true");
 
 // ── Title state (brand handoff only) ────────────────────────────────────
 const titleStates = new Map();
@@ -102,86 +112,20 @@ function setRevealTitleText(element, text) {
 }
 
 // ── Route reveal state ───────────────────────────────────────────────────
-const routeSplits = new Map(); // element → { split, wrappers, lines }
 let activeEnterTimeline = null;
 let activeLeaveTimeline = null;
+const preparedRouteElements = new Set();
+const routeBodySplits = new Map(); // element -> { split, wrappers, lines }
 
 // ── Scroll reveal state ──────────────────────────────────────────────────
-const scrollObservers = new Map(); // element → IntersectionObserver
+const scrollRevealSplits = new Map(); // element -> { split, wrappers, lines }
+const scrollRevealRegistry = [];
 
 // ── Shared helpers ───────────────────────────────────────────────────────
 
 function filterByExcludeSelector(elements, excludeSelector) {
   if (!excludeSelector) return elements;
   return Array.from(elements).filter((el) => !el.matches(excludeSelector));
-}
-
-function canSplitRevealElement(element) {
-  if (!element) return false;
-  if (element.hasAttribute("data-reveal-allow-interactive")) return true;
-  if (element.matches("a, button, label")) return false;
-  if (element.querySelector("a, button, input, select, textarea, label")) return false;
-  return true;
-}
-
-function isHomeDesktopHiddenRevealBody(element) {
-  if (!element?.classList?.contains("reveal-body")) return false;
-  if (!element.classList.contains("u-mobile-hidden")) return false;
-  if (window.innerWidth <= 768) return false;
-  return Boolean(element.closest('[data-page-namespace="home"]'));
-}
-
-// ── Route split helpers ──────────────────────────────────────────────────
-
-function splitRevealLines(element) {
-  if (routeSplits.has(element)) return routeSplits.get(element);
-  if (!canSplitRevealElement(element)) return null;
-
-  const split = new SplitText(element, { type: "lines", linesClass: "reveal-line" });
-  const wrappers = [];
-
-  for (const line of split.lines) {
-    const wrapper = document.createElement("div");
-    wrapper.style.cssText = "display:block;width:100%;overflow:hidden;";
-    line.style.display = "block";
-    line.style.width = "100%";
-    line.parentNode.insertBefore(wrapper, line);
-    wrapper.appendChild(line);
-    wrappers.push(wrapper);
-  }
-
-  const state = { split, wrappers, lines: [...split.lines] };
-  routeSplits.set(element, state);
-  return state;
-}
-
-function revertRevealSplit(element) {
-  const state = routeSplits.get(element);
-  if (!state) return;
-  routeSplits.delete(element);
-  gsap.killTweensOf(state.lines);
-  for (const wrapper of state.wrappers) {
-    if (wrapper.isConnected && wrapper.firstChild) {
-      wrapper.parentNode.insertBefore(wrapper.firstChild, wrapper);
-      wrapper.remove();
-    }
-  }
-  state.split.revert();
-}
-
-function revertRevealSplitWithStabilization(element) {
-  if (!isHomeDesktopHiddenRevealBody(element)) {
-    revertRevealSplit(element);
-    return;
-  }
-  const lockedHeight = element.getBoundingClientRect().height;
-  if (lockedHeight > 0) element.style.minHeight = `${lockedHeight}px`;
-  revertRevealSplit(element);
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      element.style.minHeight = "";
-    });
-  });
 }
 
 // ── Route reveal selectors ───────────────────────────────────────────────
@@ -202,6 +146,108 @@ function getScrollRevealElements(container) {
   return Array.from(container.querySelectorAll("[data-scroll-reveal]"));
 }
 
+function createLineClipSplit(element, registry) {
+  if (!element) return null;
+  if (registry.has(element)) return registry.get(element);
+
+  const split = new SplitText(element, { type: "lines", linesClass: "reveal-line" });
+  const wrappers = [];
+
+  for (const line of split.lines) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "reveal-body-line-wrap";
+    line.parentNode.insertBefore(wrapper, line);
+    wrapper.appendChild(line);
+    wrappers.push(wrapper);
+  }
+
+  const state = { split, wrappers, lines: [...split.lines] };
+  registry.set(element, state);
+  return state;
+}
+
+function revertLineClipSplit(element, registry) {
+  const state = registry.get(element);
+  if (!state) return;
+  registry.delete(element);
+  gsap.killTweensOf(state.lines);
+  for (const wrapper of state.wrappers) {
+    if (wrapper.isConnected && wrapper.firstChild) {
+      wrapper.parentNode.insertBefore(wrapper.firstChild, wrapper);
+      wrapper.remove();
+    }
+  }
+  state.split.revert();
+}
+
+function splitRevealBodyLines(element) {
+  return createLineClipSplit(element, routeBodySplits);
+}
+
+function revertRevealBodySplit(element) {
+  revertLineClipSplit(element, routeBodySplits);
+}
+
+function revertAllRevealBodySplits() {
+  for (const el of Array.from(routeBodySplits.keys())) {
+    revertLineClipSplit(el, routeBodySplits);
+  }
+}
+
+function stabilizedRevertBodySplit(element) {
+  const state = routeBodySplits.get(element);
+  if (!state) return;
+  gsap.killTweensOf(state.lines);
+  gsap.set(state.lines, { yPercent: 0, opacity: 1, clearProps: "willChange,transformOrigin" });
+
+  const lockedHeight = element.getBoundingClientRect().height;
+  if (lockedHeight > 0) element.style.minHeight = `${lockedHeight}px`;
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      revertRevealBodySplit(element);
+      element.style.minHeight = "";
+    });
+  });
+}
+
+function finalizeRouteBodySplitsAfterEnter(container, options = {}) {
+  if (!container) return;
+  const bodies = getRouteRevealBodies(container, options);
+  for (const el of bodies) {
+    if (routeBodySplits.has(el)) stabilizedRevertBodySplit(el);
+  }
+}
+
+function stabilizedRevertScrollSplit(element) {
+  const state = scrollRevealSplits.get(element);
+  if (!state) return;
+  gsap.killTweensOf(state.lines);
+  gsap.set(state.lines, { yPercent: 0, opacity: 1, clearProps: "willChange,transformOrigin" });
+
+  const lockedHeight = element.getBoundingClientRect().height;
+  if (lockedHeight > 0) element.style.minHeight = `${lockedHeight}px`;
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      revertLineClipSplit(element, scrollRevealSplits);
+      element.style.minHeight = "";
+      gsap.set(element, { visibility: "visible" });
+    });
+  });
+}
+
+function clearPreparedRouteState() {
+  for (const el of preparedRouteElements) {
+    gsap.killTweensOf(el);
+    gsap.set(el, {
+      visibility: "visible",
+      clearProps: "transform,opacity,willChange,transformOrigin",
+    });
+  }
+  preparedRouteElements.clear();
+}
+
 // ── Route reveal: destroy ────────────────────────────────────────────────
 
 function destroyRouteReveals() {
@@ -213,9 +259,8 @@ function destroyRouteReveals() {
     activeLeaveTimeline.kill();
     activeLeaveTimeline = null;
   }
-  for (const el of Array.from(routeSplits.keys())) {
-    revertRevealSplit(el);
-  }
+  clearPreparedRouteState();
+  revertAllRevealBodySplits();
 }
 
 // ── Route reveal: prepare ────────────────────────────────────────────────
@@ -223,26 +268,66 @@ function destroyRouteReveals() {
 async function prepareRouteReveal(container, options = {}) {
   if (!container) return;
 
-  // Kill any in-flight animations and revert existing splits before re-preparing.
+  const titles = getRouteRevealTitles(container, options);
+  const bodies = getRouteRevealBodies(container, options);
+  const scrollEls = getScrollRevealElements(container);
+
+  // Hide this route’s targets synchronously before any teardown so revert/kill never paints full copy.
+  for (const el of titles) {
+    gsap.killTweensOf(el);
+    gsap.set(el, { visibility: "hidden", immediateRender: true });
+  }
+  for (const el of bodies) {
+    gsap.killTweensOf(el);
+    gsap.set(el, { visibility: "hidden", immediateRender: true });
+  }
+  for (const el of scrollEls) {
+    gsap.killTweensOf(el);
+    gsap.set(el, { visibility: "hidden", immediateRender: true });
+  }
+
+  // Kill any in-flight animations and revert existing splits from the previous route.
   destroyRouteReveals();
 
   await document.fonts.ready;
 
-  const titles = getRouteRevealTitles(container, options);
   for (const el of titles) {
-    const state = splitRevealLines(el);
-    if (!state) continue;
-    gsap.set(state.lines, { yPercent: 105 });
+    preparedRouteElements.add(el);
+    gsap.killTweensOf(el);
+    gsap.set(el, {
+      visibility: "visible",
+      yPercent: 100,
+      opacity: 0,
+      willChange: "transform,opacity",
+      transformOrigin: "50% 50%",
+      immediateRender: true,
+    });
   }
 
-  const bodies = getRouteRevealBodies(container, options);
   for (const el of bodies) {
-    const state = splitRevealLines(el);
+    const state = splitRevealBodyLines(el);
     if (state?.lines?.length) {
-      gsap.set(state.lines, { yPercent: 105 });
-    } else {
-      gsap.set(el, { yPercent: 30, opacity: 0, willChange: "transform,opacity" });
+      gsap.killTweensOf(state.lines);
+      gsap.set(el, { visibility: "visible", immediateRender: true });
+      gsap.set(state.lines, {
+        yPercent: 100,
+        opacity: 1,
+        willChange: "transform,opacity",
+        transformOrigin: "50% 50%",
+        immediateRender: true,
+      });
+      continue;
     }
+    preparedRouteElements.add(el);
+    gsap.killTweensOf(el);
+    gsap.set(el, {
+      visibility: "visible",
+      yPercent: 100,
+      opacity: 0,
+      willChange: "transform,opacity",
+      transformOrigin: "50% 50%",
+      immediateRender: true,
+    });
   }
 }
 
@@ -264,93 +349,80 @@ async function runRouteEnter(container, options = {}) {
       defaults: { ease: "power4.out" },
       onComplete: () => {
         activeEnterTimeline = null;
+        clearPreparedRouteState();
+        finalizeRouteBodySplitsAfterEnter(container, options);
         resolve();
       },
       onInterrupt: () => {
         activeEnterTimeline = null;
+        clearPreparedRouteState();
+        finalizeRouteBodySplitsAfterEnter(container, options);
         resolve();
       },
     });
 
     activeEnterTimeline = timeline;
 
-    let offset = 0;
-
     const titles = getRouteRevealTitles(container, options);
-    const titleLines = [];
-    const titleEls = [];
-    for (const el of titles) {
-      const state = routeSplits.get(el);
-      if (state?.lines?.length) {
-        titleLines.push(...state.lines);
-        titleEls.push(el);
-      }
-    }
-
-    if (titleLines.length) {
+    if (titles.length) {
       timeline.fromTo(
-        titleLines,
-        { yPercent: 105 },
+        titles,
+        { yPercent: 100, opacity: 0 },
         {
           yPercent: 0,
-          duration: 0.75,
-          stagger: 0.07,
-          onComplete() {
-            for (const el of titleEls) revertRevealSplitWithStabilization(el);
-          },
+          opacity: 1,
+          duration: rt(0.62),
+          stagger: rt(0.055),
+          clearProps: "willChange,transformOrigin",
         },
-        offset,
+        0,
       );
-      offset += 0.1;
     }
 
     const bodies = getRouteRevealBodies(container, options);
-    const allLines = [];
-    const bodyEls = [];
+    const bodyLines = [];
     const bodyBlocks = [];
     for (const el of bodies) {
-      const state = routeSplits.get(el);
+      const state = routeBodySplits.get(el);
       if (state?.lines?.length) {
-        allLines.push(...state.lines);
-        bodyEls.push(el);
+        bodyLines.push(...state.lines);
       } else {
         bodyBlocks.push(el);
       }
     }
 
-    if (allLines.length) {
+    if (bodyLines.length) {
       timeline.fromTo(
-        allLines,
-        { yPercent: 105 },
-        {
-          yPercent: 0,
-          duration: 0.805,
-          stagger: 0.069,
-          onComplete() {
-            for (const el of bodyEls) revertRevealSplitWithStabilization(el);
-          },
-        },
-        offset,
-      );
-    }
-
-    if (bodyBlocks.length) {
-      timeline.fromTo(
-        bodyBlocks,
-        { yPercent: 30, opacity: 0 },
+        bodyLines,
+        { yPercent: 100, opacity: 1 },
         {
           yPercent: 0,
           opacity: 1,
-          duration: 0.6,
-          stagger: 0.06,
-          clearProps: "transform,opacity,willChange",
+          duration: rt(0.66),
+          stagger: rt(0.045),
         },
-        offset,
+        titles.length ? rt(0.08) : 0,
+      );
+    }
+    if (bodyBlocks.length) {
+      timeline.fromTo(
+        bodyBlocks,
+        { yPercent: 100, opacity: 0 },
+        {
+          yPercent: 0,
+          opacity: 1,
+          duration: rt(0.66),
+          stagger: rt(0.045),
+          clearProps: "transform,opacity,willChange,transformOrigin",
+        },
+        titles.length ? rt(0.08) : 0,
       );
     }
 
     if (!timeline.getChildren(true, true, true).length) {
       activeEnterTimeline = null;
+      clearPreparedRouteState();
+      finalizeRouteBodySplitsAfterEnter(container, options);
       resolve();
     }
   });
@@ -371,23 +443,19 @@ function runRouteLeave(container, options = {}) {
     activeLeaveTimeline.kill();
     activeLeaveTimeline = null;
   }
-  // Revert any splits created by a previous enter so leave starts clean.
-  for (const el of Array.from(routeSplits.keys())) {
-    revertRevealSplit(el);
-  }
-
   const titles = getRouteRevealTitles(container, options);
   const bodies = getRouteRevealBodies(container, options);
 
   if (!titles.length && !bodies.length) return Promise.resolve();
 
+  for (const el of bodies) {
+    splitRevealBodyLines(el);
+  }
+
   return new Promise((resolve) => {
     const cleanup = () => {
-      // Revert splits created during this leave pass.
-      for (const el of Array.from(routeSplits.keys())) {
-        revertRevealSplit(el);
-      }
       activeLeaveTimeline = null;
+      revertAllRevealBodySplits();
     };
 
     const tl = gsap.timeline({
@@ -404,37 +472,59 @@ function runRouteLeave(container, options = {}) {
 
     activeLeaveTimeline = tl;
 
-    const titleLines = [];
-    for (const el of titles) {
-      const state = splitRevealLines(el);
-      if (state?.lines?.length) titleLines.push(...state.lines);
-    }
-
-    if (titleLines.length) {
-      tl.to(titleLines, { yPercent: -110, opacity: 0, duration: 0.32, stagger: 0.04 }, 0);
-    }
-
-    const leaveLines = [];
-    const leaveBlocks = [];
-    for (const el of bodies) {
-      const state = splitRevealLines(el);
-      if (state?.lines?.length) {
-        leaveLines.push(...state.lines);
-      } else {
-        leaveBlocks.push(el);
-      }
-    }
-
-    if (leaveLines.length) {
-      tl.to(leaveLines, { yPercent: -110, opacity: 0, duration: 0.32, stagger: 0.03 }, 0);
-    }
-
-    if (leaveBlocks.length) {
+    if (titles.length) {
       tl.to(
-        leaveBlocks,
-        { yPercent: -30, opacity: 0, duration: 0.28, stagger: 0.03, clearProps: "willChange" },
+        titles,
+        {
+          yPercent: -16,
+          opacity: 0,
+          duration: rt(0.28),
+          stagger: rt(0.03),
+          clearProps: "willChange,transformOrigin",
+        },
         0,
       );
+    }
+
+    if (bodies.length) {
+      const leaveLines = [];
+      const leaveBlocks = [];
+      for (const el of bodies) {
+        const state = routeBodySplits.get(el);
+        if (state?.lines?.length) {
+          leaveLines.push(...state.lines);
+        } else {
+          leaveBlocks.push(el);
+        }
+      }
+
+      if (leaveLines.length) {
+        tl.to(
+          leaveLines,
+          {
+            yPercent: -110,
+            opacity: 0,
+            duration: rt(0.3),
+            stagger: rt(0.028),
+            clearProps: "willChange,transformOrigin",
+          },
+          0,
+        );
+      }
+
+      if (leaveBlocks.length) {
+        tl.to(
+          leaveBlocks,
+          {
+            yPercent: -20,
+            opacity: 0,
+            duration: rt(0.3),
+            stagger: rt(0.028),
+            clearProps: "willChange,transformOrigin",
+          },
+          0,
+        );
+      }
     }
 
     if (!tl.getChildren(true, true, true).length) {
@@ -452,51 +542,103 @@ function initScrollReveals(container) {
   const elements = getScrollRevealElements(container);
   if (!elements.length) return;
 
-  // Set initial hidden state synchronously before the observer fires.
-  for (const el of elements) {
-    gsap.set(el, { yPercent: 30, opacity: 0, willChange: "transform,opacity" });
-  }
+  elements.forEach((el, index) => {
+    gsap.killTweensOf(el);
+    gsap.set(el, { visibility: "hidden", immediateRender: true });
 
-  for (const el of elements) {
-    // Disconnect any existing observer for this element.
-    scrollObservers.get(el)?.disconnect();
+    const state = createLineClipSplit(el, scrollRevealSplits);
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
-          observer.unobserve(entry.target);
-          scrollObservers.delete(entry.target);
-          gsap.to(entry.target, {
+    if (state?.lines?.length) {
+      gsap.set(el, { visibility: "visible", immediateRender: true });
+      gsap.killTweensOf(state.lines);
+      gsap.set(state.lines, {
+        yPercent: 100,
+        opacity: 1,
+        willChange: "transform,opacity",
+        transformOrigin: "50% 50%",
+        immediateRender: true,
+      });
+
+      const st = ScrollTrigger.create({
+        id: `scroll-reveal-lines-${index}`,
+        trigger: el,
+        start: "top 88%",
+        end: "bottom top",
+        markers: SCROLL_REVEAL_MARKERS,
+        once: true,
+        onEnter: () => {
+          gsap.to(state.lines, {
             yPercent: 0,
             opacity: 1,
-            duration: 0.7,
+            duration: rt(0.75),
             ease: "power3.out",
-            clearProps: "transform,opacity,willChange",
+            stagger: rt(0.055),
+            onComplete: () => stabilizedRevertScrollSplit(el),
           });
-        }
-      },
-      { threshold: 0.12 },
-    );
+        },
+      });
+      scrollRevealRegistry.push({ st, el, lines: true });
+    } else {
+      gsap.set(el, {
+        visibility: "visible",
+        yPercent: 100,
+        opacity: 0,
+        willChange: "transform,opacity",
+        transformOrigin: "50% 50%",
+        immediateRender: true,
+      });
 
-    // Defer first observe by one frame so the hidden state is painted first.
-    requestAnimationFrame(() => {
-      observer.observe(el);
-    });
+      const st = ScrollTrigger.create({
+        id: `scroll-reveal-block-${index}`,
+        trigger: el,
+        start: "top 88%",
+        end: "bottom top",
+        markers: SCROLL_REVEAL_MARKERS,
+        once: true,
+        onEnter: () => {
+          gsap.to(el, {
+            yPercent: 0,
+            opacity: 1,
+            duration: rt(0.75),
+            ease: "power3.out",
+            clearProps: "transform,opacity,willChange,transformOrigin",
+            onComplete: () => {
+              gsap.set(el, { visibility: "visible" });
+            },
+          });
+        },
+      });
+      scrollRevealRegistry.push({ st, el, lines: false });
+    }
+  });
 
-    scrollObservers.set(el, observer);
-  }
+  requestAnimationFrame(() => {
+    ScrollTrigger.refresh();
+  });
 }
 
 // ── Scroll reveals: destroy ───────────────────────────────────────────────
 
 function destroyScrollReveals() {
-  for (const [el, observer] of scrollObservers) {
-    observer.disconnect();
+  for (const { st, el, lines } of scrollRevealRegistry) {
+    st.kill();
     gsap.killTweensOf(el);
-    gsap.set(el, { clearProps: "transform,opacity,willChange" });
+    if (lines) {
+      const state = scrollRevealSplits.get(el);
+      if (state) gsap.killTweensOf(state.lines);
+      revertLineClipSplit(el, scrollRevealSplits);
+    } else {
+      gsap.set(el, {
+        visibility: "visible",
+        clearProps: "transform,opacity,willChange,transformOrigin",
+      });
+    }
   }
-  scrollObservers.clear();
+  scrollRevealRegistry.length = 0;
+
+  for (const el of Array.from(scrollRevealSplits.keys())) {
+    revertLineClipSplit(el, scrollRevealSplits);
+  }
 }
 
 // ── Full teardown ─────────────────────────────────────────────────────────

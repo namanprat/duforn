@@ -9,9 +9,9 @@ function compactElements(elements) {
   return elements.filter(Boolean);
 }
 
-export function getCanvasKey(page) {
-  if (page === "work" || page === "projectDetail") return page;
-  return "global";
+/** All routes share one R3F canvas (`UnifiedCanvas`); navigation never swaps canvas roots. */
+export function getCanvasKey() {
+  return "app";
 }
 
 export function runRouteEnterTransition({ canvasElement } = {}) {

@@ -12,6 +12,7 @@ export default function CanvasSurface({
   background = "transparent",
   dpr = getCanvasDpr(),
   children,
+  wrapperProps = {},
   ...canvasProps
 }) {
   const surfaceClassName = [
@@ -23,7 +24,7 @@ export default function CanvasSurface({
     .join(" ");
 
   return (
-    <div id={id} className={surfaceClassName}>
+    <div id={id} className={surfaceClassName} {...wrapperProps}>
       <Canvas dpr={dpr} {...canvasProps}>
         {children}
       </Canvas>

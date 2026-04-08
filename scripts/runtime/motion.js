@@ -6,6 +6,25 @@ export const PARALLAX_MOTION_CONFIG = Object.freeze({
   orbitRadius: 5,
 });
 
+export function hasDeviceOrientationApi() {
+  return typeof window !== "undefined" && typeof window.DeviceOrientationEvent !== "undefined";
+}
+
+export function canRequestDeviceOrientationPermission() {
+  return (
+    hasDeviceOrientationApi() &&
+    typeof window.DeviceOrientationEvent.requestPermission === "function"
+  );
+}
+
+export async function requestDeviceOrientationPermission() {
+  if (!hasDeviceOrientationApi()) return false;
+  if (!canRequestDeviceOrientationPermission()) return true;
+
+  const state = await window.DeviceOrientationEvent.requestPermission();
+  return state === "granted";
+}
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }

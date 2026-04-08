@@ -46,7 +46,6 @@ export const DEFAULT_PROJECT_DETAIL_SCENE_CONTROLS = {
   effects: {
     bloomStrength: 0.1,
     vignetteDarkness: 0.2,
-    grain: 0.03,
     chromaticShift: 0.0075,
     dofMaxBlur: 0.02,
   },

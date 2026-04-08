@@ -60,8 +60,22 @@ export function useTrailTexture({
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     if (mouse && mouse.x !== undefined && mouse.y !== undefined) {
+      const intensity = Math.max(0, Math.min(mouse.intensity ?? 1, 1));
+      if (intensity <= 0.001) {
+        tex.needsUpdate = true;
+        return;
+      }
+
+      const previousX = mouse.previousX ?? mouse.x;
+      const previousY = mouse.previousY ?? mouse.y;
+      const deltaX = mouse.x - previousX;
+      const deltaY = mouse.y - previousY;
+      const distance = Math.hypot(deltaX, deltaY);
+      const stretch = 1 + Math.min(distance / (canvas.width * 0.08), 1.6);
+
       ctx.save();
       ctx.filter = `blur(${activeBlurPx}px)`;
+      ctx.globalCompositeOperation = "lighter";
 
       const gradientRadius = circleRadius * activeGradientScale;
       const gradient = ctx.createRadialGradient(
@@ -72,15 +86,26 @@ export function useTrailTexture({
         mouse.y,
         gradientRadius,
       );
-      gradient.addColorStop(0, "rgba(255, 255, 255, 0.7)");
-      gradient.addColorStop(0.08, "rgba(255, 255, 255, 0.5)");
-      gradient.addColorStop(0.15, "rgba(255, 255, 255, 0.35)");
-      gradient.addColorStop(0.25, "rgba(255, 255, 255, 0.2)");
-      gradient.addColorStop(0.35, "rgba(255, 255, 255, 0.12)");
-      gradient.addColorStop(0.5, "rgba(255, 255, 255, 0.06)");
-      gradient.addColorStop(0.65, "rgba(255, 255, 255, 0.03)");
-      gradient.addColorStop(0.8, "rgba(255, 255, 255, 0.01)");
+      gradient.addColorStop(0, `rgba(255, 255, 255, ${0.78 * intensity})`);
+      gradient.addColorStop(0.08, `rgba(255, 255, 255, ${0.56 * intensity})`);
+      gradient.addColorStop(0.15, `rgba(255, 255, 255, ${0.4 * intensity})`);
+      gradient.addColorStop(0.25, `rgba(255, 255, 255, ${0.24 * intensity})`);
+      gradient.addColorStop(0.35, `rgba(255, 255, 255, ${0.16 * intensity})`);
+      gradient.addColorStop(0.5, `rgba(255, 255, 255, ${0.08 * intensity})`);
+      gradient.addColorStop(0.65, `rgba(255, 255, 255, ${0.04 * intensity})`);
+      gradient.addColorStop(0.8, `rgba(255, 255, 255, ${0.015 * intensity})`);
       gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+
+      if (distance > 0.5) {
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.12 * intensity})`;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.lineWidth = circleRadius * stretch;
+        ctx.beginPath();
+        ctx.moveTo(previousX, previousY);
+        ctx.lineTo(mouse.x, mouse.y);
+        ctx.stroke();
+      }
 
       ctx.fillStyle = gradient;
       ctx.beginPath();
