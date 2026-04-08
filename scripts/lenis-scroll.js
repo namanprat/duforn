@@ -6,6 +6,7 @@ gsap.registerPlugin(ScrollTrigger);
 
 let lenis = null;
 let tickerCallback = null;
+let lenisScrollTriggerSync = null;
 
 export function initLenis() {
   if (lenis) return lenis;
@@ -18,9 +19,13 @@ export function initLenis() {
     wheelMultiplier: 0.8,
   });
 
+  lenisScrollTriggerSync = () => {
+    ScrollTrigger.update();
+  };
+  lenis.on("scroll", lenisScrollTriggerSync);
+
   tickerCallback = (time) => {
     lenis.raf(time * 1000);
-    ScrollTrigger.update();
   };
 
   gsap.ticker.add(tickerCallback);
@@ -35,6 +40,11 @@ export function destroyLenis() {
   if (tickerCallback) {
     gsap.ticker.remove(tickerCallback);
     tickerCallback = null;
+  }
+
+  if (lenisScrollTriggerSync) {
+    lenis.off("scroll", lenisScrollTriggerSync);
+    lenisScrollTriggerSync = null;
   }
 
   lenis.destroy();

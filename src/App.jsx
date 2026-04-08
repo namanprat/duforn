@@ -165,9 +165,13 @@ function AppShell() {
       const container = document.querySelector('[data-page-container="true"]');
       if (!container) return;
 
-      await prepareRouteReveal(container);
+      const REVEAL_OPTS = { excludeSelector: BRAND_HANDOFF_SELECTOR };
+      await prepareRouteReveal(container, REVEAL_OPTS);
       await waitForRevealDelay();
-      await runRouteEnter(container);
+      await runRouteEnter(container, REVEAL_OPTS);
+      if (container.dataset.pageNamespace === "projectDetail") {
+        initScrollReveals(container);
+      }
       window.__refreshLinkHover?.();
     };
 
@@ -252,10 +256,10 @@ function AppShell() {
         .then(() => {
           if (cancelled) return;
           window.__refreshLinkHover?.();
+          if (namespace === "projectDetail" && live) {
+            initScrollReveals(live);
+          }
         });
-      if (namespace === "projectDetail" && live) {
-        initScrollReveals(live);
-      }
     });
 
     return () => {

@@ -1,7 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import gsap from "gsap";
-import { attachLinkHoverEffect } from "../../../scripts/link-hover.js";
 import { navigateTo } from "../../lib/navigationBridge.js";
 import UnifiedCanvas from "../webgl/UnifiedCanvas.jsx";
 import { useWebglStore } from "../../store/webgl.js";
@@ -171,7 +170,6 @@ export default function SiteLayout({ children }) {
   const preloaderRef = useRef(null);
   const strokeTrackRef = useRef(null);
   const strokeProgressRef = useRef(null);
-  const enterLabelRef = useRef(null);
   const menuRef = useRef(null);
   const menuToggleRef = useRef(null);
   const previouslyFocusedElementRef = useRef(null);
@@ -359,13 +357,6 @@ export default function SiteLayout({ children }) {
     };
   }, [preloaderVisible]);
 
-  useEffect(() => {
-    if (!introRingComplete || !preloaderVisible) return undefined;
-    const el = enterLabelRef.current;
-    if (!el) return undefined;
-    return attachLinkHoverEffect(el, { baseText: "DUFORN", hoverText: "ENTER" });
-  }, [introRingComplete, preloaderVisible]);
-
   const requestExperiencePermissions = useCallback(async () => {
     let gyroAllowed = false;
     let localError = "";
@@ -532,10 +523,11 @@ export default function SiteLayout({ children }) {
                 DUFORN
               </span>
               <span
-                ref={enterLabelRef}
                 className={`intro-preloader-enter-label${introRingComplete ? " intro-preloader-enter-label--active" : ""}`}
                 aria-hidden={!introRingComplete}
-              />
+              >
+                ENTER
+              </span>
               <div className="intro-preloader-ring" aria-hidden="true">
                 <svg viewBox="0 0 320 320" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <circle className="stroke-track" cx="160" cy="160" r="155" ref={strokeTrackRef} />
