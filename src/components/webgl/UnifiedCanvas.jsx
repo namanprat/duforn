@@ -41,10 +41,7 @@ function UnifiedScene({ activePage }) {
  * Single persistent R3F canvas for all routes. Only one scene branch mounts at a time.
  */
 export default function UnifiedCanvas({ activePage }) {
-  const pointerEvents =
-    activePage === "work" || activePage === "archive" || activePage === "notFound"
-      ? "auto"
-      : "none";
+  const pointerEvents = activePage === "work" || activePage === "archive" ? "auto" : "none";
   const isProjectDetail = activePage === "projectDetail";
 
   return (

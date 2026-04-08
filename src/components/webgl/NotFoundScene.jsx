@@ -41,10 +41,10 @@ function createScreenGeometry(width, height, radius) {
 export default function NotFoundScene() {
   const groupRef = useRef(null);
   const camera = useThree((state) => state.camera);
-  const pointer = useThree((state) => state.pointer);
   const size = useThree((state) => state.size);
   const gyroEnabled = useWebglStore((state) => state.gyroEnabled);
   const orientationRef = useRef({ x: 0, y: 0, hasValue: false });
+  const pointerRef = useRef({ x: 0, y: 0 });
   const reducedMotionRef = useRef(false);
   const { scene } = useGLTF("/monitor.glb");
   const imageTexture = useTexture("/default.jpg");
@@ -127,6 +127,15 @@ export default function NotFoundScene() {
   }, []);
 
   useEffect(() => {
+    const onPointerMove = (event) => {
+      pointerRef.current.x = (event.clientX / window.innerWidth) * 2 - 1;
+      pointerRef.current.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    };
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+    return () => window.removeEventListener("pointermove", onPointerMove);
+  }, []);
+
+  useEffect(() => {
     const onDeviceOrientation = (event) => {
       if (!gyroEnabled) {
         orientationRef.current.hasValue = false;
@@ -177,9 +186,13 @@ export default function NotFoundScene() {
     const prefersReducedMotion = reducedMotionRef.current;
     const amplitudeScale = prefersReducedMotion ? 0.08 : 1;
     const inputX =
-      gyroEnabled && orientationRef.current.hasValue ? orientationRef.current.x : pointer.x;
+      gyroEnabled && orientationRef.current.hasValue
+        ? orientationRef.current.x
+        : pointerRef.current.x;
     const inputY =
-      gyroEnabled && orientationRef.current.hasValue ? orientationRef.current.y : pointer.y;
+      gyroEnabled && orientationRef.current.hasValue
+        ? orientationRef.current.y
+        : pointerRef.current.y;
     const targetX = inputY * PARALLAX_MOTION_CONFIG.yRange * 0.35 * amplitudeScale;
     const targetY = inputX * PARALLAX_MOTION_CONFIG.angleRange * 0.9 * amplitudeScale;
     const motionLerp = prefersReducedMotion ? 3 : 5;
