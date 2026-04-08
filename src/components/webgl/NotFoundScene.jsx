@@ -4,6 +4,11 @@ import { useGLTF, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import { MeshBasicNodeMaterial } from "three/webgpu";
 import { clamp, float, mix, sin, step, texture, uniform, uv, vec2, vec3 } from "three/tsl";
+import { useWebglStore } from "../../store/webgl.js";
+import {
+  PARALLAX_MOTION_CONFIG,
+  mapDeviceOrientationToParallax,
+} from "../../../scripts/runtime/motion.js";
 
 function createScreenGeometry(width, height, radius) {
   const shape = new THREE.Shape();
@@ -38,6 +43,9 @@ export default function NotFoundScene() {
   const camera = useThree((state) => state.camera);
   const pointer = useThree((state) => state.pointer);
   const size = useThree((state) => state.size);
+  const gyroEnabled = useWebglStore((state) => state.gyroEnabled);
+  const orientationRef = useRef({ x: 0, y: 0, hasValue: false });
+  const reducedMotionRef = useRef(false);
   const { scene } = useGLTF("/monitor.glb");
   const imageTexture = useTexture("/default.jpg");
 
@@ -109,6 +117,33 @@ export default function NotFoundScene() {
   }, [resolutionYUniform, size.height]);
 
   useEffect(() => {
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const applyPreference = () => {
+      reducedMotionRef.current = media.matches;
+    };
+    applyPreference();
+    media.addEventListener("change", applyPreference);
+    return () => media.removeEventListener("change", applyPreference);
+  }, []);
+
+  useEffect(() => {
+    const onDeviceOrientation = (event) => {
+      if (!gyroEnabled) {
+        orientationRef.current.hasValue = false;
+        return;
+      }
+      const mapped = mapDeviceOrientationToParallax(event);
+      if (!mapped) return;
+      orientationRef.current.x = mapped.x;
+      orientationRef.current.y = mapped.y;
+      orientationRef.current.hasValue = true;
+    };
+
+    window.addEventListener("deviceorientation", onDeviceOrientation, { passive: true });
+    return () => window.removeEventListener("deviceorientation", onDeviceOrientation);
+  }, [gyroEnabled]);
+
+  useEffect(() => {
     return () => {
       screenGeometry.dispose();
       screenMaterial.dispose();
@@ -139,18 +174,25 @@ export default function NotFoundScene() {
 
   useFrame((state, delta) => {
     if (!groupRef.current) return;
-    const targetX = pointer.y * 0.12;
-    const targetY = pointer.x * 0.25;
+    const prefersReducedMotion = reducedMotionRef.current;
+    const amplitudeScale = prefersReducedMotion ? 0.08 : 1;
+    const inputX =
+      gyroEnabled && orientationRef.current.hasValue ? orientationRef.current.x : pointer.x;
+    const inputY =
+      gyroEnabled && orientationRef.current.hasValue ? orientationRef.current.y : pointer.y;
+    const targetX = inputY * PARALLAX_MOTION_CONFIG.yRange * 0.35 * amplitudeScale;
+    const targetY = inputX * PARALLAX_MOTION_CONFIG.angleRange * 0.9 * amplitudeScale;
+    const motionLerp = prefersReducedMotion ? 3 : 5;
     groupRef.current.rotation.x = THREE.MathUtils.damp(
       groupRef.current.rotation.x,
       targetX,
-      5,
+      motionLerp,
       delta,
     );
     groupRef.current.rotation.y = THREE.MathUtils.damp(
       groupRef.current.rotation.y,
       targetY,
-      5,
+      motionLerp,
       delta,
     );
     timeUniform.value = state.clock.elapsedTime;

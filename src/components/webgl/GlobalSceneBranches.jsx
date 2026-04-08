@@ -5,6 +5,7 @@ import CameraRig from "./CameraRig.jsx";
 import Effects from "./Effects.jsx";
 import Particles from "./Particles.jsx";
 import HomeScene from "./HomeScene.jsx";
+import NotFoundScene from "./NotFoundScene.jsx";
 import ProjectDetailScene from "../../projectDetail/ProjectDetailScene.jsx";
 import { useProjectDetailSceneControlsStore } from "../../store/projectDetailSceneControls.js";
 
@@ -33,6 +34,15 @@ export function ProjectDetailCanvasBranch() {
         chromaticShift={effects.chromaticShift}
         dofMaxBlur={effects.dofMaxBlur}
       />
+    </>
+  );
+}
+
+export function NotFoundCanvasBranch() {
+  return (
+    <>
+      <PerspectiveCamera makeDefault position={[0, 0, 1.35]} fov={34} />
+      <NotFoundScene />
     </>
   );
 }

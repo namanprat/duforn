@@ -5,9 +5,12 @@ import { createRendererOpaque, getRendererType } from "./createWebGPURenderer.js
 import { logWebGPU } from "../../lib/webgpu/debugWebGPU.js";
 import ArchiveScene from "./ArchiveScene.jsx";
 import WorkPageScene from "./WorkPageScene.jsx";
-import NotFoundScene from "./NotFoundScene.jsx";
 import ShaderCompiler from "./ShaderCompiler.jsx";
-import { HomeCanvasBranch, ProjectDetailCanvasBranch } from "./GlobalSceneBranches.jsx";
+import {
+  HomeCanvasBranch,
+  NotFoundCanvasBranch,
+  ProjectDetailCanvasBranch,
+} from "./GlobalSceneBranches.jsx";
 
 function UnifiedScene({ activePage }) {
   switch (activePage) {
@@ -28,12 +31,7 @@ function UnifiedScene({ activePage }) {
     case "projectDetail":
       return <ProjectDetailCanvasBranch />;
     case "notFound":
-      return (
-        <>
-          <PerspectiveCamera makeDefault position={[0, 0, 1.35]} fov={34} />
-          <NotFoundScene />
-        </>
-      );
+      return <NotFoundCanvasBranch />;
     default:
       return <HomeCanvasBranch />;
   }
