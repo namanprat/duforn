@@ -1,7 +1,6 @@
 import * as THREE from "three/webgpu";
 
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import GUI from "lil-gui";
 import getMaterial from "./getMaterial.js";
 
 const range = (min, max) => Math.random() * (max - min) + min;
@@ -106,8 +105,14 @@ export default class Sketch {
     this.settings = {
       progress: 0,
     };
-    this.gui = new GUI();
-    this.gui.add(this.settings, "progress", 0, 1, 0.01).onChange((val) => {});
+    import("lil-gui")
+      .then(({ default: GUI }) => {
+        this.gui = new GUI();
+        this.gui.add(this.settings, "progress", 0, 1, 0.01).onChange(() => {});
+      })
+      .catch(() => {
+        // Optional dev-only dependency; ignore if missing.
+      });
   }
 
   setupResize() {
@@ -144,7 +149,6 @@ export default class Sketch {
     let random = new Float32Array(instances);
     this.instancedMesh = new THREE.InstancedMesh(this.geometry, this.material, instances);
 
-    let index = 0;
     for (let i = 0; i < rows; i++) {
       for (let j = 0; j < columns; j++) {
         let index = i * columns + j;

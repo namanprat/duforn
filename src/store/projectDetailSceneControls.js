@@ -33,10 +33,15 @@ export const DEFAULT_PROJECT_DETAIL_SCENE_CONTROLS = {
   },
   trail: {
     size: 1024,
-    fadeAlpha: 0.1,
-    blurPx: 24,
-    radiusFactor: 0.13,
-    gradientScale: 3,
+    // Ink-like cursor mask feeding the bas-relief.
+    fadeAlpha: 0.03,
+    blurPx: 10,
+    radiusFactor: 0.12,
+    gradientScale: 2.6,
+    smudgeStrength: 0.75,
+    smudgeBlurPx: 1.25,
+    roughness: 0.6,
+    stampAlpha: 0.95,
   },
   hover: {
     lightStrength: 0.28,

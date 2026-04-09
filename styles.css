@@ -2644,6 +2644,31 @@ section {
   will-change: transform, opacity;
 }
 
+.slide-title.reveal-title {
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+.slide-title .reveal-title-clip {
+  width: 100%;
+  max-width: 100%;
+}
+
+.slide-title .reveal-title-text {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 100%;
+  white-space: normal;
+}
+
+.slide-title .reveal-title-word {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+}
+
 /* Line clips for route reveal (.reveal-body); mirrors .reveal-title-clip behavior without inline styles */
 .reveal-body-line-wrap {
   display: block;
@@ -3746,6 +3771,19 @@ body.preloader-active [data-page-container="true"] .reveal-body {
 
 .canvas-surface--filled {
   background: var(--theme-background);
+}
+
+.grain-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  pointer-events: none;
+  width: 100vw;
+  height: 100vh;
+  top: 0;
+  left: 0;
+  image-rendering: pixelated;
+  will-change: transform, opacity, filter;
 }
 
 .project-info .u-container-full {

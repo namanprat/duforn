@@ -48,23 +48,17 @@ All page-specific WebGL behaviour is derived from `activePage`.
 | `activePage`          | Scene branch (inside `UnifiedCanvas`) | Purpose |
 | --------------------- | --------------------------------------- | ------- |
 | `'home'`, `'contact'` | `HomeCanvasBranch` in `GlobalSceneBranches.jsx` | Logo, particles, HDR, `Effects` |
-| `'work'`              | `WorkPageScene.jsx` | Work model, cloth strip, shadows, Leva-driven scene |
-| `'archive'`           | `ArchiveScene.jsx` | Archive tube / grid / logo (WebGPU path) |
+| `'work'`              | [`WorkPageScene.jsx`](src/components/webgl/WorkPageScene.jsx) | Work model, cloth strip, shadows, store-driven scene |
+| `'archive'`           | [`ArchiveScene.jsx`](src/components/webgl/ArchiveScene.jsx) | Offscreen cube pass; WebGPU ASCII instancing or WebGL fullscreen fallback |
 | `'projectDetail'`     | `ProjectDetailCanvasBranch` in `GlobalSceneBranches.jsx` | FBM background, DOM-synced image planes, `Effects` |
 
 [`ShaderCompiler.jsx`](src/components/webgl/ShaderCompiler.jsx) runs `gl.compile` / `compileAsync` whenever `sceneKey` (`activePage`) changes to reduce first-frame shader hitches.
 
 ### Page-Specific R3F Modules
 
-#### Archive (`src/archive/`)
+#### Archive
 
-| Module                    | Purpose                                                                |
-| ------------------------- | ---------------------------------------------------------------------- |
-| `ArchiveTube.jsx`         | Cylindrical image carousel (5 rows × 12 cols, radius=4)                |
-| `ArchiveGrid.jsx`         | Shader grid background with mouse-driven warp                          |
-| `ArchiveLogo.jsx`         | Rotating glass logo via `useGLTF`                                      |
-| `ArchiveEffects.jsx`      | Post-processing (Bloom, Vignette, Noise)                               |
-| `useArchiveController.js` | Interaction hook: wheel → rotation, mousemove → grid warp + raycasting |
+R3F scene: [`src/components/webgl/ArchiveScene.jsx`](src/components/webgl/ArchiveScene.jsx). Leva tuning panel is **dev-only**; production uses fixed defaults from `ARCHIVE_DEFAULTS`.
 
 #### Project Detail (`src/projectDetail/`)
 
@@ -85,7 +79,7 @@ Project detail is a shared namespace for all project case study pages (e.g. `/mo
 
 | Module                 | Purpose                                                                                       |
 | ---------------------- | --------------------------------------------------------------------------------------------- |
-| `WorkPageScene.jsx`    | Work 3D scene (model, lights, cloth strip) mounted only on `'work'` inside `UnifiedCanvas`   |
+| `WorkPageScene.jsx`    | In [`src/components/webgl/WorkPageScene.jsx`](src/components/webgl/WorkPageScene.jsx); mounted only on `'work'` inside `UnifiedCanvas` |
 | `WorkClothStrip.jsx`   | Work page strip: R3F `WorkClothStripScene`, WebGPU `MeshBasicNodeMaterial` + TSL (WebGL GLSL fallback), arc geometry, scroll/hover, title sync |
 | `workStripConfig.js`   | Default visible-items / gap-size fallbacks for the strip                                   |
 | `workStripMath.js`     | Scroll slot math: active item index, resolve clicked slot from UV                          |
@@ -106,8 +100,8 @@ Project detail is a shared namespace for all project case study pages (e.g. `/mo
 
 | Module                    | Public lifecycle                         | Purpose                                                     |
 | ------------------------- | ---------------------------------------- | ----------------------------------------------------------- |
-| `scripts/menu.js`         | `initMenu()` / `destroyMenu()`           | Global navigation overlay.                                  |
-| `scripts/link-hover.js`   | `initLinkHover()` / `destroyLinkHover()` | Hover interaction effect for link text.                     |
+| `scripts/link-hover.js`   | `initLinkHover()` / `destroyLinkHover()` | Hover interaction for link text; haptics via `scripts/haptic-feedback.js`. |
+| `scripts/haptic-feedback.js` | `triggerNavHaptic()`                | `navigator.vibrate` on supported devices; dev-only WebHaptics fallback. |
 | `scripts/lenis-scroll.js` | `initLenis()` / `destroyLenis()`         | Smooth scrolling for project detail pages.                  |
 | `scripts/preloader.js`    | —                                        | Shared GLTFLoader/DRACOLoader setup, preload orchestration. |
 | `scripts/work-preload.js` | `startWorkTexturePreload()`              | Preloads work textures during preloader window.             |
@@ -137,7 +131,7 @@ Guard imperative modules against double init and always remove listeners, cancel
 ## Data Sources
 
 - `data/work-items.js` drives work page media and the work strip surfaces.
-- `data/archive-items.js` drives archive page tube textures.
+- `data/archive-items.js` reserved for a future archive DOM / media layout (not used by the current `ArchiveScene` branch).
 
 ## Adding or Changing Pages
 

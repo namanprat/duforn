@@ -18,6 +18,10 @@ async function buildProjectBgMaterials(clonedScene, trailTexture) {
     vec4,
     mix,
     smoothstep,
+    clamp,
+    dot,
+    normalize,
+    pow,
     texture,
     uv,
     screenUV,
@@ -25,6 +29,7 @@ async function buildProjectBgMaterials(clonedScene, trailTexture) {
     cameraProjectionMatrix,
     modelViewMatrix,
     varying,
+    mx_noise_float,
   } = tsl;
 
   const sRGBTransferOETF = Fn(([color]) => {
@@ -60,7 +65,7 @@ async function buildProjectBgMaterials(clonedScene, trailTexture) {
     material.colorNode = Fn(() => {
       const tt1 = sRGBTransferOETF(texture(baseMap, uv()));
       const tt2 = sRGBTransferOETF(texture(emissiveMap, uv()));
-      const extrude = texture(trailTexture, screenUV);
+      const extrude = texture(trailTexture, screenUV).r;
 
       let final_ = tt2.b;
       final_ = mix(final_, tt2.g, smoothstep(0, 0.2, extrude));
@@ -68,7 +73,30 @@ async function buildProjectBgMaterials(clonedScene, trailTexture) {
       final_ = mix(final_, tt1.b, smoothstep(0.4, 0.6, extrude));
       final_ = mix(final_, tt1.g, smoothstep(0.6, 0.8, extrude));
       final_ = mix(final_, tt1.r, smoothstep(0.8, 1, extrude));
-      return vec4(vec3(final_), 1);
+
+      // Bas-relief lighting: approximate a heightfield normal from the trail mask in screen-space.
+      // The underlying model is meant to read like marble/stone, so we push contrast via a soft rim
+      // and a tight specular lobe.
+      const eps = float(0.0022);
+      const hC = texture(trailTexture, uvscreen).r;
+      const hX = texture(trailTexture, uvscreen.add(vec2(eps, 0))).r;
+      const hY = texture(trailTexture, uvscreen.add(vec2(0, eps))).r;
+      const grad = vec2(hX.sub(hC), hY.sub(hC));
+      const normal = normalize(vec3(grad.x.mul(-2.6), grad.y.mul(-2.6), float(1.0)));
+      const lightDir = normalize(vec3(0.35, 0.55, 0.95));
+      const diff = clamp(dot(normal, lightDir), 0, 1);
+      const viewDir = vec3(0, 0, 1);
+      const halfDir = normalize(lightDir.add(viewDir));
+      const spec = pow(clamp(dot(normal, halfDir), 0, 1), float(36.0)).mul(0.28);
+      const rim = pow(float(1.0).sub(clamp(dot(normal, viewDir), 0, 1)), float(2.2)).mul(0.12);
+
+      // Marble micro-variation: subtle veining tied to UV and relief height.
+      const veinNoise = mx_noise_float(vec3(uv().mul(6.2), hC.mul(2.0)));
+      const veins = smoothstep(0.35, 0.8, veinNoise).mul(0.06);
+      const base = vec3(final_).add(vec3(veins));
+
+      const lit = base.mul(mix(0.72, 1.15, diff)).add(vec3(spec.add(rim)));
+      return vec4(lit, 1);
     })();
 
     child.material = material;
@@ -89,6 +117,10 @@ export default function ProjectBg() {
     blurPx: controls.trail.blurPx,
     radiusFactor: controls.trail.radiusFactor,
     gradientScale: controls.trail.gradientScale,
+    smudgeStrength: controls.trail.smudgeStrength,
+    smudgeBlurPx: controls.trail.smudgeBlurPx,
+    roughness: controls.trail.roughness,
+    stampAlpha: controls.trail.stampAlpha,
   });
 
   const { scene: gltfScene } = useGLTF("/models/immersive.glb");

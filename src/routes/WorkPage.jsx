@@ -18,7 +18,7 @@ export default function WorkPage() {
     <main id="main" data-page-container="true" data-page-namespace="work">
       <div className="u-section-spacer-medium" />
       <h1
-        className="reveal-title slide-title work-slide-title u-width-full u-text-align-center u-text-style-display"
+        className="reveal-title slide-title work-slide-title u-container-full u-text-align-center u-text-style-display"
         role="link"
         tabIndex={0}
         data-href=""

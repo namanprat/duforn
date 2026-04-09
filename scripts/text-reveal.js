@@ -7,12 +7,6 @@ gsap.registerPlugin(SplitText, ScrollTrigger);
 
 const rt = (seconds) => seconds * REVEAL_TEXT_TIME_SCALE;
 
-/** Visual ScrollTrigger start/end markers: dev server, or `VITE_SCROLL_REVEAL_MARKERS=true`. */
-const SCROLL_REVEAL_MARKERS =
-  typeof import.meta !== "undefined" &&
-  import.meta.env &&
-  (import.meta.env.DEV || import.meta.env.VITE_SCROLL_REVEAL_MARKERS === "true");
-
 // ── Title state (brand handoff only) ────────────────────────────────────
 const titleStates = new Map();
 
@@ -57,7 +51,50 @@ function createTitleCharacter(char) {
   return node;
 }
 
+function appendTitleCharacters(parent, segment, characters) {
+  for (const char of segment) {
+    const letter = createTitleCharacter(char);
+    parent.appendChild(letter);
+    characters.push(letter);
+  }
+}
+
+function buildTitleStateSlideTitle(element, sourceText, accessibilityMeta) {
+  const clip = document.createElement("span");
+  clip.className = "reveal-title-clip";
+  clip.setAttribute("aria-hidden", "true");
+
+  const textBlock = document.createElement("span");
+  textBlock.className = "reveal-title-text";
+
+  const characters = [];
+  const segments = sourceText.split(/(\s+)/).filter(Boolean);
+
+  for (const segment of segments) {
+    if (/^\s+$/.test(segment)) {
+      appendTitleCharacters(textBlock, segment, characters);
+    } else {
+      const wordWrap = document.createElement("span");
+      wordWrap.className = "reveal-title-word";
+      appendTitleCharacters(wordWrap, segment, characters);
+      textBlock.appendChild(wordWrap);
+    }
+  }
+
+  clip.appendChild(textBlock);
+  element.replaceChildren(clip);
+  element.setAttribute("aria-label", sourceText);
+
+  const state = { sourceText, clip, textBlock, characters, ...accessibilityMeta };
+  titleStates.set(element, state);
+  return state;
+}
+
 function buildTitleState(element, sourceText, accessibilityMeta) {
+  if (element.classList.contains("slide-title")) {
+    return buildTitleStateSlideTitle(element, sourceText, accessibilityMeta);
+  }
+
   const clip = document.createElement("span");
   clip.className = "reveal-title-clip";
   clip.setAttribute("aria-hidden", "true");
@@ -118,7 +155,6 @@ const preparedRouteElements = new Set();
 const routeBodySplits = new Map(); // element -> { split, wrappers, lines }
 
 // ── Scroll reveal state ──────────────────────────────────────────────────
-const scrollRevealSplits = new Map(); // element -> { split, wrappers, lines }
 const scrollRevealRegistry = [];
 
 // ── Shared helpers ───────────────────────────────────────────────────────
@@ -217,24 +253,6 @@ function finalizeRouteBodySplitsAfterEnter(container, options = {}) {
   for (const el of bodies) {
     if (routeBodySplits.has(el)) stabilizedRevertBodySplit(el);
   }
-}
-
-function stabilizedRevertScrollSplit(element) {
-  const state = scrollRevealSplits.get(element);
-  if (!state) return;
-  gsap.killTweensOf(state.lines);
-  gsap.set(state.lines, { yPercent: 0, opacity: 1, clearProps: "willChange,transformOrigin" });
-
-  const lockedHeight = element.getBoundingClientRect().height;
-  if (lockedHeight > 0) element.style.minHeight = `${lockedHeight}px`;
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      revertLineClipSplit(element, scrollRevealSplits);
-      element.style.minHeight = "";
-      gsap.set(element, { visibility: "visible" });
-    });
-  });
 }
 
 function clearPreparedRouteState() {
@@ -546,70 +564,35 @@ function initScrollReveals(container) {
     gsap.killTweensOf(el);
     gsap.set(el, { visibility: "hidden", immediateRender: true });
 
-    const state = createLineClipSplit(el, scrollRevealSplits);
+    gsap.set(el, {
+      visibility: "visible",
+      yPercent: 100,
+      opacity: 0,
+      willChange: "transform,opacity",
+      transformOrigin: "50% 50%",
+      immediateRender: true,
+    });
 
-    if (state?.lines?.length) {
-      gsap.set(el, { visibility: "visible", immediateRender: true });
-      gsap.killTweensOf(state.lines);
-      gsap.set(state.lines, {
-        yPercent: 100,
-        opacity: 1,
-        willChange: "transform,opacity",
-        transformOrigin: "50% 50%",
-        immediateRender: true,
-      });
-
-      const st = ScrollTrigger.create({
-        id: `scroll-reveal-lines-${index}`,
-        trigger: el,
-        start: "top 88%",
-        end: "bottom top",
-        markers: SCROLL_REVEAL_MARKERS,
-        once: true,
-        onEnter: () => {
-          gsap.to(state.lines, {
-            yPercent: 0,
-            opacity: 1,
-            duration: rt(0.75),
-            ease: "power3.out",
-            stagger: rt(0.055),
-            onComplete: () => stabilizedRevertScrollSplit(el),
-          });
-        },
-      });
-      scrollRevealRegistry.push({ st, el, lines: true });
-    } else {
-      gsap.set(el, {
-        visibility: "visible",
-        yPercent: 100,
-        opacity: 0,
-        willChange: "transform,opacity",
-        transformOrigin: "50% 50%",
-        immediateRender: true,
-      });
-
-      const st = ScrollTrigger.create({
-        id: `scroll-reveal-block-${index}`,
-        trigger: el,
-        start: "top 88%",
-        end: "bottom top",
-        markers: SCROLL_REVEAL_MARKERS,
-        once: true,
-        onEnter: () => {
-          gsap.to(el, {
-            yPercent: 0,
-            opacity: 1,
-            duration: rt(0.75),
-            ease: "power3.out",
-            clearProps: "transform,opacity,willChange,transformOrigin",
-            onComplete: () => {
-              gsap.set(el, { visibility: "visible" });
-            },
-          });
-        },
-      });
-      scrollRevealRegistry.push({ st, el, lines: false });
-    }
+    const st = ScrollTrigger.create({
+      id: `scroll-reveal-${index}`,
+      trigger: el,
+      start: "top 88%",
+      once: true,
+      scrub: false,
+      onEnter: () => {
+        gsap.to(el, {
+          yPercent: 0,
+          opacity: 1,
+          duration: rt(0.75),
+          ease: "power3.out",
+          clearProps: "transform,opacity,willChange,transformOrigin",
+          onComplete: () => {
+            gsap.set(el, { visibility: "visible" });
+          },
+        });
+      },
+    });
+    scrollRevealRegistry.push({ st, el });
   });
 
   requestAnimationFrame(() => {
@@ -620,25 +603,15 @@ function initScrollReveals(container) {
 // ── Scroll reveals: destroy ───────────────────────────────────────────────
 
 function destroyScrollReveals() {
-  for (const { st, el, lines } of scrollRevealRegistry) {
+  for (const { st, el } of scrollRevealRegistry) {
     st.kill();
     gsap.killTweensOf(el);
-    if (lines) {
-      const state = scrollRevealSplits.get(el);
-      if (state) gsap.killTweensOf(state.lines);
-      revertLineClipSplit(el, scrollRevealSplits);
-    } else {
-      gsap.set(el, {
-        visibility: "visible",
-        clearProps: "transform,opacity,willChange,transformOrigin",
-      });
-    }
+    gsap.set(el, {
+      visibility: "visible",
+      clearProps: "transform,opacity,willChange,transformOrigin",
+    });
   }
   scrollRevealRegistry.length = 0;
-
-  for (const el of Array.from(scrollRevealSplits.keys())) {
-    revertLineClipSplit(el, scrollRevealSplits);
-  }
 }
 
 // ── Full teardown ─────────────────────────────────────────────────────────

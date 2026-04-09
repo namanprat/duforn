@@ -1,5 +1,5 @@
 import gsap from "gsap";
-import { WebHaptics } from "web-haptics";
+import { triggerNavHaptic } from "./haptic-feedback.js";
 import { REVEAL_TEXT_TIME_SCALE } from "./reveal-timing.js";
 
 const ANIM_CONFIG = {
@@ -14,8 +14,6 @@ const linkInstances = new Map();
 /** Manually attached hosts (e.g. preloader CTA) — same char-layer hover as nav links. */
 const attachedHoverInstances = new Map();
 
-let haptics = null;
-
 function supportsTouchInput() {
   if (typeof navigator !== "undefined" && navigator.maxTouchPoints > 0) return true;
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
@@ -25,11 +23,6 @@ function supportsTouchInput() {
 function supportsHoverInput() {
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") return true;
   return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
-}
-
-export function getHaptics() {
-  if (!haptics) haptics = new WebHaptics({ debug: true });
-  return haptics;
 }
 
 export function initLinkHover() {
@@ -46,7 +39,7 @@ export function initLinkHover() {
 
     if (hasTouchInput) {
       const handleTouchStart = () => {
-        getHaptics().trigger("nudge");
+        triggerNavHaptic("nudge");
       };
 
       link.addEventListener("touchstart", handleTouchStart, { passive: true });
@@ -70,7 +63,7 @@ export function initLinkHover() {
       if (link.getAttribute("aria-current") === "page") return;
       tl?.kill();
       tl = animateChars(baseLayer.chars, hoverLayer.chars, true);
-      getHaptics().trigger([{ duration: 10 }], { intensity: 1 });
+      triggerNavHaptic("hover");
     };
 
     const handleLeave = () => {
@@ -80,10 +73,7 @@ export function initLinkHover() {
     };
 
     const handleClick = () => {
-      getHaptics().trigger([
-        { duration: 80, intensity: 0.8 },
-        { delay: 80, duration: 50, intensity: 0.3 },
-      ]);
+      triggerNavHaptic("click");
     };
 
     link.addEventListener("mouseenter", handleEnter);
@@ -138,7 +128,7 @@ export function attachLinkHoverEffect(element, textOrConfig) {
 
   if (hasTouchInput) {
     const handleTouchStart = () => {
-      getHaptics().trigger("nudge");
+      triggerNavHaptic("nudge");
     };
     element.addEventListener("touchstart", handleTouchStart, { passive: true });
     instance.handleTouchStart = handleTouchStart;
@@ -160,7 +150,7 @@ export function attachLinkHoverEffect(element, textOrConfig) {
   const handleEnter = () => {
     tl?.kill();
     tl = animateChars(baseLayer.chars, hoverLayer.chars, true);
-    getHaptics().trigger([{ duration: 10 }], { intensity: 1 });
+    triggerNavHaptic("hover");
   };
 
   const handleLeave = () => {
@@ -169,10 +159,7 @@ export function attachLinkHoverEffect(element, textOrConfig) {
   };
 
   const handleClick = () => {
-    getHaptics().trigger([
-      { duration: 80, intensity: 0.8 },
-      { delay: 80, duration: 50, intensity: 0.3 },
-    ]);
+    triggerNavHaptic("click");
   };
 
   element.addEventListener("mouseenter", handleEnter);

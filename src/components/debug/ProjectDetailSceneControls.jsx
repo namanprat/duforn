@@ -76,6 +76,10 @@ const CONTROL_SECTIONS = [
         max: 6,
         step: 0.01,
       },
+      { path: "trail.smudgeStrength", label: "Smudge", min: 0, max: 1.25, step: 0.01 },
+      { path: "trail.smudgeBlurPx", label: "Smudge Blur", min: 0, max: 6, step: 0.05 },
+      { path: "trail.roughness", label: "Edge Roughness", min: 0, max: 1, step: 0.01 },
+      { path: "trail.stampAlpha", label: "Stamp Alpha", min: 0.1, max: 1, step: 0.01 },
     ],
   },
   {
@@ -217,6 +221,9 @@ export default function ProjectDetailSceneControls() {
 
   return (
     <aside
+      data-lenis-prevent="true"
+      onWheelCapture={(event) => event.stopPropagation()}
+      onTouchMoveCapture={(event) => event.stopPropagation()}
       style={{
         position: "fixed",
         top: 88,
@@ -225,6 +232,8 @@ export default function ProjectDetailSceneControls() {
         width: "min(360px, calc(100vw - 24px))",
         maxHeight: "calc(100vh - 104px)",
         overflow: "auto",
+        overscrollBehavior: "contain",
+        WebkitOverflowScrolling: "touch",
         padding: 12,
         borderRadius: 18,
         border: "1px solid rgba(255, 255, 255, 0.12)",

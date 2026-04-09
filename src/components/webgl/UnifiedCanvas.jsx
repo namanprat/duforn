@@ -3,9 +3,11 @@ import { PerspectiveCamera } from "@react-three/drei";
 import CanvasSurface from "./CanvasSurface.jsx";
 import { createRendererOpaque, getRendererType } from "./createWebGPURenderer.js";
 import { logWebGPU } from "../../lib/webgpu/debugWebGPU.js";
+import { useWebglStore } from "../../store/webgl.js";
 import ArchiveScene from "./ArchiveScene.jsx";
 import WorkPageScene from "./WorkPageScene.jsx";
 import ShaderCompiler from "./ShaderCompiler.jsx";
+// Grain is handled as a DOM overlay for true `mix-blend-mode: overlay`.
 import {
   HomeCanvasBranch,
   NotFoundCanvasBranch,
@@ -43,6 +45,7 @@ function UnifiedScene({ activePage }) {
 export default function UnifiedCanvas({ activePage }) {
   const pointerEvents = activePage === "work" || activePage === "archive" ? "auto" : "none";
   const isProjectDetail = activePage === "projectDetail";
+  const setRendererType = useWebglStore((s) => s.setRendererType);
 
   return (
     <CanvasSurface
@@ -52,7 +55,9 @@ export default function UnifiedCanvas({ activePage }) {
       shadows
       wrapperProps={{ "data-active-canvas": "true" }}
       onCreated={({ gl }) => {
-        logWebGPU("UnifiedCanvas", "Canvas created", { rendererType: getRendererType(gl) });
+        const rendererType = getRendererType(gl);
+        setRendererType(rendererType);
+        logWebGPU("UnifiedCanvas", "Canvas created", { rendererType });
       }}
       onPointerMissed={isProjectDetail ? () => {} : undefined}
     >

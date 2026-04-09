@@ -5,6 +5,7 @@ export function usePointerField() {
   const pointerRef = useRef(new THREE.Vector2(0, 0));
   const targetRef = useRef(new THREE.Vector2(0, 0));
   const velocityRef = useRef(new THREE.Vector2(0, 0));
+  const previousScratchRef = useRef(new THREE.Vector2(0, 0));
 
   useEffect(() => {
     const onPointerMove = (event) => {
@@ -19,7 +20,7 @@ export function usePointerField() {
   }, []);
 
   const step = (delta, pointerLerp) => {
-    const previous = pointerRef.current.clone();
+    const previous = previousScratchRef.current.copy(pointerRef.current);
     pointerRef.current.lerp(targetRef.current, Math.min(delta * pointerLerp, 1));
     velocityRef.current.copy(pointerRef.current).sub(previous);
   };

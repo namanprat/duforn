@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
+import React, { useRef, useEffect, useState, useCallback, useMemo, Suspense } from "react";
 import { useLocation } from "react-router-dom";
 import gsap from "gsap";
 import { navigateTo } from "../../lib/navigationBridge.js";
@@ -6,6 +6,11 @@ import UnifiedCanvas from "../webgl/UnifiedCanvas.jsx";
 import { useWebglStore } from "../../store/webgl.js";
 import { useLoadingStore } from "../../store/loading.js";
 import { requestDeviceOrientationPermission } from "../../../scripts/runtime/motion.js";
+import GrainDomOverlay from "./GrainDomOverlay.jsx";
+
+const LazyProjectDetailSceneControls = import.meta.env.DEV
+  ? React.lazy(() => import("../debug/ProjectDetailSceneControls.jsx"))
+  : null;
 
 function NavLink({ to, className, children, ...props }) {
   const location = useLocation();
@@ -594,6 +599,14 @@ export default function SiteLayout({ children }) {
       <div className="page-canvas">
         <UnifiedCanvas activePage={activePage} />
       </div>
+
+      <GrainDomOverlay />
+
+      {LazyProjectDetailSceneControls && activePage === "projectDetail" ? (
+        <Suspense fallback={null}>
+          <LazyProjectDetailSceneControls />
+        </Suspense>
+      ) : null}
 
       {children}
 

@@ -1,10 +1,23 @@
-import React, { useMemo, useRef, useState, useEffect } from "react";
+import React, { useMemo, useRef, useEffect, useState } from "react";
 import { createPortal, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { isWebGPURenderer } from "./createWebGPURenderer.js";
 import { logWebGPUOnce } from "../../lib/webgpu/debugWebGPU.js";
 import { getCssSwatchDarkHex } from "../../lib/cssSwatchDark.js";
 import { useControls, folder } from "leva";
+
+export const ARCHIVE_DEFAULTS = {
+  dictionary:
+    "`.-':_,^=;><+!rc*/z?sLTv)J7(|Fi{C}fI31tlu[neoZ5Yxjya]2ESwqkP6h9d4VpOGbUAKXHm8RD#$Bg0MNWQ%&@",
+  rows: 50,
+  cubeCount: 50,
+  cubeSpeed: 0.005,
+  color1: "#8c1dff",
+  color2: "#f223ff",
+  color3: "#ff2976",
+  color4: "#ff901f",
+  color5: "#ffd318",
+};
 
 function createASCIITexture(dict) {
   const length = dict.length;
@@ -144,9 +157,8 @@ function WebGPUArchiveNodes({ renderTarget, asciiTexture, customLength, colors, 
       }
       setReady(false);
     };
-  }, [renderTarget, asciiTexture, customLength]); // omit colors as dependency to avoid rebuilds, we will update uniforms dynamically
+  }, [renderTarget, asciiTexture, customLength]);
 
-  // Update uniforms without rebuilding material
   useFrame(() => {
     if (systemRef.current) {
       systemRef.current.uniforms.uColor1.value.set(colors.color1);
@@ -200,40 +212,71 @@ function WebGPUArchiveNodes({ renderTarget, asciiTexture, customLength, colors, 
   );
 }
 
-export default function ArchiveScene() {
+/** WebGL: show offscreen cube pass as a screen-filling plane (no ASCII instancing). */
+function WebGLArchiveFallback({ renderTarget }) {
+  const { camera, size } = useThree();
+  const [planeW, planeH] = useMemo(() => {
+    const vFov = (camera.fov * Math.PI) / 180;
+    const dist = Math.max(camera.position.length(), 0.01);
+    const h = 2 * Math.tan(vFov / 2) * dist * 1.08;
+    const w = h * (size.width / Math.max(size.height, 1));
+    return [w, h];
+  }, [
+    camera.fov,
+    camera.position.x,
+    camera.position.y,
+    camera.position.z,
+    size.width,
+    size.height,
+  ]);
+
+  return (
+    <mesh position={[0, 0, 0]}>
+      <planeGeometry args={[planeW, planeH]} />
+      <meshBasicMaterial map={renderTarget.texture} toneMapped={false} />
+    </mesh>
+  );
+}
+
+export function ArchiveSceneCore({
+  dictionary,
+  rows,
+  cubeCount,
+  cubeSpeed,
+  color1,
+  color2,
+  color3,
+  color4,
+  color5,
+}) {
   const { gl, size } = useThree();
+  const webgpu = isWebGPURenderer(gl);
 
-  // Leva controls for adjusting ASCII settings and cube behavior
-  const { dictionary, rows, cubeCount, cubeSpeed, color1, color2, color3, color4, color5 } =
-    useControls("ASCII Settings", {
-      dictionary:
-        "`.-':_,^=;><+!rc*/z?sLTv)J7(|Fi{C}fI31tlu[neoZ5Yxjya]2ESwqkP6h9d4VpOGbUAKXHm8RD#$Bg0MNWQ%&@",
-      rows: { value: 50, min: 10, max: 200, step: 1 },
-      scene: folder({
-        cubeCount: { value: 50, min: 1, max: 200, step: 1 },
-        cubeSpeed: { value: 0.005, min: 0.001, max: 0.05, step: 0.001 },
-      }),
-      colors: folder({
-        color1: "#8c1dff",
-        color2: "#f223ff",
-        color3: "#ff2976",
-        color4: "#ff901f",
-        color5: "#ffd318",
-      }),
-    });
+  const asciiTexture = useMemo(() => {
+    if (!webgpu) return null;
+    return createASCIITexture(dictionary);
+  }, [webgpu, dictionary]);
 
-  const asciiTexture = useMemo(() => createASCIITexture(dictionary), [dictionary]);
+  useEffect(() => {
+    return () => {
+      asciiTexture?.dispose();
+    };
+  }, [asciiTexture]);
 
-  // Use RenderTarget (works with both WebGL and WebGPU) instead of WebGLRenderTarget
   const renderTarget = useMemo(
     () =>
       new THREE.RenderTarget(size.width, size.height, {
-        samples: 0, // Disable MSAA on the FBO to avoid WebGPU sample count issues
+        samples: 0,
       }),
     [size.width, size.height],
   );
 
-  // Separate scene + camera for the offscreen cube pass
+  useEffect(() => {
+    return () => {
+      renderTarget.dispose();
+    };
+  }, [renderTarget]);
+
   const fboScene = useMemo(() => {
     const s = new THREE.Scene();
     s.background = new THREE.Color(getCssSwatchDarkHex());
@@ -246,7 +289,6 @@ export default function ArchiveScene() {
     return cam;
   }, [size.width, size.height]);
 
-  // Add lights to the offscreen scene once
   useEffect(() => {
     const ambient = new THREE.AmbientLight(0xffffff, 0.05);
     const directional = new THREE.DirectionalLight(0xffffff, 2.5);
@@ -261,7 +303,33 @@ export default function ArchiveScene() {
 
   const cubesRef = useRef([]);
 
-  // Animate cubes + render offscreen scene into the FBO each frame
+  useEffect(() => {
+    cubesRef.current = Array.from({ length: cubeCount }, () => undefined);
+  }, [cubeCount]);
+
+  const cubePayload = useMemo(() => {
+    const range = (min, max) => Math.random() * (max - min) + min;
+    const material = new THREE.MeshPhysicalMaterial({ color: 0xffffff });
+    const meshes = [];
+    for (let i = 0; i < cubeCount; i++) {
+      const sizeBox = range(0.5, 0.9);
+      const pos = [range(-3, 3), range(-3, 3), range(-3, 3)];
+      const rot = [range(0, Math.PI), range(0, Math.PI), range(0, Math.PI)];
+      const geom = new THREE.BoxGeometry(sizeBox, sizeBox, sizeBox);
+      meshes.push({ geom, pos, rot, key: i });
+    }
+    return { material, meshes };
+  }, [cubeCount]);
+
+  useEffect(() => {
+    return () => {
+      for (const m of cubePayload.meshes) {
+        m.geom.dispose();
+      }
+      cubePayload.material.dispose();
+    };
+  }, [cubePayload]);
+
   useFrame((state) => {
     const time = state.clock.elapsedTime;
 
@@ -273,58 +341,82 @@ export default function ArchiveScene() {
       cube.position.y = 3 * Math.sin(time * cubeSpeed * 100 + i);
     });
 
-    // Render the cube scene into the FBO
     gl.setRenderTarget(renderTarget);
     gl.render(fboScene, fboCamera);
     gl.setRenderTarget(null);
   });
 
-  // Portal content: cubes rendered into the offscreen scene
-  const portalContent = useMemo(() => {
-    const range = (min, max) => Math.random() * (max - min) + min;
-    const material = new THREE.MeshPhysicalMaterial({ color: 0xffffff });
-    const boxes = [];
-    cubesRef.current = [];
-    for (let i = 0; i < cubeCount; i++) {
-      let sizeBox = range(0.5, 0.9);
-      let pos = [range(-3, 3), range(-3, 3), range(-3, 3)];
-      let rot = [range(0, Math.PI), range(0, Math.PI), range(0, Math.PI)];
-      boxes.push(
-        <mesh
-          key={i}
-          geometry={new THREE.BoxGeometry(sizeBox, sizeBox, sizeBox)}
-          material={material}
-          position={pos}
-          rotation={rot}
-          ref={(el) => {
-            if (el && !cubesRef.current.includes(el)) cubesRef.current.push(el);
-          }}
-        />,
-      );
-    }
-    return boxes;
-  }, [cubeCount]);
-
-  if (!isWebGPURenderer(gl)) {
-    return null;
-  }
-
   const swatchDark = getCssSwatchDarkHex();
+  const colors = { color1, color2, color3, color4, color5 };
+
+  const portalMeshes = cubePayload.meshes.map((m, i) => (
+    <mesh
+      key={m.key}
+      geometry={m.geom}
+      material={cubePayload.material}
+      position={m.pos}
+      rotation={m.rot}
+      ref={(el) => {
+        cubesRef.current[i] = el;
+      }}
+    />
+  ));
 
   return (
     <>
       <color attach="background" args={[swatchDark]} />
-
-      {/* Portal renders cubes into the offscreen fboScene */}
-      {createPortal(portalContent, fboScene)}
-
-      <WebGPUArchiveNodes
-        renderTarget={renderTarget}
-        asciiTexture={asciiTexture}
-        customLength={dictionary.length}
-        rows={rows}
-        colors={{ color1, color2, color3, color4, color5 }}
-      />
+      {createPortal(portalMeshes, fboScene)}
+      {webgpu && asciiTexture ? (
+        <WebGPUArchiveNodes
+          renderTarget={renderTarget}
+          asciiTexture={asciiTexture}
+          customLength={dictionary.length}
+          rows={rows}
+          colors={colors}
+        />
+      ) : (
+        <WebGLArchiveFallback renderTarget={renderTarget} />
+      )}
     </>
   );
+}
+
+function ArchiveSceneWithLeva() {
+  const { dictionary, rows, cubeCount, cubeSpeed, color1, color2, color3, color4, color5 } =
+    useControls("ASCII Settings", {
+      dictionary: ARCHIVE_DEFAULTS.dictionary,
+      rows: { value: ARCHIVE_DEFAULTS.rows, min: 10, max: 200, step: 1 },
+      scene: folder({
+        cubeCount: { value: ARCHIVE_DEFAULTS.cubeCount, min: 1, max: 200, step: 1 },
+        cubeSpeed: { value: ARCHIVE_DEFAULTS.cubeSpeed, min: 0.001, max: 0.05, step: 0.001 },
+      }),
+      colors: folder({
+        color1: ARCHIVE_DEFAULTS.color1,
+        color2: ARCHIVE_DEFAULTS.color2,
+        color3: ARCHIVE_DEFAULTS.color3,
+        color4: ARCHIVE_DEFAULTS.color4,
+        color5: ARCHIVE_DEFAULTS.color5,
+      }),
+    });
+
+  return (
+    <ArchiveSceneCore
+      dictionary={dictionary}
+      rows={rows}
+      cubeCount={cubeCount}
+      cubeSpeed={cubeSpeed}
+      color1={color1}
+      color2={color2}
+      color3={color3}
+      color4={color4}
+      color5={color5}
+    />
+  );
+}
+
+export default function ArchiveScene() {
+  if (import.meta.env.DEV) {
+    return <ArchiveSceneWithLeva />;
+  }
+  return <ArchiveSceneCore {...ARCHIVE_DEFAULTS} />;
 }

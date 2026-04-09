@@ -8,6 +8,7 @@ import { useProjectDetailController } from "./useProjectDetailController.js";
 import { useProjectDetailSceneControlsStore } from "../store/projectDetailSceneControls.js";
 import { PROJECT_DETAIL_REVEAL_SETTINGS } from "./projectDetailSceneConfig.js";
 import SceneExposure from "../components/webgl/SceneExposure.jsx";
+import { useWebglStore } from "../store/webgl.js";
 
 function ProjectDetailCamera() {
   const { size } = useThree();
@@ -37,15 +38,20 @@ export default function ProjectDetailScene() {
   const projectBgFallbackControls = useProjectDetailSceneControlsStore(
     (state) => state.controls.projectBgFallback,
   );
+  const rendererType = useWebglStore((s) => s.rendererType);
 
   return (
     <>
       <ProjectDetailCamera />
       <ProjectDetailController />
       <SceneExposure exposure={exposure} />
-      <Suspense fallback={<ProjectDetailBackground controls={projectBgFallbackControls} />}>
-        <ProjectBg />
-      </Suspense>
+      {rendererType === "webgl" ? (
+        <ProjectDetailBackground controls={projectBgFallbackControls} />
+      ) : (
+        <Suspense fallback={<ProjectDetailBackground controls={projectBgFallbackControls} />}>
+          <ProjectBg />
+        </Suspense>
+      )}
       <ProjectDetailImagePlanes revealControls={PROJECT_DETAIL_REVEAL_SETTINGS} />
     </>
   );

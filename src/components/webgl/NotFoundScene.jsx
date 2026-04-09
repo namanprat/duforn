@@ -129,7 +129,7 @@ export default function NotFoundScene() {
   useEffect(() => {
     const onPointerMove = (event) => {
       pointerRef.current.x = (event.clientX / window.innerWidth) * 2 - 1;
-      pointerRef.current.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      pointerRef.current.y = (event.clientY / window.innerHeight) * 2 - 1;
     };
     window.addEventListener("pointermove", onPointerMove, { passive: true });
     return () => window.removeEventListener("pointermove", onPointerMove);

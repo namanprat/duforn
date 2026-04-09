@@ -25,6 +25,9 @@ async function buildBackgroundMaterial(controls) {
     sin,
     cos,
     mx_noise_float,
+    dot,
+    normalize,
+    pow,
   } = tsl;
 
   const uniforms = {
@@ -114,6 +117,7 @@ async function buildBackgroundMaterial(controls) {
     const pointerBloom = float(1).sub(
       smoothstep(float(0.04), float(0.58), length(coord.sub(pointer.mul(0.22)))),
     );
+    const height = liquid.add(envelope.mul(0.18)).add(pointerBloom.mul(0.06));
     const field = clamp(
       liquid
         .mul(0.78)
@@ -135,11 +139,37 @@ async function buildBackgroundMaterial(controls) {
       smoothstep(float(0.38), float(0.94), liquid.add(envelope.mul(0.1))),
     );
 
-    return mix(
+    const baseColor = mix(
       core,
       uniforms.uColorShade,
       smoothstep(float(0.6), float(1.02), liquid.add(ripple.mul(0.45))),
     );
+
+    // Marble-ish bas-relief hint: cheap screen-space "lighting" from a pseudo heightfield gradient.
+    const eps = float(0.006);
+    const hC = height;
+    const hX = mx_noise_float(
+      vec3(warped.add(vec2(eps, 0)).mul(uniforms.uLargeNoiseScale), uniforms.uTime.mul(0.08)),
+    )
+      .mul(0.55)
+      .add(mediumNoise.mul(0.3))
+      .add(fineNoise.mul(0.15));
+    const hY = mx_noise_float(
+      vec3(warped.add(vec2(0, eps)).mul(uniforms.uLargeNoiseScale), uniforms.uTime.mul(0.08)),
+    )
+      .mul(0.55)
+      .add(mediumNoise.mul(0.3))
+      .add(fineNoise.mul(0.15));
+    const grad = vec2(hX.sub(hC), hY.sub(hC));
+    const normal = normalize(vec3(grad.x.mul(-1.9), grad.y.mul(-1.9), float(1)));
+    const lightDir = normalize(vec3(0.25, 0.55, 0.95));
+    const diff = clamp(dot(normal, lightDir), 0, 1);
+    const viewDir = vec3(0, 0, 1);
+    const halfDir = normalize(lightDir.add(viewDir));
+    const spec = pow(clamp(dot(normal, halfDir), 0, 1), float(28)).mul(0.12);
+    const lit = baseColor.mul(mix(float(0.9), float(1.12), diff)).add(vec3(spec));
+
+    return lit;
   })();
 
   material.opacityNode = float(1);

@@ -17,6 +17,12 @@ export function initLenis() {
     smoothWheel: true,
     touchMultiplier: 1,
     wheelMultiplier: 0.8,
+    // Allow nested scroll containers (debug panels, etc.) to scroll normally.
+    prevent: (node) => {
+      if (!node) return false;
+      if (node.closest?.("[data-lenis-prevent='true']")) return true;
+      return false;
+    },
   });
 
   lenisScrollTriggerSync = () => {

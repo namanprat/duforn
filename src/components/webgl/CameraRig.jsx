@@ -10,7 +10,7 @@ import {
 /**
  * Orbital parallax camera shared by home, contact, and work canvases.
  *
- * Mouse / gyro input drives a smooth orbit around the scene center.
+ * Pointer / gyro input drives a smooth orbit around the scene center.
  * Subtle handheld drift adds cinematic feel.
  *
  * @param {number[]} [orbitCenter=[0,-1,-5]]      xyz center of the orbit
@@ -42,7 +42,7 @@ export default function CameraRig({ orbitCenter = [0, -1, -5], enableContactOffs
 
   // Input listeners
   useEffect(() => {
-    const onMouseMove = (event) => {
+    const onPointerMove = (event) => {
       const mx = (event.clientX / window.innerWidth) * 2 - 1;
       const my = -(event.clientY / window.innerHeight) * 2 + 1;
       target.current.angle = Math.PI / 2 + mx * PARALLAX_MOTION_CONFIG.angleRange;
@@ -59,11 +59,11 @@ export default function CameraRig({ orbitCenter = [0, -1, -5], enableContactOffs
       target.current.tilt = mapped.x * PARALLAX_MOTION_CONFIG.tiltRange;
     };
 
-    window.addEventListener("mousemove", onMouseMove, { passive: true });
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
     window.addEventListener("deviceorientation", onDeviceOrientation, { passive: true });
 
     return () => {
-      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("deviceorientation", onDeviceOrientation);
     };
   }, [gyroEnabled]);
