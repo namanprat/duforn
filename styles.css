@@ -3900,6 +3900,14 @@ body.preloader-active [data-page-container="true"] .reveal-body {
   margin-inline: auto;
 }
 
+.project-details-hero-info,
+.project-details-cover-frame,
+.project-details-supporting-image,
+.project-details-screen-grid {
+  width: var(--project-details--content-width-desktop);
+  margin-inline: auto;
+}
+
 .project-details-hero,
 .project-details-story,
 .project-details-cover,
@@ -3926,7 +3934,7 @@ body.preloader-active [data-page-container="true"] .reveal-body {
 
 .project-details-overview {
   flex: 1 1 50%;
-  max-width: 52ch;
+  max-width: var(--project-details--hero-overview-max-width);
   margin-inline: 0;
 }
 
@@ -4137,7 +4145,11 @@ body.preloader-active [data-page-container="true"] .reveal-body {
 }
 
 @media (max-width: 1024px) {
-  .project-details-content {
+  .project-details-content,
+  .project-details-hero-info,
+  .project-details-cover-frame,
+  .project-details-supporting-image,
+  .project-details-screen-grid {
     width: var(--project-details--content-width-tablet);
   }
 }
@@ -4189,7 +4201,10 @@ body.preloader-active [data-page-container="true"] .reveal-body {
 
 @media (max-width: 640px) {
   .project-details-content,
-  .project-details-overview {
+  .project-details-hero-info,
+  .project-details-cover-frame,
+  .project-details-supporting-image,
+  .project-details-screen-grid {
     width: var(--project-details--content-width-mobile);
   }
 

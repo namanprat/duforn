@@ -1,14 +1,12 @@
-import React, { Suspense } from "react";
+import React from "react";
 import { OrthographicCamera } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
 import ProjectDetailBackground from "./ProjectDetailBackground.jsx";
-import ProjectBg from "./ProjectBg.jsx";
 import ProjectDetailImagePlanes from "./ProjectDetailImagePlanes.jsx";
 import { useProjectDetailController } from "./useProjectDetailController.js";
 import { useProjectDetailSceneControlsStore } from "../store/projectDetailSceneControls.js";
 import { PROJECT_DETAIL_REVEAL_SETTINGS } from "./projectDetailSceneConfig.js";
 import SceneExposure from "../components/webgl/SceneExposure.jsx";
-import { useWebglStore } from "../store/webgl.js";
 
 function ProjectDetailCamera() {
   const { size } = useThree();
@@ -38,20 +36,13 @@ export default function ProjectDetailScene() {
   const projectBgFallbackControls = useProjectDetailSceneControlsStore(
     (state) => state.controls.projectBgFallback,
   );
-  const rendererType = useWebglStore((s) => s.rendererType);
 
   return (
     <>
       <ProjectDetailCamera />
       <ProjectDetailController />
       <SceneExposure exposure={exposure} />
-      {rendererType === "webgl" ? (
-        <ProjectDetailBackground controls={projectBgFallbackControls} />
-      ) : (
-        <Suspense fallback={<ProjectDetailBackground controls={projectBgFallbackControls} />}>
-          <ProjectBg />
-        </Suspense>
-      )}
+      <ProjectDetailBackground controls={projectBgFallbackControls} />
       <ProjectDetailImagePlanes revealControls={PROJECT_DETAIL_REVEAL_SETTINGS} />
     </>
   );
