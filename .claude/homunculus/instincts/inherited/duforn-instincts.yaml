@@ -1,0 +1,318 @@
+# Instincts generated from https://github.com/namanprat/duforn
+# Generated: 2026-04-10T21:47:05.688Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: duforn-commit-conventional
+trigger: "when writing a commit message"
+confidence: 0.85
+domain: git
+source: repo-analysis
+source_repo: https://github.com/namanprat/duforn
+---
+
+# Duforn Commit Conventional
+
+## Action
+
+Use conventional commit format with prefixes: chore
+
+## Evidence
+
+- 1 commits analyzed
+- Detected conventional commit pattern
+- Examples: chore: fast-track TypeScript migration for shared stores
+
+---
+id: duforn-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/namanprat/duforn
+---
+
+# Duforn Commit Length
+
+## Action
+
+Write moderate-length commit messages (~56 characters)
+
+## Evidence
+
+- Average commit message length: 56 chars
+- Based on 1 commits
+
+---
+id: duforn-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/namanprat/duforn
+---
+
+# Duforn Naming Files
+
+## Action
+
+Use PascalCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: PascalCase
+
+---
+id: duforn-import-relative
+trigger: "when importing modules"
+confidence: 0.75
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/namanprat/duforn
+---
+
+# Duforn Import Relative
+
+## Action
+
+Use relative imports for project files
+
+## Evidence
+
+- Import analysis shows relative import pattern
+- Example: import { x } from '../lib/x'
+
+---
+id: duforn-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/namanprat/duforn
+---
+
+# Duforn Export Style
+
+## Action
+
+Prefer named exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: named
+
+---
+id: duforn-arch-type-based
+trigger: "when adding new code"
+confidence: 0.8
+domain: architecture
+source: repo-analysis
+source_repo: https://github.com/namanprat/duforn
+---
+
+# Duforn Arch Type Based
+
+## Action
+
+Place code in the appropriate type folder (components/, services/, utils/, etc.)
+
+## Evidence
+
+- Type-based module organization detected
+- Folders: components, projectDetail, store, work
+
+---
+id: duforn-test-separate
+trigger: "when writing tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/namanprat/duforn
+---
+
+# Duforn Test Separate
+
+## Action
+
+Place tests in the tests/ or __tests__/ directory, mirroring src structure
+
+## Evidence
+
+- Separate test directory pattern detected
+- Tests live in dedicated test folders
+
+---
+id: duforn-instinct-file-naming
+trigger: "When creating a new file in the codebase"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: namanprat/duforn
+---
+
+# Duforn Instinct File Naming
+
+## Action
+
+Name the file using PascalCase (e.g., ProjectDetail.jsx)
+
+## Evidence
+
+- Pattern in files: src/components, src/projectDetail
+
+---
+id: duforn-instinct-function-naming
+trigger: "When defining a new function"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: namanprat/duforn
+---
+
+# Duforn Instinct Function Naming
+
+## Action
+
+Use camelCase for the function name
+
+## Evidence
+
+- Pattern in code: src/components, src/store
+
+---
+id: duforn-instinct-class-naming
+trigger: "When declaring a new class"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: namanprat/duforn
+---
+
+# Duforn Instinct Class Naming
+
+## Action
+
+Use PascalCase for the class name
+
+## Evidence
+
+- Pattern in code: src/components
+
+---
+id: duforn-instinct-constant-naming
+trigger: "When declaring a constant"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: namanprat/duforn
+---
+
+# Duforn Instinct Constant Naming
+
+## Action
+
+Use SCREAMING_SNAKE_CASE for the constant name
+
+## Evidence
+
+- Pattern in code: src/store
+
+---
+id: duforn-instinct-import-style
+trigger: "When importing modules within the project"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: namanprat/duforn
+---
+
+# Duforn Instinct Import Style
+
+## Action
+
+Use relative import paths
+
+## Evidence
+
+- Pattern in code: src/App.jsx, src/main.jsx
+
+---
+id: duforn-instinct-export-style
+trigger: "When exporting functions, classes, or constants"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: namanprat/duforn
+---
+
+# Duforn Instinct Export Style
+
+## Action
+
+Use named exports
+
+## Evidence
+
+- Pattern in code: src/components, src/store
+
+---
+id: duforn-instinct-test-location
+trigger: "When adding new tests"
+confidence: 0.7
+domain: testing
+source: repo-analysis
+source_repo: namanprat/duforn
+---
+
+# Duforn Instinct Test Location
+
+## Action
+
+Place test files in a separate directory from source code
+
+## Evidence
+
+- Pattern in architecture: testLocation is 'separate'
+
+---
+id: duforn-instinct-git-commit-prefix
+trigger: "When writing a commit message"
+confidence: 0.9
+domain: git
+source: repo-analysis
+source_repo: namanprat/duforn
+---
+
+# Duforn Instinct Git Commit Prefix
+
+## Action
+
+Start the message with the 'chore:' prefix for maintenance or migration tasks
+
+## Evidence
+
+- Seen in commit: 'chore: fast-track TypeScript migration for shared stores'
+
+---
+id: duforn-instinct-git-commit-format
+trigger: "When composing a commit message"
+confidence: 0.9
+domain: git
+source: repo-analysis
+source_repo: namanprat/duforn
+---
+
+# Duforn Instinct Git Commit Format
+
+## Action
+
+Follow the conventional commit format: <type>: <short description>
+
+## Evidence
+
+- Pattern in commits: conventional, e.g., 'chore: fast-track TypeScript migration for shared stores'
+
