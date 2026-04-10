@@ -5,6 +5,7 @@ import CameraRig from "./CameraRig.jsx";
 import Effects from "./Effects.jsx";
 import Particles from "./Particles.jsx";
 import HomeScene from "./HomeScene.jsx";
+import TestScene from "./TestScene.jsx";
 import NotFoundScene from "./NotFoundScene.jsx";
 import ProjectDetailScene from "../../projectDetail/ProjectDetailScene.jsx";
 import { useProjectDetailSceneControlsStore } from "../../store/projectDetailSceneControls.js";
@@ -16,6 +17,19 @@ export function HomeCanvasBranch() {
       <EnvironmentSetup />
       <CameraRig />
       <HomeScene />
+      <Particles count={200} />
+      <Effects bloomStrength={0.045} dofMaxBlur={0.008} />
+    </>
+  );
+}
+
+export function TestCanvasBranch() {
+  return (
+    <>
+      <PerspectiveCamera makeDefault position={[0, 1, 5]} fov={75} />
+      <EnvironmentSetup />
+      <CameraRig />
+      <TestScene />
       <Particles count={200} />
       <Effects bloomStrength={0.045} dofMaxBlur={0.008} />
     </>

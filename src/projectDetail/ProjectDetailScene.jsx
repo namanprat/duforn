@@ -1,6 +1,7 @@
-import React from "react";
+import React, { Suspense } from "react";
 import { OrthographicCamera } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
+import ProjectBg from "./ProjectBg.jsx";
 import ProjectDetailBackground from "./ProjectDetailBackground.jsx";
 import ProjectDetailImagePlanes from "./ProjectDetailImagePlanes.jsx";
 import { useProjectDetailController } from "./useProjectDetailController.js";
@@ -43,6 +44,9 @@ export default function ProjectDetailScene() {
       <ProjectDetailController />
       <SceneExposure exposure={exposure} />
       <ProjectDetailBackground controls={projectBgFallbackControls} />
+      <Suspense fallback={null}>
+        <ProjectBg />
+      </Suspense>
       <ProjectDetailImagePlanes revealControls={PROJECT_DETAIL_REVEAL_SETTINGS} />
     </>
   );

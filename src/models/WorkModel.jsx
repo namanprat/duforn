@@ -9,10 +9,12 @@ Title: White round exhibition gallery
 
 import React from "react";
 import { useGLTF } from "@react-three/drei";
+import { gltfLoaderOptions } from "./gltfLoaderOptions.js";
+import { GLTF_URL_WORK } from "./gltfUrls.js";
 
 /* eslint-disable react/no-unknown-property */
 export default function WorkModel(props) {
-  const { nodes, materials } = useGLTF("/models/work.glb");
+  const { nodes, materials } = useGLTF(GLTF_URL_WORK, gltfLoaderOptions);
   return (
     <group {...props} dispose={null}>
       <mesh

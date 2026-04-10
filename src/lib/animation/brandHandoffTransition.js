@@ -1,8 +1,13 @@
 import gsap from "gsap";
 import {
+  bodyLineLeaveDuration,
+  bodyLineLeaveStagger,
+  bodyLineRevealDuration,
+  bodyLineRevealStagger,
   clearRevealTitleStyles,
-  getRevealTitleCharacters,
-  prepareRevealTitle,
+  getRouteTitleLines,
+  revertRouteTitleSplit,
+  splitRouteTitleLines,
 } from "../../../scripts/text-reveal.js";
 import { REVEAL_TEXT_TIME_SCALE } from "../../../scripts/reveal-timing.js";
 
@@ -24,6 +29,7 @@ function shouldRunHandoff(fromNamespace, toNamespace) {
 
 function removeGhost() {
   if (!activeGhost) return;
+  revertRouteTitleSplit(activeGhost);
   activeGhost.remove();
   activeGhost = null;
 }
@@ -84,7 +90,7 @@ function createHomeBrandGhost() {
   });
 
   document.body.appendChild(ghost);
-  prepareRevealTitle(ghost);
+  splitRouteTitleLines(ghost);
   activeGhost = ghost;
   return ghost;
 }
@@ -101,7 +107,7 @@ function getHomeBrandNode() {
   return getBrandTitleNode(HOME_NAMESPACE);
 }
 
-function setRestingState(namespace) {
+function setRestingState(namespace, { clearHeroTitleChars = true } = {}) {
   const isHome = namespace === HOME_NAMESPACE;
   const navBrand = getNavBrandNode();
   const homeBrand = getBrandTitleNode(HOME_NAMESPACE);
@@ -116,7 +122,9 @@ function setRestingState(namespace) {
   }
 
   if (homeBrand) {
-    clearRevealTitleStyles(homeBrand);
+    if (clearHeroTitleChars) {
+      clearRevealTitleStyles(homeBrand);
+    }
     gsap.set(homeBrand, {
       autoAlpha: 1,
       clearProps: "transform",
@@ -124,7 +132,9 @@ function setRestingState(namespace) {
   }
 
   if (contactBrand) {
-    clearRevealTitleStyles(contactBrand);
+    if (clearHeroTitleChars) {
+      clearRevealTitleStyles(contactBrand);
+    }
     gsap.set(contactBrand, {
       autoAlpha: 1,
       clearProps: "transform",
@@ -132,8 +142,8 @@ function setRestingState(namespace) {
   }
 }
 
-function finalizeNamespaceState(namespace) {
-  setRestingState(namespace);
+function finalizeNamespaceState(namespace, { clearHeroTitleChars = true } = {}) {
+  setRestingState(namespace, { clearHeroTitleChars });
   if (namespace === HOME_NAMESPACE) {
     // Capture after layout settles so home -> non-home can animate a ghost copy.
     requestAnimationFrame(captureHomeBrandSnapshot);
@@ -154,8 +164,8 @@ export async function runBrandHandoff({ fromNamespace, toNamespace }) {
   const token = runToken;
 
   if (!shouldRunHandoff(fromNamespace, toNamespace)) {
-    finalizeNamespaceState(toNamespace);
-    return undefined;
+    finalizeNamespaceState(toNamespace, { clearHeroTitleChars: false });
+    return new Set();
   }
 
   try {
@@ -164,7 +174,7 @@ export async function runBrandHandoff({ fromNamespace, toNamespace }) {
     // Ignore font loading errors and proceed with fallback animation states.
   }
 
-  if (token !== runToken) return undefined;
+  if (token !== runToken) return new Set();
 
   const navBrand = getNavBrandNode();
   const leavingHome = fromNamespace === HOME_NAMESPACE && toNamespace !== HOME_NAMESPACE;
@@ -173,6 +183,8 @@ export async function runBrandHandoff({ fromNamespace, toNamespace }) {
   const contactBrand = getBrandTitleNode(CONTACT_NAMESPACE);
 
   return await new Promise((resolve) => {
+    const skipRouteEnterTitles = new Set();
+
     const timeline = gsap.timeline({
       defaults: { ease: "power2.out" },
       onComplete: () => {
@@ -180,46 +192,49 @@ export async function runBrandHandoff({ fromNamespace, toNamespace }) {
         finalizeNamespaceState(toNamespace);
         activeTimeline = null;
         runToken += 1;
-        resolve();
+        resolve(skipRouteEnterTitles);
       },
       onInterrupt: () => {
         removeGhost();
         finalizeNamespaceState(toNamespace);
         activeTimeline = null;
         runToken += 1;
-        resolve();
+        resolve(skipRouteEnterTitles);
       },
     });
 
     if (leavingHome) {
       const ghost = createHomeBrandGhost();
-      const ghostChars = getRevealTitleCharacters(ghost);
-      if (ghostChars.length) {
+      const ghostLines = ghost ? getRouteTitleLines(ghost) : [];
+      if (ghostLines.length) {
+        gsap.set(ghostLines, { yPercent: 0, opacity: 1 });
         timeline.to(
-          ghostChars,
+          ghostLines,
           {
-            yPercent: -120,
+            yPercent: -110,
             opacity: 0,
-            duration: rt(0.42),
-            stagger: rt(0.015),
+            duration: bodyLineLeaveDuration(),
+            stagger: bodyLineLeaveStagger(),
+            ease: "power2.in",
           },
           0,
         );
       }
 
       if (enteringContact && contactBrand) {
-        prepareRevealTitle(contactBrand);
-        const contactChars = getRevealTitleCharacters(contactBrand);
-        if (contactChars.length) {
-          gsap.set(contactChars, { yPercent: 120, opacity: 0 });
+        const contactLines = getRouteTitleLines(contactBrand);
+        if (contactLines.length) {
           gsap.set(contactBrand, { autoAlpha: 1 });
-          timeline.to(
-            contactChars,
+          skipRouteEnterTitles.add(contactBrand);
+          timeline.fromTo(
+            contactLines,
+            { yPercent: 100, opacity: 1 },
             {
               yPercent: 0,
               opacity: 1,
-              duration: rt(0.52),
-              stagger: rt(0.02),
+              duration: bodyLineRevealDuration(),
+              stagger: bodyLineRevealStagger(),
+              ease: "power4.out",
             },
             rt(0.05),
           );
@@ -249,8 +264,7 @@ export async function runBrandHandoff({ fromNamespace, toNamespace }) {
 
     if (enteringHome) {
       const homeBrand = getHomeBrandNode();
-      prepareRevealTitle(homeBrand);
-      const homeChars = getRevealTitleCharacters(homeBrand);
+      const homeLines = getRouteTitleLines(homeBrand);
 
       if (navBrand) {
         gsap.set(navBrand, { autoAlpha: 1, pointerEvents: "auto" });
@@ -265,16 +279,18 @@ export async function runBrandHandoff({ fromNamespace, toNamespace }) {
         );
       }
 
-      if (homeChars.length) {
-        gsap.set(homeChars, { yPercent: 120, opacity: 0 });
+      if (homeLines.length) {
         gsap.set(homeBrand, { autoAlpha: 1 });
-        timeline.to(
-          homeChars,
+        skipRouteEnterTitles.add(homeBrand);
+        timeline.fromTo(
+          homeLines,
+          { yPercent: 100, opacity: 1 },
           {
             yPercent: 0,
             opacity: 1,
-            duration: rt(0.52),
-            stagger: rt(0.02),
+            duration: bodyLineRevealDuration(),
+            stagger: bodyLineRevealStagger(),
+            ease: "power4.out",
           },
           rt(0.05),
         );
@@ -287,7 +303,7 @@ export async function runBrandHandoff({ fromNamespace, toNamespace }) {
       timeline.kill();
       removeGhost();
       finalizeNamespaceState(toNamespace);
-      resolve();
+      resolve(skipRouteEnterTitles);
       return;
     }
 

@@ -345,6 +345,17 @@ html:has(.page-wrap--scrollable) {
   color: var(--swatch-dark);
 }
 
+/* Archive: black page — nav and clock read as light */
+body.page-wrap:has([data-page-namespace="archive"]) .nav-wrap a,
+body.page-wrap:has([data-page-namespace="archive"]) .nav-wrap button {
+  color: var(--swatch-light);
+}
+
+body.page-wrap:has([data-page-namespace="archive"]) .bottom-nav-wrap a,
+body.page-wrap:has([data-page-namespace="archive"]) .bottom-nav-wrap #time {
+  color: var(--swatch-light);
+}
+
 /* Three.js Canvas */
 #background {
   position: fixed;
@@ -2625,6 +2636,21 @@ section {
   will-change: transform, opacity;
 }
 
+/* Hide route/scroll reveal targets until JS arms the page (prevents first-paint flash). */
+[data-page-container="true"]:not([data-text-reveal-armed="true"]) .reveal-title,
+[data-page-container="true"]:not([data-text-reveal-armed="true"]) .reveal-body,
+[data-page-container="true"]:not([data-text-reveal-armed="true"]) [data-scroll-reveal] {
+  visibility: hidden;
+}
+
+.reveal-title {
+  overflow: hidden;
+}
+
+.reveal-scroll-block {
+  overflow: hidden;
+}
+
 .reveal-title-clip {
   display: block;
   width: 100%;
@@ -2669,6 +2695,32 @@ section {
   align-items: baseline;
 }
 
+/* Multiline scroll reveals: same flex-wrap clip layout as .slide-title */
+.reveal-scroll-wrap {
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+.reveal-scroll-wrap .reveal-title-clip {
+  width: 100%;
+  max-width: 100%;
+}
+
+.reveal-scroll-wrap .reveal-title-text {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  max-width: 100%;
+  white-space: normal;
+}
+
+.reveal-scroll-wrap .reveal-title-word {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+}
+
 /* Line clips for route reveal (.reveal-body); mirrors .reveal-title-clip behavior without inline styles */
 .reveal-body-line-wrap {
   display: block;
@@ -2678,6 +2730,16 @@ section {
 }
 
 .reveal-body .reveal-line {
+  display: block;
+  width: 100%;
+}
+
+.reveal-title .reveal-line {
+  display: block;
+  width: 100%;
+}
+
+.reveal-scroll-block .reveal-line {
   display: block;
   width: 100%;
 }
@@ -3134,18 +3196,8 @@ body.menu-open {
   position: relative;
   width: 100%;
   min-height: 100svh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--site--margin);
-}
-
-.archive-reset-shell {
-  padding: 1rem 1.25rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: color-mix(in srgb, var(--swatch-dark) 20%, transparent);
-  margin: 0;
-  color: rgba(255, 255, 255, 0.8);
+  min-height: 100dvh;
+  background: #000000;
 }
 
 .contact-section {
@@ -3572,7 +3624,8 @@ body.preloader-active .slider {
 }
 
 body.preloader-active [data-page-container="true"] .reveal-title,
-body.preloader-active [data-page-container="true"] .reveal-body {
+body.preloader-active [data-page-container="true"] .reveal-body,
+body.preloader-active [data-page-container="true"] [data-scroll-reveal] {
   visibility: hidden;
 }
 
@@ -3771,19 +3824,6 @@ body.preloader-active [data-page-container="true"] .reveal-body {
 
 .canvas-surface--filled {
   background: var(--theme-background);
-}
-
-.grain-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 999999;
-  pointer-events: none;
-  width: 100vw;
-  height: 100vh;
-  top: 0;
-  left: 0;
-  image-rendering: pixelated;
-  will-change: transform, opacity, filter;
 }
 
 .project-info .u-container-full {
@@ -4326,4 +4366,19 @@ a[aria-current="page"] {
     --swatch-brand-900: #2d2d2d;
     --theme-background-skeleton: rgba(0, 0, 0, 0.1);
   }
+}
+
+/* Fullscreen WebGL layer for archive burn transition (excluded from viewport capture) */
+.archive-burn-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100001;
+  display: none;
+  pointer-events: none;
+}
+
+.archive-burn-overlay canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }

@@ -9,10 +9,12 @@ Title: Art Gallery
 
 import React from "react";
 import { useGLTF } from "@react-three/drei";
+import { gltfLoaderOptions } from "./gltfLoaderOptions.js";
+import { GLTF_URL_SCENE } from "./gltfUrls.js";
 
 /* eslint-disable react/no-unknown-property */
 export default function SceneModel(props) {
-  const { nodes, materials } = useGLTF("/models/scene.glb");
+  const { nodes, materials } = useGLTF(GLTF_URL_SCENE, gltfLoaderOptions);
   return (
     <group {...props} dispose={null}>
       <group scale={0.01}>

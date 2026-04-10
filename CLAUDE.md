@@ -45,12 +45,12 @@ All page-specific WebGL behaviour is derived from `activePage`.
 
 `src/components/layout/SiteLayout.jsx` mounts a single [`UnifiedCanvas.jsx`](src/components/webgl/UnifiedCanvas.jsx). Only one scene branch is mounted at a time; switching routes unmounts the previous branch so GPU resources are released.
 
-| `activePage`          | Scene branch (inside `UnifiedCanvas`) | Purpose |
-| --------------------- | --------------------------------------- | ------- |
-| `'home'`, `'contact'` | `HomeCanvasBranch` in `GlobalSceneBranches.jsx` | Logo, particles, HDR, `Effects` |
-| `'work'`              | [`WorkPageScene.jsx`](src/components/webgl/WorkPageScene.jsx) | Work model, cloth strip, shadows, store-driven scene |
-| `'archive'`           | [`ArchiveScene.jsx`](src/components/webgl/ArchiveScene.jsx) | Offscreen cube pass; WebGPU ASCII instancing or WebGL fullscreen fallback |
-| `'projectDetail'`     | `ProjectDetailCanvasBranch` in `GlobalSceneBranches.jsx` | FBM background, DOM-synced image planes, `Effects` |
+| `activePage`          | Scene branch (inside `UnifiedCanvas`)                         | Purpose                                                                   |
+| --------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `'home'`, `'contact'` | `HomeCanvasBranch` in `GlobalSceneBranches.jsx`               | Logo, particles, HDR, `Effects`                                           |
+| `'work'`              | [`WorkPageScene.jsx`](src/components/webgl/WorkPageScene.jsx) | Work model, cloth strip, shadows, store-driven scene                      |
+| `'archive'`           | [`ArchiveScene.jsx`](src/components/webgl/ArchiveScene.jsx)   | Offscreen cube pass; WebGPU ASCII instancing or WebGL fullscreen fallback |
+| `'projectDetail'`     | `ProjectDetailCanvasBranch` in `GlobalSceneBranches.jsx`      | FBM background, DOM-synced image planes, `Effects`                        |
 
 [`ShaderCompiler.jsx`](src/components/webgl/ShaderCompiler.jsx) runs `gl.compile` / `compileAsync` whenever `sceneKey` (`activePage`) changes to reduce first-frame shader hitches.
 
@@ -64,47 +64,48 @@ R3F scene: [`src/components/webgl/ArchiveScene.jsx`](src/components/webgl/Archiv
 
 Project detail is a shared namespace for all project case study pages (e.g. `/money-me`). Add new project detail pages by creating a route file in `src/routes/` and content in `src/projectDetail/`, then register in `App.jsx`.
 
-| Module                          | Purpose                                                                 |
-| ------------------------------- | ----------------------------------------------------------------------- |
-| `ProjectDetailScene.jsx`        | R3F scene composition: camera, controller, background, image planes     |
-| `ProjectDetailBackground.jsx`   | FBM warp shader background on fullscreen quad                           |
-| `ProjectDetailImagePlanes.jsx`  | DOM-synced image planes overlaying `[data-film-plane-trigger]` elements |
-| `ProjectBg.jsx`                 | Fallback background while ProjectDetailBackground suspends              |
-| `useProjectDetailController.js` | Resize and visibility change handling                                   |
-| `projectDetailSceneConfig.js`   | Scene control defaults and reveal animation settings                    |
-| `ProjectDetailsPageShell.jsx`   | Reusable page shell component for case study layouts                    |
-| `projectDetailContent.js`       | Content data for project detail pages (e.g. money.me)                   |
+| Module                          | Purpose                                                                                                                                             |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ProjectDetailScene.jsx`        | R3F scene: camera, controller, exposure, FBM base + `ProjectBg` in `Suspense`, image planes                                                         |
+| `ProjectDetailBackground.jsx`   | FBM warp shader on a fullscreen quad (always on; covered when `ProjectBg` is ready)                                                                 |
+| `ProjectDetailImagePlanes.jsx`  | DOM-synced image planes overlaying `[data-film-plane-trigger]` elements                                                                             |
+| `ProjectBg.jsx`                 | Offscreen render of `project-bg.glb` to a quad; trail-driven `NodeMaterial` on WebGPU, stock materials on WebGL                                     |
+| `ProjectBgModel.jsx`            | gltfjsx output for `public/models/project-bg.glb` (regen after GLB edits); optional reference; load via `GLTF_URL_PROJECT_BG` + `gltfLoaderOptions` |
+| `useProjectDetailController.js` | Resize and visibility change handling                                                                                                               |
+| `projectDetailSceneConfig.js`   | Scene control defaults and reveal animation settings                                                                                                |
+| `ProjectDetailsPageShell.jsx`   | Reusable page shell component for case study layouts                                                                                                |
+| `projectDetailContent.js`       | Content data for project detail pages (e.g. money.me)                                                                                               |
 
 #### Work (`src/work/`)
 
-| Module                 | Purpose                                                                                       |
-| ---------------------- | --------------------------------------------------------------------------------------------- |
-| `WorkPageScene.jsx`    | In [`src/components/webgl/WorkPageScene.jsx`](src/components/webgl/WorkPageScene.jsx); mounted only on `'work'` inside `UnifiedCanvas` |
-| `WorkClothStrip.jsx`   | Work page strip: R3F `WorkClothStripScene`, WebGPU `MeshBasicNodeMaterial` + TSL (WebGL GLSL fallback), arc geometry, scroll/hover, title sync |
-| `workStripConfig.js`   | Default visible-items / gap-size fallbacks for the strip                                   |
-| `workStripMath.js`     | Scroll slot math: active item index, resolve clicked slot from UV                          |
+| Module               | Purpose                                                                                                                                        |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WorkPageScene.jsx`  | In [`src/components/webgl/WorkPageScene.jsx`](src/components/webgl/WorkPageScene.jsx); mounted only on `'work'` inside `UnifiedCanvas`         |
+| `WorkClothStrip.jsx` | Work page strip: R3F `WorkClothStripScene`, WebGPU `MeshBasicNodeMaterial` + TSL (WebGL GLSL fallback), arc geometry, scroll/hover, title sync |
+| `workStripConfig.js` | Default visible-items / gap-size fallbacks for the strip                                                                                       |
+| `workStripMath.js`   | Scroll slot math: active item index, resolve clicked slot from UV                                                                              |
 
 #### Home / Contact (`src/components/webgl/`)
 
-| Module                 | Purpose                                                        |
-| ---------------------- | -------------------------------------------------------------- |
-| `UnifiedCanvas.jsx`    | Single R3F canvas host; switches scene branches by `activePage` |
-| `GlobalSceneBranches.jsx` | `HomeCanvasBranch` and `ProjectDetailCanvasBranch`          |
-| `HomeScene.jsx`        | Home page 3D scene composition                                 |
-| `CameraRig.jsx`        | Orbital parallax camera; reads `activePage` for contact offset |
-| `EnvironmentSetup.jsx` | HDR environment and background                                 |
-| `Particles.jsx`        | Particle system                                                |
-| `Effects.jsx`          | Home post-processing                                           |
+| Module                    | Purpose                                                         |
+| ------------------------- | --------------------------------------------------------------- |
+| `UnifiedCanvas.jsx`       | Single R3F canvas host; switches scene branches by `activePage` |
+| `GlobalSceneBranches.jsx` | `HomeCanvasBranch` and `ProjectDetailCanvasBranch`              |
+| `HomeScene.jsx`           | Home page 3D scene composition                                  |
+| `CameraRig.jsx`           | Orbital parallax camera; reads `activePage` for contact offset  |
+| `EnvironmentSetup.jsx`    | HDR environment and background                                  |
+| `Particles.jsx`           | Particle system                                                 |
+| `Effects.jsx`             | Home post-processing                                            |
 
 ### Remaining Imperative Modules
 
-| Module                    | Public lifecycle                         | Purpose                                                     |
-| ------------------------- | ---------------------------------------- | ----------------------------------------------------------- |
-| `scripts/link-hover.js`   | `initLinkHover()` / `destroyLinkHover()` | Hover interaction for link text; haptics via `scripts/haptic-feedback.js`. |
-| `scripts/haptic-feedback.js` | `triggerNavHaptic()`                | `navigator.vibrate` on supported devices; dev-only WebHaptics fallback. |
-| `scripts/lenis-scroll.js` | `initLenis()` / `destroyLenis()`         | Smooth scrolling for project detail pages.                  |
-| `scripts/preloader.js`    | —                                        | Shared GLTFLoader/DRACOLoader setup, preload orchestration. |
-| `scripts/work-preload.js` | `startWorkTexturePreload()`              | Preloads work textures during preloader window.             |
+| Module                       | Public lifecycle                         | Purpose                                                                    |
+| ---------------------------- | ---------------------------------------- | -------------------------------------------------------------------------- |
+| `scripts/link-hover.js`      | `initLinkHover()` / `destroyLinkHover()` | Hover interaction for link text; haptics via `scripts/haptic-feedback.js`. |
+| `scripts/haptic-feedback.js` | `triggerNavHaptic()`                     | `navigator.vibrate` on supported devices; dev-only WebHaptics fallback.    |
+| `scripts/lenis-scroll.js`    | `initLenis()` / `destroyLenis()`         | Smooth scrolling for project detail pages.                                 |
+| `src/models/preload.js`      | — (imported from `main.jsx`)             | `useGLTF.preload` / HDR warm-up for all site GLBs.                         |
+| `scripts/work-preload.js`    | `startWorkTexturePreload()`              | Preloads work strip textures; invoked from `main.jsx` bootstrap.           |
 
 Guard imperative modules against double init and always remove listeners, cancel RAFs, and dispose resources in destroy paths.
 
@@ -112,9 +113,9 @@ Guard imperative modules against double init and always remove listeners, cancel
 
 ### GLTF Loading
 
-- `scripts/preloader.js` owns the shared `GLTFLoader` and `DRACOLoader` setup.
-- R3F components use `useGLTF` from `@react-three/drei` for declarative loading.
-- Reuse cached GLTF assets through the preloader instead of creating page-local loaders.
+- `src/models/preload.js` runs `useGLTF.preload` (and shared `gltfLoaderOptions`) for every site GLB; import order is fixed in `main.jsx`.
+- R3F components use `useGLTF` from `@react-three/drei` with the same URL constants (`src/models/gltfUrls.js`) and loader options so the drei cache hits.
+- Avoid ad-hoc `GLTFLoader` instances unless you have a one-off need outside this pipeline.
 
 ### Texture Loading
 
@@ -124,9 +125,9 @@ Guard imperative modules against double init and always remove listeners, cancel
 ### gltfjsx
 
 - Generated React model components live under `src/models/`.
-- These files are generated from `public/models/*.glb` and serve two purposes:
-  - `useGLTF.preload()` side effects via `src/models/preload.js`
-  - React-owned model rendering in R3F canvases
+- These files are generated from `public/models/*.glb` (and root `public/*.glb` where applicable). After generation, point `useGLTF` at the shared URL constant in `gltfUrls.js` and `gltfLoaderOptions` (remove any inline `useGLTF.preload` from generated output — preloading is centralized in `src/models/preload.js`).
+- Example (project detail background mesh): `npx gltfjsx public/models/project-bg.glb -o src/models/ProjectBgModel.jsx`
+- Some scenes (e.g. `ProjectBg.jsx`) load the same GLB with `useGLTF` and clone the scene for custom materials; the JSX component is still the mesh reference when the GLB changes.
 
 ## Data Sources
 

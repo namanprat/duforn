@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import {
   cleanupSplits,
+  destroyRouteReveals,
   getRevealTitleCharacters,
   prepareRevealTitle,
+  prepareRouteReveal,
   setRevealTitleText,
 } from "../scripts/text-reveal.js";
 
@@ -50,5 +52,22 @@ describe("text reveal titles", () => {
     expect(title.textContent).toBe("Archive");
     expect(title.querySelector(".reveal-title-clip")).toBeNull();
     expect(title.hasAttribute("aria-label")).toBe(false);
+  });
+
+  it("prepareRouteReveal arms the page container and splits titles into lines like body", async () => {
+    const main = document.createElement("main");
+    main.setAttribute("data-page-container", "true");
+    const title = document.createElement("h1");
+    title.className = "reveal-title";
+    title.textContent = "Work";
+    main.appendChild(title);
+    document.body.appendChild(main);
+
+    await prepareRouteReveal(main, {});
+    expect(main.getAttribute("data-text-reveal-armed")).toBe("true");
+    expect(title.querySelectorAll(".reveal-line").length).toBeGreaterThanOrEqual(1);
+
+    destroyRouteReveals();
+    cleanupSplits();
   });
 });

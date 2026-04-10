@@ -7,11 +7,11 @@ import { useWebglStore } from "../../store/webgl.js";
 import ArchiveScene from "./ArchiveScene.jsx";
 import WorkPageScene from "./WorkPageScene.jsx";
 import ShaderCompiler from "./ShaderCompiler.jsx";
-// Grain is handled as a DOM overlay for true `mix-blend-mode: overlay`.
 import {
   HomeCanvasBranch,
   NotFoundCanvasBranch,
   ProjectDetailCanvasBranch,
+  TestCanvasBranch,
 } from "./GlobalSceneBranches.jsx";
 
 function UnifiedScene({ activePage }) {
@@ -34,6 +34,8 @@ function UnifiedScene({ activePage }) {
       return <ProjectDetailCanvasBranch />;
     case "notFound":
       return <NotFoundCanvasBranch />;
+    case "test":
+      return <TestCanvasBranch />;
     default:
       return <HomeCanvasBranch />;
   }
@@ -43,7 +45,7 @@ function UnifiedScene({ activePage }) {
  * Single persistent R3F canvas for all routes. Only one scene branch mounts at a time.
  */
 export default function UnifiedCanvas({ activePage }) {
-  const pointerEvents = activePage === "work" || activePage === "archive" ? "auto" : "none";
+  const pointerEvents = activePage === "work" ? "auto" : "none";
   const isProjectDetail = activePage === "projectDetail";
   const setRendererType = useWebglStore((s) => s.setRendererType);
 

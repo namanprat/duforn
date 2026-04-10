@@ -3,13 +3,17 @@ import { useLocation } from "react-router-dom";
 import gsap from "gsap";
 import { navigateTo } from "../../lib/navigationBridge.js";
 import UnifiedCanvas from "../webgl/UnifiedCanvas.jsx";
+import ArchiveBurnOverlay from "../transitions/ArchiveBurnOverlay.jsx";
 import { useWebglStore } from "../../store/webgl.js";
 import { useLoadingStore } from "../../store/loading.js";
 import { requestDeviceOrientationPermission } from "../../../scripts/runtime/motion.js";
-import GrainDomOverlay from "./GrainDomOverlay.jsx";
 
 const LazyProjectDetailSceneControls = import.meta.env.DEV
   ? React.lazy(() => import("../debug/ProjectDetailSceneControls.jsx"))
+  : null;
+
+const LazyTestSceneControls = import.meta.env.DEV
+  ? React.lazy(() => import("../debug/TestSceneControls.jsx"))
   : null;
 
 function NavLink({ to, className, children, ...props }) {
@@ -600,15 +604,21 @@ export default function SiteLayout({ children }) {
         <UnifiedCanvas activePage={activePage} />
       </div>
 
-      <GrainDomOverlay />
-
       {LazyProjectDetailSceneControls && activePage === "projectDetail" ? (
         <Suspense fallback={null}>
           <LazyProjectDetailSceneControls />
         </Suspense>
       ) : null}
 
+      {LazyTestSceneControls && activePage === "test" ? (
+        <Suspense fallback={null}>
+          <LazyTestSceneControls />
+        </Suspense>
+      ) : null}
+
       {children}
+
+      <ArchiveBurnOverlay />
 
       <footer className="u-visually-hidden">
         <p>&copy; 2026 DUFORN. All rights reserved.</p>

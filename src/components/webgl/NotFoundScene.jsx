@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useGLTF, useTexture } from "@react-three/drei";
+import { gltfLoaderOptions } from "../../models/gltfLoaderOptions.js";
+import { GLTF_URL_MONITOR } from "../../models/gltfUrls.js";
 import * as THREE from "three";
 import { MeshBasicNodeMaterial } from "three/webgpu";
 import { clamp, float, mix, sin, step, texture, uniform, uv, vec2, vec3 } from "three/tsl";
@@ -46,7 +48,7 @@ export default function NotFoundScene() {
   const orientationRef = useRef({ x: 0, y: 0, hasValue: false });
   const pointerRef = useRef({ x: 0, y: 0 });
   const reducedMotionRef = useRef(false);
-  const { scene } = useGLTF("/monitor.glb");
+  const { scene } = useGLTF(GLTF_URL_MONITOR, gltfLoaderOptions);
   const imageTexture = useTexture("/default.jpg");
 
   const model = useMemo(() => {
@@ -231,5 +233,3 @@ export default function NotFoundScene() {
     </>
   );
 }
-
-useGLTF.preload("/monitor.glb");

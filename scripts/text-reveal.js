@@ -7,8 +7,34 @@ gsap.registerPlugin(SplitText, ScrollTrigger);
 
 const rt = (seconds) => seconds * REVEAL_TEXT_TIME_SCALE;
 
-// ── Title state (brand handoff only) ────────────────────────────────────
+/** Shared: route titles, body, scroll in; +10% duration vs baseline 0.66, +25% stagger vs 0.062 */
+function bodyLineRevealDuration() {
+  return rt(0.726);
+}
+function bodyLineRevealStagger() {
+  return rt(0.0775);
+}
+/** Route body/title/scroll line leave (baseline 0.3 / 0.028, +10% / +25%) */
+function bodyLineLeaveDuration() {
+  return rt(0.33);
+}
+function bodyLineLeaveStagger() {
+  return rt(0.035);
+}
+const titleToBodyRevealDelay = () => rt(0.04);
+
+async function fontsReady() {
+  try {
+    await document.fonts?.ready;
+  } catch {
+    // Font Loading API missing or rejected (e.g. test env).
+  }
+}
+
+// ── Title / scroll char-split state (shared clip DOM) ─────────────────────
 const titleStates = new Map();
+/** Route `.reveal-title` line splits (same SplitText + clip pattern as `.reveal-body`) */
+const routeTitleSplits = new Map();
 
 function normalizeTitleText(text) {
   return `${text ?? ""}`;
@@ -91,7 +117,10 @@ function buildTitleStateSlideTitle(element, sourceText, accessibilityMeta) {
 }
 
 function buildTitleState(element, sourceText, accessibilityMeta) {
-  if (element.classList.contains("slide-title")) {
+  if (
+    element.classList.contains("slide-title") ||
+    element.classList.contains("reveal-scroll-wrap")
+  ) {
     return buildTitleStateSlideTitle(element, sourceText, accessibilityMeta);
   }
 
@@ -132,6 +161,13 @@ function getRevealTitleCharacters(element) {
 }
 
 function clearRevealTitleStyles(element) {
+  if (!element) return null;
+  const lineSplit = routeTitleSplits.get(element);
+  if (lineSplit?.lines?.length) {
+    gsap.killTweensOf(lineSplit.lines);
+    gsap.set(lineSplit.lines, { clearProps: "transform,opacity" });
+    return null;
+  }
   const state = prepareRevealTitle(element);
   if (!state) return null;
   gsap.set(state.characters, { clearProps: "transform,opacity" });
@@ -148,14 +184,66 @@ function setRevealTitleText(element, text) {
   return buildTitleState(element, value, accessibilityMeta);
 }
 
+function sweepDisconnectedTitleStates() {
+  for (const el of Array.from(titleStates.keys())) {
+    if (!el.isConnected) {
+      titleStates.delete(el);
+    }
+  }
+}
+
 // ── Route reveal state ───────────────────────────────────────────────────
 let activeEnterTimeline = null;
 let activeLeaveTimeline = null;
 const preparedRouteElements = new Set();
 const routeBodySplits = new Map(); // element -> { split, wrappers, lines }
 
+function splitRouteTitleLines(element) {
+  return createLineClipSplit(element, routeTitleSplits);
+}
+
+function revertRouteTitleSplit(element) {
+  revertLineClipSplit(element, routeTitleSplits);
+}
+
+function revertAllRouteTitleSplits() {
+  for (const el of Array.from(routeTitleSplits.keys())) {
+    revertLineClipSplit(el, routeTitleSplits);
+  }
+}
+
+function stabilizedRevertTitleSplit(element) {
+  const state = routeTitleSplits.get(element);
+  if (!state) return;
+  gsap.killTweensOf(state.lines);
+  gsap.set(state.lines, { yPercent: 0, opacity: 1, clearProps: "willChange,transformOrigin" });
+
+  const lockedHeight = element.getBoundingClientRect().height;
+  if (lockedHeight > 0) element.style.minHeight = `${lockedHeight}px`;
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      revertRouteTitleSplit(element);
+      element.style.minHeight = "";
+    });
+  });
+}
+
+function getRouteTitleLines(element) {
+  const state = routeTitleSplits.get(element);
+  return state?.lines?.length ? [...state.lines] : [];
+}
+
+function finalizeRouteTitleSplitsAfterEnter(container) {
+  if (!container) return;
+  for (const el of getAllRouteRevealTitles(container)) {
+    if (routeTitleSplits.has(el)) stabilizedRevertTitleSplit(el);
+  }
+}
+
 // ── Scroll reveal state ──────────────────────────────────────────────────
 const scrollRevealRegistry = [];
+const scrollRevealSplits = new Map();
 
 // ── Shared helpers ───────────────────────────────────────────────────────
 
@@ -164,9 +252,24 @@ function filterByExcludeSelector(elements, excludeSelector) {
   return Array.from(elements).filter((el) => !el.matches(excludeSelector));
 }
 
-// ── Route reveal selectors ───────────────────────────────────────────────
+function armTextRevealContainer(container) {
+  if (!container) return;
+  container.setAttribute("data-text-reveal-armed", "true");
+}
 
-function getRouteRevealTitles(container, options = {}) {
+function getAllRouteRevealTitles(container) {
+  if (!container) return [];
+  return Array.from(container.querySelectorAll(".reveal-title"));
+}
+
+function getRouteRevealTitlesForEnter(container, options = {}) {
+  const skip = options.skipEnterTitles;
+  const titles = getAllRouteRevealTitles(container);
+  if (!skip?.size) return titles;
+  return titles.filter((el) => !skip.has(el));
+}
+
+function getRouteRevealTitlesForLeave(container, options = {}) {
   return Array.from(
     filterByExcludeSelector(container.querySelectorAll(".reveal-title"), options.excludeSelector),
   );
@@ -184,7 +287,7 @@ function getScrollRevealElements(container) {
 
 function hasRouteRevealTargets(container, options = {}) {
   if (!container) return false;
-  const titles = getRouteRevealTitles(container, options);
+  const titles = getAllRouteRevealTitles(container);
   const bodies = getRouteRevealBodies(container, options);
   return titles.length > 0 || bodies.length > 0;
 }
@@ -227,6 +330,31 @@ function splitRevealBodyLines(element) {
   return createLineClipSplit(element, routeBodySplits);
 }
 
+function splitScrollRevealLines(element) {
+  return createLineClipSplit(element, scrollRevealSplits);
+}
+
+function revertScrollRevealSplit(element) {
+  revertLineClipSplit(element, scrollRevealSplits);
+}
+
+function stabilizedRevertScrollSplit(element) {
+  const state = scrollRevealSplits.get(element);
+  if (!state) return;
+  gsap.killTweensOf(state.lines);
+  gsap.set(state.lines, { yPercent: 0, opacity: 1, clearProps: "willChange,transformOrigin" });
+
+  const lockedHeight = element.getBoundingClientRect().height;
+  if (lockedHeight > 0) element.style.minHeight = `${lockedHeight}px`;
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      revertScrollRevealSplit(element);
+      element.style.minHeight = "";
+    });
+  });
+}
+
 function revertRevealBodySplit(element) {
   revertLineClipSplit(element, routeBodySplits);
 }
@@ -264,11 +392,27 @@ function finalizeRouteBodySplitsAfterEnter(container, options = {}) {
 
 function clearPreparedRouteState() {
   for (const el of preparedRouteElements) {
-    gsap.killTweensOf(el);
-    gsap.set(el, {
-      visibility: "visible",
-      clearProps: "transform,opacity,willChange,transformOrigin",
-    });
+    const titleLineState = routeTitleSplits.get(el);
+    if (titleLineState?.lines?.length) {
+      gsap.killTweensOf(titleLineState.lines);
+      gsap.set(titleLineState.lines, {
+        clearProps: "transform,opacity,willChange,transformOrigin",
+      });
+      continue;
+    }
+    const charState = titleStates.get(el);
+    if (charState?.characters?.length) {
+      gsap.killTweensOf(charState.characters);
+      gsap.set(charState.characters, {
+        clearProps: "transform,opacity,willChange,transformOrigin",
+      });
+    } else {
+      gsap.killTweensOf(el);
+      gsap.set(el, {
+        visibility: "visible",
+        clearProps: "transform,opacity,willChange,transformOrigin",
+      });
+    }
   }
   preparedRouteElements.clear();
 }
@@ -285,6 +429,7 @@ function destroyRouteReveals() {
     activeLeaveTimeline = null;
   }
   clearPreparedRouteState();
+  revertAllRouteTitleSplits();
   revertAllRevealBodySplits();
 }
 
@@ -293,12 +438,11 @@ function destroyRouteReveals() {
 async function prepareRouteReveal(container, options = {}) {
   if (!container) return { hasRouteRevealTargets: false };
 
-  const titles = getRouteRevealTitles(container, options);
+  const titles = getAllRouteRevealTitles(container);
   const bodies = getRouteRevealBodies(container, options);
   const hasRouteRevealTargets = titles.length > 0 || bodies.length > 0;
   const scrollEls = getScrollRevealElements(container);
 
-  // Hide this route’s targets synchronously before any teardown so revert/kill never paints full copy.
   for (const el of titles) {
     gsap.killTweensOf(el);
     gsap.set(el, { visibility: "hidden", immediateRender: true });
@@ -312,12 +456,43 @@ async function prepareRouteReveal(container, options = {}) {
     gsap.set(el, { visibility: "hidden", immediateRender: true });
   }
 
-  // Kill any in-flight animations and revert existing splits from the previous route.
-  destroyRouteReveals();
+  armTextRevealContainer(container);
 
-  await document.fonts.ready;
+  destroyRouteReveals();
+  sweepDisconnectedTitleStates();
+  for (const el of Array.from(routeBodySplits.keys())) {
+    if (!el.isConnected) {
+      routeBodySplits.delete(el);
+    }
+  }
+  for (const el of Array.from(scrollRevealSplits.keys())) {
+    if (!el.isConnected) {
+      scrollRevealSplits.delete(el);
+    }
+  }
+  for (const el of Array.from(routeTitleSplits.keys())) {
+    if (!el.isConnected) {
+      routeTitleSplits.delete(el);
+    }
+  }
+
+  await fontsReady();
 
   for (const el of titles) {
+    const state = splitRouteTitleLines(el);
+    if (state?.lines?.length) {
+      gsap.killTweensOf(state.lines);
+      gsap.set(el, { visibility: "visible", immediateRender: true });
+      gsap.set(state.lines, {
+        yPercent: 100,
+        opacity: 1,
+        willChange: "transform,opacity",
+        transformOrigin: "50% 50%",
+        immediateRender: true,
+      });
+      preparedRouteElements.add(el);
+      continue;
+    }
     preparedRouteElements.add(el);
     gsap.killTweensOf(el);
     gsap.set(el, {
@@ -364,13 +539,12 @@ async function prepareRouteReveal(container, options = {}) {
 async function runRouteEnter(container, options = {}) {
   if (!container) return Promise.resolve();
 
-  // Kill any running enter before starting a new one.
   if (activeEnterTimeline) {
     activeEnterTimeline.kill();
     activeEnterTimeline = null;
   }
 
-  await document.fonts.ready;
+  await fontsReady();
 
   return new Promise((resolve) => {
     const timeline = gsap.timeline({
@@ -378,12 +552,14 @@ async function runRouteEnter(container, options = {}) {
       onComplete: () => {
         activeEnterTimeline = null;
         clearPreparedRouteState();
+        finalizeRouteTitleSplitsAfterEnter(container);
         finalizeRouteBodySplitsAfterEnter(container, options);
         resolve();
       },
       onInterrupt: () => {
         activeEnterTimeline = null;
         clearPreparedRouteState();
+        finalizeRouteTitleSplitsAfterEnter(container);
         finalizeRouteBodySplitsAfterEnter(container, options);
         resolve();
       },
@@ -391,21 +567,38 @@ async function runRouteEnter(container, options = {}) {
 
     activeEnterTimeline = timeline;
 
-    const titles = getRouteRevealTitles(container, options);
-    if (titles.length) {
-      timeline.fromTo(
-        titles,
-        { yPercent: 100, opacity: 0 },
-        {
-          yPercent: 0,
-          opacity: 1,
-          duration: rt(0.62),
-          stagger: rt(0.055),
-          clearProps: "willChange,transformOrigin",
-        },
-        0,
-      );
-    }
+    const titles = getRouteRevealTitlesForEnter(container, options);
+    titles.forEach((el, i) => {
+      const state = routeTitleSplits.get(el);
+      const lines = state?.lines ?? [];
+      const slot = i * rt(0.055);
+      if (lines.length) {
+        timeline.fromTo(
+          lines,
+          { yPercent: 100, opacity: 1 },
+          {
+            yPercent: 0,
+            opacity: 1,
+            duration: bodyLineRevealDuration(),
+            stagger: bodyLineRevealStagger(),
+            clearProps: "willChange,transformOrigin",
+          },
+          slot,
+        );
+      } else {
+        timeline.fromTo(
+          el,
+          { yPercent: 100, opacity: 0 },
+          {
+            yPercent: 0,
+            opacity: 1,
+            duration: bodyLineRevealDuration(),
+            clearProps: "willChange,transformOrigin",
+          },
+          slot,
+        );
+      }
+    });
 
     const bodies = getRouteRevealBodies(container, options);
     const bodyLines = [];
@@ -419,6 +612,7 @@ async function runRouteEnter(container, options = {}) {
       }
     }
 
+    const bodyStart = titles.length ? titleToBodyRevealDelay() : 0;
     if (bodyLines.length) {
       timeline.fromTo(
         bodyLines,
@@ -426,10 +620,10 @@ async function runRouteEnter(container, options = {}) {
         {
           yPercent: 0,
           opacity: 1,
-          duration: rt(0.66),
-          stagger: rt(0.045),
+          duration: bodyLineRevealDuration(),
+          stagger: bodyLineRevealStagger(),
         },
-        titles.length ? rt(0.08) : 0,
+        bodyStart,
       );
     }
     if (bodyBlocks.length) {
@@ -439,17 +633,18 @@ async function runRouteEnter(container, options = {}) {
         {
           yPercent: 0,
           opacity: 1,
-          duration: rt(0.66),
-          stagger: rt(0.045),
+          duration: bodyLineRevealDuration(),
+          stagger: bodyLineRevealStagger(),
           clearProps: "transform,opacity,willChange,transformOrigin",
         },
-        titles.length ? rt(0.08) : 0,
+        bodyStart,
       );
     }
 
     if (!timeline.getChildren(true, true, true).length) {
       activeEnterTimeline = null;
       clearPreparedRouteState();
+      finalizeRouteTitleSplitsAfterEnter(container);
       finalizeRouteBodySplitsAfterEnter(container, options);
       resolve();
     }
@@ -461,17 +656,15 @@ async function runRouteEnter(container, options = {}) {
 function runRouteLeave(container, options = {}) {
   if (!container) return Promise.resolve();
 
-  // Kill running enter — leave always wins.
   if (activeEnterTimeline) {
     activeEnterTimeline.kill();
     activeEnterTimeline = null;
   }
-  // Kill any previous leave.
   if (activeLeaveTimeline) {
     activeLeaveTimeline.kill();
     activeLeaveTimeline = null;
   }
-  const titles = getRouteRevealTitles(container, options);
+  const titles = getRouteRevealTitlesForLeave(container, options);
   const bodies = getRouteRevealBodies(container, options);
 
   if (!titles.length && !bodies.length) return Promise.resolve();
@@ -480,9 +673,16 @@ function runRouteLeave(container, options = {}) {
     splitRevealBodyLines(el);
   }
 
+  for (const el of titles) {
+    if (!routeTitleSplits.has(el)) {
+      splitRouteTitleLines(el);
+    }
+  }
+
   return new Promise((resolve) => {
     const cleanup = () => {
       activeLeaveTimeline = null;
+      revertAllRouteTitleSplits();
       revertAllRevealBodySplits();
     };
 
@@ -500,18 +700,33 @@ function runRouteLeave(container, options = {}) {
 
     activeLeaveTimeline = tl;
 
-    if (titles.length) {
-      tl.to(
-        titles,
-        {
-          yPercent: -16,
-          opacity: 0,
-          duration: rt(0.28),
-          stagger: rt(0.03),
-          clearProps: "willChange,transformOrigin",
-        },
-        0,
-      );
+    for (const el of titles) {
+      const state = routeTitleSplits.get(el);
+      const lines = state?.lines ?? [];
+      if (lines.length) {
+        tl.to(
+          lines,
+          {
+            yPercent: -110,
+            opacity: 0,
+            duration: bodyLineLeaveDuration(),
+            stagger: bodyLineLeaveStagger(),
+            clearProps: "willChange,transformOrigin",
+          },
+          0,
+        );
+      } else {
+        tl.to(
+          el,
+          {
+            yPercent: -20,
+            opacity: 0,
+            duration: bodyLineLeaveDuration(),
+            clearProps: "willChange,transformOrigin",
+          },
+          0,
+        );
+      }
     }
 
     if (bodies.length) {
@@ -532,8 +747,8 @@ function runRouteLeave(container, options = {}) {
           {
             yPercent: -110,
             opacity: 0,
-            duration: rt(0.3),
-            stagger: rt(0.028),
+            duration: bodyLineLeaveDuration(),
+            stagger: bodyLineLeaveStagger(),
             clearProps: "willChange,transformOrigin",
           },
           0,
@@ -546,8 +761,8 @@ function runRouteLeave(container, options = {}) {
           {
             yPercent: -20,
             opacity: 0,
-            duration: rt(0.3),
-            stagger: rt(0.028),
+            duration: bodyLineLeaveDuration(),
+            stagger: bodyLineLeaveStagger(),
             clearProps: "willChange,transformOrigin",
           },
           0,
@@ -572,16 +787,31 @@ function initScrollReveals(container) {
 
   elements.forEach((el, index) => {
     gsap.killTweensOf(el);
-    gsap.set(el, { visibility: "hidden", immediateRender: true });
+    el.classList.add("reveal-scroll-block");
 
-    gsap.set(el, {
-      visibility: "visible",
-      yPercent: 100,
-      opacity: 0,
-      willChange: "transform,opacity",
-      transformOrigin: "50% 50%",
-      immediateRender: true,
-    });
+    const state = splitScrollRevealLines(el);
+    const lines = state?.lines ?? [];
+
+    if (lines.length) {
+      gsap.killTweensOf(lines);
+      gsap.set(el, { visibility: "visible", immediateRender: true });
+      gsap.set(lines, {
+        yPercent: 100,
+        opacity: 1,
+        willChange: "transform,opacity",
+        transformOrigin: "50% 50%",
+        immediateRender: true,
+      });
+    } else {
+      gsap.set(el, {
+        visibility: "visible",
+        yPercent: 100,
+        opacity: 0,
+        willChange: "transform,opacity",
+        transformOrigin: "50% 50%",
+        immediateRender: true,
+      });
+    }
 
     const st = ScrollTrigger.create({
       id: `scroll-reveal-${index}`,
@@ -590,11 +820,29 @@ function initScrollReveals(container) {
       once: true,
       scrub: false,
       onEnter: () => {
+        if (lines.length) {
+          gsap.fromTo(
+            lines,
+            { yPercent: 100, opacity: 1 },
+            {
+              yPercent: 0,
+              opacity: 1,
+              duration: bodyLineRevealDuration(),
+              stagger: bodyLineRevealStagger(),
+              ease: "power4.out",
+              onComplete: () => {
+                stabilizedRevertScrollSplit(el);
+                gsap.set(el, { visibility: "visible" });
+              },
+            },
+          );
+          return;
+        }
         gsap.to(el, {
           yPercent: 0,
           opacity: 1,
-          duration: rt(0.75),
-          ease: "power3.out",
+          duration: bodyLineRevealDuration(),
+          ease: "power4.out",
           clearProps: "transform,opacity,willChange,transformOrigin",
           onComplete: () => {
             gsap.set(el, { visibility: "visible" });
@@ -616,10 +864,19 @@ function destroyScrollReveals() {
   for (const { st, el } of scrollRevealRegistry) {
     st.kill();
     gsap.killTweensOf(el);
-    gsap.set(el, {
-      visibility: "visible",
-      clearProps: "transform,opacity,willChange,transformOrigin",
-    });
+    const splitState = scrollRevealSplits.get(el);
+    if (splitState?.lines?.length) {
+      gsap.killTweensOf(splitState.lines);
+    }
+    if (scrollRevealSplits.has(el)) {
+      revertScrollRevealSplit(el);
+    } else {
+      gsap.set(el, {
+        visibility: "visible",
+        clearProps: "transform,opacity,willChange,transformOrigin",
+      });
+    }
+    el.classList.remove("reveal-scroll-block", "reveal-scroll-wrap");
   }
   scrollRevealRegistry.length = 0;
 }
@@ -651,9 +908,16 @@ export {
   // Full teardown
   destroyAllReveals,
   cleanupSplits,
-  // Title helpers (used by brandHandoffTransition only)
+  // Title helpers (brand handoff + tests)
   clearRevealTitleStyles,
   getRevealTitleCharacters,
+  getRouteTitleLines,
   prepareRevealTitle,
+  revertRouteTitleSplit,
   setRevealTitleText,
+  splitRouteTitleLines,
+  bodyLineRevealDuration,
+  bodyLineRevealStagger,
+  bodyLineLeaveDuration,
+  bodyLineLeaveStagger,
 };

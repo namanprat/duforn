@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
-// Tracks shader compilation phase (populated by ShaderCompiler components).
-// Asset progress is tracked via useProgress from @react-three/drei.
+// `phase` becomes `ready` when ShaderCompiler finishes for the active scene (inside R3F).
+// GLB/HDR preloads run from `src/models/preload.js` (imported in main.jsx); not tracked here.
 export const useLoadingStore = create((set) => ({
   phase: "assets", // 'assets' | 'compiling' | 'ready'
   markReady: () => set({ phase: "ready" }),

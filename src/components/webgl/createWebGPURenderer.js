@@ -48,6 +48,7 @@ function createWebGLRenderer(defaultProps, { alpha }) {
     antialias: true,
     alpha,
     powerPreference: "high-performance",
+    preserveDrawingBuffer: true,
   });
 
   renderer.__rendererType = "webgl";

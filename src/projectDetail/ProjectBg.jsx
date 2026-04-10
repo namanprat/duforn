@@ -2,10 +2,13 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
+import { gltfLoaderOptions } from "../models/gltfLoaderOptions.js";
+import { GLTF_URL_PROJECT_BG } from "../models/gltfUrls.js";
 import { usePointerField } from "./usePointerField.js";
 import { useTrailTexture } from "./useTrailTexture.js";
 import { useProjectDetailSceneControlsStore } from "../store/projectDetailSceneControls.js";
 import { PROJECT_DETAIL_BG_CAMERA_Z } from "./projectDetailSceneConfig.js";
+import { isWebGPURenderer } from "../components/webgl/createWebGPURenderer.js";
 
 async function buildProjectBgMaterials(clonedScene, trailTexture) {
   const tsl = await import("three/tsl");
@@ -123,7 +126,7 @@ export default function ProjectBg() {
     stampAlpha: controls.trail.stampAlpha,
   });
 
-  const { scene: gltfScene } = useGLTF("/models/immersive.glb");
+  const { scene: gltfScene } = useGLTF(GLTF_URL_PROJECT_BG, gltfLoaderOptions);
 
   const buildMaterials = useMemo(() => (scene, trail) => buildProjectBgMaterials(scene, trail), []);
 
@@ -166,10 +169,13 @@ export default function ProjectBg() {
       const trail = trailTextureRef.current;
       if (!trail) return;
 
-      const mats = await buildMaterials(cloned, trail);
-      if (cancelled) {
-        mats.forEach((m) => m.dispose());
-        return;
+      let mats = [];
+      if (isWebGPURenderer(gl)) {
+        mats = await buildMaterials(cloned, trail);
+        if (cancelled) {
+          mats.forEach((m) => m.dispose());
+          return;
+        }
       }
 
       virtualScene.add(cloned);

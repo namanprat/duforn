@@ -1,5 +1,3 @@
-// loading.js must be imported before preload.js so THREE.DefaultLoadingManager
-// callbacks are registered before any loader fires.
 import "./store/loading.js";
 import "./models/preload.js";
 
@@ -9,10 +7,12 @@ import { BrowserRouter } from "react-router-dom";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import App from "./App.jsx";
 import { patchThreeTSL } from "./lib/webgpu/patchThreeTSL.js";
+import { startWorkTexturePreload } from "../scripts/work-preload.js";
 import "../styles.css";
 
 async function bootstrap() {
   await patchThreeTSL();
+  void startWorkTexturePreload();
 
   createRoot(document.getElementById("root")).render(
     <React.StrictMode>
