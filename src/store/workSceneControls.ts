@@ -1,4 +1,4 @@
-import { createSceneControlsStore } from "./createSceneControlsStore.js";
+import { createSceneControlsStore } from "./createSceneControlsStore";
 
 export const DEFAULT_WORK_SCENE_CONTROLS = {
   scene: {

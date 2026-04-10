@@ -1,4 +1,4 @@
-import { createSceneControlsStore } from "./createSceneControlsStore.js";
+import { createSceneControlsStore } from "./createSceneControlsStore";
 
 export const DEFAULT_GLOBAL_CANVAS_FX_CONTROLS = {
   grain: {

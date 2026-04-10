@@ -6,7 +6,7 @@ import SceneExposure from "./SceneExposure.jsx";
 import WorkModel from "../../models/WorkModel.jsx";
 import { WorkClothStripScene } from "../../work/WorkClothStrip.jsx";
 import { applyModelMaterialTuning, normalizeModelBounds } from "./sceneUtils.js";
-import { useWorkSceneControlsStore } from "../../store/workSceneControls.js";
+import { useWorkSceneControlsStore } from "../../store/workSceneControls";
 
 function WorkSceneBackground() {
   const background = useWorkSceneControlsStore((state) => state.controls.scene.background);

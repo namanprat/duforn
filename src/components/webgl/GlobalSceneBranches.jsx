@@ -7,7 +7,7 @@ import Particles from "./Particles.jsx";
 import HomeScene from "./HomeScene.jsx";
 import NotFoundScene from "./NotFoundScene.jsx";
 import ProjectDetailScene from "../../projectDetail/ProjectDetailScene.jsx";
-import { useProjectDetailSceneControlsStore } from "../../store/projectDetailSceneControls.js";
+import { useProjectDetailSceneControlsStore } from "../../store/projectDetailSceneControls";
 
 export function HomeCanvasBranch() {
   return (

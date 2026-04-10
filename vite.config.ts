@@ -2,7 +2,7 @@ import { defineConfig } from "vite-plus";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig({
-  staged: { "{src,scripts}/**/*.{js,jsx}": "vp check --fix" },
+  staged: { "{src,scripts}/**/*.{js,jsx,ts,tsx}": "vp check --fix" },
   plugins: [react()],
   optimizeDeps: {
     include: ["three", "three/webgpu", "three/tsl"],
@@ -46,7 +46,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "lcov"],
-      include: ["scripts/**/*.js", "src/**/*.jsx", "src/**/*.js"],
+      include: ["scripts/**/*.{js,ts}", "src/**/*.{js,jsx,ts,tsx}"],
       exclude: ["scripts/shaders*.js", "scripts/CRT*.js", "scripts/data.js"],
     },
     testTimeout: 10000,

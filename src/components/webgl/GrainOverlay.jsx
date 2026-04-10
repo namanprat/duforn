@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
 import { getPerformanceProfile } from "../../../scripts/perf.js";
-import { useGlobalCanvasFxControlsStore } from "../../store/globalCanvasFxControls.js";
+import { useGlobalCanvasFxControlsStore } from "../../store/globalCanvasFxControls";
 import { getRendererType } from "./createWebGPURenderer.js";
 
 function buildWebGLGrainMaterial() {

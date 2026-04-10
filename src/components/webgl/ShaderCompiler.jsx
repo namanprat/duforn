@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useThree } from "@react-three/fiber";
-import { useLoadingStore } from "../../store/loading.js";
+import { useLoadingStore } from "../../store/loading";
 
 /**
  * Pre-compiles shaders for the current R3F scene so the first rendered frame

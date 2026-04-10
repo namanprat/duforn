@@ -3,8 +3,8 @@ import { useLocation } from "react-router-dom";
 import gsap from "gsap";
 import { navigateTo } from "../../lib/navigationBridge.js";
 import UnifiedCanvas from "../webgl/UnifiedCanvas.jsx";
-import { useWebglStore } from "../../store/webgl.js";
-import { useLoadingStore } from "../../store/loading.js";
+import { useWebglStore } from "../../store/webgl";
+import { useLoadingStore } from "../../store/loading";
 import { requestDeviceOrientationPermission } from "../../../scripts/runtime/motion.js";
 import GrainDomOverlay from "./GrainDomOverlay.jsx";
 

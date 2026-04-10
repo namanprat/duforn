@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import { getPerformanceProfile } from "../../../scripts/perf.js";
-import { useGlobalCanvasFxControlsStore } from "../../store/globalCanvasFxControls.js";
+import { useGlobalCanvasFxControlsStore } from "../../store/globalCanvasFxControls";
 
 function clamp01(value) {
   return Math.min(1, Math.max(0, value));

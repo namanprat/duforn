@@ -1,6 +1,6 @@
 // loading.js must be imported before preload.js so THREE.DefaultLoadingManager
 // callbacks are registered before any loader fires.
-import "./store/loading.js";
+import "./store/loading";
 import "./models/preload.js";
 
 import React from "react";

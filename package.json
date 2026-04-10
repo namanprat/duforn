@@ -56,6 +56,6 @@
   },
   "packageManager": "npm@11.12.0",
   "staged": {
-    "{src,scripts}/**/*.{js,jsx}": "vp check --fix"
+    "{src,scripts}/**/*.{js,jsx,ts,tsx}": "vp check --fix"
   }
 }

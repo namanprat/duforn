@@ -4,7 +4,7 @@ import { useThree } from "@react-three/fiber";
 import ProjectDetailBackground from "./ProjectDetailBackground.jsx";
 import ProjectDetailImagePlanes from "./ProjectDetailImagePlanes.jsx";
 import { useProjectDetailController } from "./useProjectDetailController.js";
-import { useProjectDetailSceneControlsStore } from "../store/projectDetailSceneControls.js";
+import { useProjectDetailSceneControlsStore } from "../store/projectDetailSceneControls";
 import { PROJECT_DETAIL_REVEAL_SETTINGS } from "./projectDetailSceneConfig.js";
 import SceneExposure from "../components/webgl/SceneExposure.jsx";
 

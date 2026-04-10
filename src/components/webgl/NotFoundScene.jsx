@@ -4,7 +4,7 @@ import { useGLTF, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import { MeshBasicNodeMaterial } from "three/webgpu";
 import { clamp, float, mix, sin, step, texture, uniform, uv, vec2, vec3 } from "three/tsl";
-import { useWebglStore } from "../../store/webgl.js";
+import { useWebglStore } from "../../store/webgl";
 import {
   PARALLAX_MOTION_CONFIG,
   mapDeviceOrientationToParallax,

@@ -9,7 +9,7 @@ import ArchivePage from "./routes/ArchivePage.jsx";
 import ProjectDetailPage from "./routes/ProjectDetailPage.jsx";
 import NotFoundPage from "./routes/NotFoundPage.jsx";
 
-import { useWebglStore } from "./store/webgl.js";
+import { useWebglStore } from "./store/webgl";
 import { initLinkHover, destroyLinkHover } from "../scripts/link-hover.js";
 import {
   prepareRouteReveal,

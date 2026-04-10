@@ -3,7 +3,7 @@ import { PerspectiveCamera } from "@react-three/drei";
 import CanvasSurface from "./CanvasSurface.jsx";
 import { createRendererOpaque, getRendererType } from "./createWebGPURenderer.js";
 import { logWebGPU } from "../../lib/webgpu/debugWebGPU.js";
-import { useWebglStore } from "../../store/webgl.js";
+import { useWebglStore } from "../../store/webgl";
 import ArchiveScene from "./ArchiveScene.jsx";
 import WorkPageScene from "./WorkPageScene.jsx";
 import ShaderCompiler from "./ShaderCompiler.jsx";

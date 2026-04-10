@@ -1,4 +1,4 @@
-import { createSceneControlsStore } from "./createSceneControlsStore.js";
+import { createSceneControlsStore } from "./createSceneControlsStore";
 
 export const DEFAULT_PROJECT_DETAIL_SCENE_CONTROLS = {
   renderer: {
@@ -33,7 +33,6 @@ export const DEFAULT_PROJECT_DETAIL_SCENE_CONTROLS = {
   },
   trail: {
     size: 1024,
-    // Minimal cursor mask tuned for subtle relief response.
     fadeAlpha: 0.05,
     blurPx: 5.5,
     radiusFactor: 0.085,

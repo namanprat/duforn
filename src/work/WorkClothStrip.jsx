@@ -9,8 +9,8 @@ import { workItems } from "../../data/work-items.js";
 import { navigateTo } from "../lib/navigationBridge.js";
 import { isWebGPURenderer } from "../components/webgl/createWebGPURenderer.js";
 import { logWebGPUOnce } from "../lib/webgpu/debugWebGPU.js";
-import { useWebglStore } from "../store/webgl.js";
-import { useWorkSceneControlsStore } from "../store/workSceneControls.js";
+import { useWebglStore } from "../store/webgl";
+import { useWorkSceneControlsStore } from "../store/workSceneControls";
 import { DEFAULT_GAP_SIZE, DEFAULT_VISIBLE_ITEMS } from "./workStripConfig.js";
 import { getActiveStripItemIndex, resolveVisibleSlotAtUv } from "./workStripMath.js";
 

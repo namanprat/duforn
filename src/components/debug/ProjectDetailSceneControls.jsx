@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import {
   DEFAULT_PROJECT_DETAIL_SCENE_CONTROLS,
   useProjectDetailSceneControlsStore,
-} from "../../store/projectDetailSceneControls.js";
+} from "../../store/projectDetailSceneControls";
 
 const CONTROL_SECTIONS = [
   {

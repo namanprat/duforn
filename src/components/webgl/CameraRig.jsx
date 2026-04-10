@@ -1,7 +1,7 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import React, { useEffect, useRef } from "react";
 import gsap from "gsap";
-import { useWebglStore } from "../../store/webgl.js";
+import { useWebglStore } from "../../store/webgl";
 import {
   PARALLAX_MOTION_CONFIG,
   mapDeviceOrientationToParallax,

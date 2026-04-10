@@ -4,7 +4,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import { usePointerField } from "./usePointerField.js";
 import { useTrailTexture } from "./useTrailTexture.js";
-import { useProjectDetailSceneControlsStore } from "../store/projectDetailSceneControls.js";
+import { useProjectDetailSceneControlsStore } from "../store/projectDetailSceneControls";
 import { PROJECT_DETAIL_BG_CAMERA_Z } from "./projectDetailSceneConfig.js";
 
 async function buildProjectBgMaterials(clonedScene, trailTexture) {

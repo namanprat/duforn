@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import {
   DEFAULT_WORK_SCENE_CONTROLS,
   useWorkSceneControlsStore,
-} from "../../store/workSceneControls.js";
+} from "../../store/workSceneControls";
 
 const CONTROL_SECTIONS = [
   {
