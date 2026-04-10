@@ -21,7 +21,7 @@ import {
 import { initLenis, destroyLenis } from "../scripts/lenis-scroll.js";
 import { setNavigateHandler } from "./lib/navigationBridge.js";
 import {
-  getCanvasKey,
+  shouldAnimateCanvasBetweenNamespaces,
   runRouteEnterTransition,
   runRouteLeaveTransition,
 } from "./lib/animation/routeTransition.js";
@@ -48,6 +48,7 @@ const PATH_TO_NAMESPACE = {
 };
 
 const REVEAL_START_DELAY_MS = 400;
+const REVEAL_SHORT_DELAY_MS = 80;
 
 function normalizePath(pathname) {
   // Strip trailing slashes so route lookups stay stable.
@@ -122,10 +123,9 @@ function NavigationBridge() {
       const currentNamespace = getNamespace(currentPath);
       const nextNamespace = getNamespace(nextPath);
       const pageElement = document.querySelector('[data-page-container="true"]');
-      const canvasElement =
-        getCanvasKey(currentNamespace) === getCanvasKey(nextNamespace)
-          ? null
-          : document.querySelector('[data-active-canvas="true"]');
+      const canvasElement = shouldAnimateCanvasBetweenNamespaces(currentNamespace, nextNamespace)
+        ? document.querySelector('[data-active-canvas="true"]')
+        : null;
 
       try {
         await runRouteLeave(pageElement, { excludeSelector: BRAND_HANDOFF_SELECTOR });
@@ -166,8 +166,10 @@ function AppShell() {
       if (!container) return;
 
       const REVEAL_OPTS = { excludeSelector: BRAND_HANDOFF_SELECTOR };
-      await prepareRouteReveal(container, REVEAL_OPTS);
-      await waitForRevealDelay();
+      const prep = await prepareRouteReveal(container, REVEAL_OPTS);
+      await waitForRevealDelay(
+        prep?.hasRouteRevealTargets ? REVEAL_START_DELAY_MS : REVEAL_SHORT_DELAY_MS,
+      );
       await runRouteEnter(container, REVEAL_OPTS);
       if (container.dataset.pageNamespace === "projectDetail") {
         initScrollReveals(container);
@@ -218,49 +220,61 @@ function AppShell() {
     document.title = TITLES[currentPath] || "Duforn | 404";
     const previousPath = previousPathRef.current;
     const previousNamespace = getNamespace(previousPath);
-    const shouldAnimateCanvas = getCanvasKey(previousNamespace) !== getCanvasKey(namespace);
+    const shouldAnimateCanvas = shouldAnimateCanvasBetweenNamespaces(previousNamespace, namespace);
 
     previousPathRef.current = currentPath;
     document.body.dataset.routePathname = currentPath;
     applyBodyRouteClasses(namespace);
-    runBrandHandoff({ fromNamespace: previousNamespace, toNamespace: namespace });
     setActivePage(namespace);
 
     // Lenis for project detail pages only
     if (namespace === "projectDetail") initLenis();
     else destroyLenis();
 
-    const container = document.querySelector('[data-page-container="true"]');
     let stopEnterTween = () => {};
     let cancelled = false;
 
     const REVEAL_OPTS = { excludeSelector: BRAND_HANDOFF_SELECTOR };
 
-    const prepare = container ? prepareRouteReveal(container, REVEAL_OPTS) : Promise.resolve();
-    prepare.then(() => {
+    const runEnterSequence = async () => {
+      await runBrandHandoff({ fromNamespace: previousNamespace, toNamespace: namespace });
       if (cancelled) return;
-      const live = container ?? document.querySelector('[data-page-container="true"]');
+
+      const container = document.querySelector('[data-page-container="true"]');
+      if (!container) {
+        window.__refreshLinkHover?.();
+        return;
+      }
+
+      const prep = await prepareRouteReveal(container, REVEAL_OPTS);
+      if (cancelled) return;
+
       if (document.body.classList.contains("preloader-active")) {
         return;
       }
+
       stopEnterTween = runRouteEnterTransition({
         canvasElement: shouldAnimateCanvas
           ? document.querySelector('[data-active-canvas="true"]')
           : null,
       });
-      waitForRevealDelay()
-        .then(() => {
-          if (cancelled) return Promise.resolve();
-          return runRouteEnter(live, REVEAL_OPTS);
-        })
-        .then(() => {
-          if (cancelled) return;
-          window.__refreshLinkHover?.();
-          if (namespace === "projectDetail" && live) {
-            initScrollReveals(live);
-          }
-        });
-    });
+
+      await waitForRevealDelay(
+        prep?.hasRouteRevealTargets ? REVEAL_START_DELAY_MS : REVEAL_SHORT_DELAY_MS,
+      );
+      if (cancelled) return;
+
+      const live = document.querySelector('[data-page-container="true"]') ?? container;
+      await runRouteEnter(live, REVEAL_OPTS);
+      if (cancelled) return;
+
+      window.__refreshLinkHover?.();
+      if (namespace === "projectDetail" && live) {
+        initScrollReveals(live);
+      }
+    };
+
+    runEnterSequence();
 
     return () => {
       cancelled = true;

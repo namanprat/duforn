@@ -155,7 +155,7 @@ export async function runBrandHandoff({ fromNamespace, toNamespace }) {
 
   if (!shouldRunHandoff(fromNamespace, toNamespace)) {
     finalizeNamespaceState(toNamespace);
-    return;
+    return undefined;
   }
 
   try {
@@ -164,53 +164,112 @@ export async function runBrandHandoff({ fromNamespace, toNamespace }) {
     // Ignore font loading errors and proceed with fallback animation states.
   }
 
-  if (token !== runToken) return;
+  if (token !== runToken) return undefined;
 
   const navBrand = getNavBrandNode();
   const leavingHome = fromNamespace === HOME_NAMESPACE && toNamespace !== HOME_NAMESPACE;
   const enteringHome = toNamespace === HOME_NAMESPACE && fromNamespace !== HOME_NAMESPACE;
   const enteringContact = toNamespace === CONTACT_NAMESPACE;
   const contactBrand = getBrandTitleNode(CONTACT_NAMESPACE);
-  const timeline = gsap.timeline({
-    defaults: { ease: "power2.out" },
-    onComplete: () => {
-      removeGhost();
-      finalizeNamespaceState(toNamespace);
-      activeTimeline = null;
-      runToken += 1;
-    },
-    onInterrupt: () => {
-      removeGhost();
-      finalizeNamespaceState(toNamespace);
-      activeTimeline = null;
-      runToken += 1;
-    },
-  });
 
-  if (leavingHome) {
-    const ghost = createHomeBrandGhost();
-    const ghostChars = getRevealTitleCharacters(ghost);
-    if (ghostChars.length) {
-      timeline.to(
-        ghostChars,
-        {
-          yPercent: -120,
-          opacity: 0,
-          duration: rt(0.42),
-          stagger: rt(0.015),
-        },
-        0,
-      );
+  return await new Promise((resolve) => {
+    const timeline = gsap.timeline({
+      defaults: { ease: "power2.out" },
+      onComplete: () => {
+        removeGhost();
+        finalizeNamespaceState(toNamespace);
+        activeTimeline = null;
+        runToken += 1;
+        resolve();
+      },
+      onInterrupt: () => {
+        removeGhost();
+        finalizeNamespaceState(toNamespace);
+        activeTimeline = null;
+        runToken += 1;
+        resolve();
+      },
+    });
+
+    if (leavingHome) {
+      const ghost = createHomeBrandGhost();
+      const ghostChars = getRevealTitleCharacters(ghost);
+      if (ghostChars.length) {
+        timeline.to(
+          ghostChars,
+          {
+            yPercent: -120,
+            opacity: 0,
+            duration: rt(0.42),
+            stagger: rt(0.015),
+          },
+          0,
+        );
+      }
+
+      if (enteringContact && contactBrand) {
+        prepareRevealTitle(contactBrand);
+        const contactChars = getRevealTitleCharacters(contactBrand);
+        if (contactChars.length) {
+          gsap.set(contactChars, { yPercent: 120, opacity: 0 });
+          gsap.set(contactBrand, { autoAlpha: 1 });
+          timeline.to(
+            contactChars,
+            {
+              yPercent: 0,
+              opacity: 1,
+              duration: rt(0.52),
+              stagger: rt(0.02),
+            },
+            rt(0.05),
+          );
+        } else {
+          gsap.fromTo(
+            contactBrand,
+            { autoAlpha: 0 },
+            { autoAlpha: 1, duration: rt(0.3) },
+            rt(0.05),
+          );
+        }
+      }
+
+      if (navBrand) {
+        gsap.set(navBrand, { autoAlpha: 0, yPercent: 15, pointerEvents: "auto" });
+        timeline.to(
+          navBrand,
+          {
+            autoAlpha: 1,
+            yPercent: 0,
+            duration: rt(0.48),
+          },
+          rt(0.08),
+        );
+      }
     }
 
-    if (enteringContact && contactBrand) {
-      prepareRevealTitle(contactBrand);
-      const contactChars = getRevealTitleCharacters(contactBrand);
-      if (contactChars.length) {
-        gsap.set(contactChars, { yPercent: 120, opacity: 0 });
-        gsap.set(contactBrand, { autoAlpha: 1 });
+    if (enteringHome) {
+      const homeBrand = getHomeBrandNode();
+      prepareRevealTitle(homeBrand);
+      const homeChars = getRevealTitleCharacters(homeBrand);
+
+      if (navBrand) {
+        gsap.set(navBrand, { autoAlpha: 1, pointerEvents: "auto" });
         timeline.to(
-          contactChars,
+          navBrand,
+          {
+            autoAlpha: 0,
+            yPercent: -15,
+            duration: rt(0.36),
+          },
+          0,
+        );
+      }
+
+      if (homeChars.length) {
+        gsap.set(homeChars, { yPercent: 120, opacity: 0 });
+        gsap.set(homeBrand, { autoAlpha: 1 });
+        timeline.to(
+          homeChars,
           {
             yPercent: 0,
             opacity: 1,
@@ -219,66 +278,19 @@ export async function runBrandHandoff({ fromNamespace, toNamespace }) {
           },
           rt(0.05),
         );
-      } else {
-        gsap.fromTo(contactBrand, { autoAlpha: 0 }, { autoAlpha: 1, duration: rt(0.3) }, rt(0.05));
+      } else if (homeBrand) {
+        gsap.fromTo(homeBrand, { autoAlpha: 0 }, { autoAlpha: 1, duration: rt(0.3) }, rt(0.05));
       }
     }
 
-    if (navBrand) {
-      gsap.set(navBrand, { autoAlpha: 0, yPercent: 15, pointerEvents: "auto" });
-      timeline.to(
-        navBrand,
-        {
-          autoAlpha: 1,
-          yPercent: 0,
-          duration: rt(0.48),
-        },
-        rt(0.08),
-      );
-    }
-  }
-
-  if (enteringHome) {
-    const homeBrand = getHomeBrandNode();
-    prepareRevealTitle(homeBrand);
-    const homeChars = getRevealTitleCharacters(homeBrand);
-
-    if (navBrand) {
-      gsap.set(navBrand, { autoAlpha: 1, pointerEvents: "auto" });
-      timeline.to(
-        navBrand,
-        {
-          autoAlpha: 0,
-          yPercent: -15,
-          duration: rt(0.36),
-        },
-        0,
-      );
+    if (!timeline.getChildren(true, true, true).length) {
+      timeline.kill();
+      removeGhost();
+      finalizeNamespaceState(toNamespace);
+      resolve();
+      return;
     }
 
-    if (homeChars.length) {
-      gsap.set(homeChars, { yPercent: 120, opacity: 0 });
-      gsap.set(homeBrand, { autoAlpha: 1 });
-      timeline.to(
-        homeChars,
-        {
-          yPercent: 0,
-          opacity: 1,
-          duration: rt(0.52),
-          stagger: rt(0.02),
-        },
-        rt(0.05),
-      );
-    } else if (homeBrand) {
-      gsap.fromTo(homeBrand, { autoAlpha: 0 }, { autoAlpha: 1, duration: rt(0.3) }, rt(0.05));
-    }
-  }
-
-  if (!timeline.getChildren(true, true, true).length) {
-    removeGhost();
-    finalizeNamespaceState(toNamespace);
-    return;
-  }
-
-  activeTimeline = timeline;
+    activeTimeline = timeline;
+  });
 }

@@ -9,9 +9,12 @@ function compactElements(elements) {
   return elements.filter(Boolean);
 }
 
-/** All routes share one R3F canvas (`UnifiedCanvas`); navigation never swaps canvas roots. */
-export function getCanvasKey() {
-  return "app";
+/**
+ * One persistent R3F canvas wraps all routes; we still tween its DOM wrapper on namespace changes
+ * so leave/enter motion stays aligned with route transitions.
+ */
+export function shouldAnimateCanvasBetweenNamespaces(fromNamespace, toNamespace) {
+  return Boolean(fromNamespace) && Boolean(toNamespace) && fromNamespace !== toNamespace;
 }
 
 export function runRouteEnterTransition({ canvasElement } = {}) {
@@ -50,12 +53,14 @@ export function runRouteLeaveTransition({ canvasElement } = {}) {
   killTweens(targets);
 
   return new Promise((resolve) => {
+    const finish = () => {
+      gsap.set(targets, { clearProps: "transform,opacity" });
+      resolve();
+    };
     const timeline = gsap.timeline({
       defaults: { ease: "power3.inOut" },
-      onComplete: () => {
-        gsap.set(targets, { clearProps: "transform,opacity" });
-        resolve();
-      },
+      onComplete: finish,
+      onInterrupt: finish,
     });
 
     if (canvasTargets.length) {

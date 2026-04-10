@@ -182,6 +182,13 @@ function getScrollRevealElements(container) {
   return Array.from(container.querySelectorAll("[data-scroll-reveal]"));
 }
 
+function hasRouteRevealTargets(container, options = {}) {
+  if (!container) return false;
+  const titles = getRouteRevealTitles(container, options);
+  const bodies = getRouteRevealBodies(container, options);
+  return titles.length > 0 || bodies.length > 0;
+}
+
 function createLineClipSplit(element, registry) {
   if (!element) return null;
   if (registry.has(element)) return registry.get(element);
@@ -284,10 +291,11 @@ function destroyRouteReveals() {
 // ── Route reveal: prepare ────────────────────────────────────────────────
 
 async function prepareRouteReveal(container, options = {}) {
-  if (!container) return;
+  if (!container) return { hasRouteRevealTargets: false };
 
   const titles = getRouteRevealTitles(container, options);
   const bodies = getRouteRevealBodies(container, options);
+  const hasRouteRevealTargets = titles.length > 0 || bodies.length > 0;
   const scrollEls = getScrollRevealElements(container);
 
   // Hide this route’s targets synchronously before any teardown so revert/kill never paints full copy.
@@ -347,6 +355,8 @@ async function prepareRouteReveal(container, options = {}) {
       immediateRender: true,
     });
   }
+
+  return { hasRouteRevealTargets };
 }
 
 // ── Route reveal: enter ──────────────────────────────────────────────────
@@ -634,6 +644,7 @@ export {
   runRouteEnter,
   runRouteLeave,
   destroyRouteReveals,
+  hasRouteRevealTargets,
   // Scroll reveals
   initScrollReveals,
   destroyScrollReveals,
