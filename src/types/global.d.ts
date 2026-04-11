@@ -8,3 +8,11 @@ declare module "web-haptics" {
     trigger(pattern: "nudge" | HapticStep[], options?: { intensity?: number }): void;
   }
 }
+
+declare global {
+  interface Window {
+    __refreshLinkHover?: () => Promise<void>;
+  }
+}
+
+export {};
