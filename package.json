@@ -43,10 +43,12 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "@vitest/coverage-v8": "^4.1.1",
     "@vitest/ui": "^4.1.1",
     "happy-dom": "^20.6.1",
+    "typescript": "^5.9.3",
     "vite": "npm:@voidzero-dev/vite-plus-core@latest",
     "vite-plus": "^0.1.14",
     "vitest": "npm:@voidzero-dev/vite-plus-test@0.1.16"
@@ -57,6 +59,6 @@
   },
   "packageManager": "npm@11.12.0",
   "staged": {
-    "{src,scripts}/**/*.{js,jsx}": "vp check --fix"
+    "{src,scripts}/**/*.{ts,tsx}": "vp check --fix"
   }
 }
