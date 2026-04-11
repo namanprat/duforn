@@ -11,29 +11,53 @@ import NotFoundScene from "./NotFoundScene";
 import ProjectDetailScene from "../../projectDetail/ProjectDetailScene";
 import { useProjectDetailSceneControlsStore } from "../../store/projectDetailSceneControls";
 
-export function HomeCanvasBranch() {
+const STANDARD_CANVAS_CAMERA = {
+  position: [0, 1, 5] as [number, number, number],
+  fov: 75,
+};
+
+const STANDARD_EFFECTS_DEFAULTS = {
+  bloomStrength: 0.045,
+  dofMaxBlur: 0.008,
+};
+
+type StandardCanvasBranchProps = {
+  children: React.ReactNode;
+};
+
+function StandardCanvasBranch({ children }: StandardCanvasBranchProps) {
   return (
     <>
-      <PerspectiveCamera makeDefault position={[0, 1, 5]} fov={75} />
+      <PerspectiveCamera
+        makeDefault
+        position={STANDARD_CANVAS_CAMERA.position}
+        fov={STANDARD_CANVAS_CAMERA.fov}
+      />
       <EnvironmentSetup />
       <CameraRig />
-      <HomeScene />
+      {children}
       <Particles count={200} />
-      <Effects bloomStrength={0.045} dofMaxBlur={0.008} />
+      <Effects
+        bloomStrength={STANDARD_EFFECTS_DEFAULTS.bloomStrength}
+        dofMaxBlur={STANDARD_EFFECTS_DEFAULTS.dofMaxBlur}
+      />
     </>
+  );
+}
+
+export function HomeCanvasBranch() {
+  return (
+    <StandardCanvasBranch>
+      <HomeScene />
+    </StandardCanvasBranch>
   );
 }
 
 export function TestCanvasBranch() {
   return (
-    <>
-      <PerspectiveCamera makeDefault position={[0, 1, 5]} fov={75} />
-      <EnvironmentSetup />
-      <CameraRig />
+    <StandardCanvasBranch>
       <TestScene />
-      <Particles count={200} />
-      <Effects bloomStrength={0.045} dofMaxBlur={0.008} />
-    </>
+    </StandardCanvasBranch>
   );
 }
 
