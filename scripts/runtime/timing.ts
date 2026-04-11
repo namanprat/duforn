@@ -1,8 +1,12 @@
-// @ts-nocheck
-export function debounce(fn, wait = 0) {
-  let timeoutId = null;
+import type { DebouncedFunction } from "../../src/types/timing";
 
-  const debounced = (...args) => {
+export function debounce<TArgs extends unknown[]>(
+  fn: (...args: TArgs) => void,
+  wait = 0,
+): DebouncedFunction<TArgs> {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  const debounced: DebouncedFunction<TArgs> = (...args: TArgs) => {
     if (timeoutId) clearTimeout(timeoutId);
     timeoutId = setTimeout(() => {
       timeoutId = null;

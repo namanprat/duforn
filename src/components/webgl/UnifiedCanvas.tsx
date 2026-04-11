@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { Suspense } from "react";
 import { PerspectiveCamera } from "@react-three/drei";
 import CanvasSurface from "./CanvasSurface";
@@ -14,8 +13,14 @@ import {
   ProjectDetailCanvasBranch,
   TestCanvasBranch,
 } from "./GlobalSceneBranches";
+import type { RouteNamespace } from "../../types/routes";
+import type { WebglState } from "../../types/webgl";
 
-function UnifiedScene({ activePage }) {
+interface UnifiedSceneProps {
+  activePage: RouteNamespace;
+}
+
+function UnifiedScene({ activePage }: UnifiedSceneProps) {
   switch (activePage) {
     case "work":
       return (
@@ -45,10 +50,14 @@ function UnifiedScene({ activePage }) {
 /**
  * Single persistent R3F canvas for all routes. Only one scene branch mounts at a time.
  */
-export default function UnifiedCanvas({ activePage }) {
+interface UnifiedCanvasProps {
+  activePage: RouteNamespace;
+}
+
+export default function UnifiedCanvas({ activePage }: UnifiedCanvasProps) {
   const pointerEvents = activePage === "work" ? "auto" : "none";
   const isProjectDetail = activePage === "projectDetail";
-  const setRendererType = useWebglStore((s) => s.setRendererType);
+  const setRendererType = useWebglStore((s: WebglState) => s.setRendererType);
 
   return (
     <CanvasSurface

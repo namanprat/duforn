@@ -1,4 +1,3 @@
-// @ts-nocheck
-export function logWebGPU() {}
+export function logWebGPU(..._args: unknown[]): void {}
 
-export function logWebGPUOnce() {}
+export function logWebGPUOnce(..._args: unknown[]): void {}
