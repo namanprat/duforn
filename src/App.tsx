@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useEffect, useRef } from "react";
 import { Route, Routes, useLocation, useNavigate, useOutlet } from "react-router-dom";
 
@@ -37,13 +36,15 @@ import {
 } from "./lib/animation/archiveBurnRoute";
 import { captureViewportSnapshot } from "./lib/animation/captureViewportSnapshot";
 import { cleanupBrandHandoff, runBrandHandoff } from "./lib/animation/brandHandoffTransition";
+import type { RouteNamespace, RoutePathname, RouteTransitionState } from "./types/routes";
+import type { WebglState } from "./types/webgl";
 
 /** Excludes handoff hero titles from route *leave* only (ghost / handoff owns outgoing hero). */
 const BRAND_HANDOFF_SELECTOR = "[data-brand-handoff-title]";
 
-const REVEAL_BODY_OPTS = { excludeSelector: BRAND_HANDOFF_SELECTOR };
+const REVEAL_BODY_OPTS: { excludeSelector: string } = { excludeSelector: BRAND_HANDOFF_SELECTOR };
 
-const TITLES = {
+const TITLES: Record<RoutePathname, string> = {
   "/": "Duforn | Home",
   "/work": "Duforn | Work",
   "/contact": "Duforn | Contact",
@@ -53,7 +54,7 @@ const TITLES = {
   "/test": "Duforn | Test",
 };
 
-const PATH_TO_NAMESPACE = {
+const PATH_TO_NAMESPACE: Record<RoutePathname, RouteNamespace> = {
   "/": "home",
   "/work": "work",
   "/contact": "contact",
@@ -66,23 +67,23 @@ const PATH_TO_NAMESPACE = {
 const REVEAL_START_DELAY_MS = 400;
 const REVEAL_SHORT_DELAY_MS = 80;
 
-function normalizePath(pathname) {
+function normalizePath(pathname: string): string {
   // Strip trailing slashes so route lookups stay stable.
   const cleaned = pathname.replace(/\/+$/, "");
   return cleaned === "" ? "/" : cleaned;
 }
 
-function getNamespace(pathname) {
-  return PATH_TO_NAMESPACE[normalizePath(pathname)] || "notFound";
+function getNamespace(pathname: string): RouteNamespace {
+  return PATH_TO_NAMESPACE[normalizePath(pathname) as RoutePathname] || "notFound";
 }
 
-function applyBodyRouteClasses(namespace) {
+function applyBodyRouteClasses(namespace: RouteNamespace): void {
   document.body.classList.add("page-wrap");
   document.body.classList.toggle("page-wrap--scrollable", namespace === "projectDetail");
 }
 
-function waitForRevealDelay(ms = REVEAL_START_DELAY_MS) {
-  return new Promise((resolve) => {
+function waitForRevealDelay(ms = REVEAL_START_DELAY_MS): Promise<void> {
+  return new Promise<void>((resolve) => {
     window.setTimeout(resolve, ms);
   });
 }
@@ -111,7 +112,7 @@ function useClock() {
 function NavigationBridge() {
   const navigate = useNavigate();
   const location = useLocation();
-  const transitionRef = useRef({ inFlight: false, targetPath: null });
+  const transitionRef = useRef<RouteTransitionState>({ inFlight: false, targetPath: null });
   const currentPathRef = useRef(normalizePath(location.pathname));
 
   useEffect(() => {
@@ -126,7 +127,7 @@ function NavigationBridge() {
   }, [location.pathname]);
 
   useEffect(() => {
-    setNavigateHandler(async (path) => {
+    setNavigateHandler(async (path: string) => {
       const nextPath = normalizePath(path);
       const currentPath = currentPathRef.current;
 
@@ -151,7 +152,7 @@ function NavigationBridge() {
           let captured = null;
           try {
             captured = await captureViewportSnapshot({ root: document.body });
-          } catch (err) {
+          } catch (err: unknown) {
             console.warn("[archive-burn] capture failed", err);
           }
 
@@ -196,7 +197,7 @@ function NavigationBridge() {
 function AppShell() {
   const location = useLocation();
   const outlet = useOutlet();
-  const setActivePage = useWebglStore((s) => s.setActivePage);
+  const setActivePage = useWebglStore((s: WebglState) => s.setActivePage);
   const currentPath = normalizePath(location.pathname);
   const previousPathRef = useRef(currentPath);
   const namespace = getNamespace(currentPath);
@@ -204,12 +205,13 @@ function AppShell() {
   useClock();
 
   useEffect(() => {
-    const onPreloaderDismissed = async (event) => {
-      const dismissedPath = normalizePath(event?.detail?.pathname || window.location.pathname);
+    const onPreloaderDismissed = async (event: Event) => {
+      const detail = (event as CustomEvent<{ pathname?: string }>).detail;
+      const dismissedPath = normalizePath(detail?.pathname || window.location.pathname);
       const livePath = normalizePath(window.location.pathname);
       if (dismissedPath !== livePath) return;
 
-      const container = document.querySelector('[data-page-container="true"]');
+      const container = document.querySelector<HTMLElement>('[data-page-container="true"]');
       if (!container) return;
 
       const prep = await prepareRouteReveal(container, REVEAL_BODY_OPTS);

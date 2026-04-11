@@ -1,6 +1,6 @@
-// @ts-nocheck
 import { useEffect, useRef } from "react";
 import { useThree } from "@react-three/fiber";
+import type { OrthographicCamera } from "three";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { debounce } from "../../scripts/runtime/timing";
 
@@ -10,14 +10,15 @@ export function useProjectDetailController() {
 
   useEffect(() => {
     const onResize = debounce(() => {
-      if (!camera?.isOrthographicCamera) return;
+      if (!camera || !("isOrthographicCamera" in camera) || !camera.isOrthographicCamera) return;
+      const orthographicCamera = camera as OrthographicCamera;
       const w = window.innerWidth;
       const h = window.innerHeight;
-      camera.left = -w / 2;
-      camera.right = w / 2;
-      camera.top = h / 2;
-      camera.bottom = -h / 2;
-      camera.updateProjectionMatrix();
+      orthographicCamera.left = -w / 2;
+      orthographicCamera.right = w / 2;
+      orthographicCamera.top = h / 2;
+      orthographicCamera.bottom = -h / 2;
+      orthographicCamera.updateProjectionMatrix();
     }, 150);
 
     const onVisibility = () => {
@@ -39,7 +40,7 @@ export function useProjectDetailController() {
         ScrollTrigger.getAll()
           .filter((st) => {
             const trigger = st.vars?.trigger;
-            return trigger && filmContainer.contains(trigger);
+            return trigger instanceof Element && filmContainer.contains(trigger);
           })
           .forEach((st) => st.kill());
       }
