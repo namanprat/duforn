@@ -1,3 +1,12 @@
+# ⚠️ Archived reference snapshot
+
+This directory is kept as an **archived reference** to the upstream `jeantimex/webgpu-water` demo. It is **not part of the active `duforn-portfolio` app runtime/build pipeline**, and should only be updated intentionally when refreshing the reference material.
+
+- Use the root application (`src/`, root `package.json`) for active product work.
+- Treat this folder as read-mostly to avoid accidental maintenance overhead.
+
+---
+
 # WebGPU Water Simulation
 
 A real-time water simulation using WebGPU, ported from [Evan Wallace's WebGL Water](https://madebyevan.com/webgl-water/).
