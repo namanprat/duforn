@@ -462,8 +462,8 @@ export function WorkClothStripScene() {
   };
   const wind = {
     windStrength: stripControls.windStrength,
-    waveAmplitude: stripControls.waveAmplitude,
-    waveFrequency: stripControls.waveFrequency,
+    flutterAmplitude: stripControls.flutterAmplitude,
+    flutterFrequency: stripControls.flutterFrequency,
     gravityScale: stripControls.gravityScale,
     clothSolidity: Math.max(0.0001, stripControls.constraintMix * 14.0),
     wheelSensitivity: stripControls.wheelSensitivity,
@@ -658,8 +658,8 @@ export function WorkClothStripScene() {
     }
 
     u.uWindStrength.value = sc.windStrength ?? 1.1;
-    u.uWaveAmplitude.value = sc.waveAmplitude ?? 0.08;
-    u.uWaveFrequency.value = sc.waveFrequency ?? 20;
+    u.uWaveAmplitude.value = sc.flutterAmplitude ?? 0.08;
+    u.uWaveFrequency.value = sc.flutterFrequency ?? 20;
     if ("uRevealNoiseScale" in u) {
       u.uRevealNoiseScale.value = sc.revealNoiseScale ?? 6.5;
       u.uRevealEdgeSoftness.value = sc.revealEdgeSoftness ?? 0.16;

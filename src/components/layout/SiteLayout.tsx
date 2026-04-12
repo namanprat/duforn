@@ -13,10 +13,6 @@ const LazyProjectDetailSceneControls = import.meta.env.DEV
   ? React.lazy(() => import("../debug/ProjectDetailSceneControls"))
   : null;
 
-const LazyTestSceneControls = import.meta.env.DEV
-  ? React.lazy(() => import("../debug/TestSceneControls"))
-  : null;
-
 function NavLink({ to, className, children, ...props }) {
   const location = useLocation();
   const { onClick: onClickProp, ...restProps } = props;
@@ -166,6 +162,7 @@ function ReceiptMenu({
 
 export default function SiteLayout({ children }) {
   const location = useLocation();
+  const hideNavBrand = location.pathname === "/" || location.pathname === "/test";
   const activePage = useWebglStore((s) => s.activePage);
   const setGyroEnabled = useWebglStore((s) => s.setGyroEnabled);
   const phase = useLoadingStore((s) => s.phase);
@@ -558,14 +555,24 @@ export default function SiteLayout({ children }) {
       <header>
         <nav className="nav-wrap u-position-fixed">
           <div className="nav-contain u-container-full">
-            <NavLink className="u-mobile-hidden" to="/contact">
-              contact
-            </NavLink>
-            <NavLink to="/" className="link-main nav-brand">
-              DUFORN
-            </NavLink>
             <NavLink className="u-mobile-hidden" to="/work">
               work
+            </NavLink>
+            {hideNavBrand ? (
+              <span
+                className="link-main u-display-inline-block u-pointer-off u-mobile-hidden"
+                aria-hidden="true"
+                style={{ visibility: "hidden", whiteSpace: "nowrap" }}
+              >
+                DUFORN
+              </span>
+            ) : (
+              <NavLink to="/" className="link-main nav-brand">
+                DUFORN
+              </NavLink>
+            )}
+            <NavLink className="u-mobile-hidden" to="/contact">
+              contact
             </NavLink>
             <button
               ref={menuToggleRef}
@@ -608,12 +615,6 @@ export default function SiteLayout({ children }) {
       {LazyProjectDetailSceneControls && activePage === "projectDetail" ? (
         <Suspense fallback={null}>
           <LazyProjectDetailSceneControls />
-        </Suspense>
-      ) : null}
-
-      {LazyTestSceneControls && activePage === "test" ? (
-        <Suspense fallback={null}>
-          <LazyTestSceneControls />
         </Suspense>
       ) : null}
 

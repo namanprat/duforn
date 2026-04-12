@@ -104,7 +104,7 @@ async function buildBackgroundMaterial(controls) {
     );
 
     const liquid = largeNoise.mul(0.55).add(mediumNoise.mul(0.3)).add(fineNoise.mul(0.15));
-    const ripple = sin(
+    const pulse = sin(
       warped.x
         .mul(3.6)
         .add(warped.y.mul(2.8))
@@ -122,7 +122,7 @@ async function buildBackgroundMaterial(controls) {
     const field = clamp(
       liquid
         .mul(0.78)
-        .add(ripple.mul(0.22))
+        .add(pulse.mul(0.22))
         .add(envelope.mul(uniforms.uFadeStrength))
         .add(pointerBloom.mul(0.08))
         .add(velocity.mul(0.04)),
@@ -143,7 +143,7 @@ async function buildBackgroundMaterial(controls) {
     const baseColor = mix(
       core,
       uniforms.uColorShade,
-      smoothstep(float(0.6), float(1.02), liquid.add(ripple.mul(0.45))),
+      smoothstep(float(0.6), float(1.02), liquid.add(pulse.mul(0.45))),
     );
 
     // Marble-ish bas-relief hint: cheap screen-space "lighting" from a pseudo heightfield gradient.

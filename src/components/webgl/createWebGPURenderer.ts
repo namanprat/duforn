@@ -117,3 +117,7 @@ export function createRendererAlpha(defaultProps) {
 export function createRendererOpaque(defaultProps) {
   return createBestRenderer(defaultProps, { alpha: false });
 }
+
+export function createRendererOpaqueWebGL(defaultProps) {
+  return createWebGLRenderer(defaultProps, { alpha: false });
+}

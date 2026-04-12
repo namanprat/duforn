@@ -10,7 +10,6 @@ import ArchivePage from "./routes/ArchivePage";
 import ProjectDetailPage from "./routes/ProjectDetailPage";
 import NotFoundPage from "./routes/NotFoundPage";
 import TestPage from "./routes/TestPage";
-
 import { useWebglStore } from "./store/webgl";
 import { initLinkHover, destroyLinkHover } from "../scripts/link-hover";
 import {
@@ -355,12 +354,12 @@ export default function App() {
     <Routes>
       <Route element={<AppShell />}>
         <Route path="/" element={<HomePage />} />
-        <Route path="/test" element={<TestPage />} />
         <Route path="/work" element={<WorkPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/archive" element={<ArchivePage />} />
         <Route path="/money-me" element={<ProjectDetailPage />} />
         <Route path="/404" element={<NotFoundPage />} />
+        <Route path="/test" element={<TestPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

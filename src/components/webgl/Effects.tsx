@@ -8,10 +8,16 @@ export default function Effects({
   vignetteDarkness = 0.15,
   chromaticShift = 0.003,
   dofMaxBlur = 0.008,
+  aoResolutionScale = 0.5,
+  aoRadius = 0.25,
+  aoSamples = 16,
+  /** 0 = skip GTAO multiply on lit rgb (e.g. work cloth TSL); 1 = full GTAO. */
+  ambientOcclusionStrength = 1,
 }) {
   const { gl, scene, camera } = useThree();
   const ppRef = useRef(null);
   const uniformsRef = useRef(null);
+  const aoPassRef = useRef(null);
   const disabledRef = useRef(false);
 
   useFrame(() => {
@@ -23,6 +29,14 @@ export default function Effects({
       u.uVignetteDarkness.value = vignetteDarkness;
       u.uChromaticShift.value = chromaticShift;
       u.uDofMaxBlur.value = dofMaxBlur;
+      u.uAmbientOcclusionStrength.value = ambientOcclusionStrength;
+    }
+
+    const aoPass = aoPassRef.current;
+    if (aoPass) {
+      aoPass.resolutionScale = aoResolutionScale;
+      aoPass.radius.value = aoRadius;
+      aoPass.samples.value = aoSamples;
     }
 
     if (ppRef.current) {
@@ -33,6 +47,7 @@ export default function Effects({
         ppRef.current.dispose();
         ppRef.current = null;
         uniformsRef.current = null;
+        aoPassRef.current = null;
       }
     }
   }, 1);
@@ -57,10 +72,17 @@ export default function Effects({
           clamp,
           convertToTexture,
           mix,
+          mrt,
+          output,
+          normalView,
         } = await import("three/tsl");
         const { bloom } = await import("three/addons/tsl/display/BloomNode.js");
+        const { ao } = await import("three/addons/tsl/display/GTAONode.js");
 
         if (cancelled) return;
+
+        /** MRT + view normals break some MeshBasicNodeMaterial (work cloth) scene color; skip full GTAO path. */
+        const skipGtao = ambientOcclusionStrength <= 0;
 
         const uniforms = {
           uBloomStrength: uniform(bloomStrength),
@@ -69,15 +91,54 @@ export default function Effects({
           uCaEdgeStart: uniform(0.2),
           uCaEdgeEnd: uniform(0.7),
           uDofMaxBlur: uniform(dofMaxBlur),
+          uAmbientOcclusionStrength: uniform(ambientOcclusionStrength),
         };
 
         const scenePass = pass(scene, camera);
+        if (!skipGtao) {
+          scenePass.setMRT(
+            mrt({
+              output,
+              normal: normalView,
+            }),
+          );
+        }
+
         const scenePassColor = scenePass.getTextureNode("output");
 
-        const bloomPass = bloom(scenePassColor, uniforms.uBloomStrength, 0.3, 1.0);
-        let output = scenePassColor.add(bloomPass);
+        let postColor;
+        let aoPass = null;
 
-        const dofInput = convertToTexture(output);
+        if (skipGtao) {
+          postColor = scenePassColor;
+        } else {
+          const scenePassDepth = scenePass.getTextureNode("depth");
+          const scenePassNormal = scenePass.getTextureNode("normal");
+
+          aoPass = ao(scenePassDepth, scenePassNormal, camera);
+          aoPass.resolutionScale = aoResolutionScale;
+          aoPass.radius.value = aoRadius;
+          aoPass.samples.value = aoSamples;
+
+          // RedFormat AO: only .r holds the factor; vec4*vec4 would zero G/B → red tint.
+          const aoTex = aoPass.getTextureNode();
+          postColor = Fn(() => {
+            const coord = uv();
+            const color = vec4(scenePassColor.sample(coord));
+            const aoFactor = aoTex.sample(coord).r;
+            const litRgb = mix(
+              color.rgb,
+              color.rgb.mul(aoFactor),
+              uniforms.uAmbientOcclusionStrength,
+            );
+            return vec4(litRgb, color.a);
+          })();
+        }
+
+        const bloomPass = bloom(postColor, uniforms.uBloomStrength, 0.3, 1.0);
+        let postNode = postColor.add(bloomPass);
+
+        const dofInput = convertToTexture(postNode);
         const dof = Fn(() => {
           const coord = uv();
           const center = vec2(0.5, 0.5);
@@ -105,7 +166,7 @@ export default function Effects({
             .div(float(9));
           return mix(sharp, blurred, edgeFactor);
         });
-        output = dof();
+        postNode = dof();
 
         const vignette = Fn(([color]) => {
           const centered = uv().sub(0.5).mul(2);
@@ -113,9 +174,9 @@ export default function Effects({
           const mask = smoothstep(float(0), float(1), clamp(v, 0, 1));
           return vec4(color.rgb.mul(mask), color.a);
         });
-        output = vignette(output);
+        postNode = vignette(postNode);
 
-        const caInput = convertToTexture(output);
+        const caInput = convertToTexture(postNode);
         const chromaticAb = Fn(() => {
           const coord = uv();
           const center = vec2(0.5, 0.5);
@@ -131,19 +192,26 @@ export default function Effects({
           const b = vec4(caInput.sample(blueUV)).b;
           return vec4(r, centerSample.g, b, centerSample.a);
         });
-        output = chromaticAb();
+        postNode = chromaticAb();
 
         if (cancelled) return;
 
         const pp = new RenderPipeline(gl);
-        pp.outputNode = output;
+        pp.outputNode = postNode;
         ppRef.current = pp;
         uniformsRef.current = uniforms;
-        logWebGPU("Effects", "WebGPU post-processing pipeline ready");
+        aoPassRef.current = aoPass;
+        logWebGPU(
+          "Effects",
+          skipGtao
+            ? "WebGPU post-processing pipeline ready (bloom, DOF, vignette, chromatic; GTAO off)"
+            : "WebGPU post-processing pipeline ready (bloom, GTAO, DOF, vignette, chromatic)",
+        );
       } catch {
         disabledRef.current = true;
         ppRef.current = null;
         uniformsRef.current = null;
+        aoPassRef.current = null;
       }
     }
 
@@ -157,8 +225,9 @@ export default function Effects({
         ppRef.current = null;
       }
       uniformsRef.current = null;
+      aoPassRef.current = null;
     };
-  }, [gl, scene, camera]);
+  }, [gl, scene, camera, ambientOcclusionStrength]);
 
   return null;
 }

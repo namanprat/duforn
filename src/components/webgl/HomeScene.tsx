@@ -41,7 +41,7 @@ export default function HomeScene() {
       <directionalLight position={[-3, 3, 2]} intensity={0.8} color="#c8c0ff" />
       {/* Rim/back light — warm edge highlights for depth separation */}
       <directionalLight position={[0, 2, -8]} intensity={1.2} color="#ffe8d0" />
-      {/* Accent spot — subtle pool of light */}
+      {/* Accent spot — focused highlight for foreground depth */}
       <spotLight
         position={[2, 5, -3]}
         intensity={0.6}

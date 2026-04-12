@@ -23,6 +23,7 @@ function tuneMaterialMaps(material) {
 
 function getFallbackPhysicalMaterial(sourceMaterial, overrides = {}) {
   return new THREE.MeshPhysicalMaterial({
+    name: sourceMaterial?.name || "",
     color: sourceMaterial?.color?.clone ? sourceMaterial.color.clone() : new THREE.Color(0xffffff),
     map: sourceMaterial?.map || null,
     normalMap: sourceMaterial?.normalMap || null,

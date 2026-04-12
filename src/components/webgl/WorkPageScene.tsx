@@ -63,6 +63,7 @@ function WorkScene() {
         vignetteDarkness={effects.vignetteDarkness}
         chromaticShift={effects.chromaticShift}
         dofMaxBlur={effects.dofMaxBlur}
+        ambientOcclusionStrength={0}
       />
       <Particles
         count={Math.round(particles.count)}

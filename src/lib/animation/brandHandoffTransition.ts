@@ -15,7 +15,12 @@ import { REVEAL_TEXT_TIME_SCALE } from "../../../scripts/reveal-timing";
 const rt = (s) => s * REVEAL_TEXT_TIME_SCALE;
 
 const HOME_NAMESPACE = "home";
+const TEST_NAMESPACE = "test";
 const CONTACT_NAMESPACE = "contact";
+
+function isNavBrandHiddenNamespace(namespace) {
+  return namespace === HOME_NAMESPACE || namespace === TEST_NAMESPACE;
+}
 
 let activeTimeline = null;
 let activeGhost = null;
@@ -110,14 +115,15 @@ function getHomeBrandNode() {
 
 function setRestingState(namespace, { clearHeroTitleChars = true } = {}) {
   const isHome = namespace === HOME_NAMESPACE;
+  const hideNavBrand = isNavBrandHiddenNamespace(namespace);
   const navBrand = getNavBrandNode();
   const homeBrand = getBrandTitleNode(HOME_NAMESPACE);
   const contactBrand = getBrandTitleNode(CONTACT_NAMESPACE);
 
   if (navBrand) {
     gsap.set(navBrand, {
-      autoAlpha: isHome ? 0 : 1,
-      pointerEvents: isHome ? "none" : "auto",
+      autoAlpha: hideNavBrand ? 0 : 1,
+      pointerEvents: hideNavBrand ? "none" : "auto",
       clearProps: "transform",
     });
   }

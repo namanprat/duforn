@@ -16,8 +16,17 @@ import {
  *
  * @param {number[]} [orbitCenter=[0,-1,-5]]      xyz center of the orbit
  * @param {boolean}  [enableContactOffset=true]    animate orbit shift on contact page
+ * @param {number}   [parallaxScale=1]              multiply pointer/gyro parallax (lower = calmer)
+ * @param {number}   [handheldDriftScale=1]        multiply subtle idle camera drift (0 = off)
+ * @param {number}   [orbitRadius]                 override PARALLAX_MOTION_CONFIG.orbitRadius when set
  */
-export default function CameraRig({ orbitCenter = [0, -1, -5], enableContactOffset = true }) {
+export default function CameraRig({
+  orbitCenter = [0, -1, -5],
+  enableContactOffset = true,
+  parallaxScale = 1,
+  handheldDriftScale = 1,
+  orbitRadius: orbitRadiusProp,
+}) {
   const activePage = useWebglStore((state) => state.activePage);
   const gyroEnabled = useWebglStore((state) => state.gyroEnabled);
   const { camera } = useThree();
@@ -46,18 +55,20 @@ export default function CameraRig({ orbitCenter = [0, -1, -5], enableContactOffs
     const onPointerMove = (event) => {
       const mx = (event.clientX / window.innerWidth) * 2 - 1;
       const my = -(event.clientY / window.innerHeight) * 2 + 1;
-      target.current.angle = Math.PI / 2 + mx * PARALLAX_MOTION_CONFIG.angleRange;
-      target.current.y = -my * PARALLAX_MOTION_CONFIG.yRange;
-      target.current.tilt = mx * PARALLAX_MOTION_CONFIG.tiltRange;
+      const ps = parallaxScale;
+      target.current.angle = Math.PI / 2 + mx * PARALLAX_MOTION_CONFIG.angleRange * ps;
+      target.current.y = -my * PARALLAX_MOTION_CONFIG.yRange * ps;
+      target.current.tilt = mx * PARALLAX_MOTION_CONFIG.tiltRange * ps;
     };
 
     const onDeviceOrientation = (event) => {
       if (!gyroEnabled) return;
       const mapped = mapDeviceOrientationToParallax(event);
       if (!mapped) return;
-      target.current.angle = Math.PI / 2 + mapped.x * PARALLAX_MOTION_CONFIG.angleRange;
-      target.current.y = mapped.y * PARALLAX_MOTION_CONFIG.yRange * 1.1;
-      target.current.tilt = mapped.x * PARALLAX_MOTION_CONFIG.tiltRange;
+      const ps = parallaxScale;
+      target.current.angle = Math.PI / 2 + mapped.x * PARALLAX_MOTION_CONFIG.angleRange * ps;
+      target.current.y = mapped.y * PARALLAX_MOTION_CONFIG.yRange * 1.1 * ps;
+      target.current.tilt = mapped.x * PARALLAX_MOTION_CONFIG.tiltRange * ps;
     };
 
     window.addEventListener("pointermove", onPointerMove, { passive: true });
@@ -67,7 +78,7 @@ export default function CameraRig({ orbitCenter = [0, -1, -5], enableContactOffs
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("deviceorientation", onDeviceOrientation);
     };
-  }, [gyroEnabled]);
+  }, [gyroEnabled, parallaxScale]);
 
   useFrame((state, delta) => {
     const safeDelta = Math.min(delta, 0.1);
@@ -83,16 +94,20 @@ export default function CameraRig({ orbitCenter = [0, -1, -5], enableContactOffs
     const cy = orbitOffset.current.y + ocy;
     const cz = orbitOffset.current.z + ocz;
 
-    const { orbitRadius } = PARALLAX_MOTION_CONFIG;
+    const orbitRadius =
+      typeof orbitRadiusProp === "number" && Number.isFinite(orbitRadiusProp)
+        ? orbitRadiusProp
+        : PARALLAX_MOTION_CONFIG.orbitRadius;
     let camX = cx + Math.cos(current.current.angle) * orbitRadius;
     let camZ = cz + Math.sin(current.current.angle) * orbitRadius;
     let camY = cy + current.current.y + 1;
 
     // Handheld camera drift
     const dt = state.clock.elapsedTime;
-    camX += Math.sin(dt * 0.7) * 0.015 + Math.sin(dt * 1.3) * 0.01;
-    camY += Math.sin(dt * 0.5) * 0.015 + Math.cos(dt * 1.1) * 0.01;
-    camZ += Math.cos(dt * 0.6) * 0.01;
+    const hd = handheldDriftScale;
+    camX += (Math.sin(dt * 0.7) * 0.015 + Math.sin(dt * 1.3) * 0.01) * hd;
+    camY += (Math.sin(dt * 0.5) * 0.015 + Math.cos(dt * 1.1) * 0.01) * hd;
+    camZ += Math.cos(dt * 0.6) * 0.01 * hd;
 
     camera.position.set(camX, camY, camZ);
     camera.lookAt(cx, cy, cz);

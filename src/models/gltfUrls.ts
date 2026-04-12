@@ -5,5 +5,4 @@ export const GLTF_URL_SCENE = "/models/scene.glb";
 export const GLTF_URL_WORK = "/models/work.glb";
 export const GLTF_URL_PROJECT_BG = "/models/project-bg.glb";
 export const GLTF_URL_MONITOR = "/monitor.glb";
-/** Test route scene (`/test`) — gang environment with `waterMaterial`. */
-export const GLTF_URL_TEST = "/models/gang.glb";
+export const GLTF_URL_TEST = "/models/test.glb";

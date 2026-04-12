@@ -53,6 +53,9 @@ export const DEFAULT_PROJECT_DETAIL_SCENE_CONTROLS = {
     vignetteDarkness: 0.2,
     chromaticShift: 0.0075,
     dofMaxBlur: 0.02,
+    aoResolutionScale: 0.5,
+    aoRadius: 0.28,
+    aoSamples: 16,
   },
 };
 

@@ -31,6 +31,15 @@ const CONTROL_SECTIONS = [
         step: 0.0001,
       },
       { path: "effects.dofMaxBlur", label: "DOF Blur", min: 0, max: 0.02, step: 0.0001 },
+      {
+        path: "effects.aoResolutionScale",
+        label: "AO resolution",
+        min: 0.25,
+        max: 1,
+        step: 0.05,
+      },
+      { path: "effects.aoRadius", label: "AO radius", min: 0.05, max: 0.6, step: 0.01 },
+      { path: "effects.aoSamples", label: "AO samples", min: 4, max: 32, step: 1, integer: true },
     ],
   },
   {

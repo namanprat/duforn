@@ -16,16 +16,18 @@ export default function CanvasSurface({
   wrapperProps = {},
   ...canvasProps
 }) {
+  const { className: wrapperClassName, ...restWrapperProps } = wrapperProps;
   const surfaceClassName = [
     "canvas-surface",
     pointerEvents === "auto" ? "canvas-surface--interactive" : "",
     background !== "transparent" ? "canvas-surface--filled" : "",
+    wrapperClassName,
   ]
     .filter(Boolean)
     .join(" ");
 
   return (
-    <div id={id} className={surfaceClassName} {...wrapperProps}>
+    <div id={id} className={surfaceClassName} {...restWrapperProps}>
       <Canvas dpr={dpr} {...canvasProps}>
         {children}
       </Canvas>

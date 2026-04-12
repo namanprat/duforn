@@ -1,8 +1,12 @@
 // @ts-nocheck
 import React, { Suspense } from "react";
 import { PerspectiveCamera } from "@react-three/drei";
-import CanvasSurface from "./CanvasSurface";
-import { createRendererOpaque, getRendererType } from "./createWebGPURenderer";
+import CanvasSurface, { getCanvasDpr } from "./CanvasSurface";
+import {
+  createRendererOpaque,
+  createRendererOpaqueWebGL,
+  getRendererType,
+} from "./createWebGPURenderer";
 import { logWebGPU } from "../../lib/webgpu/debugWebGPU";
 import { useWebglStore } from "../../store/webgl";
 import ArchiveScene from "./ArchiveScene";
@@ -46,15 +50,17 @@ function UnifiedScene({ activePage }) {
  * Single persistent R3F canvas for all routes. Only one scene branch mounts at a time.
  */
 export default function UnifiedCanvas({ activePage }) {
-  const pointerEvents = activePage === "work" ? "auto" : "none";
+  const pointerEvents = activePage === "work" || activePage === "test" ? "auto" : "none";
   const isProjectDetail = activePage === "projectDetail";
   const setRendererType = useWebglStore((s) => s.setRendererType);
+  const forceWebGL = activePage === "work";
 
   return (
     <CanvasSurface
       id="background"
+      dpr={activePage === "test" ? getCanvasDpr(1.85) : getCanvasDpr()}
       pointerEvents={pointerEvents}
-      gl={createRendererOpaque}
+      gl={forceWebGL ? createRendererOpaqueWebGL : createRendererOpaque}
       shadows
       wrapperProps={{ "data-active-canvas": "true" }}
       onCreated={({ gl }) => {
