@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vite-plus';
 import glsl from 'vite-plugin-glsl';
 
 export default defineConfig({
