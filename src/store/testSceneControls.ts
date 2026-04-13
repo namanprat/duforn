@@ -27,6 +27,17 @@ export type TestSceneControlsState = {
   envReflection: number;
   clearcoat: number;
   clearcoatRoughness: number;
+  waterRoughness: number;
+  waterMetalness: number;
+  waterClearcoat: number;
+  waterClearcoatRoughness: number;
+  waterTransmission: number;
+  waterThickness: number;
+  waterIor: number;
+  waterNormalScale: number;
+  waterEnvReflection: number;
+  waterDropRadius: number;
+  waterInteractionStrength: number;
   patch: (next: Partial<Omit<TestSceneControlsState, "patch" | "reset">>) => void;
   reset: () => void;
 };
@@ -58,6 +69,17 @@ export const defaultTestSceneControls = (): Omit<TestSceneControlsState, "patch"
   envReflection: 1.2,
   clearcoat: 0.05,
   clearcoatRoughness: 0.26,
+  waterRoughness: 0.08,
+  waterMetalness: 0.02,
+  waterClearcoat: 1,
+  waterClearcoatRoughness: 0.05,
+  waterTransmission: 0.92,
+  waterThickness: 0.5,
+  waterIor: 1.333,
+  waterNormalScale: 0.65,
+  waterEnvReflection: 1.6,
+  waterDropRadius: 0.028,
+  waterInteractionStrength: 0.45,
 });
 
 export const useTestSceneControlsStore = create<TestSceneControlsState>((set, get) => ({

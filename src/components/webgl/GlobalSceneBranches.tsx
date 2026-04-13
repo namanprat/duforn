@@ -54,7 +54,7 @@ export function TestCanvasBranch() {
         bloomStrength={0.035}
         dofMaxBlur={0.003}
         chromaticShift={0.0015}
-        ambientOcclusionStrength={0}
+        ambientOcclusionStrength={0.28}
       />
     </>
   );
