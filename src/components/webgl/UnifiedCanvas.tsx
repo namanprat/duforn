@@ -2,11 +2,7 @@
 import React, { Suspense } from "react";
 import { PerspectiveCamera } from "@react-three/drei";
 import CanvasSurface, { getCanvasDpr } from "./CanvasSurface";
-import {
-  createRendererOpaque,
-  createRendererOpaqueWebGL,
-  getRendererType,
-} from "./createWebGPURenderer";
+import { createRendererOpaque, getRendererType } from "./createWebGPURenderer";
 import { logWebGPU } from "../../lib/webgpu/debugWebGPU";
 import { useWebglStore } from "../../store/webgl";
 import ArchiveScene from "./ArchiveScene";
@@ -53,14 +49,13 @@ export default function UnifiedCanvas({ activePage }) {
   const pointerEvents = activePage === "work" || activePage === "test" ? "auto" : "none";
   const isProjectDetail = activePage === "projectDetail";
   const setRendererType = useWebglStore((s) => s.setRendererType);
-  const forceWebGL = activePage === "work";
 
   return (
     <CanvasSurface
       id="background"
       dpr={activePage === "test" ? getCanvasDpr(1.85) : getCanvasDpr()}
       pointerEvents={pointerEvents}
-      gl={forceWebGL ? createRendererOpaqueWebGL : createRendererOpaque}
+      gl={createRendererOpaque}
       shadows
       wrapperProps={{ "data-active-canvas": "true" }}
       onCreated={({ gl }) => {

@@ -12,13 +12,6 @@ import NotFoundPage from "./routes/NotFoundPage";
 import TestPage from "./routes/TestPage";
 import { useWebglStore } from "./store/webgl";
 import { initLinkHover, destroyLinkHover } from "../scripts/link-hover";
-import {
-  prepareRouteReveal,
-  runRouteEnter,
-  runRouteLeave,
-  initScrollReveals,
-  destroyAllReveals,
-} from "../scripts/text-reveal";
 import { initLenis, destroyLenis } from "../scripts/lenis-scroll";
 import { setNavigateHandler } from "./lib/navigationBridge";
 import {
@@ -26,21 +19,7 @@ import {
   runRouteEnterTransition,
   runRouteLeaveTransition,
 } from "./lib/animation/routeTransition";
-import {
-  crossesArchive,
-  getArchiveBurnOverlay,
-  setArchiveBurnSkipNextCanvasEnter,
-  consumeArchiveBurnSkipNextCanvasEnter,
-  getArchiveBurnMotionPrefs,
-  waitForNextPaint,
-} from "./lib/animation/archiveBurnRoute";
-import { captureViewportSnapshot } from "./lib/animation/captureViewportSnapshot";
 import { cleanupBrandHandoff, runBrandHandoff } from "./lib/animation/brandHandoffTransition";
-
-/** Excludes handoff hero titles from route *leave* only (ghost / handoff owns outgoing hero). */
-const BRAND_HANDOFF_SELECTOR = "[data-brand-handoff-title]";
-
-const REVEAL_BODY_OPTS = { excludeSelector: BRAND_HANDOFF_SELECTOR };
 
 const TITLES = {
   "/": "Duforn | Home",
@@ -62,11 +41,7 @@ const PATH_TO_NAMESPACE = {
   "/test": "test",
 };
 
-const REVEAL_START_DELAY_MS = 400;
-const REVEAL_SHORT_DELAY_MS = 80;
-
 function normalizePath(pathname) {
-  // Strip trailing slashes so route lookups stay stable.
   const cleaned = pathname.replace(/\/+$/, "");
   return cleaned === "" ? "/" : cleaned;
 }
@@ -78,12 +53,6 @@ function getNamespace(pathname) {
 function applyBodyRouteClasses(namespace) {
   document.body.classList.add("page-wrap");
   document.body.classList.toggle("page-wrap--scrollable", namespace === "projectDetail");
-}
-
-function waitForRevealDelay(ms = REVEAL_START_DELAY_MS) {
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, ms);
-  });
 }
 
 function useClock() {
@@ -137,46 +106,13 @@ function NavigationBridge() {
 
       const currentNamespace = getNamespace(currentPath);
       const nextNamespace = getNamespace(nextPath);
-      const pageElement = document.querySelector('[data-page-container="true"]');
       const canvasElement = shouldAnimateCanvasBetweenNamespaces(currentNamespace, nextNamespace)
         ? document.querySelector('[data-active-canvas="true"]')
         : null;
 
-      const burnOverlay = getArchiveBurnOverlay();
-      const useArchiveBurn = crossesArchive(currentNamespace, nextNamespace) && burnOverlay;
-
       try {
-        if (useArchiveBurn) {
-          let captured = null;
-          try {
-            captured = await captureViewportSnapshot({ root: document.body });
-          } catch (err) {
-            console.warn("[archive-burn] capture failed", err);
-          }
-
-          const overlay = getArchiveBurnOverlay();
-          if (captured && overlay) {
-            overlay.showFromCanvas(captured);
-            try {
-              await runRouteLeave(pageElement, { excludeSelector: BRAND_HANDOFF_SELECTOR });
-              setArchiveBurnSkipNextCanvasEnter();
-              navigate(nextPath);
-              await waitForNextPaint();
-              const motion = getArchiveBurnMotionPrefs();
-              await overlay.playDissolve(motion);
-            } finally {
-              overlay.hide();
-            }
-          } else {
-            await runRouteLeave(pageElement, { excludeSelector: BRAND_HANDOFF_SELECTOR });
-            await runRouteLeaveTransition({ canvasElement });
-            navigate(nextPath);
-          }
-        } else {
-          await runRouteLeave(pageElement, { excludeSelector: BRAND_HANDOFF_SELECTOR });
-          await runRouteLeaveTransition({ canvasElement });
-          navigate(nextPath);
-        }
+        await runRouteLeaveTransition({ canvasElement });
+        navigate(nextPath);
       } finally {
         const completed = currentPathRef.current === nextPath;
         if (completed || transitionRef.current.targetPath === nextPath) {
@@ -203,25 +139,7 @@ function AppShell() {
   useClock();
 
   useEffect(() => {
-    const onPreloaderDismissed = async (event) => {
-      const dismissedPath = normalizePath(event?.detail?.pathname || window.location.pathname);
-      const livePath = normalizePath(window.location.pathname);
-      if (dismissedPath !== livePath) return;
-
-      const container = document.querySelector('[data-page-container="true"]');
-      if (!container) return;
-
-      const prep = await prepareRouteReveal(container, REVEAL_BODY_OPTS);
-      await waitForRevealDelay(
-        prep?.hasRouteRevealTargets ? REVEAL_START_DELAY_MS : REVEAL_SHORT_DELAY_MS,
-      );
-      await runRouteEnter(container, {
-        ...REVEAL_BODY_OPTS,
-        skipEnterTitles: new Set(),
-      });
-      if (container.dataset.pageNamespace === "projectDetail") {
-        initScrollReveals(container);
-      }
+    const onPreloaderDismissed = () => {
       window.__refreshLinkHover?.();
     };
 
@@ -259,7 +177,6 @@ function AppShell() {
   useEffect(() => {
     return () => {
       destroyLenis();
-      destroyAllReveals();
       cleanupBrandHandoff();
     };
   }, []);
@@ -275,60 +192,26 @@ function AppShell() {
     applyBodyRouteClasses(namespace);
     setActivePage(namespace);
 
-    // Lenis for project detail pages only
     if (namespace === "projectDetail") initLenis();
     else destroyLenis();
 
     let stopEnterTween = () => {};
     let cancelled = false;
+    const isActiveRun = () => !cancelled && normalizePath(window.location.pathname) === currentPath;
 
     const runEnterSequence = async () => {
-      const skipCanvasEnter = consumeArchiveBurnSkipNextCanvasEnter();
+      await runBrandHandoff({ fromNamespace: previousNamespace, toNamespace: namespace });
+      if (!isActiveRun()) return;
 
-      const container = document.querySelector('[data-page-container="true"]');
-      if (!container) {
-        await runBrandHandoff({ fromNamespace: previousNamespace, toNamespace: namespace });
-        window.__refreshLinkHover?.();
-        return;
-      }
+      if (document.body.classList.contains("preloader-active")) return;
 
-      const prep = await prepareRouteReveal(container, REVEAL_BODY_OPTS);
-      if (cancelled) return;
-
-      const skipEnterTitles = await runBrandHandoff({
-        fromNamespace: previousNamespace,
-        toNamespace: namespace,
+      stopEnterTween = runRouteEnterTransition({
+        canvasElement: shouldAnimateCanvas
+          ? document.querySelector('[data-active-canvas="true"]')
+          : null,
       });
-      if (cancelled) return;
-
-      if (document.body.classList.contains("preloader-active")) {
-        return;
-      }
-
-      if (!skipCanvasEnter) {
-        stopEnterTween = runRouteEnterTransition({
-          canvasElement: shouldAnimateCanvas
-            ? document.querySelector('[data-active-canvas="true"]')
-            : null,
-        });
-      }
-
-      await waitForRevealDelay(
-        prep?.hasRouteRevealTargets ? REVEAL_START_DELAY_MS : REVEAL_SHORT_DELAY_MS,
-      );
-      if (cancelled) return;
-
-      const live = document.querySelector('[data-page-container="true"]') ?? container;
-      await runRouteEnter(live, {
-        ...REVEAL_BODY_OPTS,
-        skipEnterTitles: skipEnterTitles ?? new Set(),
-      });
-      if (cancelled) return;
 
       window.__refreshLinkHover?.();
-      if (namespace === "projectDetail" && live) {
-        initScrollReveals(live);
-      }
     };
 
     runEnterSequence();
@@ -336,8 +219,8 @@ function AppShell() {
     return () => {
       cancelled = true;
       stopEnterTween();
-      destroyAllReveals();
       destroyLenis();
+      cleanupBrandHandoff();
     };
   }, [location.pathname, setActivePage]);
 

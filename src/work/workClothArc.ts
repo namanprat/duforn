@@ -11,17 +11,15 @@
 // z = (cos(theta) - 1) * radius + depthOffset
 
 export function computeArcAnchors({ count, radius, arcSpan, yOffset, depthOffset }) {
-  const anchors = new Array(count);
   const half = arcSpan / 2;
-  for (let i = 0; i < count; i++) {
+  return Array.from({ length: count }, (_, i) => {
     const u = count > 1 ? i / (count - 1) : 0.5;
     const theta = -half + u * arcSpan;
     const x = Math.sin(theta) * radius;
     const y = yOffset;
     const z = (Math.cos(theta) - 1) * radius + depthOffset;
-    anchors[i] = [x, y, z];
-  }
-  return anchors;
+    return [x, y, z];
+  });
 }
 
 // Returns evenly-spaced column indices in [0..subdivX] used for pinning.
@@ -29,9 +27,5 @@ export function computeArcAnchors({ count, radius, arcSpan, yOffset, depthOffset
 export function pickPinColumns(subdivX, pinCount) {
   const safePins = Math.max(1, Math.min(pinCount, subdivX + 1));
   if (safePins === 1) return [Math.floor(subdivX / 2)];
-  const cols = new Array(safePins);
-  for (let i = 0; i < safePins; i++) {
-    cols[i] = Math.round((i / (safePins - 1)) * subdivX);
-  }
-  return cols;
+  return Array.from({ length: safePins }, (_, i) => Math.round((i / (safePins - 1)) * subdivX));
 }

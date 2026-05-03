@@ -1,4 +1,5 @@
 import React from "react";
+import { workItems } from "../../data/work-items";
 import { navigateTo } from "../lib/navigationBridge";
 
 export default function WorkPage() {
@@ -18,14 +19,15 @@ export default function WorkPage() {
     <main id="main" data-page-container="true" data-page-namespace="work">
       <div className="u-section-spacer-medium" />
       <h1
-        className="reveal-title slide-title work-slide-title u-container-full u-text-align-center u-text-style-display"
+        className="u-container-full u-text-align-center u-text-style-display"
+        data-work-strip-title
         role="link"
         tabIndex={0}
         data-href=""
         onClick={handleTitleActivate}
         onKeyDown={handleTitleKeyDown}
       >
-        Selected Work
+        {workItems[0]?.title ?? "Work"}
       </h1>
     </main>
   );

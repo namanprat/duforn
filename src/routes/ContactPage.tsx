@@ -1,66 +1,59 @@
 import React from "react";
+import RotateHoverLabel from "../components/RotateHoverLabel";
+import { shouldUseNavRotateHover } from "../../scripts/link-hover";
+
+const CONTACT_EMAIL = "naman@duforn.com";
 
 export default function ContactPage() {
+  const useRotateEmailHover = shouldUseNavRotateHover();
+
   return (
     <main id="main" data-page-container="true" data-page-namespace="contact">
-      <section className="contact-section u-background-transparent">
-        <div className="contact-content u-container-main">
-          <div className="contact-group contact-group--title">
-            <div className="home-hero-brand-clip">
-              <h1
-                className="reveal-title contact-page-title u-text-style-display"
-                data-brand-handoff-title="contact"
-                data-split-type="chars"
+      <section className="contact-section u-color-light u-background-transparent">
+        <div className="contact-content contact-content--grid u-container-main">
+          <div className="contact-grid__title u-overflow-hidden u-width-full">
+            <h2
+              className="contact-page-title u-text-align-right"
+              data-brand-handoff-title="contact"
+              data-split-type="chars"
+            >
+              contact
+            </h2>
+          </div>
+          <p className="contact-grid__intro contact-intro u-text-align-right u-width-full">
+            AVAILABLE FOR FREELANCE PROJECTS,
+            <br />
+            ART DIRECTION, AND DIGITAL DESIGN INQUIRIES.
+          </p>
+
+          <div className="contact-info u-display-contents">
+            <div className="contact-grid__chips contact-action-row">
+              <a
+                className="button button-primary"
+                href="https://www.instagram.com/namanprat_"
+                target="_blank"
+                rel="noopener noreferrer"
               >
-                contact
-              </h1>
+                INSTAGRAM <span aria-hidden="true">↗</span>
+              </a>
+              <a
+                className="button button-secondary"
+                href="https://cal.com/namanprat/discovery-call"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                DISCOVERY CALL <span aria-hidden="true">↗</span>
+              </a>
             </div>
-            <p className="contact-intro reveal-body">
-              AVAILABLE FOR FREELANCE PROJECTS, ART DIRECTION, AND DIGITAL DESIGN INQUIRIES.
-            </p>
+            <h2 className="contact-grid__email contact-email">
+              <a
+                href={`mailto:${CONTACT_EMAIL}`}
+                data-rotate-hover={useRotateEmailHover ? "" : undefined}
+              >
+                {useRotateEmailHover ? <RotateHoverLabel text={CONTACT_EMAIL} /> : CONTACT_EMAIL}
+              </a>
+            </h2>
           </div>
-
-          <div
-            className="contact-group contact-group--cluster contact-info reveal-body"
-            data-reveal-allow-interactive
-          >
-            <div className="contact-block">
-              <p className="contact-label">EMAIL</p>
-              <h2>
-                <a href="mailto:naman@duforn.com">NAMAN@DUFORN.COM</a>
-              </h2>
-            </div>
-
-            <div className="contact-block">
-              <p className="contact-label">INSTAGRAM</p>
-              <h2>
-                <a
-                  href="https://www.instagram.com/namanprat_"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  NAMANPRAT_
-                </a>
-              </h2>
-            </div>
-
-            <div className="contact-block">
-              <p className="contact-label">CAL.COM</p>
-              <h2>
-                <a
-                  href="https://cal.com/namanprat/discovery-call"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  DISCOVERY CALL
-                </a>
-              </h2>
-            </div>
-          </div>
-        </div>
-
-        <div className="contact-footer">
-          <div className="contact-footer-svg" role="img" aria-label="Duforn sticker" />
         </div>
       </section>
     </main>

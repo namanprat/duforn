@@ -41,9 +41,7 @@ function ProjectDetailsHeroHeadline({ lines = [] }) {
   return (
     <>
       <div className="u-section-spacer-large" />
-      <h1 className="reveal-title u-width-full u-text-align-center u-text-style-display">
-        {title}
-      </h1>
+      <h1 className="u-width-full u-text-align-center u-text-style-display">{title}</h1>
     </>
   );
 }
@@ -55,27 +53,27 @@ function ProjectDetailsHero({ hero }) {
 
   return (
     <section className="project-details-hero">
-      <div className="project-details-shell u-container-main u-flex-vertical-nowrap">
+      <div className="u-container-main u-flex-vertical-nowrap">
         <ProjectDetailsHeroHeadline lines={titleLines} />
 
         <div className="project-details-hero-info u-flex-horizontal-nowrap u-justify-content-between u-gap-gutter">
           <article className="project-details-overview project-details-content">
-            <p className="project-details-kicker reveal-body">Project Overview</p>
-            <p className="project-details-overview-copy reveal-body">{overview}</p>
+            <p className="project-details-kicker">Project Overview</p>
+            <p className="project-details-overview-copy">{overview}</p>
           </article>
 
           <div className="project-details-services project-details-content">
-            <p className="project-details-kicker reveal-body">Services</p>
+            <p className="project-details-kicker">Services</p>
             <div className="project-details-info-copy">
               {services?.map((service) => (
-                <p key={service} className="project-details-info-line reveal-body">
+                <p key={service} className="project-details-info-line">
                   {service}
                 </p>
               ))}
             </div>
             {cta ? (
               <a
-                className="project-details-cta reveal-body"
+                className="button button-secondary project-details-cta"
                 href={cta.href}
                 target={cta.target}
                 rel={cta.rel}
@@ -88,16 +86,16 @@ function ProjectDetailsHero({ hero }) {
           <div className="project-details-facts project-details-content u-flex-vertical-nowrap u-gap-4">
             {facts?.map((item) => (
               <article key={item.label} className="project-details-fact">
-                <p className="project-details-kicker reveal-body">{item.label}</p>
+                <p className="project-details-kicker">{item.label}</p>
                 <div className="project-details-info-copy">
                   {Array.isArray(item.value) ? (
                     item.value.map((entry) => (
-                      <p key={entry} className="project-details-info-line reveal-body">
+                      <p key={entry} className="project-details-info-line">
                         {entry}
                       </p>
                     ))
                   ) : (
-                    <p className="project-details-info-line reveal-body">{item.value}</p>
+                    <p className="project-details-info-line">{item.value}</p>
                   )}
                 </div>
               </article>
@@ -124,7 +122,7 @@ function ProjectDetailsMedia({ item, eager = false }) {
 function ProjectDetailsCover({ item }) {
   return (
     <section className="project-details-cover">
-      <div className="project-details-shell u-container-main">
+      <div className="u-container-main">
         <div className="project-details-cover-frame" data-film-plane-trigger="true">
           <ProjectDetailsImage item={item} eager />
         </div>
@@ -137,23 +135,17 @@ function ProjectDetailsStorySection({ section }) {
   return (
     <section className="project-details-story-row project-details-content">
       <div className="project-details-story-heading">
-        <h2 className="u-text-style-h4" data-scroll-reveal>
-          {section.heading}
-        </h2>
+        <h2 className="u-text-style-h4">{section.heading}</h2>
       </div>
       <div className="project-details-story-copy">
-        {section.intro ? <p data-scroll-reveal>{section.intro}</p> : null}
+        {section.intro ? <p>{section.intro}</p> : null}
         {section.body?.map((paragraph) => (
-          <p key={paragraph} data-scroll-reveal>
-            {paragraph}
-          </p>
+          <p key={paragraph}>{paragraph}</p>
         ))}
         {section.questions?.length ? (
           <ol className="project-details-question-list">
             {section.questions.map((question) => (
-              <li key={question} data-scroll-reveal>
-                {question}
-              </li>
+              <li key={question}>{question}</li>
             ))}
           </ol>
         ) : null}
@@ -166,15 +158,13 @@ function ProjectDetailsFindingsSection({ section }) {
   return (
     <section className="project-details-story-row project-details-content">
       <div className="project-details-story-heading">
-        <h2 className="u-text-style-h4" data-scroll-reveal>
-          {section.heading}
-        </h2>
+        <h2 className="u-text-style-h4">{section.heading}</h2>
       </div>
       <div className="project-details-story-copy">
         <div className="project-details-findings-grid">
           {section.items.map((item, index) => (
             <article key={item} className="project-details-finding-card">
-              <p data-scroll-reveal>
+              <p>
                 {index + 1}. {item}
               </p>
             </article>
@@ -200,11 +190,9 @@ function ProjectDetailsScreenGallery({ intro, images }) {
 
   return (
     <section className="project-details-screens" id="project-gallery">
-      <div className="project-details-shell u-container-main">
+      <div className="u-container-main">
         {intro ? (
-          <p className="project-details-gallery-intro project-details-content" data-scroll-reveal>
-            {intro}
-          </p>
+          <p className="project-details-gallery-intro project-details-content">{intro}</p>
         ) : null}
         <div className="project-details-screen-grid">
           {images.map((image) => (
@@ -241,7 +229,7 @@ export default function ProjectDetailsPageShell({
 
       {sections?.length ? (
         <section className="project-details-story">
-          <div className="project-details-shell project-details-story-shell u-container-main">
+          <div className="u-container-main u-display-grid u-gap-section-md">
             {sections.map((section) => (
               <ProjectDetailsStorySection key={section.heading} section={section} />
             ))}
@@ -250,7 +238,7 @@ export default function ProjectDetailsPageShell({
       ) : null}
 
       {interstitialImage ? (
-        <div className="project-details-shell u-container-main">
+        <div className="u-container-main">
           <ProjectDetailsSupportingImage
             item={interstitialImage}
             className="project-details-supporting-image--wide"
@@ -260,21 +248,21 @@ export default function ProjectDetailsPageShell({
 
       {findingsSection ? (
         <section className="project-details-story">
-          <div className="project-details-shell project-details-story-shell u-container-main">
+          <div className="u-container-main u-display-grid u-gap-section-md">
             <ProjectDetailsFindingsSection section={findingsSection} />
           </div>
         </section>
       ) : null}
 
       {figureImage ? (
-        <div className="project-details-shell u-container-main">
+        <div className="u-container-main">
           <ProjectDetailsSupportingImage item={figureImage} />
         </div>
       ) : null}
 
       {closingSection ? (
         <section className="project-details-story">
-          <div className="project-details-shell project-details-story-shell u-container-main">
+          <div className="u-container-main u-display-grid u-gap-section-md">
             <ProjectDetailsStorySection section={closingSection} />
           </div>
         </section>
@@ -284,11 +272,9 @@ export default function ProjectDetailsPageShell({
 
       {outro ? (
         <section className="project-details-outro">
-          <div className="project-details-shell u-container-main">
+          <div className="u-container-main">
             <div className="project-details-outro-grid project-details-content">
-              <p className="project-details-outro-note" data-scroll-reveal>
-                {outro}
-              </p>
+              <p className="project-details-outro-note">{outro}</p>
             </div>
           </div>
         </section>

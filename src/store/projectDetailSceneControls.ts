@@ -32,30 +32,22 @@ export const DEFAULT_PROJECT_DETAIL_SCENE_CONTROLS = {
     scrollLag: 2.2,
   },
   trail: {
+    /** `immersive` matches `immersive/src/trail.js`; `brush` is the older comet/smudge stamp. */
+    variant: "immersive",
     size: 1024,
-    // Minimal cursor mask tuned for subtle relief response.
-    fadeAlpha: 0.05,
-    blurPx: 5.5,
-    radiusFactor: 0.085,
-    gradientScale: 1.8,
+    fadeAlpha: 0.025,
+    blurPx: 4,
+    radiusFactor: 0.12,
+    gradientScale: 2.5,
     smudgeStrength: 0.22,
     smudgeBlurPx: 0.5,
     roughness: 0.05,
-    stampAlpha: 0.48,
+    stampAlpha: 1,
   },
   hover: {
     lightStrength: 0.28,
     shadowStrength: 0.18,
     shadowSoftness: 0.7,
-  },
-  effects: {
-    bloomStrength: 0.1,
-    vignetteDarkness: 0.2,
-    chromaticShift: 0.0075,
-    dofMaxBlur: 0.02,
-    aoResolutionScale: 0.5,
-    aoRadius: 0.28,
-    aoSamples: 16,
   },
 };
 

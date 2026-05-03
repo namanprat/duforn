@@ -24,17 +24,22 @@ async function buildProjectBgMaterials(clonedScene, trailTexture) {
     smoothstep,
     clamp,
     dot,
+    distance,
     normalize,
     pow,
     texture,
     uv,
     screenUV,
     positionLocal,
+    positionWorld,
     cameraProjectionMatrix,
     modelViewMatrix,
     varying,
     mx_noise_float,
+    uniform,
   } = tsl;
+
+  const uMouseWorld = uniform(new THREE.Vector3(0, 0, 0));
 
   const sRGBTransferOETF = Fn(([color]) => {
     const a = color.pow(0.41666).mul(1.055).sub(0.055);
@@ -99,7 +104,16 @@ async function buildProjectBgMaterials(clonedScene, trailTexture) {
       const veins = smoothstep(0.35, 0.8, veinNoise).mul(0.06);
       const base = vec3(final_).add(vec3(veins));
 
-      const lit = base.mul(mix(0.72, 1.15, diff)).add(vec3(spec.add(rim)));
+      // World-space cursor (immersive sketch): subtle lift near ray/plane hit.
+      const distMouse = distance(positionWorld, uMouseWorld);
+      const cursorLift = float(1)
+        .sub(smoothstep(float(0.15), float(3.0), distMouse))
+        .mul(float(0.06));
+
+      const lit = base
+        .mul(mix(0.72, 1.15, diff))
+        .add(vec3(spec.add(rim)))
+        .add(vec3(cursorLift));
       return vec4(lit, 1);
     })();
 
@@ -107,7 +121,7 @@ async function buildProjectBgMaterials(clonedScene, trailTexture) {
     materials.push(material);
   });
 
-  return materials;
+  return { materials, uMouseWorld };
 }
 
 export default function ProjectBg() {
@@ -115,6 +129,7 @@ export default function ProjectBg() {
   const controls = useProjectDetailSceneControlsStore((state) => state.controls);
   const { pointerRef, step } = usePointerField();
   const { trailTextureRef, updateTrail } = useTrailTexture({
+    variant: controls.trail.variant,
     width: controls.trail.size,
     height: controls.trail.size,
     fadeAlpha: controls.trail.fadeAlpha,
@@ -139,6 +154,11 @@ export default function ProjectBg() {
   const meshRef = useRef(null);
   const [ready, setReady] = useState(false);
   const materialsRef = useRef([]);
+  const uMouseWorldRef = useRef(null);
+  const raycasterRef = useRef(new THREE.Raycaster());
+  const pointerNdcRef = useRef(new THREE.Vector2());
+  const mouseHitRef = useRef(new THREE.Vector3());
+  const mousePlaneRef = useRef(new THREE.Plane(new THREE.Vector3(0, 0, 1), 0));
   const prevSizeRef = useRef({ width: 0, height: 0 });
   const scrollTargetRef = useRef(0);
   const scrollCurrentRef = useRef(0);
@@ -171,12 +191,15 @@ export default function ProjectBg() {
       if (!trail) return;
 
       let mats = [];
+      uMouseWorldRef.current = null;
       if (isWebGPURenderer(gl)) {
-        mats = await buildMaterials(cloned, trail);
+        const built = await buildMaterials(cloned, trail);
         if (cancelled) {
-          mats.forEach((m) => m.dispose());
+          built.materials.forEach((m) => m.dispose());
           return;
         }
+        mats = built.materials;
+        uMouseWorldRef.current = built.uMouseWorld;
       }
 
       virtualScene.add(cloned);
@@ -210,6 +233,7 @@ export default function ProjectBg() {
     size.height,
     size.width,
     controls.trail.size,
+    controls.trail.variant,
   ]);
 
   useEffect(() => {
@@ -266,6 +290,16 @@ export default function ProjectBg() {
     const px = (pointerRef.current.x + 1) * 0.5 * controls.trail.size;
     const py = (pointerRef.current.y + 1) * 0.5 * controls.trail.size;
     updateTrail({ x: px, y: py });
+
+    const mouseU = uMouseWorldRef.current;
+    const vCam = virtualCameraRef.current;
+    if (mouseU && vCam) {
+      pointerNdcRef.current.copy(pointerRef.current);
+      raycasterRef.current.setFromCamera(pointerNdcRef.current, vCam);
+      if (raycasterRef.current.ray.intersectPlane(mousePlaneRef.current, mouseHitRef.current)) {
+        mouseU.value.copy(mouseHitRef.current);
+      }
+    }
 
     if (clonedSceneRef.current) {
       clonedSceneRef.current.position.set(

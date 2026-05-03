@@ -38,28 +38,6 @@ const CONTROL_SECTIONS = [
     ],
   },
   {
-    key: "effects",
-    title: "Effects",
-    fields: [
-      { path: "effects.bloomStrength", label: "Bloom", min: 0, max: 0.12, step: 0.001 },
-      {
-        path: "effects.vignetteDarkness",
-        label: "Vignette",
-        min: 0,
-        max: 0.4,
-        step: 0.005,
-      },
-      {
-        path: "effects.chromaticShift",
-        label: "Chromatic",
-        min: 0,
-        max: 0.01,
-        step: 0.0001,
-      },
-      { path: "effects.dofMaxBlur", label: "DOF Blur", min: 0, max: 0.02, step: 0.0001 },
-    ],
-  },
-  {
     key: "particles",
     title: "Particles",
     fields: [

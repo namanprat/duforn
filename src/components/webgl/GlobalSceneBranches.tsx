@@ -2,14 +2,12 @@
 import React from "react";
 import { PerspectiveCamera } from "@react-three/drei";
 import EnvironmentSetup from "./EnvironmentSetup";
-import Effects from "./Effects";
 import HomeScene from "./HomeScene";
 import Particles from "./Particles";
 import CameraRig from "./CameraRig";
 import NotFoundScene from "./NotFoundScene";
 import TestScene from "./TestScene";
 import ProjectDetailScene from "../../projectDetail/ProjectDetailScene";
-import { useProjectDetailSceneControlsStore } from "../../store/projectDetailSceneControls";
 import { useTestSceneControlsStore } from "../../store/testSceneControls";
 
 export function HomeCanvasBranch() {
@@ -20,7 +18,6 @@ export function HomeCanvasBranch() {
       <CameraRig />
       <HomeScene />
       <Particles count={200} />
-      <Effects bloomStrength={0.045} dofMaxBlur={0.008} />
     </>
   );
 }
@@ -50,31 +47,14 @@ export function TestCanvasBranch() {
       />
       <TestScene />
       <Particles count={72} />
-      <Effects
-        bloomStrength={0.035}
-        dofMaxBlur={0.003}
-        chromaticShift={0.0015}
-        ambientOcclusionStrength={0}
-      />
     </>
   );
 }
 
 export function ProjectDetailCanvasBranch() {
-  const effects = useProjectDetailSceneControlsStore((state) => state.controls.effects);
-
   return (
     <>
       <ProjectDetailScene />
-      <Effects
-        bloomStrength={effects.bloomStrength}
-        vignetteDarkness={effects.vignetteDarkness}
-        chromaticShift={effects.chromaticShift}
-        dofMaxBlur={effects.dofMaxBlur}
-        aoResolutionScale={effects.aoResolutionScale}
-        aoRadius={effects.aoRadius}
-        aoSamples={effects.aoSamples}
-      />
     </>
   );
 }

@@ -139,11 +139,12 @@ export default function NotFoundScene() {
   }, []);
 
   useEffect(() => {
+    if (!gyroEnabled) {
+      orientationRef.current.hasValue = false;
+      return;
+    }
+
     const onDeviceOrientation = (event) => {
-      if (!gyroEnabled) {
-        orientationRef.current.hasValue = false;
-        return;
-      }
       const mapped = mapDeviceOrientationToParallax(event);
       if (!mapped) return;
       orientationRef.current.x = mapped.x;

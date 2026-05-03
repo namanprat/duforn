@@ -195,9 +195,18 @@
 
   /* Route And Layout Sizes — reference Layout, Spacing, Typography, columns only */
   --hero--min-height: var(--site--screen-height);
-  --menu--panel-max-width: var(--column-width-6);
-  --menu--panel-max-height: calc(var(--site--screen-height) - var(--spacing-space-8));
-  --menu--receipt-barcode-width: min(var(--column-width-5), 100%);
+  --hero--stage-center-padding-top: clamp(4rem, 12vh, 8rem);
+  --hero--stage-center-padding-top-mobile: clamp(6rem, 18vh, 8rem);
+  --hero--stage-center-padding-bottom-mobile: clamp(5rem, 12vh, 8rem);
+  --hero--brand-stack-gap: var(--spacing-space-3);
+  --menu--fullscreen-padding: max(var(--site--margin), env(safe-area-inset-top))
+    max(var(--site--margin), env(safe-area-inset-right))
+    max(var(--spacing-space-4), env(safe-area-inset-bottom))
+    max(var(--site--margin), env(safe-area-inset-left));
+  --menu--safe-vertical-outset: max(
+    2rem,
+    calc(env(safe-area-inset-top) + env(safe-area-inset-bottom))
+  );
   --contact--section-padding-top: var(--spacing-section-space-medium);
   --contact--section-padding-bottom: var(--spacing-section-space-page-top);
   --contact--content-max-width: min(var(--column-width-10), var(--container--full));
@@ -206,6 +215,10 @@
   --contact--title-size-tablet: var(--typography-font-size-h2);
   --contact--link-size: var(--typography-font-size-h3);
   --contact--cluster-gap: var(--site--gutter);
+  --contact--content-column-gap: clamp(1.25rem, 3.5vw, 3rem);
+  --contact--content-padding-top: clamp(3rem, 10vh, 7rem);
+  --contact--title-group-gap: var(--spacing-space-3);
+  --contact--tablet-content-row-gap: var(--spacing-space-5);
   --contact--mobile-section-padding-top: var(--spacing-section-space-large);
   --contact--mobile-section-padding-bottom: var(--spacing-section-space-large);
   --contact--mobile-content-gap: var(--spacing-space-6);
@@ -260,8 +273,5 @@
   :root {
     /* Display: 15% smaller than fluid scale on mobile / small tablet */
     --typography-font-size-display: clamp(4rem, 3.25rem + 2.25vw, 6rem);
-    /* Keep receipt/menu readable on mobile using existing layout tokens */
-    --menu--panel-max-width: min(var(--column-width-10), var(--container--full));
-    --menu--receipt-barcode-width: min(var(--column-width-8), 100%);
   }
 }

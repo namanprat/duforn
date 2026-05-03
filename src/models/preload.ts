@@ -5,14 +5,12 @@ import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
 import { gltfLoaderOptions } from "./gltfLoaderOptions";
 import {
   GLTF_URL_PROJECT_BG,
-  GLTF_URL_LOGO,
   GLTF_URL_MONITOR,
   GLTF_URL_SCENE,
   GLTF_URL_WORK,
   GLTF_URL_TEST,
 } from "./gltfUrls";
 
-useGLTF.preload(GLTF_URL_LOGO, gltfLoaderOptions);
 useGLTF.preload(GLTF_URL_SCENE, gltfLoaderOptions);
 useGLTF.preload(GLTF_URL_WORK, gltfLoaderOptions);
 useGLTF.preload(GLTF_URL_PROJECT_BG, gltfLoaderOptions);

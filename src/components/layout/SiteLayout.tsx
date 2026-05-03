@@ -1,17 +1,15 @@
 // @ts-nocheck
-import React, { useRef, useEffect, useState, useCallback, useMemo, Suspense } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import gsap from "gsap";
 import { navigateTo } from "../../lib/navigationBridge";
 import UnifiedCanvas from "../webgl/UnifiedCanvas";
-import ArchiveBurnOverlay from "../transitions/ArchiveBurnOverlay";
 import { useWebglStore } from "../../store/webgl";
 import { useLoadingStore } from "../../store/loading";
 import { requestDeviceOrientationPermission } from "../../../scripts/runtime/motion";
-
-const LazyProjectDetailSceneControls = import.meta.env.DEV
-  ? React.lazy(() => import("../debug/ProjectDetailSceneControls"))
-  : null;
+import { triggerNavHaptic } from "../../../scripts/haptic-feedback";
+import { shouldUseNavRotateHover } from "../../../scripts/link-hover";
+import RotateHoverLabel from "../RotateHoverLabel";
 
 function NavLink({ to, className, children, ...props }) {
   const location = useLocation();
@@ -36,6 +34,8 @@ function NavLink({ to, className, children, ...props }) {
   };
 
   const isActive = location.pathname === to;
+  const useRotateHover =
+    shouldUseNavRotateHover() && !isActive && typeof children === "string" && children.length > 0;
 
   return (
     <a
@@ -43,24 +43,18 @@ function NavLink({ to, className, children, ...props }) {
       className={className}
       onClick={handleClick}
       aria-current={isActive ? "page" : undefined}
+      data-rotate-hover={useRotateHover ? "" : undefined}
       {...restProps}
     >
-      {children}
+      {useRotateHover ? <RotateHoverLabel text={children} /> : children}
     </a>
   );
 }
 
-function ReceiptMenu({
-  isMenuOpen,
-  menuRef,
-  menuTimestamp,
-  receiptContextLine,
-  onCloseMenu,
-  onBackdropClick,
-}) {
+function FullscreenMenu({ isMenuOpen, menuRef, onCloseMenu, onBackdropClick }) {
   return (
     <div
-      className={`menu-wrap${isMenuOpen ? " is-open" : ""}`}
+      className={`menu-wrap menu-wrap--fullscreen${isMenuOpen ? " is-open" : ""}`}
       ref={menuRef}
       id="site-menu"
       role="dialog"
@@ -69,92 +63,60 @@ function ReceiptMenu({
       aria-hidden={!isMenuOpen}
       onClick={onBackdropClick}
     >
-      <div className="menu-content u-container-full">
-        <div className="menu-box u-flex-vertical-nowrap u-justify-content-center">
-          <img
-            src="/menu/bill-top.svg"
-            alt=""
-            className="u-width-full receipt-svg u-object-fit-contain u-height-auto"
-            loading="lazy"
-            decoding="async"
-          />
-          <div className="receipt-menu u-flex-vertical-nowrap u-gap-3">
-            <NavLink className="receipt-header" to="/">
-              <img
-                src="/menu/bill-logo.svg"
-                alt="bill-logo"
-                className="receipt-logo"
-                loading="lazy"
-                decoding="async"
-              />
-            </NavLink>
-            <p className="u-text-align-center">
-              Commodo excepteur irure culpa aute
-              <br />
-              laborum sunt non aliqua cillum aute.
-              <br />
-              Tempor ut dolore excepteur proident
-              <br />
-              laboris quis enim irure.
-            </p>
-
-            <div className="u-flex-vertical-nowrap u-gap-3 u-width-full">
-              <div className="receipt-divider" />
-              <div className="receipt-meta">
-                <p id="receipt-datetime" className="u-text-align-center">
-                  {menuTimestamp}
-                </p>
-                <p className="u-text-align-center">{receiptContextLine}</p>
-              </div>
-              <div className="receipt-divider" />
-            </div>
-
-            <div className="menu-item-contain u-flex-vertical-nowrap u-width-full">
-              <NavLink className="menu-item" to="/work" onClick={onCloseMenu}>
-                <span className="menu-item-label">WORK</span>
-                <div className="receipt-dots" aria-hidden="true" />
-                <span className="menu-item-index">01</span>
-              </NavLink>
-              <NavLink className="menu-item" to="/contact" onClick={onCloseMenu}>
-                <span className="menu-item-label">CONTACT</span>
-                <div className="receipt-dots" aria-hidden="true" />
-                <span className="menu-item-index">02</span>
-              </NavLink>
-              <NavLink className="menu-item" to="/archive" onClick={onCloseMenu}>
-                <span className="menu-item-label">ARCHIVE</span>
-                <div className="receipt-dots" aria-hidden="true" />
-                <span className="menu-item-index">03</span>
-              </NavLink>
-            </div>
-
-            <div className="barcode-contain u-flex-vertical-nowrap u-width-full">
-              <div className="receipt-star" aria-hidden="true" />
-              <div className="receipt-barcode">
-                <img
-                  src="/menu/barcode.svg"
-                  alt="Barcode"
-                  className="receipt-svg"
-                  loading="lazy"
-                  decoding="async"
-                />
-              </div>
-              <div className="receipt-star" aria-hidden="true" />
-            </div>
-            <button type="button" className="receipt-close" onClick={onCloseMenu}>
-              <span className="receipt-close-text">CLOSE RECEIPT</span>
-              <span className="receipt-close-arrow" aria-hidden="true">
-                x
-              </span>
-            </button>
-          </div>
-          <img
-            src="/menu/bill-top.svg"
-            alt=""
-            className="u-vertical-flip u-width-full receipt-svg u-object-fit-contain u-height-auto"
-            loading="lazy"
-            decoding="async"
-          />
+      <div className="menu-fullscreen">
+        <div className="menu-fullscreen__top">
+          <NavLink
+            className="menu-fullscreen__brand u-text-style-h3 u-text-style-font-primary"
+            to="/"
+            onClick={onCloseMenu}
+          >
+            duforn
+          </NavLink>
+          <button
+            type="button"
+            className="menu-fullscreen__close u-text-style-small u-text-style-font-secondary"
+            onClick={onCloseMenu}
+          >
+            CLOSE
+          </button>
         </div>
+        <nav className="menu-fullscreen__nav" aria-label="Primary navigation">
+          <NavLink
+            className="menu-fullscreen__link u-text-style-h2 u-text-style-font-primary"
+            to="/"
+            onClick={onCloseMenu}
+          >
+            HOME
+          </NavLink>
+          <NavLink
+            className="menu-fullscreen__link u-text-style-h2 u-text-style-font-primary"
+            to="/work"
+            onClick={onCloseMenu}
+          >
+            WORK
+          </NavLink>
+          <NavLink
+            className="menu-fullscreen__link u-text-style-h2 u-text-style-font-primary"
+            to="/contact"
+            onClick={onCloseMenu}
+          >
+            CONTACT
+          </NavLink>
+          <NavLink
+            className="menu-fullscreen__link u-text-style-h2 u-text-style-font-primary"
+            to="/archive"
+            onClick={onCloseMenu}
+          >
+            ARCHIVE
+          </NavLink>
+          <NavLink
+            className="menu-fullscreen__link u-text-style-h2 u-text-style-font-primary"
+            to="/money-me"
+            onClick={onCloseMenu}
+          >
+            PROJECT
+          </NavLink>
+        </nav>
       </div>
     </div>
   );
@@ -171,7 +133,6 @@ export default function SiteLayout({ children }) {
   const [introRingComplete, setIntroRingComplete] = useState(false);
   const [permissionsPending, setPermissionsPending] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [menuTimestamp, setMenuTimestamp] = useState("SUN 31/04/24 11:36:49 AM");
   const preloaderTimerRef = useRef(0);
   const introTimelineRef = useRef(null);
   const preloaderRef = useRef(null);
@@ -181,65 +142,11 @@ export default function SiteLayout({ children }) {
   const menuToggleRef = useRef(null);
   const previouslyFocusedElementRef = useRef(null);
   const previousIsMenuOpenRef = useRef(false);
-  const menuAudioContextRef = useRef(null);
 
   useEffect(() => {
     document.body.classList.toggle("preloader-active", preloaderVisible);
     return () => document.body.classList.remove("preloader-active");
   }, [preloaderVisible]);
-
-  const triggerMenuHaptics = useCallback(() => {
-    if (typeof window === "undefined" || typeof navigator === "undefined") return;
-    if (typeof navigator.vibrate !== "function") return;
-    navigator.vibrate(8);
-  }, []);
-
-  const playMenuSound = useCallback(() => {
-    try {
-      let audioContext = menuAudioContextRef.current;
-      if (!audioContext) {
-        const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContextCtor) return;
-        audioContext = new AudioContextCtor();
-        menuAudioContextRef.current = audioContext;
-      }
-
-      const oscillator = audioContext.createOscillator();
-      const gain = audioContext.createGain();
-      oscillator.type = "triangle";
-      oscillator.frequency.value = 980;
-      gain.gain.value = 0.0001;
-      oscillator.connect(gain);
-      gain.connect(audioContext.destination);
-      const startTime = audioContext.currentTime;
-      const endTime = startTime + 0.06;
-      gain.gain.exponentialRampToValueAtTime(0.035, startTime + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.0001, endTime);
-      oscillator.start(startTime);
-      oscillator.stop(endTime);
-    } catch {
-      // Audio is optional enhancement.
-    }
-  }, []);
-
-  const updateMenuTimestamp = useCallback(() => {
-    const now = new Date();
-    const weekday = now.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
-    const date = now.toLocaleDateString("en-GB");
-    const time = now.toLocaleTimeString("en-US", { hour12: true });
-    setMenuTimestamp(`${weekday} ${date} ${time}`);
-  }, []);
-
-  const receiptContextLine = useMemo(() => {
-    const labelMap = {
-      "/": "HOME",
-      "/work": "WORK",
-      "/contact": "CONTACT",
-      "/archive": "ARCHIVE",
-    };
-    const activeLabel = labelMap[location.pathname] ?? "PROJECT DETAIL";
-    return `** RECEIPT MODE : ${activeLabel} **`;
-  }, [location.pathname]);
 
   const closeMenu = useCallback(() => {
     setIsMenuOpen(false);
@@ -247,19 +154,22 @@ export default function SiteLayout({ children }) {
 
   const openMenu = useCallback(() => {
     previouslyFocusedElementRef.current = document.activeElement;
-    updateMenuTimestamp();
     setIsMenuOpen(true);
-    triggerMenuHaptics();
-    playMenuSound();
-  }, [playMenuSound, triggerMenuHaptics, updateMenuTimestamp]);
+    triggerNavHaptic("click");
+  }, []);
 
   const toggleMenu = useCallback(() => {
     if (isMenuOpen) {
+      triggerNavHaptic("click");
       closeMenu();
       return;
     }
     openMenu();
   }, [closeMenu, isMenuOpen, openMenu]);
+
+  const onMenuToggleTouchStart = useCallback(() => {
+    triggerNavHaptic("nudge");
+  }, []);
 
   const dismissPreloader = useCallback(() => {
     if (!preloaderVisible || preloaderFading) return;
@@ -415,12 +325,6 @@ export default function SiteLayout({ children }) {
   }, []);
 
   useEffect(() => {
-    if (!isMenuOpen) return;
-    const interval = window.setInterval(updateMenuTimestamp, 1000);
-    return () => window.clearInterval(interval);
-  }, [isMenuOpen, updateMenuTimestamp]);
-
-  useEffect(() => {
     closeMenu();
   }, [closeMenu, location.pathname]);
 
@@ -554,7 +458,7 @@ export default function SiteLayout({ children }) {
 
       <header>
         <nav className="nav-wrap u-position-fixed">
-          <div className="nav-contain u-container-full">
+          <div className="nav-contain u-container-full u-gap-3">
             <NavLink className="u-mobile-hidden" to="/work">
               work
             </NavLink>
@@ -582,6 +486,7 @@ export default function SiteLayout({ children }) {
               aria-haspopup="dialog"
               aria-controls="site-menu"
               aria-expanded={isMenuOpen}
+              onTouchStart={onMenuToggleTouchStart}
               onClick={toggleMenu}
             >
               <span className="menu-toggle-btn-wrapper">MENU</span>
@@ -590,7 +495,7 @@ export default function SiteLayout({ children }) {
         </nav>
 
         <div className="bottom-nav-wrap u-position-fixed u-container-full u-mobile-hidden">
-          <div className="bottom-nav-contain">
+          <div className="bottom-nav-contain u-flex-horizontal-nowrap u-justify-content-between u-align-items-center u-gap-3 u-width-full">
             <NavLink to="/archive">archive</NavLink>
             <div id="time" aria-live="polite">
               12:34:56 IST
@@ -598,11 +503,9 @@ export default function SiteLayout({ children }) {
           </div>
         </div>
 
-        <ReceiptMenu
+        <FullscreenMenu
           isMenuOpen={isMenuOpen}
           menuRef={menuRef}
-          menuTimestamp={menuTimestamp}
-          receiptContextLine={receiptContextLine}
           onCloseMenu={closeMenu}
           onBackdropClick={handleMenuBackdropClick}
         />
@@ -612,15 +515,7 @@ export default function SiteLayout({ children }) {
         <UnifiedCanvas activePage={activePage} />
       </div>
 
-      {LazyProjectDetailSceneControls && activePage === "projectDetail" ? (
-        <Suspense fallback={null}>
-          <LazyProjectDetailSceneControls />
-        </Suspense>
-      ) : null}
-
       {children}
-
-      <ArchiveBurnOverlay />
 
       <footer className="u-visually-hidden">
         <p>&copy; 2026 DUFORN. All rights reserved.</p>

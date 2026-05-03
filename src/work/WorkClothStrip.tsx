@@ -4,7 +4,6 @@ import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
 
 import { createColorFallbackTexture, loadTextureAssets } from "../../scripts/runtime/assets";
-import { setRevealTitleText } from "../../scripts/text-reveal";
 import { getPreloadedTextures } from "../../scripts/work-preload";
 import { workItems } from "../../data/work-items";
 import { navigateTo } from "../lib/navigationBridge";
@@ -684,8 +683,8 @@ export function WorkClothStripScene() {
     const newTitle = workItems[centerIdx]?.title || "";
     if (newTitle !== currentTitleRef.current) {
       currentTitleRef.current = newTitle;
-      const titleEl = document.querySelector(".slide-title");
-      if (titleEl) setRevealTitleText(titleEl, newTitle);
+      const titleEl = document.querySelector("[data-work-strip-title]");
+      if (titleEl) titleEl.textContent = newTitle;
     }
   });
 

@@ -18,12 +18,6 @@ export const DEFAULT_WORK_SCENE_CONTROLS = {
     clearcoat: 0.02,
     clearcoatRoughness: 0.32,
   },
-  effects: {
-    bloomStrength: 0.016,
-    vignetteDarkness: 0.09,
-    chromaticShift: 0.0066,
-    dofMaxBlur: 0.012,
-  },
   particles: {
     count: 150,
     color: "#f5e7d5",

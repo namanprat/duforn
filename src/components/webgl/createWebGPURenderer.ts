@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { ACESFilmicToneMapping, SRGBColorSpace, WebGLRenderer } from "three";
+import { GPUFeatureName } from "three/src/renderers/webgpu/utils/WebGPUConstants.js";
 import { logWebGPU, logWebGPUOnce } from "../../lib/webgpu/debugWebGPU";
 
 let webgpuSupportPromise;
@@ -25,6 +26,34 @@ async function canUseWebGPU() {
   })();
 
   return webgpuSupportPromise;
+}
+
+/**
+ * Request a GPUDevice without `featureLevel: "compatibility"` so Firefox does not log a
+ * fallback warning; matches WebGPUBackend device creation when `device` is not pre-supplied.
+ */
+async function createWebGPUDevice() {
+  if (typeof navigator === "undefined" || !navigator.gpu) return null;
+  const adapter = await navigator.gpu.requestAdapter({
+    powerPreference: "high-performance",
+  });
+  if (!adapter) return null;
+
+  const supportedFeatures = [];
+  for (const name of Object.values(GPUFeatureName)) {
+    if (adapter.features.has(name)) {
+      supportedFeatures.push(name);
+    }
+  }
+
+  try {
+    return await adapter.requestDevice({
+      requiredFeatures: supportedFeatures,
+      requiredLimits: {},
+    });
+  } catch {
+    return null;
+  }
 }
 
 function configureRenderer(renderer, { alpha }) {
@@ -64,11 +93,20 @@ function createWebGLRenderer(defaultProps, { alpha }) {
 async function createBestRenderer(defaultProps, { alpha = false } = {}) {
   if (await canUseWebGPU()) {
     try {
+      const device = await createWebGPUDevice();
+      if (!device) {
+        logWebGPU("renderer", "WebGPU device request failed, falling back to WebGL", {
+          alpha,
+        });
+        return createWebGLRenderer(defaultProps, { alpha });
+      }
+
       const { WebGPURenderer } = await import("three/webgpu");
       const renderer = new WebGPURenderer({
         canvas: defaultProps.canvas,
         antialias: true,
         alpha,
+        device,
       });
 
       await renderer.init();
@@ -116,8 +154,4 @@ export function createRendererAlpha(defaultProps) {
 
 export function createRendererOpaque(defaultProps) {
   return createBestRenderer(defaultProps, { alpha: false });
-}
-
-export function createRendererOpaqueWebGL(defaultProps) {
-  return createWebGLRenderer(defaultProps, { alpha: false });
 }

@@ -50,7 +50,6 @@ export default function CameraRig({
     });
   }, [activePage, enableContactOffset]);
 
-  // Input listeners
   useEffect(() => {
     const onPointerMove = (event) => {
       const mx = (event.clientX / window.innerWidth) * 2 - 1;
@@ -61,8 +60,14 @@ export default function CameraRig({
       target.current.tilt = mx * PARALLAX_MOTION_CONFIG.tiltRange * ps;
     };
 
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+    return () => window.removeEventListener("pointermove", onPointerMove);
+  }, [parallaxScale]);
+
+  useEffect(() => {
+    if (!gyroEnabled) return;
+
     const onDeviceOrientation = (event) => {
-      if (!gyroEnabled) return;
       const mapped = mapDeviceOrientationToParallax(event);
       if (!mapped) return;
       const ps = parallaxScale;
@@ -71,13 +76,8 @@ export default function CameraRig({
       target.current.tilt = mapped.x * PARALLAX_MOTION_CONFIG.tiltRange * ps;
     };
 
-    window.addEventListener("pointermove", onPointerMove, { passive: true });
     window.addEventListener("deviceorientation", onDeviceOrientation, { passive: true });
-
-    return () => {
-      window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("deviceorientation", onDeviceOrientation);
-    };
+    return () => window.removeEventListener("deviceorientation", onDeviceOrientation);
   }, [gyroEnabled, parallaxScale]);
 
   useFrame((state, delta) => {

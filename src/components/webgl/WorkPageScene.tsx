@@ -1,7 +1,6 @@
 // @ts-nocheck
 import React, { useEffect, useLayoutEffect, useRef } from "react";
 import CameraRig from "./CameraRig";
-import Effects from "./Effects";
 import Particles from "./Particles";
 import SceneExposure from "./SceneExposure";
 import WorkModel from "../../models/WorkModel";
@@ -20,7 +19,7 @@ function WorkScene() {
   const didNormalizeRef = useRef(false);
   const didCloneMaterialsRef = useRef(false);
   const controls = useWorkSceneControlsStore((state) => state.controls);
-  const { scene, model, effects, particles, lights } = controls;
+  const { scene, model, particles, lights } = controls;
 
   useLayoutEffect(() => {
     const sceneModel = modelRef.current;
@@ -58,13 +57,6 @@ function WorkScene() {
 
       <CameraRig />
       <SceneExposure exposure={scene.exposure} />
-      <Effects
-        bloomStrength={effects.bloomStrength}
-        vignetteDarkness={effects.vignetteDarkness}
-        chromaticShift={effects.chromaticShift}
-        dofMaxBlur={effects.dofMaxBlur}
-        ambientOcclusionStrength={0}
-      />
       <Particles
         count={Math.round(particles.count)}
         color={particles.color}

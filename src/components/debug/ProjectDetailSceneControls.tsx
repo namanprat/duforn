@@ -12,37 +12,6 @@ const CONTROL_SECTIONS = [
     fields: [{ path: "renderer.exposure", label: "Exposure", min: 0.4, max: 2, step: 0.01 }],
   },
   {
-    key: "effects",
-    title: "Post FX",
-    fields: [
-      { path: "effects.bloomStrength", label: "Bloom", min: 0, max: 0.12, step: 0.001 },
-      {
-        path: "effects.vignetteDarkness",
-        label: "Vignette",
-        min: 0,
-        max: 0.4,
-        step: 0.005,
-      },
-      {
-        path: "effects.chromaticShift",
-        label: "Chromatic",
-        min: 0,
-        max: 0.01,
-        step: 0.0001,
-      },
-      { path: "effects.dofMaxBlur", label: "DOF Blur", min: 0, max: 0.02, step: 0.0001 },
-      {
-        path: "effects.aoResolutionScale",
-        label: "AO resolution",
-        min: 0.25,
-        max: 1,
-        step: 0.05,
-      },
-      { path: "effects.aoRadius", label: "AO radius", min: 0.05, max: 0.6, step: 0.01 },
-      { path: "effects.aoSamples", label: "AO samples", min: 4, max: 32, step: 1, integer: true },
-    ],
-  },
-  {
     key: "projectBg",
     title: "Project BG",
     fields: [
@@ -75,6 +44,12 @@ const CONTROL_SECTIONS = [
     key: "trail",
     title: "Trail",
     fields: [
+      {
+        path: "trail.variant",
+        label: "Style",
+        type: "select",
+        options: ["immersive", "brush"],
+      },
       { path: "trail.size", label: "Texture Size", min: 128, max: 1024, step: 64, integer: true },
       { path: "trail.fadeAlpha", label: "Fade", min: 0, max: 0.12, step: 0.001 },
       { path: "trail.blurPx", label: "Blur", min: 0, max: 12, step: 0.1 },
@@ -178,7 +153,7 @@ function formatValue(value, step = 0.01) {
 }
 
 function parseFieldValue(field, rawValue) {
-  if (field.type === "color") return rawValue;
+  if (field.type === "color" || field.type === "select") return rawValue;
   const parsed = field.integer ? Number.parseInt(rawValue, 10) : Number.parseFloat(rawValue);
   if (Number.isNaN(parsed)) {
     return getValue(DEFAULT_PROJECT_DETAIL_SCENE_CONTROLS, field.path);
@@ -366,6 +341,26 @@ export default function ProjectDetailSceneControls() {
                           padding: 0,
                         }}
                       />
+                    ) : field.type === "select" ? (
+                      <select
+                        value={value}
+                        onChange={(event) => handleChange(field, event.target.value)}
+                        style={{
+                          width: "100%",
+                          marginTop: 4,
+                          border: "1px solid rgba(255, 255, 255, 0.14)",
+                          background: "rgba(14, 14, 14, 0.86)",
+                          color: "#f6f0e9",
+                          borderRadius: 8,
+                          padding: "8px 10px",
+                        }}
+                      >
+                        {field.options.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
                     ) : (
                       <NumberField field={field} value={value} onChange={handleChange} />
                     )}
