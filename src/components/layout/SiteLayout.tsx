@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useRef, useEffect, useState, useCallback, Suspense } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import { flushSync } from "react-dom";
 import { useLocation } from "react-router-dom";
 import gsap from "gsap";
@@ -18,18 +18,17 @@ import {
   showAllRegisteredPageText,
 } from "../../lib/textReveal/textRevealRegistry";
 import UnifiedCanvas from "../webgl/UnifiedCanvas";
-import TextRevealLines from "../textReveal/TextRevealLines";
+import OverlayTransitionCanvas from "../webgl/OverlayTransitionCanvas";
 import RotateHoverLabel from "../RotateHoverLabel";
+import MenuOverlayLayer from "./MenuOverlayLayer";
+import OverlayPortal from "./OverlayPortal";
+import PreloaderOverlayLayer from "./PreloaderOverlayLayer";
 import { useWebglStore } from "../../store/webgl";
 import { useLoadingStore } from "../../store/loading";
 import { usePreloaderOverlayStore } from "../../store/preloaderOverlayStore";
 import { requestDeviceOrientationPermission } from "../../../scripts/runtime/motion";
 import { triggerNavHaptic } from "../../../scripts/haptic-feedback";
 import { shouldUseNavRotateHover } from "../../../scripts/link-hover";
-
-const LazyProjectDetailSceneControls = import.meta.env.DEV
-  ? React.lazy(() => import("../debug/ProjectDetailSceneControls"))
-  : null;
 
 function NavLink({ to, className, children, ...props }) {
   const location = useLocation();
@@ -65,65 +64,6 @@ function NavLink({ to, className, children, ...props }) {
     >
       {children}
     </a>
-  );
-}
-
-function FullscreenMenu({
-  isMenuOpen,
-  menuRef,
-  onCloseMenu,
-  onBackdropClick,
-  surfaceSolid,
-  rotateHoverLabels,
-}) {
-  const menuLink = (to, label) => (
-    <NavLink
-      className="menu-fullscreen__link u-text-style-h2 u-text-style-font-primary"
-      to={to}
-      onClick={onCloseMenu}
-      data-rotate-hover={rotateHoverLabels ? "" : undefined}
-    >
-      {rotateHoverLabels ? (
-        <RotateHoverLabel text={label} />
-      ) : (
-        <TextRevealLines scope="menu" animateOnScroll={false}>
-          <span className="menu-fullscreen__link-label">{label}</span>
-        </TextRevealLines>
-      )}
-    </NavLink>
-  );
-
-  return (
-    <div
-      className={`menu-wrap menu-wrap--fullscreen${isMenuOpen ? " is-open" : ""}${surfaceSolid ? " menu-wrap--surface-solid" : ""}`}
-      ref={menuRef}
-      id="site-menu"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Site menu"
-      aria-hidden={!isMenuOpen}
-      onClick={onBackdropClick}
-    >
-      <div className="menu-fullscreen">
-        <div className="menu-fullscreen__top">
-          <NavLink
-            className="menu-fullscreen__brand u-text-style-h3 u-text-style-font-primary"
-            to="/"
-            onClick={onCloseMenu}
-            data-rotate-hover={rotateHoverLabels ? "" : undefined}
-          >
-            {rotateHoverLabels ? <RotateHoverLabel text="duforn" /> : "duforn"}
-          </NavLink>
-        </div>
-        <nav className="menu-fullscreen__nav" aria-label="Primary navigation">
-          {menuLink("/", "HOME")}
-          {menuLink("/work", "WORK")}
-          {menuLink("/contact", "CONTACT")}
-          {menuLink("/archive", "ARCHIVE")}
-          {menuLink("/money-me", "PROJECT")}
-        </nav>
-      </div>
-    </div>
   );
 }
 
@@ -457,6 +397,31 @@ export default function SiteLayout({ children }) {
     return () => document.body.classList.remove("menu-open");
   }, [isMenuOpen]);
 
+  useEffect(() => {
+    const shouldLockScroll = isMenuOpen || preloaderVisible || preloaderFading;
+    if (!shouldLockScroll) return undefined;
+
+    const scrollY = window.scrollY;
+    document.documentElement.classList.add("overlay-scroll-lock");
+    document.body.classList.add("overlay-scroll-lock");
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.left = "0";
+    document.body.style.right = "0";
+    document.body.style.width = "100%";
+
+    return () => {
+      document.documentElement.classList.remove("overlay-scroll-lock");
+      document.body.classList.remove("overlay-scroll-lock");
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.left = "";
+      document.body.style.right = "";
+      document.body.style.width = "";
+      window.scrollTo(0, scrollY);
+    };
+  }, [isMenuOpen, preloaderFading, preloaderVisible]);
+
   /** Fullscreen menu is mobile-only; clear state if viewport crosses to desktop so scroll/overlay never stick. */
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
@@ -543,58 +508,32 @@ export default function SiteLayout({ children }) {
         Skip to content
       </a>
 
-      {preloaderVisible && (
-        <section
-          className="preloader intro-preloader u-min-height-screen"
-          aria-label="Website preloader"
-          data-state={preloaderFading ? "fading" : "visible"}
-          ref={preloaderRef}
-        >
-          <div className="intro-preloader-main intro-preloader-main--centered">
-            <button
-              ref={introHitRef}
-              type="button"
-              className="intro-preloader-center-hit"
-              onClick={handleIntroEnter}
-              disabled={!introRingComplete || permissionsPending}
-              aria-label={
-                !essentialsReady
-                  ? "Loading essential assets"
-                  : !introRingComplete
-                    ? "Finishing intro animation"
-                    : permissionsPending
-                      ? "Requesting device permissions"
-                      : "Enter site"
-              }
-              aria-busy={!introRingComplete}
-            >
-              <span
-                className={`intro-preloader-action-tagline${introRingComplete ? " intro-preloader-action-tagline--hidden" : ""}`}
-              >
-                {essentialsReady ? "DUFORN" : "LOADING"}
-              </span>
-              <span
-                className={`intro-preloader-enter-label${introRingComplete ? " intro-preloader-enter-label--active" : ""}`}
-                aria-hidden={!introRingComplete}
-              >
-                ENTER
-              </span>
-              <div className="intro-preloader-ring" aria-hidden="true">
-                <svg viewBox="0 0 320 320" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle className="stroke-track" cx="160" cy="160" r="155" ref={strokeTrackRef} />
-                  <circle
-                    className="stroke-progress"
-                    cx="160"
-                    cy="160"
-                    r="155"
-                    ref={strokeProgressRef}
-                  />
-                </svg>
-              </div>
-            </button>
-          </div>
-        </section>
-      )}
+      <OverlayPortal>
+        <div className="fullscreen-overlay-cluster" aria-hidden={!preloaderVisible && !isMenuOpen}>
+          <OverlayTransitionCanvas />
+          <PreloaderOverlayLayer
+            visible={preloaderVisible}
+            fading={preloaderFading}
+            preloaderRef={preloaderRef}
+            strokeTrackRef={strokeTrackRef}
+            strokeProgressRef={strokeProgressRef}
+            introHitRef={introHitRef}
+            essentialsReady={essentialsReady}
+            introRingComplete={introRingComplete}
+            permissionsPending={permissionsPending}
+            onEnter={handleIntroEnter}
+          />
+          <MenuOverlayLayer
+            isMenuOpen={isMenuOpen}
+            menuRef={menuRef}
+            surfaceSolid={menuSurfaceSolid}
+            rotateHoverLabels={useNavRotateHover}
+            onCloseMenu={closeMenu}
+            onBackdropClick={handleMenuBackdropClick}
+            renderNavLink={(props) => <NavLink {...props} />}
+          />
+        </div>
+      </OverlayPortal>
 
       <header>
         <nav className="nav-wrap u-position-fixed">
@@ -645,26 +584,11 @@ export default function SiteLayout({ children }) {
             </div>
           </div>
         </div>
-
-        <FullscreenMenu
-          isMenuOpen={isMenuOpen}
-          menuRef={menuRef}
-          surfaceSolid={menuSurfaceSolid}
-          rotateHoverLabels={useNavRotateHover}
-          onCloseMenu={closeMenu}
-          onBackdropClick={handleMenuBackdropClick}
-        />
       </header>
 
       <div className="page-canvas">
         <UnifiedCanvas activePage={activePage} />
       </div>
-
-      {LazyProjectDetailSceneControls && activePage === "projectDetail" ? (
-        <Suspense fallback={null}>
-          <LazyProjectDetailSceneControls />
-        </Suspense>
-      ) : null}
 
       {children}
 

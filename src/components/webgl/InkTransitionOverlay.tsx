@@ -5,7 +5,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { logWebGPU, logWebGPUOnce } from "../../lib/webgpu/debugWebGPU";
 import { getCssSwatchDarkHex } from "../../lib/cssSwatchDark";
 import { canvasInk } from "../../lib/fx/canvasInkTransition";
-import { pickGpuBranchAsync } from "../../lib/rendering/gpuDualPath";
+import { pickGpuBranchAsync } from "../../lib/rendering";
 
 const NOISE_SCALE_DEFAULT = 6.5;
 const EDGE_SOFTNESS_DEFAULT = 0.16;
@@ -187,7 +187,7 @@ export default function InkTransitionOverlay() {
       try {
         const system = await pickGpuBranchAsync(gl, {
           webgpu: () => buildWebGPUInkMaterial(),
-          webgl: () => Promise.resolve(buildWebGLInkMaterial()),
+          webgl: () => buildWebGLInkMaterial(),
         });
         if (cancelled) {
           system.material.dispose?.();

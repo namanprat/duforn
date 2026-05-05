@@ -60,6 +60,7 @@ export default function TextRevealLines({
       const splitRefs = [];
       let lineEls = [];
       let scrollTriggerInstance = null;
+      let intersectionObserver = null;
       let preloaderListener = null;
 
       let elements = [];
@@ -97,6 +98,10 @@ export default function TextRevealLines({
         if (scrollTriggerInstance) {
           scrollTriggerInstance.kill();
           scrollTriggerInstance = null;
+        }
+        if (intersectionObserver) {
+          intersectionObserver.disconnect();
+          intersectionObserver = null;
         }
       };
 
@@ -138,6 +143,45 @@ export default function TextRevealLines({
             });
           },
         });
+
+        // If trigger is already past start at creation (e.g. after route transitions/refresh),
+        // reveal immediately so lines don't remain stuck at y:100%.
+        if (scrollTriggerInstance.isActive || scrollTriggerInstance.progress > 0) {
+          killScrollTrigger();
+          gsap.to(lineEls, {
+            y: "0%",
+            duration: revealDuration,
+            stagger: revealStagger,
+            ease: MOTION_TOKENS.textReveal.revealEase,
+            delay: effectiveDelay,
+          });
+          return;
+        }
+
+        // Secondary guard for smooth-scroll / route-transition timing mismatches:
+        // reveal when element intersects viewport even if ScrollTrigger never enters.
+        if (typeof IntersectionObserver !== "undefined") {
+          intersectionObserver = new IntersectionObserver(
+            (entries) => {
+              const entry = entries[0];
+              if (!entry?.isIntersecting) return;
+              killScrollTrigger();
+              gsap.to(lineEls, {
+                y: "0%",
+                duration: revealDuration,
+                stagger: revealStagger,
+                ease: MOTION_TOKENS.textReveal.revealEase,
+                delay: effectiveDelay,
+              });
+            },
+            {
+              root: null,
+              rootMargin: "0px 0px -25% 0px",
+              threshold: 0.01,
+            },
+          );
+          intersectionObserver.observe(root);
+        }
       };
 
       const armReveal = () => {

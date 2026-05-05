@@ -39,6 +39,13 @@ function setProgress(value) {
 function setVisible(value) {
   if (!activeHandle?.uniforms?.uVisible) return;
   activeHandle.uniforms.uVisible.value = value;
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent("duforn:ink-visible-change", {
+        detail: { visible: value > 0.001 },
+      }),
+    );
+  }
 }
 
 function setRadialBias(value) {

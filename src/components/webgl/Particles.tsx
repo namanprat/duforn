@@ -2,7 +2,7 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import { pickGpuBranch } from "../../lib/rendering/gpuDualPath";
+import { pickGpuBranch } from "../../lib/rendering";
 import { logWebGPUOnce } from "../../lib/webgpu/debugWebGPU";
 
 const DEFAULT_COUNT = 200;

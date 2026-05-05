@@ -2,7 +2,7 @@
 import React, { Suspense } from "react";
 import { PerspectiveCamera } from "@react-three/drei";
 import CanvasSurface, { getCanvasDpr } from "./CanvasSurface";
-import { createRendererOpaque, getRendererType } from "../../lib/rendering/gpuDualPath";
+import { createRendererOpaque, getRendererType } from "../../lib/rendering";
 import { logWebGPU } from "../../lib/webgpu/debugWebGPU";
 import { useWebglStore } from "../../store/webgl";
 import WorkPageScene from "./WorkPageScene";
@@ -13,7 +13,6 @@ import {
   ProjectDetailCanvasBranch,
   TestCanvasBranch,
 } from "./GlobalSceneBranches";
-import InkTransitionOverlay from "./InkTransitionOverlay";
 import WarmupOrchestrator from "./WarmupOrchestrator";
 
 function UnifiedScene({ activePage }) {
@@ -66,7 +65,6 @@ export default function UnifiedCanvas({ activePage }) {
         <ShaderCompiler sceneKey={activePage} />
         <WarmupOrchestrator activePage={activePage} />
       </Suspense>
-      <InkTransitionOverlay />
     </CanvasSurface>
   );
 }

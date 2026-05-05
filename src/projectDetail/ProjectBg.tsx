@@ -6,7 +6,7 @@ import { useProjectBgModel } from "../models/generated/useProjectBgModel";
 import { usePointerField } from "./usePointerField";
 import { useProjectDetailSceneControlsStore } from "../store/projectDetailSceneControls";
 import { PROJECT_DETAIL_BG_CAMERA_Z } from "./projectDetailSceneConfig";
-import { pickGpuBranchAsync } from "../lib/rendering/gpuDualPath";
+import { pickGpuBranchAsync } from "../lib/rendering";
 import { getClampedPixelRatio } from "../lib/rendering/canvasPixelRatio";
 import { ProjectBgTrailCanvas } from "../lib/projectDetail/projectBgTrail";
 import {
@@ -19,6 +19,7 @@ export default function ProjectBg() {
   const controls = useProjectDetailSceneControlsStore((state) => state.controls);
   const { pointerRef, step } = usePointerField();
   const { scene: gltfScene } = useProjectBgModel();
+  const [isCoarsePointer, setIsCoarsePointer] = useState(false);
 
   const trailSize = controls.trail.size;
   const trailRef = useRef(null);
@@ -40,6 +41,17 @@ export default function ProjectBg() {
   const prevSizeRef = useRef({ width: 0, height: 0 });
   const scrollTargetRef = useRef(0);
   const scrollCurrentRef = useRef(0);
+  const mobileOrbitPointerRef = useRef(new THREE.Vector2(0, 0));
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
+
+    const mediaQuery = window.matchMedia("(pointer: coarse)");
+    const sync = () => setIsCoarsePointer(mediaQuery.matches);
+    sync();
+    mediaQuery.addEventListener("change", sync);
+    return () => mediaQuery.removeEventListener("change", sync);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,7 +89,7 @@ export default function ProjectBg() {
 
       const built = await pickGpuBranchAsync(gl, {
         webgpu: () => buildProjectBgMaterialsWebGpu(cloned, trailTex),
-        webgl: () => Promise.resolve(buildProjectBgMaterialsWebGl(cloned, trailTex)),
+        webgl: () => buildProjectBgMaterialsWebGl(cloned, trailTex),
       });
       if (cancelled) {
         built.materials.forEach((m) => m.dispose());
@@ -170,7 +182,18 @@ export default function ProjectBg() {
     if (!ready) return;
 
     const dt = Math.min(delta, 0.05);
-    step(dt, controls.projectBgFallback.pointerLerp);
+    const mobileOrbitSpeed = 0.32;
+    const mobileOrbitRadius = 0.42;
+    const t = state.clock.elapsedTime;
+    if (isCoarsePointer) {
+      mobileOrbitPointerRef.current.set(
+        Math.cos(t * mobileOrbitSpeed) * mobileOrbitRadius,
+        Math.sin(t * mobileOrbitSpeed) * mobileOrbitRadius,
+      );
+    } else {
+      step(dt, controls.projectBgFallback.pointerLerp);
+    }
+    const activePointer = isCoarsePointer ? mobileOrbitPointerRef.current : pointerRef.current;
     const scrollLerp = 1 - Math.exp(-controls.projectBg.scrollLag * dt);
     scrollCurrentRef.current = THREE.MathUtils.lerp(
       scrollCurrentRef.current,
@@ -181,8 +204,8 @@ export default function ProjectBg() {
     const trail = trailRef.current;
     const trailMap = trailTextureRef.current;
     if (trail && trailMap) {
-      const px = (pointerRef.current.x + 1) * 0.5 * trailSize;
-      const py = (pointerRef.current.y + 1) * 0.5 * trailSize;
+      const px = (activePointer.x + 1) * 0.5 * trailSize;
+      const py = (activePointer.y + 1) * 0.5 * trailSize;
       trail.update({ x: px, y: py });
       trailMap.needsUpdate = true;
     }
@@ -190,7 +213,7 @@ export default function ProjectBg() {
     const mouseU = uMouseWorldRef.current;
     const vCam = virtualCameraRef.current;
     if (mouseU && vCam) {
-      pointerNdcRef.current.copy(pointerRef.current);
+      pointerNdcRef.current.copy(activePointer);
       raycasterRef.current.setFromCamera(pointerNdcRef.current, vCam);
       if (raycasterRef.current.ray.intersectPlane(mousePlaneRef.current, mouseHitRef.current)) {
         mouseU.value?.copy?.(mouseHitRef.current);

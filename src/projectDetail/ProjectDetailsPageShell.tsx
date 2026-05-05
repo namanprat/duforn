@@ -89,7 +89,7 @@ function ProjectDetailsHero({ hero }) {
             </div>
             {cta ? (
               <a
-                className="button button-secondary project-details-cta"
+                className="button button-primary button-primary--black project-details-cta"
                 href={cta.href}
                 target={cta.target}
                 rel={cta.rel}

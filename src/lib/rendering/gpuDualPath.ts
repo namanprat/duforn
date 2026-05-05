@@ -8,15 +8,16 @@
  */
 // @ts-nocheck
 
+import { createRendererAlpha, createRendererOpaque } from "./rendererFactory";
+import { getRendererType, isWebGLRenderer, isWebGPURenderer } from "./rendererType";
+
 export {
   createRendererAlpha,
   createRendererOpaque,
   getRendererType,
   isWebGLRenderer,
   isWebGPURenderer,
-} from "../../components/webgl/createWebGPURenderer";
-
-import { isWebGPURenderer } from "../../components/webgl/createWebGPURenderer";
+};
 
 /** @template T @param branches {{ webgpu: () => T; webgl: () => T }} */
 export function pickGpuBranch(gl, branches) {

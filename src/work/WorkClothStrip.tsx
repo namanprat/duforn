@@ -7,7 +7,7 @@ import { createColorFallbackTexture, loadTextureAssets } from "../../scripts/run
 import { getPreloadedTextures } from "../../scripts/work-preload";
 import { workItems } from "../../data/work-items";
 import { navigateTo } from "../lib/navigationBridge";
-import { pickGpuBranch } from "../lib/rendering/gpuDualPath";
+import { pickGpuBranch } from "../lib/rendering";
 import { logWebGPUOnce } from "../lib/webgpu/debugWebGPU";
 import { useWorkSceneControlsStore } from "../store/workSceneControls";
 import { DEFAULT_GAP_SIZE, DEFAULT_VISIBLE_ITEMS } from "./workStripConfig";

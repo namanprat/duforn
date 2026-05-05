@@ -12,6 +12,16 @@ import { trackPromise } from "./lib/preloader/preloaderGate";
 import { installBackgroundWarmup } from "./lib/preloader/backgroundWarmup";
 import "../styles.css";
 
+function ensureOverlayRoot() {
+  const existing = document.getElementById("overlay-root");
+  if (existing) return existing;
+
+  const node = document.createElement("div");
+  node.id = "overlay-root";
+  document.body.appendChild(node);
+  return node;
+}
+
 function registerFontsTask() {
   if (typeof document === "undefined" || !document.fonts?.ready) return;
   trackPromise("fonts:ready", document.fonts.ready, { label: "Fonts", weight: 1 }).catch(() => {});
@@ -19,6 +29,7 @@ function registerFontsTask() {
 
 async function bootstrap() {
   await patchThreeTSL();
+  ensureOverlayRoot();
 
   // Kick off essentials in parallel; their completion is tracked by the
   // preloader gate so the intro ring + Enter button reflect real readiness.
