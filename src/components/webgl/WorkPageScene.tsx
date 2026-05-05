@@ -1,9 +1,8 @@
 // @ts-nocheck
 import React, { useEffect, useLayoutEffect, useRef } from "react";
 import CameraRig from "./CameraRig";
-import Particles from "./Particles";
 import SceneExposure from "./SceneExposure";
-import WorkModel from "../../models/WorkModel";
+import WorkModel from "../../models/generated/WorkModel";
 import { WorkClothStripScene } from "../../work/WorkClothStrip";
 import { applyModelMaterialTuning, normalizeModelBounds } from "./sceneUtils";
 import { useWorkSceneControlsStore } from "../../store/workSceneControls";
@@ -19,7 +18,7 @@ function WorkScene() {
   const didNormalizeRef = useRef(false);
   const didCloneMaterialsRef = useRef(false);
   const controls = useWorkSceneControlsStore((state) => state.controls);
-  const { scene, model, particles, lights } = controls;
+  const { scene, model, lights } = controls;
 
   useLayoutEffect(() => {
     const sceneModel = modelRef.current;
@@ -57,26 +56,6 @@ function WorkScene() {
 
       <CameraRig />
       <SceneExposure exposure={scene.exposure} />
-      <Particles
-        count={Math.round(particles.count)}
-        color={particles.color}
-        size={particles.size}
-        opacity={particles.opacity}
-        bounds={{
-          xHalf: particles.xHalf,
-          yMin: particles.yMin,
-          yMax: particles.yMax,
-          zMin: particles.zMin,
-          zMax: particles.zMax,
-        }}
-        motion={{
-          xAmplitude: particles.xAmplitude,
-          zAmplitude: particles.zAmplitude,
-          xSpeed: particles.xSpeed,
-          zSpeed: particles.zSpeed,
-          ySpeed: particles.ySpeed,
-        }}
-      />
 
       <spotLight
         position={[lights.keyX, lights.keyY, lights.keyZ]}

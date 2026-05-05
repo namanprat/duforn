@@ -1,150 +1,28 @@
 // @ts-nocheck
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
-import { useGLTF } from "@react-three/drei";
-import { gltfLoaderOptions } from "../models/gltfLoaderOptions";
-import { GLTF_URL_PROJECT_BG } from "../models/gltfUrls";
+import { useProjectBgModel } from "../models/generated/useProjectBgModel";
 import { usePointerField } from "./usePointerField";
-import { useTrailTexture } from "./useTrailTexture";
 import { useProjectDetailSceneControlsStore } from "../store/projectDetailSceneControls";
 import { PROJECT_DETAIL_BG_CAMERA_Z } from "./projectDetailSceneConfig";
-import { isWebGPURenderer } from "../components/webgl/createWebGPURenderer";
-
-async function buildProjectBgMaterials(clonedScene, trailTexture) {
-  const tsl = await import("three/tsl");
-  const { NodeMaterial } = await import("three/webgpu");
-  const {
-    Fn,
-    float,
-    vec2,
-    vec3,
-    vec4,
-    mix,
-    smoothstep,
-    clamp,
-    dot,
-    distance,
-    normalize,
-    pow,
-    texture,
-    uv,
-    screenUV,
-    positionLocal,
-    positionWorld,
-    cameraProjectionMatrix,
-    modelViewMatrix,
-    varying,
-    mx_noise_float,
-    uniform,
-  } = tsl;
-
-  const uMouseWorld = uniform(new THREE.Vector3(0, 0, 0));
-
-  const sRGBTransferOETF = Fn(([color]) => {
-    const a = color.pow(0.41666).mul(1.055).sub(0.055);
-    const b = color.mul(12.92);
-    const factor = color.lessThanEqual(0.0031308);
-    return mix(a, b, factor);
-  });
-
-  const materials = [];
-
-  clonedScene.traverse((child) => {
-    if (!child.isMesh) return;
-
-    const baseMap = child.material.map;
-    const emissiveMap = child.material.emissiveMap;
-    if (!baseMap || !emissiveMap) return;
-
-    const material = new NodeMaterial();
-    const uvscreen = varying(vec2(0, 0));
-    material.positionNode = Fn(() => {
-      const pos = positionLocal;
-      const ndc = cameraProjectionMatrix.mul(modelViewMatrix).mul(vec4(pos, 1));
-      uvscreen.assign(ndc.xy.div(ndc.w).add(1).div(2));
-      uvscreen.y = uvscreen.y.oneMinus();
-
-      const extrude = texture(trailTexture, uvscreen).r;
-      pos.z.mulAssign(mix(0.03, 1, extrude));
-
-      return pos;
-    })();
-
-    material.colorNode = Fn(() => {
-      const tt1 = sRGBTransferOETF(texture(baseMap, uv()));
-      const tt2 = sRGBTransferOETF(texture(emissiveMap, uv()));
-      const extrude = texture(trailTexture, screenUV).r;
-
-      let final_ = tt2.b;
-      final_ = mix(final_, tt2.g, smoothstep(0, 0.2, extrude));
-      final_ = mix(final_, tt2.r, smoothstep(0.2, 0.4, extrude));
-      final_ = mix(final_, tt1.b, smoothstep(0.4, 0.6, extrude));
-      final_ = mix(final_, tt1.g, smoothstep(0.6, 0.8, extrude));
-      final_ = mix(final_, tt1.r, smoothstep(0.8, 1, extrude));
-
-      // Bas-relief lighting: approximate a heightfield normal from the trail mask in screen-space.
-      // The underlying model is meant to read like marble/stone, so we push contrast via a soft rim
-      // and a tight specular lobe.
-      const eps = float(0.0022);
-      const hC = texture(trailTexture, uvscreen).r;
-      const hX = texture(trailTexture, uvscreen.add(vec2(eps, 0))).r;
-      const hY = texture(trailTexture, uvscreen.add(vec2(0, eps))).r;
-      const grad = vec2(hX.sub(hC), hY.sub(hC));
-      const normal = normalize(vec3(grad.x.mul(-2.6), grad.y.mul(-2.6), float(1.0)));
-      const lightDir = normalize(vec3(0.35, 0.55, 0.95));
-      const diff = clamp(dot(normal, lightDir), 0, 1);
-      const viewDir = vec3(0, 0, 1);
-      const halfDir = normalize(lightDir.add(viewDir));
-      const spec = pow(clamp(dot(normal, halfDir), 0, 1), float(36.0)).mul(0.28);
-      const rim = pow(float(1.0).sub(clamp(dot(normal, viewDir), 0, 1)), float(2.2)).mul(0.12);
-
-      // Marble micro-variation: subtle veining tied to UV and relief height.
-      const veinNoise = mx_noise_float(vec3(uv().mul(6.2), hC.mul(2.0)));
-      const veins = smoothstep(0.35, 0.8, veinNoise).mul(0.06);
-      const base = vec3(final_).add(vec3(veins));
-
-      // World-space cursor (immersive sketch): subtle lift near ray/plane hit.
-      const distMouse = distance(positionWorld, uMouseWorld);
-      const cursorLift = float(1)
-        .sub(smoothstep(float(0.15), float(3.0), distMouse))
-        .mul(float(0.06));
-
-      const lit = base
-        .mul(mix(0.72, 1.15, diff))
-        .add(vec3(spec.add(rim)))
-        .add(vec3(cursorLift));
-      return vec4(lit, 1);
-    })();
-
-    child.material = material;
-    materials.push(material);
-  });
-
-  return { materials, uMouseWorld };
-}
+import { pickGpuBranchAsync } from "../lib/rendering/gpuDualPath";
+import { getClampedPixelRatio } from "../lib/rendering/canvasPixelRatio";
+import { ProjectBgTrailCanvas } from "../lib/projectDetail/projectBgTrail";
+import {
+  buildProjectBgMaterialsWebGl,
+  buildProjectBgMaterialsWebGpu,
+} from "../lib/projectDetail/projectBgMaterials";
 
 export default function ProjectBg() {
   const { gl, size } = useThree();
   const controls = useProjectDetailSceneControlsStore((state) => state.controls);
   const { pointerRef, step } = usePointerField();
-  const { trailTextureRef, updateTrail } = useTrailTexture({
-    variant: controls.trail.variant,
-    width: controls.trail.size,
-    height: controls.trail.size,
-    fadeAlpha: controls.trail.fadeAlpha,
-    blurPx: controls.trail.blurPx,
-    radiusFactor: controls.trail.radiusFactor,
-    gradientScale: controls.trail.gradientScale,
-    smudgeStrength: controls.trail.smudgeStrength,
-    smudgeBlurPx: controls.trail.smudgeBlurPx,
-    roughness: controls.trail.roughness,
-    stampAlpha: controls.trail.stampAlpha,
-  });
+  const { scene: gltfScene } = useProjectBgModel();
 
-  const { scene: gltfScene } = useGLTF(GLTF_URL_PROJECT_BG, gltfLoaderOptions);
-
-  const buildMaterials = useMemo(() => (scene, trail) => buildProjectBgMaterials(scene, trail), []);
+  const trailSize = controls.trail.size;
+  const trailRef = useRef(null);
+  const trailTextureRef = useRef(null);
 
   const virtualSceneRef = useRef(null);
   const virtualCameraRef = useRef(null);
@@ -176,10 +54,17 @@ export default function ProjectBg() {
     virtualCamera.position.set(0, 0, PROJECT_DETAIL_BG_CAMERA_Z + controls.projectBg.cameraZOffset);
     virtualCamera.lookAt(0, 0, 0);
 
-    const rt = new THREE.WebGLRenderTarget(
-      Math.max(1, Math.floor(size.width * Math.min(window.devicePixelRatio || 1, 2))),
-      Math.max(1, Math.floor(size.height * Math.min(window.devicePixelRatio || 1, 2))),
+    const dpr = Math.min(gl.getPixelRatio(), getClampedPixelRatio(2));
+    const rt = new THREE.RenderTarget(
+      Math.max(1, Math.floor(size.width * dpr)),
+      Math.max(1, Math.floor(size.height * dpr)),
     );
+
+    const trail = new ProjectBgTrailCanvas(trailSize, trailSize);
+    trailRef.current = trail;
+    const trailTex = new THREE.CanvasTexture(trail.canvas);
+    trailTex.flipY = false;
+    trailTextureRef.current = trailTex;
 
     const cloned = gltfScene.clone(true);
     cloned.position.set(controls.projectBg.x, controls.projectBg.y, controls.projectBg.z);
@@ -187,20 +72,19 @@ export default function ProjectBg() {
     cloned.rotation.z = THREE.MathUtils.degToRad(controls.projectBg.rotationZ);
 
     async function init() {
-      const trail = trailTextureRef.current;
-      if (!trail) return;
-
-      let mats = [];
       uMouseWorldRef.current = null;
-      if (isWebGPURenderer(gl)) {
-        const built = await buildMaterials(cloned, trail);
-        if (cancelled) {
-          built.materials.forEach((m) => m.dispose());
-          return;
-        }
-        mats = built.materials;
-        uMouseWorldRef.current = built.uMouseWorld;
+      let mats = [];
+
+      const built = await pickGpuBranchAsync(gl, {
+        webgpu: () => buildProjectBgMaterialsWebGpu(cloned, trailTex),
+        webgl: () => Promise.resolve(buildProjectBgMaterialsWebGl(cloned, trailTex)),
+      });
+      if (cancelled) {
+        built.materials.forEach((m) => m.dispose());
+        return;
       }
+      mats = built.materials;
+      uMouseWorldRef.current = built.uMouseWorld;
 
       virtualScene.add(cloned);
       clonedSceneRef.current = cloned;
@@ -212,7 +96,7 @@ export default function ProjectBg() {
       setReady(true);
     }
 
-    init();
+    void init();
 
     return () => {
       cancelled = true;
@@ -220,6 +104,9 @@ export default function ProjectBg() {
       rt.dispose();
       materialsRef.current.forEach((m) => m.dispose());
       materialsRef.current = [];
+      trailTextureRef.current?.dispose?.();
+      trailTextureRef.current = null;
+      trailRef.current = null;
       clonedSceneRef.current = null;
       virtualSceneRef.current = null;
       virtualCameraRef.current = null;
@@ -228,12 +115,16 @@ export default function ProjectBg() {
   }, [
     gltfScene,
     gl,
-    buildMaterials,
-    trailTextureRef,
     size.height,
     size.width,
-    controls.trail.size,
-    controls.trail.variant,
+    trailSize,
+    controls.projectBg.cameraFov,
+    controls.projectBg.cameraZOffset,
+    controls.projectBg.rotationZ,
+    controls.projectBg.scale,
+    controls.projectBg.x,
+    controls.projectBg.y,
+    controls.projectBg.z,
   ]);
 
   useEffect(() => {
@@ -287,9 +178,14 @@ export default function ProjectBg() {
       scrollLerp,
     );
 
-    const px = (pointerRef.current.x + 1) * 0.5 * controls.trail.size;
-    const py = (pointerRef.current.y + 1) * 0.5 * controls.trail.size;
-    updateTrail({ x: px, y: py });
+    const trail = trailRef.current;
+    const trailMap = trailTextureRef.current;
+    if (trail && trailMap) {
+      const px = (pointerRef.current.x + 1) * 0.5 * trailSize;
+      const py = (pointerRef.current.y + 1) * 0.5 * trailSize;
+      trail.update({ x: px, y: py });
+      trailMap.needsUpdate = true;
+    }
 
     const mouseU = uMouseWorldRef.current;
     const vCam = virtualCameraRef.current;
@@ -297,7 +193,7 @@ export default function ProjectBg() {
       pointerNdcRef.current.copy(pointerRef.current);
       raycasterRef.current.setFromCamera(pointerNdcRef.current, vCam);
       if (raycasterRef.current.ray.intersectPlane(mousePlaneRef.current, mouseHitRef.current)) {
-        mouseU.value.copy(mouseHitRef.current);
+        mouseU.value?.copy?.(mouseHitRef.current);
       }
     }
 
@@ -311,7 +207,7 @@ export default function ProjectBg() {
 
     const { width, height } = state.size;
     if (width !== prevSizeRef.current.width || height !== prevSizeRef.current.height) {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(gl.getPixelRatio(), getClampedPixelRatio(2));
       renderTargetRef.current.setSize(
         Math.max(1, Math.floor(width * dpr)),
         Math.max(1, Math.floor(height * dpr)),

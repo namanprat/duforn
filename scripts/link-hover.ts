@@ -3,7 +3,7 @@ import gsap from "gsap";
 import { triggerNavHaptic } from "./haptic-feedback";
 
 const LINK_SELECTOR =
-  ".nav-wrap a, .bottom-nav-wrap a, .contact-info a, .contact-content a, .menu-fullscreen__nav a";
+  ".nav-wrap a, .bottom-nav-wrap a, .contact-info a, .contact-content a, .menu-fullscreen__nav a, a.button, button.button";
 const linkInstances = new Map();
 const attachedHoverInstances = new Map();
 

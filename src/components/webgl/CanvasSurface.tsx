@@ -1,10 +1,10 @@
 // @ts-nocheck
 import React from "react";
 import { Canvas } from "@react-three/fiber";
+import { getClampedPixelRatio } from "../../lib/rendering/canvasPixelRatio";
 
 export function getCanvasDpr(limit = 2) {
-  if (typeof window === "undefined") return 1;
-  return Math.min(window.devicePixelRatio || 1, limit);
+  return getClampedPixelRatio(limit);
 }
 
 export default function CanvasSurface({

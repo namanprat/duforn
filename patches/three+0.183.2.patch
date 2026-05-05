@@ -24,6 +24,19 @@ index aa93fc3..2c2bfdb 100644
  	}
  
  	/**
+diff --git a/node_modules/three/build/three.webgpu.js b/node_modules/three/build/three.webgpu.js
+index ff56ac4..7dac853 100644
+--- a/node_modules/three/build/three.webgpu.js
++++ b/node_modules/three/build/three.webgpu.js
+@@ -75195,7 +75195,7 @@ ${ flowData.code }
+ 		if ( shaderStage === 'vertex' || shaderStage === 'fragment' ) {
+ 
+ 			const varyings = this.varyings;
+-			const vars = this.vars[ shaderStage ];
++			const vars = this.vars[ shaderStage ] || ( this.vars[ shaderStage ] = [] );
+ 
+ 			for ( let index = 0; index < varyings.length; index ++ ) {
+ 
 diff --git a/node_modules/three/src/core/Clock.js b/node_modules/three/src/core/Clock.js
 index fc0f5e0..4b16bcb 100644
 --- a/node_modules/three/src/core/Clock.js
@@ -43,3 +56,16 @@ index fc0f5e0..4b16bcb 100644
  	}
  
  	/**
+diff --git a/node_modules/three/src/renderers/webgpu/nodes/WGSLNodeBuilder.js b/node_modules/three/src/renderers/webgpu/nodes/WGSLNodeBuilder.js
+index 12d41fe..1dd2738 100644
+--- a/node_modules/three/src/renderers/webgpu/nodes/WGSLNodeBuilder.js
++++ b/node_modules/three/src/renderers/webgpu/nodes/WGSLNodeBuilder.js
+@@ -1797,7 +1797,7 @@ ${ flowData.code }
+ 		if ( shaderStage === 'vertex' || shaderStage === 'fragment' ) {
+ 
+ 			const varyings = this.varyings;
+-			const vars = this.vars[ shaderStage ];
++			const vars = this.vars[ shaderStage ] || ( this.vars[ shaderStage ] = [] );
+ 
+ 			for ( let index = 0; index < varyings.length; index ++ ) {
+ 

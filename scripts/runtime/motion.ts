@@ -18,12 +18,41 @@ export function canRequestDeviceOrientationPermission() {
   );
 }
 
+function canRequestDeviceMotionPermission() {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.DeviceMotionEvent !== "undefined" &&
+    typeof window.DeviceMotionEvent.requestPermission === "function"
+  );
+}
+
+async function requestPermissionFrom(eventCtor) {
+  if (!eventCtor || typeof eventCtor.requestPermission !== "function") return null;
+  try {
+    const state = await eventCtor.requestPermission();
+    return state === "granted";
+  } catch {
+    return false;
+  }
+}
+
 export async function requestDeviceOrientationPermission() {
   if (!hasDeviceOrientationApi()) return false;
-  if (!canRequestDeviceOrientationPermission()) return true;
+  if (!canRequestDeviceOrientationPermission() && !canRequestDeviceMotionPermission()) {
+    return true;
+  }
 
-  const state = await window.DeviceOrientationEvent.requestPermission();
-  return state === "granted";
+  const orientationPermission = await requestPermissionFrom(window.DeviceOrientationEvent);
+  const motionPermission = await requestPermissionFrom(window.DeviceMotionEvent);
+
+  // If either API explicitly grants, treat gyro as enabled.
+  if (orientationPermission === true || motionPermission === true) return true;
+
+  // If at least one API exists and explicitly denies (or throws), deny.
+  if (orientationPermission === false || motionPermission === false) return false;
+
+  // No definitive response; default to enabled for browsers that gate silently.
+  return true;
 }
 
 function clamp(value, min, max) {

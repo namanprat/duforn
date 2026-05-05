@@ -2,10 +2,9 @@
 import React, { Suspense } from "react";
 import { PerspectiveCamera } from "@react-three/drei";
 import CanvasSurface, { getCanvasDpr } from "./CanvasSurface";
-import { createRendererOpaque, getRendererType } from "./createWebGPURenderer";
+import { createRendererOpaque, getRendererType } from "../../lib/rendering/gpuDualPath";
 import { logWebGPU } from "../../lib/webgpu/debugWebGPU";
 import { useWebglStore } from "../../store/webgl";
-import ArchiveScene from "./ArchiveScene";
 import WorkPageScene from "./WorkPageScene";
 import ShaderCompiler from "./ShaderCompiler";
 import {
@@ -14,6 +13,8 @@ import {
   ProjectDetailCanvasBranch,
   TestCanvasBranch,
 } from "./GlobalSceneBranches";
+import InkTransitionOverlay from "./InkTransitionOverlay";
+import WarmupOrchestrator from "./WarmupOrchestrator";
 
 function UnifiedScene({ activePage }) {
   switch (activePage) {
@@ -25,12 +26,7 @@ function UnifiedScene({ activePage }) {
         </>
       );
     case "archive":
-      return (
-        <>
-          <PerspectiveCamera makeDefault position={[0, 0, 3.8]} fov={70} />
-          <ArchiveScene />
-        </>
-      );
+      return <HomeCanvasBranch />;
     case "projectDetail":
       return <ProjectDetailCanvasBranch />;
     case "notFound":
@@ -68,7 +64,9 @@ export default function UnifiedCanvas({ activePage }) {
       <Suspense fallback={null}>
         <UnifiedScene activePage={activePage} />
         <ShaderCompiler sceneKey={activePage} />
+        <WarmupOrchestrator activePage={activePage} />
       </Suspense>
+      <InkTransitionOverlay />
     </CanvasSurface>
   );
 }

@@ -2,11 +2,11 @@
 import { useLayoutEffect, useRef } from "react";
 import gsap from "gsap";
 import { triggerNavHaptic } from "../../scripts/haptic-feedback";
+import { MOTION_TOKENS } from "../lib/animation/motionTokens";
 
 /**
  * CodePen-style stacked duplicate line + per-glyph Y slide (web_taku / QWmXyLd).
- * Must live under an `<a>`; GSAP binds to the parent anchor. Rendered by React so
- * parent re-renders do not wipe imperative DOM from link-hover init.
+ * Parent must be an `<a>` or `<button>`; GSAP binds to that interactive ancestor.
  */
 export default function RotateHoverLabel({ text }) {
   const clipRef = useRef(null);
@@ -15,42 +15,64 @@ export default function RotateHoverLabel({ text }) {
   useLayoutEffect(() => {
     const clip = clipRef.current;
     if (!clip) return;
-    const link = clip.closest("a");
-    if (!link) return;
+    const interactive = clip.closest("a, button");
+    if (!interactive) return;
 
     const allSpans = clip.querySelectorAll(".nav-link-hover__track > span");
     if (!allSpans.length) return;
 
-    link.classList.add("nav-link-hover");
+    interactive.classList.add("nav-link-hover");
 
-    /** Clip only the first line here so the duplicate track never peeks past the anchor/grid row. */
+    // Keep viewport locked to one text line so stacked clone stays hidden.
+    const CLIP_BUFFER_PX = 0.5;
+
+    const resolveLineHeightPx = () => {
+      const cs = getComputedStyle(interactive);
+      const lh = cs.lineHeight;
+      if (lh === "normal") {
+        const fs = parseFloat(cs.fontSize) || 16;
+        return fs * 1.2;
+      }
+      const px = parseFloat(lh);
+      return Number.isFinite(px) && px > 0 ? px : 20;
+    };
+
+    const measureTrackHeight = (firstTrack) => {
+      const rectH = firstTrack.getBoundingClientRect().height;
+      const scrollH = firstTrack.scrollHeight;
+      const offsetH = firstTrack.offsetHeight;
+      const measured = Math.max(rectH, scrollH, offsetH, resolveLineHeightPx());
+      return measured;
+    };
+
     const applyClipHeight = () => {
       const firstTrack = clip.querySelector(".nav-link-hover__track");
       if (!firstTrack) return;
 
       void clip.offsetHeight;
       void firstTrack.offsetHeight;
-      let h = firstTrack.offsetHeight;
-      if (h <= 0) h = firstTrack.getBoundingClientRect().height;
-      if (h <= 0) {
-        const cs = getComputedStyle(link);
-        const lh = cs.lineHeight;
-        if (lh === "normal") {
-          const fs = parseFloat(cs.fontSize) || 16;
-          h = fs * 1.25;
-        } else {
-          h = parseFloat(lh) || 20;
-        }
-      }
-      clip.style.height = `${Math.ceil(h)}px`;
+      const h = measureTrackHeight(firstTrack);
+      clip.style.height = `${Math.max(1, Math.round(h + CLIP_BUFFER_PX))}px`;
     };
 
     applyClipHeight();
-    const raf = requestAnimationFrame(applyClipHeight);
+    const raf = requestAnimationFrame(() => applyClipHeight());
 
-    const stagger = { amount: 0.14 * 1.15, from: "start" };
-    const ease = "power1.out";
-    const duration = 0.45;
+    if (typeof document !== "undefined" && document.fonts?.ready) {
+      void document.fonts.ready.then(() => applyClipHeight());
+    }
+
+    const ro =
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => applyClipHeight()) : null;
+    if (ro) {
+      const firstTrackEl = clip.querySelector(".nav-link-hover__track");
+      if (firstTrackEl) ro.observe(firstTrackEl);
+      ro.observe(interactive);
+    }
+
+    const stagger = { amount: MOTION_TOKENS.navHover.staggerAmount, from: "start" };
+    const ease = MOTION_TOKENS.navHover.ease;
+    const duration = MOTION_TOKENS.navHover.duration;
 
     const onEnter = () => {
       triggerNavHaptic("hover");
@@ -61,16 +83,17 @@ export default function RotateHoverLabel({ text }) {
       gsap.to(allSpans, { yPercent: 0, duration, ease, stagger });
     };
 
-    link.addEventListener("mouseenter", onEnter);
-    link.addEventListener("mouseleave", onLeave);
+    interactive.addEventListener("mouseenter", onEnter);
+    interactive.addEventListener("mouseleave", onLeave);
 
     return () => {
       cancelAnimationFrame(raf);
+      ro?.disconnect();
       gsap.killTweensOf(allSpans);
-      link.removeEventListener("mouseenter", onEnter);
-      link.removeEventListener("mouseleave", onLeave);
+      interactive.removeEventListener("mouseenter", onEnter);
+      interactive.removeEventListener("mouseleave", onLeave);
       clip.style.height = "";
-      link.classList.remove("nav-link-hover");
+      interactive.classList.remove("nav-link-hover");
     };
   }, [text]);
 

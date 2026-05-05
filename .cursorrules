@@ -36,3 +36,16 @@ Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
 2. Use `detect_changes` for code review.
 3. Use `get_affected_flows` to understand impact.
 4. Use `query_graph` pattern="tests_for" to check coverage.
+
+## WebGPU-first (Duforn site architecture)
+
+This repo’s 3D stack is **WebGPU-first**: `UnifiedCanvas` uses **`WebGPURenderer`** when supported (`createWebGPURenderer.ts`), with **classic `WebGLRenderer` as fallback only**.
+
+When adding or changing GPU work:
+
+- **Target WebGPU + TSL first** (`three/webgpu`, `three/tsl`): async material builders, `uniform()`, `Fn()`, `pass()`, same patterns as `InkTransitionOverlay.tsx`, `WorkClothStrip.tsx`, `Particles.tsx`.
+- **Post / fullscreen effects** on WebGPU: **`RenderPipeline` + `pass(scene, camera)`** and TSL nodes (e.g. `three/addons/tsl/display/*`), not `EffectComposer` / jsm postprocessing (those are **WebGLRenderer-only**). Reference: **`InkTransitionOverlay.tsx`** (and other in-repo fullscreen TSL stacks).
+- **Branch on `isWebGPURenderer(gl)` / `isWebGLRenderer(gl)`** from `createWebGPURenderer.ts`; put WebGL-only `ShaderMaterial` / `EffectComposer` in explicit fallback branches.
+- Implementing a feature **only** for WebGL while the main canvas is WebGPU is wrong unless it is clearly the fallback path.
+
+See **`AGENTS.md`** → *WebGPU-first rendering* for the full checklist.

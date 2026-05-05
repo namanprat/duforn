@@ -1,15 +1,35 @@
 // @ts-nocheck
-import React, { useRef, useEffect, useState, useCallback } from "react";
+import React, { useRef, useEffect, useState, useCallback, Suspense } from "react";
+import { flushSync } from "react-dom";
 import { useLocation } from "react-router-dom";
 import gsap from "gsap";
 import { navigateTo } from "../../lib/navigationBridge";
+import { canvasInk } from "../../lib/fx/canvasInkTransition";
+import { resolveCanvasInkOrigin } from "../../lib/fx/canvasInkOrigin";
+import {
+  CANVAS_INK_MENU_TIMING,
+  CANVAS_INK_ROUTE_TIMING,
+  normalizePath,
+} from "../../lib/canvasInkRoute";
+import {
+  hideAllRegisteredMenuText,
+  hideAllRegisteredPageText,
+  showAllRegisteredMenuText,
+  showAllRegisteredPageText,
+} from "../../lib/textReveal/textRevealRegistry";
 import UnifiedCanvas from "../webgl/UnifiedCanvas";
+import TextRevealLines from "../textReveal/TextRevealLines";
+import RotateHoverLabel from "../RotateHoverLabel";
 import { useWebglStore } from "../../store/webgl";
 import { useLoadingStore } from "../../store/loading";
+import { usePreloaderOverlayStore } from "../../store/preloaderOverlayStore";
 import { requestDeviceOrientationPermission } from "../../../scripts/runtime/motion";
 import { triggerNavHaptic } from "../../../scripts/haptic-feedback";
 import { shouldUseNavRotateHover } from "../../../scripts/link-hover";
-import RotateHoverLabel from "../RotateHoverLabel";
+
+const LazyProjectDetailSceneControls = import.meta.env.DEV
+  ? React.lazy(() => import("../debug/ProjectDetailSceneControls"))
+  : null;
 
 function NavLink({ to, className, children, ...props }) {
   const location = useLocation();
@@ -34,8 +54,6 @@ function NavLink({ to, className, children, ...props }) {
   };
 
   const isActive = location.pathname === to;
-  const useRotateHover =
-    shouldUseNavRotateHover() && !isActive && typeof children === "string" && children.length > 0;
 
   return (
     <a
@@ -43,18 +61,41 @@ function NavLink({ to, className, children, ...props }) {
       className={className}
       onClick={handleClick}
       aria-current={isActive ? "page" : undefined}
-      data-rotate-hover={useRotateHover ? "" : undefined}
       {...restProps}
     >
-      {useRotateHover ? <RotateHoverLabel text={children} /> : children}
+      {children}
     </a>
   );
 }
 
-function FullscreenMenu({ isMenuOpen, menuRef, onCloseMenu, onBackdropClick }) {
+function FullscreenMenu({
+  isMenuOpen,
+  menuRef,
+  onCloseMenu,
+  onBackdropClick,
+  surfaceSolid,
+  rotateHoverLabels,
+}) {
+  const menuLink = (to, label) => (
+    <NavLink
+      className="menu-fullscreen__link u-text-style-h2 u-text-style-font-primary"
+      to={to}
+      onClick={onCloseMenu}
+      data-rotate-hover={rotateHoverLabels ? "" : undefined}
+    >
+      {rotateHoverLabels ? (
+        <RotateHoverLabel text={label} />
+      ) : (
+        <TextRevealLines scope="menu" animateOnScroll={false}>
+          <span className="menu-fullscreen__link-label">{label}</span>
+        </TextRevealLines>
+      )}
+    </NavLink>
+  );
+
   return (
     <div
-      className={`menu-wrap menu-wrap--fullscreen${isMenuOpen ? " is-open" : ""}`}
+      className={`menu-wrap menu-wrap--fullscreen${isMenuOpen ? " is-open" : ""}${surfaceSolid ? " menu-wrap--surface-solid" : ""}`}
       ref={menuRef}
       id="site-menu"
       role="dialog"
@@ -69,53 +110,17 @@ function FullscreenMenu({ isMenuOpen, menuRef, onCloseMenu, onBackdropClick }) {
             className="menu-fullscreen__brand u-text-style-h3 u-text-style-font-primary"
             to="/"
             onClick={onCloseMenu}
+            data-rotate-hover={rotateHoverLabels ? "" : undefined}
           >
-            duforn
+            {rotateHoverLabels ? <RotateHoverLabel text="duforn" /> : "duforn"}
           </NavLink>
-          <button
-            type="button"
-            className="menu-fullscreen__close u-text-style-small u-text-style-font-secondary"
-            onClick={onCloseMenu}
-          >
-            CLOSE
-          </button>
         </div>
         <nav className="menu-fullscreen__nav" aria-label="Primary navigation">
-          <NavLink
-            className="menu-fullscreen__link u-text-style-h2 u-text-style-font-primary"
-            to="/"
-            onClick={onCloseMenu}
-          >
-            HOME
-          </NavLink>
-          <NavLink
-            className="menu-fullscreen__link u-text-style-h2 u-text-style-font-primary"
-            to="/work"
-            onClick={onCloseMenu}
-          >
-            WORK
-          </NavLink>
-          <NavLink
-            className="menu-fullscreen__link u-text-style-h2 u-text-style-font-primary"
-            to="/contact"
-            onClick={onCloseMenu}
-          >
-            CONTACT
-          </NavLink>
-          <NavLink
-            className="menu-fullscreen__link u-text-style-h2 u-text-style-font-primary"
-            to="/archive"
-            onClick={onCloseMenu}
-          >
-            ARCHIVE
-          </NavLink>
-          <NavLink
-            className="menu-fullscreen__link u-text-style-h2 u-text-style-font-primary"
-            to="/money-me"
-            onClick={onCloseMenu}
-          >
-            PROJECT
-          </NavLink>
+          {menuLink("/", "HOME")}
+          {menuLink("/work", "WORK")}
+          {menuLink("/contact", "CONTACT")}
+          {menuLink("/archive", "ARCHIVE")}
+          {menuLink("/money-me", "PROJECT")}
         </nav>
       </div>
     </div>
@@ -124,15 +129,19 @@ function FullscreenMenu({ isMenuOpen, menuRef, onCloseMenu, onBackdropClick }) {
 
 export default function SiteLayout({ children }) {
   const location = useLocation();
-  const hideNavBrand = location.pathname === "/" || location.pathname === "/test";
   const activePage = useWebglStore((s) => s.activePage);
+  const rendererType = useWebglStore((s) => s.rendererType);
   const setGyroEnabled = useWebglStore((s) => s.setGyroEnabled);
-  const phase = useLoadingStore((s) => s.phase);
+  const progress = useLoadingStore((s) => s.progress);
+  const essentialsReady = useLoadingStore((s) => s.essentialsReady);
+  const setPreloaderOverlayVisible = usePreloaderOverlayStore((s) => s.setVisible);
   const [preloaderFading, setPreloaderFading] = useState(false);
   const [preloaderVisible, setPreloaderVisible] = useState(true);
   const [introRingComplete, setIntroRingComplete] = useState(false);
   const [permissionsPending, setPermissionsPending] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  /** When false while open, menu-wrap is transparent so the UnifiedCanvas ink overlay reads as the backdrop. */
+  const [menuSurfaceSolid, setMenuSurfaceSolid] = useState(true);
   const preloaderTimerRef = useRef(0);
   const introTimelineRef = useRef(null);
   const preloaderRef = useRef(null);
@@ -140,36 +149,112 @@ export default function SiteLayout({ children }) {
   const strokeProgressRef = useRef(null);
   const menuRef = useRef(null);
   const menuToggleRef = useRef(null);
+  const introHitRef = useRef(null);
   const previouslyFocusedElementRef = useRef(null);
   const previousIsMenuOpenRef = useRef(false);
+  const closeMenuRef = useRef(() => {});
+  const previousPathnameForMenuRef = useRef(null);
+  /** Used to avoid forcing page text `show()` after a menu link navigation (new route owns reveal). */
+  const menuOpenedPathnameRef = useRef(null);
+  const useNavRotateHover = shouldUseNavRotateHover();
+
+  useEffect(() => {
+    setPreloaderOverlayVisible(preloaderVisible);
+  }, [preloaderVisible, setPreloaderOverlayVisible]);
+
+  useEffect(() => {
+    const onClose = () => {
+      void closeMenuRef.current();
+    };
+    window.addEventListener("duforn:nav-close-menu", onClose);
+    return () => window.removeEventListener("duforn:nav-close-menu", onClose);
+  }, []);
 
   useEffect(() => {
     document.body.classList.toggle("preloader-active", preloaderVisible);
     return () => document.body.classList.remove("preloader-active");
   }, [preloaderVisible]);
 
-  const closeMenu = useCallback(() => {
-    setIsMenuOpen(false);
-  }, []);
+  const maybeRestorePageTextAfterMenuClose = useCallback(() => {
+    const openedOn = menuOpenedPathnameRef.current;
+    menuOpenedPathnameRef.current = null;
+    if (openedOn === normalizePath(location.pathname)) {
+      void showAllRegisteredPageText();
+    }
+  }, [location.pathname]);
 
-  const openMenu = useCallback(() => {
+  const closeMenu = useCallback(async () => {
+    if (!isMenuOpen) {
+      setMenuSurfaceSolid(true);
+      return;
+    }
+    await hideAllRegisteredMenuText();
+    if (rendererType === "webgpu" && canvasInk.isReady?.()) {
+      void canvasInk.enter({
+        skipExpand: true,
+        origin: resolveCanvasInkOrigin(menuToggleRef.current),
+        expandMs: CANVAS_INK_MENU_TIMING.expandMs,
+        holdMs: 0,
+        collapseMs: CANVAS_INK_MENU_TIMING.collapseMs,
+        onCovered: () => {
+          flushSync(() => {
+            setMenuSurfaceSolid(true);
+            setIsMenuOpen(false);
+          });
+          maybeRestorePageTextAfterMenuClose();
+        },
+      });
+    } else {
+      setMenuSurfaceSolid(true);
+      setIsMenuOpen(false);
+      maybeRestorePageTextAfterMenuClose();
+    }
+  }, [isMenuOpen, maybeRestorePageTextAfterMenuClose, rendererType]);
+
+  closeMenuRef.current = closeMenu;
+
+  const openMenu = useCallback(async () => {
+    if (typeof window !== "undefined" && window.matchMedia("(min-width: 769px)").matches) {
+      return;
+    }
+    await hideAllRegisteredPageText();
     previouslyFocusedElementRef.current = document.activeElement;
-    setIsMenuOpen(true);
-    triggerNavHaptic("click");
-  }, []);
+    if (rendererType === "webgpu" && canvasInk.isReady?.()) {
+      try {
+        await canvasInk.cover({
+          origin: resolveCanvasInkOrigin(menuToggleRef.current),
+          expandMs: CANVAS_INK_MENU_TIMING.expandMs,
+        });
+        flushSync(() => {
+          setMenuSurfaceSolid(false);
+          setIsMenuOpen(true);
+          menuOpenedPathnameRef.current = normalizePath(location.pathname);
+        });
+      } catch {
+        flushSync(() => {
+          setMenuSurfaceSolid(true);
+          setIsMenuOpen(true);
+          menuOpenedPathnameRef.current = normalizePath(location.pathname);
+        });
+      }
+    } else {
+      flushSync(() => {
+        setMenuSurfaceSolid(true);
+        setIsMenuOpen(true);
+        menuOpenedPathnameRef.current = normalizePath(location.pathname);
+      });
+    }
+    await showAllRegisteredMenuText();
+  }, [location.pathname, rendererType]);
 
   const toggleMenu = useCallback(() => {
+    triggerNavHaptic("click");
     if (isMenuOpen) {
-      triggerNavHaptic("click");
       closeMenu();
       return;
     }
     openMenu();
   }, [closeMenu, isMenuOpen, openMenu]);
-
-  const onMenuToggleTouchStart = useCallback(() => {
-    triggerNavHaptic("nudge");
-  }, []);
 
   const dismissPreloader = useCallback(() => {
     if (!preloaderVisible || preloaderFading) return;
@@ -187,83 +272,32 @@ export default function SiteLayout({ children }) {
     }, 600);
   }, [preloaderFading, preloaderVisible]);
 
+  /**
+   * Drive the preloader ring from real preloader-gate progress.
+   *
+   * - `track` stays fully visible (dashoffset 0) as a static reference ring.
+   * - `progress` (highlighted ring) is tweened to `circumference * (1 - progress)`
+   *   whenever the gate snapshot changes.
+   * - When `essentialsReady && progress >= 1`, after the catch-up tween settles
+   *   we flip `introRingComplete = true` so the Enter button activates.
+   * - Reduced-motion + non-WebGPU paths skip the tween entirely.
+   */
   useEffect(() => {
-    const prefersReducedMotion =
-      typeof window !== "undefined" &&
-      typeof window.matchMedia === "function" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    if (prefersReducedMotion) {
-      setIntroRingComplete(true);
-      return undefined;
-    }
-
     if (!preloaderVisible) return undefined;
     if (!preloaderRef.current || !strokeTrackRef.current || !strokeProgressRef.current)
       return undefined;
 
-    const track = strokeTrackRef.current;
-    const progress = strokeProgressRef.current;
-    const pathLength = track.getTotalLength();
+    const trackEl = strokeTrackRef.current;
+    const progressEl = strokeProgressRef.current;
+    const pathLength = trackEl.getTotalLength();
+
     const ctx = gsap.context(() => {
-      gsap.set([track, progress], {
-        strokeDasharray: pathLength,
-        strokeDashoffset: pathLength,
-      });
+      gsap.set(trackEl, { strokeDasharray: pathLength, strokeDashoffset: 0 });
+      gsap.set(progressEl, { strokeDasharray: pathLength, strokeDashoffset: pathLength });
       gsap.set(preloaderRef.current, {
         clipPath: "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)",
         scale: 1,
       });
-
-      const tl = gsap.timeline({
-        delay: 0.25,
-        onComplete: () => {
-          setIntroRingComplete(true);
-        },
-      });
-      introTimelineRef.current = tl;
-      tl.to(
-        track,
-        {
-          strokeDashoffset: 0,
-          duration: 2,
-          ease: "power3.inOut",
-        },
-        0.1,
-      )
-        .to(
-          ".intro-preloader .intro-preloader-ring svg",
-          {
-            rotation: 270,
-            duration: 2,
-            ease: "power3.inOut",
-          },
-          0.1,
-        )
-        .to(
-          progress,
-          {
-            strokeDashoffset: pathLength - pathLength * 0.2,
-            duration: 0.55,
-            ease: "power2.out",
-          },
-          0.65,
-        )
-        .to(progress, {
-          strokeDashoffset: pathLength - pathLength * 0.55,
-          duration: 0.55,
-          ease: "power2.out",
-        })
-        .to(progress, {
-          strokeDashoffset: pathLength - pathLength * 0.85,
-          duration: 0.55,
-          ease: "power2.out",
-        })
-        .to(progress, {
-          strokeDashoffset: 0,
-          duration: 0.5,
-          ease: "power2.out",
-        });
     }, preloaderRef);
 
     return () => {
@@ -273,6 +307,49 @@ export default function SiteLayout({ children }) {
       ctx.revert();
     };
   }, [preloaderVisible]);
+
+  /**
+   * Reactive ring binding — re-runs whenever the preloader-gate snapshot changes.
+   * Also flips `introRingComplete` once essentials are ready and the catch-up
+   * tween reaches the full circle.
+   */
+  useEffect(() => {
+    if (!preloaderVisible) return undefined;
+    const progressEl = strokeProgressRef.current;
+    const trackEl = strokeTrackRef.current;
+    if (!progressEl || !trackEl) return undefined;
+
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const pathLength = trackEl.getTotalLength();
+    const target = pathLength * (1 - Math.max(0, Math.min(1, progress)));
+    const isReady = essentialsReady && progress >= 0.999;
+
+    if (prefersReducedMotion) {
+      gsap.set(progressEl, { strokeDashoffset: target });
+      if (isReady) setIntroRingComplete(true);
+      return undefined;
+    }
+
+    introTimelineRef.current?.kill();
+    const tween = gsap.to(progressEl, {
+      strokeDashoffset: target,
+      duration: isReady ? 0.3 : 0.45,
+      ease: isReady ? "power2.out" : "power2.inOut",
+      overwrite: true,
+      onComplete: () => {
+        if (isReady) setIntroRingComplete(true);
+      },
+    });
+    introTimelineRef.current = tween;
+
+    return () => {
+      tween.kill();
+    };
+  }, [preloaderVisible, progress, essentialsReady]);
 
   const requestExperiencePermissions = useCallback(async () => {
     let gyroAllowed = false;
@@ -285,36 +362,79 @@ export default function SiteLayout({ children }) {
     }
     setGyroEnabled(gyroAllowed);
 
-    try {
-      const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
-      if (AudioContextCtor) {
-        const audioContext = new AudioContextCtor();
-        if (audioContext.state !== "running") {
-          await audioContext.resume();
-        }
-      }
-    } catch {
-      if (!localError) {
-        localError = "Audio could not be enabled right now; continuing silently.";
-      }
-    }
-
     return { gyroAllowed, localError };
   }, [setGyroEnabled]);
 
   const handleIntroEnter = useCallback(async () => {
-    if (!introRingComplete || phase !== "ready" || permissionsPending) return;
+    if (!introRingComplete || permissionsPending) return;
     setPermissionsPending(true);
     await requestExperiencePermissions();
     setPermissionsPending(false);
-    dismissPreloader();
+
+    if (rendererType !== "webgpu") {
+      dismissPreloader();
+      return;
+    }
+
+    const path = normalizePath(window.location.pathname);
+    const surface = path === "/archive" ? "archive" : "home";
+    const timing = CANVAS_INK_ROUTE_TIMING;
+
+    try {
+      await canvasInk.enter({
+        surface,
+        skipExpand: true,
+        origin: resolveCanvasInkOrigin(introHitRef.current),
+        expandMs: timing.expandMs,
+        holdMs: timing.holdMs,
+        collapseMs: timing.collapseMs,
+        onCovered: () => {
+          flushSync(() => {
+            setPreloaderVisible(false);
+            setPreloaderFading(false);
+          });
+          window.dispatchEvent(
+            new CustomEvent("duforn:preloader-dismissed", {
+              detail: { pathname: window.location.pathname },
+            }),
+          );
+        },
+      });
+    } catch {
+      flushSync(() => {
+        setPreloaderVisible(false);
+        setPreloaderFading(false);
+      });
+      window.dispatchEvent(
+        new CustomEvent("duforn:preloader-dismissed", {
+          detail: { pathname: window.location.pathname },
+        }),
+      );
+    }
   }, [
     dismissPreloader,
     introRingComplete,
     permissionsPending,
-    phase,
+    rendererType,
     requestExperiencePermissions,
   ]);
+
+  const introEnterDisabled = !introRingComplete || permissionsPending;
+
+  useEffect(() => {
+    if (!preloaderVisible || introEnterDisabled) return;
+
+    const onKeyDown = (event) => {
+      if (event.key !== "Enter") return;
+      const tag = event.target?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || event.target?.isContentEditable) return;
+      event.preventDefault();
+      void handleIntroEnter();
+    };
+
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [handleIntroEnter, introEnterDisabled, preloaderVisible]);
 
   useEffect(() => {
     return () => {
@@ -325,13 +445,31 @@ export default function SiteLayout({ children }) {
   }, []);
 
   useEffect(() => {
-    closeMenu();
-  }, [closeMenu, location.pathname]);
+    const prev = previousPathnameForMenuRef.current;
+    previousPathnameForMenuRef.current = location.pathname;
+    if (prev !== null && prev !== location.pathname) {
+      closeMenuRef.current();
+    }
+  }, [location.pathname]);
 
   useEffect(() => {
     document.body.classList.toggle("menu-open", isMenuOpen);
     return () => document.body.classList.remove("menu-open");
   }, [isMenuOpen]);
+
+  /** Fullscreen menu is mobile-only; clear state if viewport crosses to desktop so scroll/overlay never stick. */
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
+    const mq = window.matchMedia("(max-width: 768px)");
+    const onChange = () => {
+      if (!mq.matches) {
+        closeMenuRef.current();
+      }
+    };
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
   useEffect(() => {
     const wasOpen = previousIsMenuOpenRef.current;
@@ -407,31 +545,33 @@ export default function SiteLayout({ children }) {
 
       {preloaderVisible && (
         <section
-          className="preloader intro-preloader"
+          className="preloader intro-preloader u-min-height-screen"
           aria-label="Website preloader"
           data-state={preloaderFading ? "fading" : "visible"}
           ref={preloaderRef}
         >
           <div className="intro-preloader-main intro-preloader-main--centered">
             <button
+              ref={introHitRef}
               type="button"
               className="intro-preloader-center-hit"
               onClick={handleIntroEnter}
-              disabled={!introRingComplete || phase !== "ready" || permissionsPending}
+              disabled={!introRingComplete || permissionsPending}
               aria-label={
-                !introRingComplete
-                  ? "Playing intro animation"
-                  : phase !== "ready"
-                    ? "Loading experience"
+                !essentialsReady
+                  ? "Loading essential assets"
+                  : !introRingComplete
+                    ? "Finishing intro animation"
                     : permissionsPending
                       ? "Requesting device permissions"
                       : "Enter site"
               }
+              aria-busy={!introRingComplete}
             >
               <span
                 className={`intro-preloader-action-tagline${introRingComplete ? " intro-preloader-action-tagline--hidden" : ""}`}
               >
-                DUFORN
+                {essentialsReady ? "DUFORN" : "LOADING"}
               </span>
               <span
                 className={`intro-preloader-enter-label${introRingComplete ? " intro-preloader-enter-label--active" : ""}`}
@@ -458,45 +598,48 @@ export default function SiteLayout({ children }) {
 
       <header>
         <nav className="nav-wrap u-position-fixed">
-          <div className="nav-contain u-container-full u-gap-3">
-            <NavLink className="u-mobile-hidden" to="/work">
-              work
+          <div className="nav-contain u-container-full">
+            <NavLink
+              className="u-mobile-hidden"
+              to="/contact"
+              data-rotate-hover={useNavRotateHover ? "" : undefined}
+            >
+              {useNavRotateHover ? <RotateHoverLabel text="contact" /> : "contact"}
             </NavLink>
-            {hideNavBrand ? (
-              <span
-                className="link-main u-display-inline-block u-pointer-off u-mobile-hidden"
-                aria-hidden="true"
-                style={{ visibility: "hidden", whiteSpace: "nowrap" }}
-              >
-                DUFORN
-              </span>
-            ) : (
-              <NavLink to="/" className="link-main nav-brand">
-                DUFORN
-              </NavLink>
-            )}
-            <NavLink className="u-mobile-hidden" to="/contact">
-              contact
+            <NavLink
+              to="/"
+              className="link-main nav-brand"
+              data-rotate-hover={useNavRotateHover ? "" : undefined}
+            >
+              {useNavRotateHover ? <RotateHoverLabel text="DUFORN" /> : "DUFORN"}
+            </NavLink>
+            <NavLink
+              className="u-mobile-hidden"
+              to="/work"
+              data-rotate-hover={useNavRotateHover ? "" : undefined}
+            >
+              {useNavRotateHover ? <RotateHoverLabel text="work" /> : "work"}
             </NavLink>
             <button
               ref={menuToggleRef}
-              className="menu-toggle-btn"
+              className="menu-toggle-btn button button-primary"
               type="button"
               aria-label={isMenuOpen ? "Close menu" : "Open menu"}
               aria-haspopup="dialog"
               aria-controls="site-menu"
               aria-expanded={isMenuOpen}
-              onTouchStart={onMenuToggleTouchStart}
               onClick={toggleMenu}
             >
-              <span className="menu-toggle-btn-wrapper">MENU</span>
+              <span className="menu-toggle-btn-wrapper">{isMenuOpen ? "CLOSE" : "MENU"}</span>
             </button>
           </div>
         </nav>
 
         <div className="bottom-nav-wrap u-position-fixed u-container-full u-mobile-hidden">
           <div className="bottom-nav-contain u-flex-horizontal-nowrap u-justify-content-between u-align-items-center u-gap-3 u-width-full">
-            <NavLink to="/archive">archive</NavLink>
+            <NavLink to="/archive" data-rotate-hover={useNavRotateHover ? "" : undefined}>
+              {useNavRotateHover ? <RotateHoverLabel text="archive" /> : "archive"}
+            </NavLink>
             <div id="time" aria-live="polite">
               12:34:56 IST
             </div>
@@ -506,6 +649,8 @@ export default function SiteLayout({ children }) {
         <FullscreenMenu
           isMenuOpen={isMenuOpen}
           menuRef={menuRef}
+          surfaceSolid={menuSurfaceSolid}
+          rotateHoverLabels={useNavRotateHover}
           onCloseMenu={closeMenu}
           onBackdropClick={handleMenuBackdropClick}
         />
@@ -514,6 +659,12 @@ export default function SiteLayout({ children }) {
       <div className="page-canvas">
         <UnifiedCanvas activePage={activePage} />
       </div>
+
+      {LazyProjectDetailSceneControls && activePage === "projectDetail" ? (
+        <Suspense fallback={null}>
+          <LazyProjectDetailSceneControls />
+        </Suspense>
+      ) : null}
 
       {children}
 

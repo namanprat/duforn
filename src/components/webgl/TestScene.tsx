@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { Suspense, useEffect, useLayoutEffect, useRef } from "react";
 import * as THREE from "three";
-import TestModel from "../../models/TestModel";
+import TestModel from "../../models/generated/TestModel";
 import { useTestSceneControlsStore } from "../../store/testSceneControls";
 import { applyModelMaterialTuning, normalizeModelBounds } from "./sceneUtils";
 

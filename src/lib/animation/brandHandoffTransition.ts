@@ -38,18 +38,20 @@ function setRestingState(namespace, { clearHeroTitleChars = true } = {}) {
   }
 
   if (homeBrand) {
-    if (clearHeroTitleChars) clearTitleMotion(homeBrand);
+    const handoffToTextReveal = homeBrand.hasAttribute?.("data-text-reveal-root");
+    if (!handoffToTextReveal && clearHeroTitleChars) clearTitleMotion(homeBrand);
     gsap.set(homeBrand, {
       autoAlpha: 1,
-      clearProps: "transform",
+      ...(handoffToTextReveal ? {} : { clearProps: "transform" }),
     });
   }
 
   if (contactBrand) {
-    if (clearHeroTitleChars) clearTitleMotion(contactBrand);
+    const handoffToTextReveal = contactBrand.hasAttribute?.("data-text-reveal-root");
+    if (!handoffToTextReveal && clearHeroTitleChars) clearTitleMotion(contactBrand);
     gsap.set(contactBrand, {
       autoAlpha: 1,
-      clearProps: "transform",
+      ...(handoffToTextReveal ? {} : { clearProps: "transform" }),
     });
   }
 }

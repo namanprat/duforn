@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { ACESFilmicToneMapping, SRGBColorSpace, WebGLRenderer } from "three";
-import { GPUFeatureName } from "three/src/renderers/webgpu/utils/WebGPUConstants.js";
 import { logWebGPU, logWebGPUOnce } from "../../lib/webgpu/debugWebGPU";
+import { getClampedPixelRatio } from "../../lib/rendering/canvasPixelRatio";
 
 let webgpuSupportPromise;
 const ENABLE_WEBGPU = true;
@@ -39,16 +39,9 @@ async function createWebGPUDevice() {
   });
   if (!adapter) return null;
 
-  const supportedFeatures = [];
-  for (const name of Object.values(GPUFeatureName)) {
-    if (adapter.features.has(name)) {
-      supportedFeatures.push(name);
-    }
-  }
-
   try {
     return await adapter.requestDevice({
-      requiredFeatures: supportedFeatures,
+      requiredFeatures: [],
       requiredLimits: {},
     });
   } catch {
@@ -60,7 +53,7 @@ function configureRenderer(renderer, { alpha }) {
   renderer.outputColorSpace = SRGBColorSpace;
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setPixelRatio(getClampedPixelRatio(2));
   renderer.setSize(window.innerWidth, window.innerHeight, false);
 
   if ("shadowMap" in renderer && renderer.shadowMap) {

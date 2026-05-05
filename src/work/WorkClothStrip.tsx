@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
 
@@ -7,9 +7,8 @@ import { createColorFallbackTexture, loadTextureAssets } from "../../scripts/run
 import { getPreloadedTextures } from "../../scripts/work-preload";
 import { workItems } from "../../data/work-items";
 import { navigateTo } from "../lib/navigationBridge";
-import { isWebGPURenderer } from "../components/webgl/createWebGPURenderer";
+import { pickGpuBranch } from "../lib/rendering/gpuDualPath";
 import { logWebGPUOnce } from "../lib/webgpu/debugWebGPU";
-import { useWebglStore } from "../store/webgl";
 import { useWorkSceneControlsStore } from "../store/workSceneControls";
 import { DEFAULT_GAP_SIZE, DEFAULT_VISIBLE_ITEMS } from "./workStripConfig";
 import { getActiveStripItemIndex, resolveVisibleSlotAtUv } from "./workStripMath";
@@ -116,9 +115,6 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
     uGravityScale: uniform(2.0),
     uWaveFrequency: uniform(8.0),
     uWaveAmplitude: uniform(0.16),
-    uRevealProgress: uniform(0.0),
-    uRevealNoiseScale: uniform(6.5),
-    uRevealEdgeSoftness: uniform(0.16),
     uClothSolidity: uniform(15.0),
     uRoughness: uniform(0.7),
     uSheenColor: uniform(new THREE.Color(0.93, 0.92, 0.9)),
@@ -140,10 +136,9 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
     const pos = positionLocal.toVar();
     const uvCoord = uv();
     const time = uniforms.uTime;
-    const revealProgress = uniforms.uRevealProgress;
     const v = uvCoord.y;
     const u = uvCoord.x;
-    const revealMix = smoothstep(float(0), float(0.8), revealProgress);
+    const revealMix = float(1);
     const looseness = smoothstep(float(0), float(0.25), v);
     vLooseness.assign(looseness);
     const area = float(stripConfig.arcSpan * stripConfig.stripHeight);
@@ -190,7 +185,6 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
     const uvCoord = uv();
     const worldPos = vWorldPos;
     const looseness = vLooseness;
-    const revealProgress = uniforms.uRevealProgress;
     const dpdxVal = dFdx(worldPos);
     const dpdyVal = dFdy(worldPos);
     const foldNormal = normalize(cross(dpdxVal, dpdyVal));
@@ -269,28 +263,8 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
     const edgeFade = smoothstep(float(0), float(0.06), uvCoord.x).mul(
       smoothstep(float(0), float(0.06), float(1).sub(uvCoord.x)),
     );
-    const revealNoise = mx_noise_float(
-      vec3(
-        uvCoord.x.mul(uniforms.uRevealNoiseScale),
-        uvCoord.y.mul(uniforms.uRevealNoiseScale),
-        float(0),
-      ),
-    )
-      .mul(0.5)
-      .add(0.5);
-    const revealThreshold = mix(
-      float(1).add(uniforms.uRevealEdgeSoftness),
-      uniforms.uRevealEdgeSoftness.negate(),
-      revealProgress,
-    );
-    const revealMask = smoothstep(
-      revealThreshold.sub(uniforms.uRevealEdgeSoftness),
-      revealThreshold.add(uniforms.uRevealEdgeSoftness),
-      revealNoise,
-    );
-    revealMask.lessThan(float(0.01)).discard();
 
-    return vec4(finalColor, edgeFade.mul(revealMask));
+    return vec4(finalColor, edgeFade);
   });
 
   const mat = new MeshBasicNodeMaterial({
@@ -319,9 +293,6 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
     uWaveAmplitude: { value: 0.08 },
     uWaveFrequency: { value: 13.0 },
     uWindStrength: { value: 5.5 },
-    uRevealProgress: { value: 0.0 },
-    uRevealNoiseScale: { value: 6.5 },
-    uRevealEdgeSoftness: { value: 0.16 },
     uTex0: { value: textures[0] },
     uTex1: { value: textures[1] },
     uTex2: { value: textures[2] },
@@ -340,14 +311,13 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
       uniform float uWaveAmplitude;
       uniform float uWaveFrequency;
       uniform float uWindStrength;
-      uniform float uRevealProgress;
 
       varying vec2 vUv;
       varying float vLooseness;
 
       void main() {
         vUv = uv;
-        float revealMix = smoothstep(0.0, 0.8, uRevealProgress);
+        float revealMix = 1.0;
         float looseness = smoothstep(0.0, 0.25, uv.y);
         vLooseness = looseness;
 
@@ -376,9 +346,6 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
       uniform float uItemsOnStrip;
       uniform float uNumUnique;
       uniform float uTime;
-      uniform float uRevealProgress;
-      uniform float uRevealNoiseScale;
-      uniform float uRevealEdgeSoftness;
 
       varying vec2 vUv;
       varying float vLooseness;
@@ -430,15 +397,8 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
 
         float light = 0.75 + vLooseness * 0.2 + (1.0 - abs(vUv.x - 0.5) * 2.0) * 0.08;
         float rim = pow(1.0 - abs(vUv.x - 0.5) * 2.0, 2.0) * 0.05;
-        float revealNoise = noise2(vUv * uRevealNoiseScale);
-        float revealThreshold = mix(1.0 + uRevealEdgeSoftness, -uRevealEdgeSoftness, uRevealProgress);
-        float revealMask = smoothstep(
-          revealThreshold - uRevealEdgeSoftness,
-          revealThreshold + uRevealEdgeSoftness,
-          revealNoise
-        );
-        if (revealMask < 0.01) discard;
-        gl_FragColor = vec4(color * light + rim, revealMask);
+        float edgeFade = smoothstep(0.0, 0.06, vUv.x) * smoothstep(0.0, 0.06, 1.0 - vUv.x);
+        gl_FragColor = vec4(color * light + rim, edgeFade);
       }
     `,
   });
@@ -448,7 +408,6 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
 
 export function WorkClothStripScene() {
   const { gl } = useThree();
-  const activePage = useWebglStore((state) => state.activePage);
   const systemRef = useRef(null);
   const stripControls = useWorkSceneControlsStore((state) => state.controls.strip);
   const visibleItems = Math.max(1, stripControls.visibleItems ?? DEFAULT_VISIBLE_ITEMS);
@@ -484,23 +443,6 @@ export function WorkClothStripScene() {
   const scrollRef = useRef({ target: 0, current: 0, velocity: 0 });
   const inputRef = useRef({ isDown: false, lastX: 0, startX: 0 });
   const currentTitleRef = useRef("");
-  const revealRef = useRef({ progress: 0, startTime: 0, playing: true });
-
-  const restartReveal = useCallback(() => {
-    revealRef.current.progress = 0;
-    revealRef.current.startTime = 0;
-    revealRef.current.playing = true;
-    const sys = systemRef.current;
-    if (sys && "uRevealProgress" in sys.uniforms) {
-      sys.uniforms.uRevealProgress.value = 0;
-    }
-  }, []);
-
-  useEffect(() => {
-    if (activePage === "work") {
-      restartReveal();
-    }
-  }, [activePage, restartReveal]);
 
   useEffect(() => {
     const element = gl.domElement;
@@ -604,9 +546,10 @@ export function WorkClothStripScene() {
     let cancelled = false;
     if (!activeTextures) return;
 
-    const createClothSystem = isWebGPURenderer(gl)
-      ? createWebGPUClothSystem
-      : createWebGLClothSystem;
+    const createClothSystem = pickGpuBranch(gl, {
+      webgpu: () => createWebGPUClothSystem,
+      webgl: () => createWebGLClothSystem,
+    });
 
     Promise.resolve(createClothSystem(gl, activeTextures, stripConfig))
       .then((system) => {
@@ -633,7 +576,6 @@ export function WorkClothStripScene() {
     const u = sys.uniforms;
     const s = scrollRef.current;
     const isDragging = inputRef.current.isDown;
-    const reveal = revealRef.current;
 
     s.current += (s.target - s.current) * wind.scrollLerp;
     s.velocity *= isDragging ? wind.scrollDraggingDamping : wind.scrollDamping;
@@ -659,23 +601,6 @@ export function WorkClothStripScene() {
     u.uWindStrength.value = sc.windStrength ?? 1.1;
     u.uWaveAmplitude.value = sc.flutterAmplitude ?? 0.08;
     u.uWaveFrequency.value = sc.flutterFrequency ?? 20;
-    if ("uRevealNoiseScale" in u) {
-      u.uRevealNoiseScale.value = sc.revealNoiseScale ?? 6.5;
-      u.uRevealEdgeSoftness.value = sc.revealEdgeSoftness ?? 0.16;
-    }
-    if ("uRevealProgress" in u) {
-      const revealDelay = Math.max(0, sc.revealDelay ?? 0);
-      const revealDuration = Math.max(0.001, sc.revealDuration ?? 1.8);
-      if (reveal.startTime <= 0) {
-        reveal.startTime = time + revealDelay;
-      }
-      if (reveal.playing) {
-        const elapsed = Math.max(0, time - reveal.startTime);
-        reveal.progress = THREE.MathUtils.clamp(elapsed / revealDuration, 0, 1);
-        if (reveal.progress >= 1) reveal.playing = false;
-      }
-      u.uRevealProgress.value = reveal.progress;
-    }
 
     const vi = Math.max(1, sc.visibleItems ?? DEFAULT_VISIBLE_ITEMS);
     const gs = sc.gapSize ?? DEFAULT_GAP_SIZE;

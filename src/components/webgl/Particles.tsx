@@ -2,7 +2,7 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import { isWebGPURenderer } from "./createWebGPURenderer";
+import { pickGpuBranch } from "../../lib/rendering/gpuDualPath";
 import { logWebGPUOnce } from "../../lib/webgpu/debugWebGPU";
 
 const DEFAULT_COUNT = 200;
@@ -278,8 +278,8 @@ export default function Particles({
 }) {
   const { gl } = useThree();
 
-  if (isWebGPURenderer(gl)) {
-    return (
+  return pickGpuBranch(gl, {
+    webgpu: () => (
       <WebGPUParticles
         count={count}
         gl={gl}
@@ -289,17 +289,16 @@ export default function Particles({
         opacity={opacity}
         motion={motion}
       />
-    );
-  }
-
-  return (
-    <WebGLParticles
-      count={count}
-      bounds={bounds}
-      color={color}
-      size={size}
-      opacity={opacity}
-      motion={motion}
-    />
-  );
+    ),
+    webgl: () => (
+      <WebGLParticles
+        count={count}
+        bounds={bounds}
+        color={color}
+        size={size}
+        opacity={opacity}
+        motion={motion}
+      />
+    ),
+  });
 }

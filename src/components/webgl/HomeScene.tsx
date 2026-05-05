@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useLayoutEffect, useRef } from "react";
 import { applyModelMaterialTuning, normalizeModelBounds } from "./sceneUtils";
-import SceneModel from "../../models/SceneModel";
+import SceneModel from "../../models/generated/SceneModel";
 
 const TUNE = {
   roughnessScale: 0.9,

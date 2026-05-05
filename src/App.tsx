@@ -12,6 +12,7 @@ import NotFoundPage from "./routes/NotFoundPage";
 import TestPage from "./routes/TestPage";
 import { useWebglStore } from "./store/webgl";
 import { initLinkHover, destroyLinkHover } from "../scripts/link-hover";
+import { initButtonHoverScale, destroyButtonHoverScale } from "../scripts/button-hover-scale";
 import { initLenis, destroyLenis } from "../scripts/lenis-scroll";
 import { setNavigateHandler } from "./lib/navigationBridge";
 import {
@@ -20,6 +21,10 @@ import {
   runRouteLeaveTransition,
 } from "./lib/animation/routeTransition";
 import { cleanupBrandHandoff, runBrandHandoff } from "./lib/animation/brandHandoffTransition";
+import { canvasInk } from "./lib/fx/canvasInkTransition";
+import { CANVAS_INK_ROUTE_TIMING, shouldUseRouteInkBleed } from "./lib/canvasInkRoute";
+import { hideAllRegisteredPageText } from "./lib/textReveal/textRevealRegistry";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 const TITLES = {
   "/": "Duforn | Home",
@@ -110,9 +115,27 @@ function NavigationBridge() {
         ? document.querySelector('[data-active-canvas="true"]')
         : null;
 
+      const inkReady = canvasInk.isReady?.() ?? false;
+      const useRouteInk = inkReady && shouldUseRouteInkBleed(currentPath, nextPath);
+
       try {
-        await runRouteLeaveTransition({ canvasElement });
-        navigate(nextPath);
+        await hideAllRegisteredPageText();
+
+        if (useRouteInk) {
+          // Ink bleed only for archive / 404; other routes use canvas leave tween.
+          await canvasInk.enter({
+            origin: { x: 0.5, y: 0.5 },
+            expandMs: CANVAS_INK_ROUTE_TIMING.expandMs,
+            holdMs: CANVAS_INK_ROUTE_TIMING.holdMs,
+            collapseMs: CANVAS_INK_ROUTE_TIMING.collapseMs,
+            onCovered: () => {
+              navigate(nextPath);
+            },
+          });
+        } else {
+          await runRouteLeaveTransition({ canvasElement });
+          navigate(nextPath);
+        }
       } finally {
         const completed = currentPathRef.current === nextPath;
         if (completed || transitionRef.current.targetPath === nextPath) {
@@ -157,9 +180,11 @@ function AppShell() {
       await document.fonts.ready;
       if (cancelled) return;
       destroyLinkHover();
+      destroyButtonHoverScale();
       rafId = requestAnimationFrame(() => {
         if (cancelled) return;
         initLinkHover();
+        initButtonHoverScale();
       });
     };
 
@@ -170,6 +195,7 @@ function AppShell() {
       cancelled = true;
       cancelAnimationFrame(rafId);
       destroyLinkHover();
+      destroyButtonHoverScale();
       delete window.__refreshLinkHover;
     };
   }, []);
@@ -211,6 +237,7 @@ function AppShell() {
           : null,
       });
 
+      ScrollTrigger.refresh();
       window.__refreshLinkHover?.();
     };
 

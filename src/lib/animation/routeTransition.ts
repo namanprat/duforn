@@ -21,9 +21,9 @@ function isHomeContactPair(a, b) {
 }
 
 /**
- * One persistent R3F canvas wraps all routes; we still tween its DOM wrapper on namespace changes
- * so leave/enter motion stays aligned with route transitions.
- * Home and contact share the same canvas branch; skip the fade between them.
+ * One persistent R3F canvas wraps all routes. Canvas DOM wrapper slide/fade between namespaces
+ * is disabled — routes swap without leave/enter motion (ink / other FX stay elsewhere).
+ * Home and contact share the same canvas branch; still skip redundant canvas bookkeeping between them.
  */
 export function shouldAnimateCanvasBetweenNamespaces(fromNamespace, toNamespace) {
   if (!fromNamespace || !toNamespace || fromNamespace === toNamespace) return false;
@@ -31,54 +31,22 @@ export function shouldAnimateCanvasBetweenNamespaces(fromNamespace, toNamespace)
   return true;
 }
 
+function resetCanvasWrapper(canvasTargets) {
+  if (!canvasTargets.length) return;
+  killTweens(canvasTargets);
+  gsap.set(canvasTargets, { autoAlpha: 1, yPercent: 0, scale: 1 });
+}
+
 export function runRouteEnterTransition({ canvasElement } = {}) {
   const canvasTargets = compactElements([canvasElement]);
-  const targets = compactElements([...canvasTargets]);
-
-  if (!targets.length) return () => {};
-
-  killTweens(targets);
-
-  const timeline = gsap.timeline({
-    defaults: { ease: "power3.out" },
-  });
-
-  if (canvasTargets.length) {
-    timeline.fromTo(
-      canvasTargets,
-      { autoAlpha: 0, yPercent: 12, scale: 1.02 },
-      { autoAlpha: 1, yPercent: 0, scale: 1, duration: 0.7, clearProps: "transform,opacity" },
-      0,
-    );
-  }
-
+  resetCanvasWrapper(canvasTargets);
   return () => {
-    timeline.kill();
-    killTweens(targets);
+    killTweens(canvasTargets);
   };
 }
 
 export function runRouteLeaveTransition({ canvasElement } = {}) {
   const canvasTargets = compactElements([canvasElement]);
-  const targets = compactElements([...canvasTargets]);
-
-  if (!targets.length) return Promise.resolve();
-
-  killTweens(targets);
-
-  return new Promise((resolve) => {
-    const finish = () => {
-      gsap.set(targets, { clearProps: "transform,opacity" });
-      resolve();
-    };
-    const timeline = gsap.timeline({
-      defaults: { ease: "power3.inOut" },
-      onComplete: finish,
-      onInterrupt: finish,
-    });
-
-    if (canvasTargets.length) {
-      timeline.to(canvasTargets, { autoAlpha: 0, yPercent: -12, scale: 0.985, duration: 0.46 }, 0);
-    }
-  });
+  resetCanvasWrapper(canvasTargets);
+  return Promise.resolve();
 }
