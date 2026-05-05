@@ -14,8 +14,7 @@
     "test:coverage": "vp test run --coverage",
     "lint": "vp lint src scripts",
     "check": "vp check src scripts",
-    "prepare": "vp config",
-    "postinstall": "patch-package --reverse || true; patch-package"
+    "prepare": "vp config"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
