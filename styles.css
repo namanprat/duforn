@@ -312,7 +312,7 @@ html:has(.page-wrap--scrollable) {
 
 /* Navigation */
 .nav-wrap {
-  z-index: var(--z-nav);
+  z-index: calc(var(--z-transition) + 4);
   position: fixed;
   width: 100%;
   top: 0;
@@ -2790,6 +2790,9 @@ section {
   display: inline-block;
   will-change: transform, opacity;
   white-space: nowrap;
+  transition:
+    transform 0.35s ease,
+    color 0.35s ease;
 }
 
 .menu-toggle-btn {
@@ -2797,6 +2800,11 @@ section {
   cursor: pointer;
   position: relative;
   z-index: calc(var(--z-transition) + 2);
+}
+
+body.menu-open .nav-brand {
+  transform: scale(1.12);
+  color: var(--swatch-light);
 }
 
 /* Mobile header MENU/CLOSE — pill matches `.button.button-secondary`; label wrapper for layout only. */
@@ -2881,6 +2889,11 @@ button:focus-visible {
   color: inherit;
 }
 
+.menu-fullscreen__brand--flicker {
+  color: var(--swatch-light);
+  animation: duforn-brand-flicker 2.8s linear infinite;
+}
+
 .menu-fullscreen__nav {
   margin-top: auto;
   display: flex;
@@ -2899,6 +2912,29 @@ button:focus-visible {
 .menu-fullscreen__link:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 4px;
+}
+
+@keyframes duforn-brand-flicker {
+  0%,
+  18%,
+  20%,
+  52%,
+  54%,
+  56%,
+  100% {
+    opacity: 1;
+  }
+  19%,
+  53%,
+  55% {
+    opacity: 0.72;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-fullscreen__brand--flicker {
+    animation: none;
+  }
 }
 
 html.overlay-scroll-lock,
@@ -2929,7 +2965,6 @@ body.overlay-scroll-lock {
     }
   }
 
-  body.menu-open .nav-contain > a,
   body.menu-open .bottom-nav-wrap,
   body.menu-open main a.button,
   body.menu-open main button.button {
@@ -2947,7 +2982,7 @@ body.overlay-scroll-lock {
 
   /* Keep bar + MENU/CLOSE control above the fullscreen overlay so the toggle stays clickable. */
   body.menu-open .nav-wrap {
-    z-index: calc(var(--z-menu) + 1);
+    z-index: calc(var(--z-transition) + 4);
   }
 
   .menu-toggle-btn {

@@ -57,13 +57,12 @@ export default function MenuOverlayLayer({
     >
       <div className="menu-fullscreen">
         <div className="menu-fullscreen__top">
-          {renderNavLink({
-            className: "menu-fullscreen__brand u-text-style-h3 u-text-style-font-primary",
-            to: "/",
-            onClick: onCloseMenu,
-            "data-rotate-hover": rotateHoverLabels ? "" : undefined,
-            children: rotateHoverLabels ? <RotateHoverLabel text="duforn" /> : "duforn",
-          })}
+          <span
+            className="menu-fullscreen__brand menu-fullscreen__brand--flicker u-text-style-h2 u-text-style-font-primary"
+            aria-hidden="true"
+          >
+            DUFORN
+          </span>
         </div>
         <nav className="menu-fullscreen__nav" aria-label="Primary navigation">
           {menuLink("/", "HOME")}
