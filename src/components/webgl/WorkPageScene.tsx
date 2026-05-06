@@ -13,7 +13,7 @@ function WorkSceneBackground() {
   return <color attach="background" args={[background]} />;
 }
 
-function WorkScene() {
+function WorkScene({ shadowMapSize = 2048 }) {
   const modelRef = useRef(null);
   const didNormalizeRef = useRef(false);
   const didCloneMaterialsRef = useRef(false);
@@ -66,7 +66,7 @@ function WorkScene() {
         decay={lights.keyDecay}
         distance={60}
         castShadow
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={[shadowMapSize, shadowMapSize]}
         shadow-bias={-0.0001}
         shadow-radius={4}
       />
@@ -104,11 +104,11 @@ function WorkScene() {
   );
 }
 
-export default function WorkPageScene() {
+export default function WorkPageScene({ shadowMapSize = 2048 }) {
   return (
     <>
       <WorkSceneBackground />
-      <WorkScene />
+      <WorkScene shadowMapSize={shadowMapSize} />
     </>
   );
 }

@@ -14,7 +14,7 @@ import {
   buildProjectBgMaterialsWebGpu,
 } from "../lib/projectDetail/projectBgMaterials";
 
-export default function ProjectBg() {
+export default function ProjectBg({ renderScale = 1 }) {
   const { gl, size } = useThree();
   const controls = useProjectDetailSceneControlsStore((state) => state.controls);
   const { pointerRef, step } = usePointerField();
@@ -68,8 +68,8 @@ export default function ProjectBg() {
 
     const dpr = Math.min(gl.getPixelRatio(), getClampedPixelRatio(2));
     const rt = new THREE.RenderTarget(
-      Math.max(1, Math.floor(size.width * dpr)),
-      Math.max(1, Math.floor(size.height * dpr)),
+      Math.max(1, Math.floor(size.width * dpr * renderScale)),
+      Math.max(1, Math.floor(size.height * dpr * renderScale)),
     );
 
     const trail = new ProjectBgTrailCanvas(trailSize, trailSize);
@@ -137,6 +137,7 @@ export default function ProjectBg() {
     controls.projectBg.x,
     controls.projectBg.y,
     controls.projectBg.z,
+    renderScale,
   ]);
 
   useEffect(() => {
@@ -232,8 +233,8 @@ export default function ProjectBg() {
     if (width !== prevSizeRef.current.width || height !== prevSizeRef.current.height) {
       const dpr = Math.min(gl.getPixelRatio(), getClampedPixelRatio(2));
       renderTargetRef.current.setSize(
-        Math.max(1, Math.floor(width * dpr)),
-        Math.max(1, Math.floor(height * dpr)),
+        Math.max(1, Math.floor(width * dpr * renderScale)),
+        Math.max(1, Math.floor(height * dpr * renderScale)),
       );
       virtualCameraRef.current.aspect = width / height;
       virtualCameraRef.current.updateProjectionMatrix();

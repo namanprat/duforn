@@ -9,15 +9,18 @@ import NotFoundScene from "./NotFoundScene";
 import TestScene from "./TestScene";
 import ProjectDetailScene from "../../projectDetail/ProjectDetailScene";
 import { useTestSceneControlsStore } from "../../store/testSceneControls";
+import { useWebglStore } from "../../store/webgl";
 
 export function HomeCanvasBranch() {
+  const quality = useWebglStore((s) => s.qualityProfile);
+
   return (
     <>
       <PerspectiveCamera makeDefault position={[0, 1, 5]} fov={75} />
       <EnvironmentSetup />
       <CameraRig />
-      <HomeScene />
-      <Particles count={200} />
+      <HomeScene shadowMapSize={quality.shadowMapSize} />
+      <Particles count={quality.homeParticles} />
     </>
   );
 }
@@ -52,9 +55,11 @@ export function TestCanvasBranch() {
 }
 
 export function ProjectDetailCanvasBranch() {
+  const quality = useWebglStore((s) => s.qualityProfile);
+
   return (
     <>
-      <ProjectDetailScene />
+      <ProjectDetailScene projectBgRenderScale={quality.projectBgRenderScale} />
     </>
   );
 }

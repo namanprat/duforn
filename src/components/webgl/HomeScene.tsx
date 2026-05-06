@@ -11,7 +11,7 @@ const TUNE = {
   clearcoatRoughness: 0.2,
 };
 
-export default function HomeScene() {
+export default function HomeScene({ shadowMapSize = 2048 }) {
   const modelRef = useRef(null);
   const didInitializeRef = useRef(false);
 
@@ -30,7 +30,7 @@ export default function HomeScene() {
         intensity={3.25}
         color={0xffffff}
         castShadow
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={[shadowMapSize, shadowMapSize]}
         shadow-normalBias={0.02}
         shadow-bias={-0.0001}
       >

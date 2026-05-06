@@ -1,12 +1,14 @@
 // @ts-nocheck
-import React, { Suspense } from "react";
+import React, { Suspense, useEffect } from "react";
 import { PerspectiveCamera } from "@react-three/drei";
 import CanvasSurface, { getCanvasDpr } from "./CanvasSurface";
 import { createRendererOpaque, getRendererType } from "../../lib/rendering";
 import { logWebGPU } from "../../lib/webgpu/debugWebGPU";
 import { useWebglStore } from "../../store/webgl";
+import { getRenderQualityProfile } from "../../lib/rendering/qualityProfile";
 import WorkPageScene from "./WorkPageScene";
 import ShaderCompiler from "./ShaderCompiler";
+import GlobalPostFX from "./GlobalPostFX";
 import {
   HomeCanvasBranch,
   NotFoundCanvasBranch,
@@ -15,13 +17,13 @@ import {
 } from "./GlobalSceneBranches";
 import WarmupOrchestrator from "./WarmupOrchestrator";
 
-function UnifiedScene({ activePage }) {
+function UnifiedScene({ activePage, shadowMapSize }) {
   switch (activePage) {
     case "work":
       return (
         <>
           <PerspectiveCamera makeDefault position={[0, 1, 5]} fov={75} />
-          <WorkPageScene />
+          <WorkPageScene shadowMapSize={shadowMapSize} />
         </>
       );
     case "archive":
@@ -44,11 +46,26 @@ export default function UnifiedCanvas({ activePage }) {
   const pointerEvents = activePage === "work" || activePage === "test" ? "auto" : "none";
   const isProjectDetail = activePage === "projectDetail";
   const setRendererType = useWebglStore((s) => s.setRendererType);
+  const setQualityProfile = useWebglStore((s) => s.setQualityProfile);
+  const setSsaoEnabled = useWebglStore((s) => s.setSsaoEnabled);
+  const quality = useWebglStore((s) => s.qualityProfile);
+
+  useEffect(() => {
+    const runtimeQuality = getRenderQualityProfile();
+    if (runtimeQuality.tier !== quality.tier) {
+      setQualityProfile(runtimeQuality);
+    }
+    setSsaoEnabled(runtimeQuality.ssaoEnabled);
+  }, [quality.tier, setQualityProfile, setSsaoEnabled]);
 
   return (
     <CanvasSurface
       id="background"
-      dpr={activePage === "test" ? getCanvasDpr(1.85) : getCanvasDpr()}
+      dpr={
+        activePage === "test"
+          ? getCanvasDpr(Math.min(1.85, quality.dprCap))
+          : getCanvasDpr(quality.dprCap)
+      }
       pointerEvents={pointerEvents}
       gl={createRendererOpaque}
       shadows
@@ -61,7 +78,8 @@ export default function UnifiedCanvas({ activePage }) {
       onPointerMissed={isProjectDetail ? () => {} : undefined}
     >
       <Suspense fallback={null}>
-        <UnifiedScene activePage={activePage} />
+        <UnifiedScene activePage={activePage} shadowMapSize={quality.shadowMapSize} />
+        <GlobalPostFX activePage={activePage} />
         <ShaderCompiler sceneKey={activePage} />
         <WarmupOrchestrator activePage={activePage} />
       </Suspense>

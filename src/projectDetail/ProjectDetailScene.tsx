@@ -33,7 +33,7 @@ function ProjectDetailController() {
   return null;
 }
 
-export default function ProjectDetailScene() {
+export default function ProjectDetailScene({ projectBgRenderScale = 1 }) {
   const exposure = useProjectDetailSceneControlsStore((state) => state.controls.renderer.exposure);
   const projectBgFallbackControls = useProjectDetailSceneControlsStore(
     (state) => state.controls.projectBgFallback,
@@ -46,7 +46,7 @@ export default function ProjectDetailScene() {
       <SceneExposure exposure={exposure} />
       <ProjectDetailBackground controls={projectBgFallbackControls} />
       <Suspense fallback={null}>
-        <ProjectBg />
+        <ProjectBg renderScale={projectBgRenderScale} />
       </Suspense>
       <ProjectDetailImagePlanes revealControls={PROJECT_DETAIL_REVEAL_SETTINGS} />
     </>
