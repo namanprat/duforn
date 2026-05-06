@@ -14,12 +14,12 @@ export default function ContactPage() {
         <div className="contact-content u-container-main u-height-auto u-width-full u-max-width-full">
           <div className="contact-grid__title u-overflow-hidden u-width-full ">
             <TextRevealLines animateOnScroll={false}>
-              <h2
-                className="contact-page-title u-text-align-right u-text-style-h1 u-text-style-font-primary"
+              <h1
+                className="contact-page-title u-text-align-right u-text-style-h1 u-text-italic"
                 data-brand-handoff-title="contact"
               >
                 contact
-              </h2>
+              </h1>
             </TextRevealLines>
           </div>
           <TextRevealLines animateOnScroll={false} delay={0.06}>
@@ -57,7 +57,7 @@ export default function ContactPage() {
                 <span aria-hidden="true">↗</span>
               </a>
             </div>
-            <h2 className="contact-grid__email contact-email">
+            <h2 className="contact-grid__email contact-email u-text-italic">
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
                 data-rotate-hover={useRotateEmailHover ? "" : undefined}

@@ -64,10 +64,10 @@ For each route:
 
 1. Open Chrome Performance panel and record 8-12s while interacting with expected flow.
 2. Note:
-   - FPS range
-   - worst frame time
-   - long tasks count
-   - interaction latency signs
+  - FPS range
+  - worst frame time
+  - long tasks count
+  - interaction latency signs
 3. Compare against budgets.
 4. If failing, annotate root cause and owning file before editing.
 
