@@ -3382,10 +3382,12 @@ body.preloader-active .bottom-nav-wrap {
 
 .canvas-surface {
   position: fixed;
-  top: 0;
+  top: calc(var(--site--safe-area-top) * -1);
   left: 0;
   width: 100vw;
-  height: var(--site--screen-height);
+  height: calc(
+    var(--site--screen-height) + var(--site--safe-area-top) + var(--site--safe-area-bottom)
+  );
   z-index: -1;
   pointer-events: none;
   background: transparent;

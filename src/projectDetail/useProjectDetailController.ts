@@ -7,12 +7,33 @@ import { debounce } from "../../scripts/runtime/timing";
 export function useProjectDetailController() {
   const { camera } = useThree();
   const isVisibleRef = useRef(true);
+  const lockedMobileHeightRef = useRef(0);
+  const lastMobileWidthRef = useRef(0);
 
   useEffect(() => {
     const onResize = debounce(() => {
       if (!camera?.isOrthographicCamera) return;
+
+      const isCoarsePointer =
+        typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
       const w = window.innerWidth;
-      const h = window.innerHeight;
+      let h = window.innerHeight;
+
+      // Mobile browser chrome (address/tool bars) can emit height-only resize events.
+      // Keep a stable, max-seen height so the project background doesn't "breathe" with UI chrome.
+      if (isCoarsePointer) {
+        if (lastMobileWidthRef.current !== w) {
+          lastMobileWidthRef.current = w;
+          lockedMobileHeightRef.current = h;
+        } else {
+          lockedMobileHeightRef.current = Math.max(lockedMobileHeightRef.current || h, h);
+        }
+        h = lockedMobileHeightRef.current || h;
+      } else {
+        lockedMobileHeightRef.current = 0;
+        lastMobileWidthRef.current = 0;
+      }
+
       camera.left = -w / 2;
       camera.right = w / 2;
       camera.top = h / 2;

@@ -4,6 +4,8 @@
   --site--viewport-min: 20;
   --site--column-count: 12;
   --site--screen-height: 100svh;
+  --site--safe-area-top: env(safe-area-inset-top, 0px);
+  --site--safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --site--margin: clamp(1rem, 0.5556rem + 2.2222vw, 3rem);
   --site--gutter: clamp(1rem, 0.7778rem + 1.1111vw, 2rem);
   --site--gutter-total: calc(var(--site--gutter) * (var(--site--column-count) - 1));
@@ -210,4 +212,11 @@
     2rem,
     calc(env(safe-area-inset-top) + env(safe-area-inset-bottom))
   );
+}
+
+@media (max-width: 768px) {
+  :root {
+    /* Keep canvas/bg full-height on mobile and avoid browser UI chrome-driven height jumps. */
+    --site--screen-height: 100lvh;
+  }
 }
