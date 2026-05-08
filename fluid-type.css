@@ -49,8 +49,6 @@
   --typography-font-size-h1: clamp(3rem, 2.5556rem + 2.2222vw, 5rem);
   /* +20% then +10% vs base clamp */
   --typography-font-size-display: calc(clamp(6rem, 5.1111rem + 4.4444vw, 10rem) * 1.32);
-  /* ~1px outline at display size; scales with computed font-size (1em) vs fluid display token */
-  --typography-primary-text-stroke-width: calc(1px * (1em / var(--typography-font-size-display)));
 
   /* Spacing */
   --spacing-section-space-small: clamp(3rem, 2.5556rem + 2.2222vw, 5rem);
