@@ -8,11 +8,6 @@ export type RenderQualityProfile = {
   homeParticles: number;
   shadowMapSize: number;
   projectBgRenderScale: number;
-  ssaoEnabled: boolean;
-  ssaoIntensity: number;
-  ssaoRadius: number;
-  ssaoResolutionScale: number;
-  ssaoSamples: number;
 };
 
 function prefersReducedMotion(): boolean {
@@ -38,11 +33,6 @@ export function getRenderQualityProfile(): RenderQualityProfile {
       homeParticles: 88,
       shadowMapSize: 1024,
       projectBgRenderScale: 0.7,
-      ssaoEnabled: true,
-      ssaoIntensity: 0.62,
-      ssaoRadius: 0.18,
-      ssaoResolutionScale: 0.55,
-      ssaoSamples: 8,
     };
   }
 
@@ -55,11 +45,6 @@ export function getRenderQualityProfile(): RenderQualityProfile {
       homeParticles: 120,
       shadowMapSize: 1024,
       projectBgRenderScale: 0.8,
-      ssaoEnabled: true,
-      ssaoIntensity: 0.78,
-      ssaoRadius: 0.22,
-      ssaoResolutionScale: 0.67,
-      ssaoSamples: 12,
     };
   }
 
@@ -71,10 +56,5 @@ export function getRenderQualityProfile(): RenderQualityProfile {
     homeParticles: 200,
     shadowMapSize: 2048,
     projectBgRenderScale: 1,
-    ssaoEnabled: true,
-    ssaoIntensity: 0.95,
-    ssaoRadius: 0.28,
-    ssaoResolutionScale: 1,
-    ssaoSamples: 16,
   };
 }

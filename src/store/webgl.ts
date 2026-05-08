@@ -6,10 +6,8 @@ export const useWebglStore = create((set) => ({
   rendererType: "unknown",
   gyroEnabled: false,
   qualityProfile: getRenderQualityProfile(),
-  ssaoEnabled: true,
   setActivePage: (page) => set({ activePage: page }),
   setRendererType: (rendererType) => set({ rendererType }),
   setGyroEnabled: (gyroEnabled) => set({ gyroEnabled }),
   setQualityProfile: (qualityProfile) => set({ qualityProfile }),
-  setSsaoEnabled: (ssaoEnabled) => set({ ssaoEnabled }),
 }));

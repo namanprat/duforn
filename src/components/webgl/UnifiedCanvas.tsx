@@ -8,7 +8,6 @@ import { useWebglStore } from "../../store/webgl";
 import { getRenderQualityProfile } from "../../lib/rendering/qualityProfile";
 import WorkPageScene from "./WorkPageScene";
 import ShaderCompiler from "./ShaderCompiler";
-import GlobalPostFX from "./GlobalPostFX";
 import {
   HomeCanvasBranch,
   NotFoundCanvasBranch,
@@ -47,7 +46,6 @@ export default function UnifiedCanvas({ activePage }) {
   const isProjectDetail = activePage === "projectDetail";
   const setRendererType = useWebglStore((s) => s.setRendererType);
   const setQualityProfile = useWebglStore((s) => s.setQualityProfile);
-  const setSsaoEnabled = useWebglStore((s) => s.setSsaoEnabled);
   const quality = useWebglStore((s) => s.qualityProfile);
 
   useEffect(() => {
@@ -55,8 +53,7 @@ export default function UnifiedCanvas({ activePage }) {
     if (runtimeQuality.tier !== quality.tier) {
       setQualityProfile(runtimeQuality);
     }
-    setSsaoEnabled(runtimeQuality.ssaoEnabled);
-  }, [quality.tier, setQualityProfile, setSsaoEnabled]);
+  }, [quality.tier, setQualityProfile]);
 
   return (
     <CanvasSurface
@@ -79,7 +76,6 @@ export default function UnifiedCanvas({ activePage }) {
     >
       <Suspense fallback={null}>
         <UnifiedScene activePage={activePage} shadowMapSize={quality.shadowMapSize} />
-        <GlobalPostFX activePage={activePage} />
         <ShaderCompiler sceneKey={activePage} />
         <WarmupOrchestrator activePage={activePage} />
       </Suspense>
