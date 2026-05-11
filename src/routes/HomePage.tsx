@@ -66,9 +66,12 @@ export default function HomePage() {
                       layoutKey={heroCopyWidthPx}
                     >
                       <p className="u-text-align-center u-width-full">
-                        AN ART DIRECTION AND UX DESIGN EXPERT IS COMMITTED TO CRAFTING EXCEPTIONAL
-                        DIGITAL PRODUCTS THAT FOSTER GROWTH AND ENGAGEMENT THROUGH METICULOUS DESIGN
-                        AND STRATEGIC INNOVATION.
+                        Founded in 2024, we are an art direction and web studio based in Mumbai.
+                        Working across digital products and experiences, websites, brand systems,
+                        interfaces, the occasional one-off, for clients on both sides of the line:
+                        cultural and commercial. The approach is steady. Less interested in what's
+                        loud, more in what lasts. The work is considered, well built, and made to
+                        hold up.
                       </p>
                     </TextRevealLines>
                   </div>

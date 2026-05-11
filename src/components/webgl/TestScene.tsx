@@ -1,21 +1,69 @@
 // @ts-nocheck
-import React, { Suspense, useEffect, useLayoutEffect, useRef } from "react";
+import React, { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import TestModel from "../../models/generated/TestModel";
 import { useTestSceneControlsStore } from "../../store/testSceneControls";
 import { applyModelMaterialTuning, normalizeModelBounds } from "./sceneUtils";
+import WaterController from "./water/WaterController";
+
+function findWaterMesh(root) {
+  let found = null;
+  root.traverse((o) => {
+    if (!o.isMesh) return;
+    if (found) return;
+    const meshNameMatch = /water/i.test(o.name ?? "");
+    const matName = Array.isArray(o.material)
+      ? o.material.map((m) => m?.name ?? "").join(" ")
+      : (o.material?.name ?? "");
+    const matNameMatch = /water/i.test(matName);
+    const parentNameMatch = /water/i.test(o.parent?.name ?? "");
+    if (meshNameMatch || matNameMatch || parentNameMatch) {
+      found = o;
+    }
+  });
+  return found;
+}
 
 export default function TestScene() {
   const controls = useTestSceneControlsStore();
   const modelRef = useRef(null);
   const didNormalizeRef = useRef(false);
   const didCloneMaterialsRef = useRef(false);
+  const [waterMesh, setWaterMesh] = useState(null);
+
+  const tryInit = () => {
+    const model = modelRef.current;
+    if (!model) return false;
+    let hasMesh = false;
+    model.traverse((o) => {
+      if (o.isMesh) hasMesh = true;
+    });
+    if (!hasMesh) return false;
+    if (!didNormalizeRef.current) {
+      normalizeModelBounds(model);
+      didNormalizeRef.current = true;
+    }
+    if (!waterMesh) {
+      const mesh = findWaterMesh(model);
+      if (mesh) {
+        mesh.userData.isWater = true;
+        setWaterMesh(mesh);
+      } else {
+        console.warn("[TestScene] water mesh not found in test.glb");
+      }
+    }
+    return true;
+  };
 
   useLayoutEffect(() => {
-    const model = modelRef.current;
-    if (!model || didNormalizeRef.current) return;
-    normalizeModelBounds(model);
-    didNormalizeRef.current = true;
+    if (tryInit()) return;
+    let raf = 0;
+    const tick = () => {
+      if (tryInit()) return;
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   useEffect(() => {
@@ -76,6 +124,7 @@ export default function TestScene() {
           </group>
         </group>
       </Suspense>
+      {waterMesh && <WaterController mesh={waterMesh} modelRoot={modelRef.current} />}
     </>
   );
 }

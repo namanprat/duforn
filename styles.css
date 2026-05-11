@@ -3,9 +3,9 @@
 @import url("https://use.typekit.net/nix4hno.css");
 
 @font-face {
-font-family: "ivypresto-display", serif;
-font-weight: 100;
-font-style: normal;
+  font-family: "ivypresto-display", serif;
+  font-weight: 100;
+  font-style: normal;
 }
 @font-face {
   font-family: "ivypresto-display", serif;
@@ -195,7 +195,6 @@ h2 {
   line-height: var(--typography-line-height-1);
   letter-spacing: var(--typography-letter-spacing);
   text-transform: capitalize;
-
 }
 
 h3 {
@@ -205,7 +204,6 @@ h3 {
   line-height: var(--typography-line-height-small);
   letter-spacing: var(--typography-letter-spacing);
   text-transform: capitalize;
-
 }
 
 h4 {
@@ -213,7 +211,6 @@ h4 {
   font-weight: 700;
   line-height: var(--typography-line-height-1);
   text-transform: uppercase;
-
 }
 
 h5 {
@@ -223,7 +220,6 @@ h5 {
   line-height: var(--typography-line-height-medium);
   letter-spacing: var(--typography-letter-spacing);
   text-transform: uppercase;
-
 }
 
 a {
@@ -245,7 +241,6 @@ p {
   text-decoration: none;
   line-height: var(--typography-line-height-medium);
   text-transform: uppercase;
-
 }
 
 button,
@@ -2747,7 +2742,6 @@ section {
   place-items: center;
 }
 
-
 .hero-stage__brand-stack {
   display: flex;
   flex-direction: column;
@@ -2760,7 +2754,6 @@ section {
   width: max-content;
   max-width: 100%;
 }
-
 
 .hero-stage__copy-rail--measuring {
   min-height: 6.5rem;
@@ -3019,40 +3012,70 @@ body.overlay-scroll-lock {
 /* 2×2 grid: title | chips / intro | email — same gap as former `u-gap-5` */
 .contact-content {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
   grid-template-rows: auto auto;
   row-gap: var(--spacing-space-2);
-  column-gap: var(--spacing-space-7);
-  align-items: center;
+  column-gap: clamp(2.25rem, 3.8vw, 3.75rem);
+  align-items: start;
   /* `.u-container-main` sets height: 100%; without this, default align-content:stretch
      grows the two auto rows to fill the viewport and creates a huge gap between them. */
   align-content: start;
   height: auto;
   width: 100%;
+  max-width: 72rem;
+  margin-inline: auto;
 }
 
 .contact-grid__title {
   grid-column: 1;
   grid-row: 1;
-  justify-self: end;
+  justify-self: start;
   width: fit-content;
   max-width: 100%;
+}
+
+.contact-page-title {
+  font-size: calc(var(--typography-font-size-display) * 0.92);
+  line-height: var(--typography-line-height-small);
 }
 
 .contact-grid__intro {
   grid-column: 1;
   grid-row: 2;
-  justify-self: end;
+  justify-self: start;
   width: fit-content;
-  max-width: min(100%, 26rem);
+  max-width: min(100%, 30rem);
 }
 
+.contact-grid__actions {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  justify-self: start;
+  align-self: start;
+  margin-top: clamp(0.5rem, 2.2vh, 1.5rem);
+  width: min(100%, 25rem);
+}
+
+.contact-grid__buttons {
+  width: 100%;
+}
+
+.contact-grid__buttons .button {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.contact-grid__buttons .button .nav-link-hover__clip {
+  width: auto;
+  max-width: none;
+}
 
 .contact-email a {
+  display: inline-block;
   line-height: var(--typography-line-height-small);
   font-family: var(--text-style-font-primary);
   font-weight: 300;
-  font-size: var(--typography-font-size-h2) !important;
+  font-size: calc(var(--typography-font-size-h2) * 0.92) !important;
   letter-spacing: var(--typography-letter-spacing);
   text-transform: lowercase;
   text-decoration: none;
@@ -3066,8 +3089,12 @@ body.overlay-scroll-lock {
   }
 
   .contact-page-title {
-    font-size: var(--typography-font-size-h2);
+    font-size: var(--typography-font-size-h1);
     line-height: var(--typography-line-height-small);
+  }
+
+  .contact-content {
+    max-width: 64rem;
   }
 }
 
@@ -3091,34 +3118,42 @@ body.overlay-scroll-lock {
   .contact-content {
     grid-template-columns: 1fr;
     grid-template-rows: auto;
+    row-gap: var(--spacing-space-4);
   }
 
   .contact-grid__title {
     grid-column: 1;
     grid-row: 1;
-    justify-self: center;
+    justify-self: start;
   }
 
   .contact-grid__intro {
     grid-column: 1;
     grid-row: 2;
-    justify-self: center;
+    justify-self: start;
     max-width: 30ch;
   }
 
-  .contact-grid__email {
+  .contact-grid__actions {
     grid-column: 1;
-    grid-row: 4;
-    justify-self: center;
+    grid-row: 3;
+    justify-self: start;
+    width: 100%;
+    max-width: none;
+    align-self: start;
+  }
+
+  .contact-grid__email {
+    justify-self: start;
   }
 
   .contact-grid__title .contact-page-title {
-    text-align: center;
+    text-align: left;
   }
 
   .contact-intro {
     max-width: 30ch;
-    text-align: center;
+    text-align: left;
   }
 }
 

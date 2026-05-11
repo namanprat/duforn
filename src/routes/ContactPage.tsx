@@ -12,7 +12,7 @@ export default function ContactPage() {
     <main id="main" data-page-container="true" data-page-namespace="contact">
       <section className="contact u-color-light u-background-transparent u-min-height-screen u-flex-vertical-nowrap u-justify-content-center u-align-items-center">
         <div className="contact-content u-container-main u-height-auto u-width-full u-max-width-full">
-          <div className="contact-grid__title u-overflow-hidden u-width-full ">
+          <div className="contact-grid__title u-overflow-hidden u-width-full">
             <TextRevealLines animateOnScroll={false}>
               <h1
                 className="contact-page-title u-text-align-right u-text-style-h1 u-text-italic"
@@ -30,8 +30,8 @@ export default function ContactPage() {
             </p>
           </TextRevealLines>
 
-          <div className="contact-info u-display-contents">
-            <div className="u-flex-horizontal-wrap u-gap-3 u-align-items-center">
+          <div className="contact-grid__actions u-flex-vertical-nowrap u-gap-3">
+            <div className="contact-grid__buttons u-flex-vertical-nowrap u-gap-2">
               <a
                 className="button button-primary"
                 href="https://www.instagram.com/namanprat_"

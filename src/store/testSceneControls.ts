@@ -8,11 +8,22 @@ export type TestSceneControlsState = {
   modelRotX: number;
   modelRotY: number;
   modelRotZ: number;
+  enableOrbitControls: boolean;
   cameraFov: number;
+  cameraPosX: number;
+  cameraPosY: number;
+  cameraPosZ: number;
   orbitCenterX: number;
   orbitCenterY: number;
   orbitCenterZ: number;
   orbitRadius: number;
+  orbitTargetX: number;
+  orbitTargetY: number;
+  orbitTargetZ: number;
+  orbitMinDistance: number;
+  orbitMaxDistance: number;
+  orbitMinPolarAngle: number;
+  orbitMaxPolarAngle: number;
   exposure: number;
   directionalIntensity: number;
   directionalX: number;
@@ -39,11 +50,22 @@ export const defaultTestSceneControls = (): Omit<TestSceneControlsState, "patch"
   modelRotX: 0,
   modelRotY: 0,
   modelRotZ: 0,
+  enableOrbitControls: false,
   cameraFov: 65,
+  cameraPosX: 0,
+  cameraPosY: 1,
+  cameraPosZ: 5,
   orbitCenterX: 0,
   orbitCenterY: 0.5,
   orbitCenterZ: 0,
   orbitRadius: 5,
+  orbitTargetX: 0,
+  orbitTargetY: 0.5,
+  orbitTargetZ: 0,
+  orbitMinDistance: 2,
+  orbitMaxDistance: 12,
+  orbitMinPolarAngle: 20,
+  orbitMaxPolarAngle: 110,
   exposure: 1,
   directionalIntensity: 2.35,
   directionalX: 6,
