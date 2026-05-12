@@ -1,5 +1,6 @@
 // @ts-nocheck
-import React, { Suspense } from "react";
+import React, { Suspense, useEffect } from "react";
+import * as THREE from "three";
 import { OrthographicCamera } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
 import ProjectBg from "./ProjectBg";
@@ -12,11 +13,29 @@ import SceneExposure from "../components/webgl/SceneExposure";
 import { useWorkToProjectTransitionStore } from "../store/workToProjectTransition";
 
 function TransitionBridgeBackground() {
+  const { scene } = useThree();
   const active = useWorkToProjectTransitionStore((state) => state.active);
   const progress = useWorkToProjectTransitionStore((state) => state.projectBackgroundProgress);
   const bridgeColor = useWorkToProjectTransitionStore((state) => state.bridgeColor);
-  if (!active || progress >= 1) return null;
-  return <color attach="background" args={[bridgeColor]} />;
+
+  const shouldOverride = active && progress < 1;
+
+  useEffect(() => {
+    if (!shouldOverride) {
+      // Hard clear: ensure no leftover bridge color sits behind the project quad.
+      scene.background = null;
+      return undefined;
+    }
+    const previous = scene.background;
+    scene.background = new THREE.Color(bridgeColor);
+    return () => {
+      // On every dependency change / unmount, restore to null so the bridge color
+      // never persists past the transition window.
+      scene.background = previous instanceof THREE.Color ? null : previous;
+    };
+  }, [scene, shouldOverride, bridgeColor]);
+
+  return null;
 }
 
 function ProjectDetailCamera() {

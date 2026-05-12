@@ -1,6 +1,7 @@
 // @ts-nocheck
 import React, { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { useThree } from "@react-three/fiber";
 import CameraRig from "./CameraRig";
 import SceneExposure from "./SceneExposure";
 import WorkModel from "../../models/generated/WorkModel";
@@ -10,6 +11,7 @@ import { useWorkSceneControlsStore } from "../../store/workSceneControls";
 import { useWorkToProjectTransitionStore } from "../../store/workToProjectTransition";
 
 function WorkSceneBackground() {
+  const { scene } = useThree();
   const background = useWorkSceneControlsStore((state) => state.controls.scene.background);
   const bridgeColor = useWorkToProjectTransitionStore((state) => state.bridgeColor);
   const progress = useWorkToProjectTransitionStore((state) => state.workBackgroundProgress);
@@ -20,7 +22,16 @@ function WorkSceneBackground() {
     return base.clone().lerp(new THREE.Color(bridgeColor), Math.min(1, Math.max(0, progress)));
   }, [background, bridgeColor, progress]);
 
-  return <color attach="background" args={[resolved]} />;
+  useEffect(() => {
+    scene.background = resolved;
+    return () => {
+      // Hard clear on unmount so the work scene's last lerped color doesn't bleed
+      // into the next route's scene background.
+      scene.background = null;
+    };
+  }, [scene, resolved]);
+
+  return null;
 }
 
 function WorkScene({ shadowMapSize = 2048 }) {
