@@ -10,6 +10,7 @@ import { navigateTo } from "../lib/navigationBridge";
 import { pickGpuBranch } from "../lib/rendering";
 import { logWebGPUOnce } from "../lib/webgpu/debugWebGPU";
 import { useWorkSceneControlsStore } from "../store/workSceneControls";
+import { useWorkToProjectTransitionStore } from "../store/workToProjectTransition";
 import { DEFAULT_GAP_SIZE, DEFAULT_VISIBLE_ITEMS } from "./workStripConfig";
 import { getActiveStripItemIndex, resolveVisibleSlotAtUv } from "./workStripMath";
 
@@ -121,6 +122,7 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
     uSubsurfaceColor: uniform(new THREE.Color(0.97, 0.9, 0.82)),
     uSubsurfaceStr: uniform(0.35),
     uLightDir: uniform(new THREE.Vector3(0.25, 0.75, 0.9)),
+    uOpacity: uniform(1.0),
     uTex0: uniformTexture(textures[0]),
     uTex1: uniformTexture(textures[1]),
     uTex2: uniformTexture(textures[2]),
@@ -264,7 +266,7 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
       smoothstep(float(0), float(0.06), float(1).sub(uvCoord.x)),
     );
 
-    return vec4(finalColor, edgeFade);
+    return vec4(finalColor, edgeFade.mul(uniforms.uOpacity));
   });
 
   const mat = new MeshBasicNodeMaterial({
@@ -293,6 +295,7 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
     uWaveAmplitude: { value: 0.08 },
     uWaveFrequency: { value: 13.0 },
     uWindStrength: { value: 5.5 },
+    uOpacity: { value: 1.0 },
     uTex0: { value: textures[0] },
     uTex1: { value: textures[1] },
     uTex2: { value: textures[2] },
@@ -346,6 +349,7 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
       uniform float uItemsOnStrip;
       uniform float uNumUnique;
       uniform float uTime;
+      uniform float uOpacity;
 
       varying vec2 vUv;
       varying float vLooseness;
@@ -398,7 +402,7 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
         float light = 0.75 + vLooseness * 0.2 + (1.0 - abs(vUv.x - 0.5) * 2.0) * 0.08;
         float rim = pow(1.0 - abs(vUv.x - 0.5) * 2.0, 2.0) * 0.05;
         float edgeFade = smoothstep(0.0, 0.06, vUv.x) * smoothstep(0.0, 0.06, 1.0 - vUv.x);
-        gl_FragColor = vec4(color * light + rim, edgeFade);
+        gl_FragColor = vec4(color * light + rim, edgeFade * uOpacity);
       }
     `,
   });
@@ -589,6 +593,7 @@ export function WorkClothStripScene() {
     }
     u.uTime.value = time;
     u.uScrollOffset.value = s.current;
+    u.uOpacity.value = useWorkToProjectTransitionStore.getState().stripOpacity;
 
     if ("uGravityScale" in u) {
       u.uGravityScale.value = sc.gravityScale ?? 2;

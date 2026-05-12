@@ -9,6 +9,15 @@ import { useProjectDetailController } from "./useProjectDetailController";
 import { useProjectDetailSceneControlsStore } from "../store/projectDetailSceneControls";
 import { PROJECT_DETAIL_REVEAL_SETTINGS } from "./projectDetailSceneConfig";
 import SceneExposure from "../components/webgl/SceneExposure";
+import { useWorkToProjectTransitionStore } from "../store/workToProjectTransition";
+
+function TransitionBridgeBackground() {
+  const active = useWorkToProjectTransitionStore((state) => state.active);
+  const progress = useWorkToProjectTransitionStore((state) => state.projectBackgroundProgress);
+  const bridgeColor = useWorkToProjectTransitionStore((state) => state.bridgeColor);
+  if (!active || progress >= 1) return null;
+  return <color attach="background" args={[bridgeColor]} />;
+}
 
 function ProjectDetailCamera() {
   const { size } = useThree();
@@ -33,6 +42,13 @@ function ProjectDetailController() {
   return null;
 }
 
+function FallbackBackgroundGate({ children }) {
+  const active = useWorkToProjectTransitionStore((state) => state.active);
+  const progress = useWorkToProjectTransitionStore((state) => state.projectBackgroundProgress);
+  if (active && progress < 1) return null;
+  return children;
+}
+
 export default function ProjectDetailScene({ projectBgRenderScale = 1 }) {
   const exposure = useProjectDetailSceneControlsStore((state) => state.controls.renderer.exposure);
   const projectBgFallbackControls = useProjectDetailSceneControlsStore(
@@ -41,10 +57,13 @@ export default function ProjectDetailScene({ projectBgRenderScale = 1 }) {
 
   return (
     <>
+      <TransitionBridgeBackground />
       <ProjectDetailCamera />
       <ProjectDetailController />
       <SceneExposure exposure={exposure} />
-      <ProjectDetailBackground controls={projectBgFallbackControls} />
+      <FallbackBackgroundGate>
+        <ProjectDetailBackground controls={projectBgFallbackControls} />
+      </FallbackBackgroundGate>
       <Suspense fallback={null}>
         <ProjectBg renderScale={projectBgRenderScale} />
       </Suspense>

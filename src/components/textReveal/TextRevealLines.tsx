@@ -9,6 +9,10 @@ import {
   registerPageTextReveal,
 } from "../../lib/textReveal/textRevealRegistry";
 import { MOTION_TOKENS } from "../../lib/animation/motionTokens";
+import {
+  useWorkToProjectTransitionStore,
+  WORK_TO_PROJECT_TEXT_REVEAL_EVENT,
+} from "../../store/workToProjectTransition";
 
 gsap.registerPlugin(SplitText, ScrollTrigger);
 
@@ -184,8 +188,30 @@ export default function TextRevealLines({
         }
       };
 
+      let transitionListener = null;
+      const transitionGateActive = () => {
+        if (scope === "menu") return false;
+        const state = useWorkToProjectTransitionStore.getState();
+        return state.active === true && state.contentReady === false;
+      };
+
       const armReveal = () => {
         if (scope === "menu") {
+          return;
+        }
+        if (transitionGateActive()) {
+          gsap.set(lineEls, { y: "100%" });
+          const onReady = () => {
+            window.removeEventListener(WORK_TO_PROJECT_TEXT_REVEAL_EVENT, onReady);
+            transitionListener = null;
+            if (animateOnScroll && scope === "page") {
+              runRevealScroll();
+            } else {
+              runRevealImmediate(0);
+            }
+          };
+          transitionListener = onReady;
+          window.addEventListener(WORK_TO_PROJECT_TEXT_REVEAL_EVENT, onReady);
           return;
         }
         if (animateOnScroll && scope === "page") {
@@ -276,6 +302,10 @@ export default function TextRevealLines({
         killScrollTrigger();
         if (preloaderListener) {
           window.removeEventListener("duforn:preloader-dismissed", preloaderListener);
+        }
+        if (transitionListener) {
+          window.removeEventListener(WORK_TO_PROJECT_TEXT_REVEAL_EVENT, transitionListener);
+          transitionListener = null;
         }
         splitRefs.forEach((split) => {
           try {

@@ -1,16 +1,26 @@
 // @ts-nocheck
-import React, { useEffect, useLayoutEffect, useRef } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import * as THREE from "three";
 import CameraRig from "./CameraRig";
 import SceneExposure from "./SceneExposure";
 import WorkModel from "../../models/generated/WorkModel";
 import { WorkClothStripScene } from "../../work/WorkClothStrip";
 import { applyModelMaterialTuning, normalizeModelBounds } from "./sceneUtils";
 import { useWorkSceneControlsStore } from "../../store/workSceneControls";
+import { useWorkToProjectTransitionStore } from "../../store/workToProjectTransition";
 
 function WorkSceneBackground() {
   const background = useWorkSceneControlsStore((state) => state.controls.scene.background);
+  const bridgeColor = useWorkToProjectTransitionStore((state) => state.bridgeColor);
+  const progress = useWorkToProjectTransitionStore((state) => state.workBackgroundProgress);
 
-  return <color attach="background" args={[background]} />;
+  const resolved = useMemo(() => {
+    const base = new THREE.Color(background);
+    if (progress <= 0) return base;
+    return base.clone().lerp(new THREE.Color(bridgeColor), Math.min(1, Math.max(0, progress)));
+  }, [background, bridgeColor, progress]);
+
+  return <color attach="background" args={[resolved]} />;
 }
 
 function WorkScene({ shadowMapSize = 2048 }) {
@@ -19,6 +29,15 @@ function WorkScene({ shadowMapSize = 2048 }) {
   const didCloneMaterialsRef = useRef(false);
   const controls = useWorkSceneControlsStore((state) => state.controls);
   const { scene, model, lights } = controls;
+  const bridgeColor = useWorkToProjectTransitionStore((state) => state.bridgeColor);
+  const workBgProgress = useWorkToProjectTransitionStore((state) => state.workBackgroundProgress);
+  const resolvedFogColor = useMemo(() => {
+    const base = new THREE.Color(scene.fogColor);
+    if (workBgProgress <= 0) return base;
+    return base
+      .clone()
+      .lerp(new THREE.Color(bridgeColor), Math.min(1, Math.max(0, workBgProgress)));
+  }, [scene.fogColor, bridgeColor, workBgProgress]);
 
   useLayoutEffect(() => {
     const sceneModel = modelRef.current;
@@ -52,7 +71,7 @@ function WorkScene({ shadowMapSize = 2048 }) {
 
   return (
     <>
-      <fogExp2 attach="fog" color={scene.fogColor} density={scene.fogDensity} />
+      <fogExp2 attach="fog" color={resolvedFogColor} density={scene.fogDensity} />
 
       <CameraRig />
       <SceneExposure exposure={scene.exposure} />
