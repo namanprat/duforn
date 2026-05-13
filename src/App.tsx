@@ -24,10 +24,6 @@ import { cleanupBrandHandoff, runBrandHandoff } from "./lib/animation/brandHando
 import { canvasInk } from "./lib/fx/canvasInkTransition";
 import { CANVAS_INK_ROUTE_TIMING, shouldUseRouteInkBleed } from "./lib/canvasInkRoute";
 import { hideAllRegisteredPageText } from "./lib/textReveal/textRevealRegistry";
-import {
-  isWorkToProjectDetailTransition,
-  runWorkToProjectDetailTransition,
-} from "./lib/animation/workToProjectDetailTransition";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 const TITLES = {
@@ -123,26 +119,22 @@ function NavigationBridge() {
       const useRouteInk = inkReady && shouldUseRouteInkBleed(currentPath, nextPath);
 
       try {
-        if (isWorkToProjectDetailTransition(currentNamespace, nextNamespace)) {
-          await runWorkToProjectDetailTransition({ navigate, nextPath });
-        } else {
-          await hideAllRegisteredPageText();
+        await hideAllRegisteredPageText();
 
-          if (useRouteInk) {
-            // Ink bleed only for archive / 404; other routes use canvas leave tween.
-            await canvasInk.enter({
-              origin: { x: 0.5, y: 0.5 },
-              expandMs: CANVAS_INK_ROUTE_TIMING.expandMs,
-              holdMs: CANVAS_INK_ROUTE_TIMING.holdMs,
-              collapseMs: CANVAS_INK_ROUTE_TIMING.collapseMs,
-              onCovered: () => {
-                navigate(nextPath);
-              },
-            });
-          } else {
-            await runRouteLeaveTransition({ canvasElement });
-            navigate(nextPath);
-          }
+        if (useRouteInk) {
+          // Ink bleed only for archive / 404; other routes use canvas leave tween.
+          await canvasInk.enter({
+            origin: { x: 0.5, y: 0.5 },
+            expandMs: CANVAS_INK_ROUTE_TIMING.expandMs,
+            holdMs: CANVAS_INK_ROUTE_TIMING.holdMs,
+            collapseMs: CANVAS_INK_ROUTE_TIMING.collapseMs,
+            onCovered: () => {
+              navigate(nextPath);
+            },
+          });
+        } else {
+          await runRouteLeaveTransition({ canvasElement });
+          navigate(nextPath);
         }
       } finally {
         const completed = currentPathRef.current === nextPath;

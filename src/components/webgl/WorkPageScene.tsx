@@ -8,19 +8,11 @@ import WorkModel from "../../models/generated/WorkModel";
 import { WorkClothStripScene } from "../../work/WorkClothStrip";
 import { applyModelMaterialTuning, normalizeModelBounds } from "./sceneUtils";
 import { useWorkSceneControlsStore } from "../../store/workSceneControls";
-import { useWorkToProjectTransitionStore } from "../../store/workToProjectTransition";
 
 function WorkSceneBackground() {
   const { scene } = useThree();
   const background = useWorkSceneControlsStore((state) => state.controls.scene.background);
-  const bridgeColor = useWorkToProjectTransitionStore((state) => state.bridgeColor);
-  const progress = useWorkToProjectTransitionStore((state) => state.workBackgroundProgress);
-
-  const resolved = useMemo(() => {
-    const base = new THREE.Color(background);
-    if (progress <= 0) return base;
-    return base.clone().lerp(new THREE.Color(bridgeColor), Math.min(1, Math.max(0, progress)));
-  }, [background, bridgeColor, progress]);
+  const resolved = useMemo(() => new THREE.Color(background), [background]);
 
   useEffect(() => {
     scene.background = resolved;
@@ -40,15 +32,7 @@ function WorkScene({ shadowMapSize = 2048 }) {
   const didCloneMaterialsRef = useRef(false);
   const controls = useWorkSceneControlsStore((state) => state.controls);
   const { scene, model, lights } = controls;
-  const bridgeColor = useWorkToProjectTransitionStore((state) => state.bridgeColor);
-  const workBgProgress = useWorkToProjectTransitionStore((state) => state.workBackgroundProgress);
-  const resolvedFogColor = useMemo(() => {
-    const base = new THREE.Color(scene.fogColor);
-    if (workBgProgress <= 0) return base;
-    return base
-      .clone()
-      .lerp(new THREE.Color(bridgeColor), Math.min(1, Math.max(0, workBgProgress)));
-  }, [scene.fogColor, bridgeColor, workBgProgress]);
+  const resolvedFogColor = useMemo(() => new THREE.Color(scene.fogColor), [scene.fogColor]);
 
   useLayoutEffect(() => {
     const sceneModel = modelRef.current;

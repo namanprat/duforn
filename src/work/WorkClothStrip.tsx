@@ -10,7 +10,6 @@ import { navigateTo } from "../lib/navigationBridge";
 import { pickGpuBranch } from "../lib/rendering";
 import { logWebGPUOnce } from "../lib/webgpu/debugWebGPU";
 import { useWorkSceneControlsStore } from "../store/workSceneControls";
-import { useWorkToProjectTransitionStore } from "../store/workToProjectTransition";
 import { DEFAULT_GAP_SIZE, DEFAULT_VISIBLE_ITEMS } from "./workStripConfig";
 import { getActiveStripItemIndex, resolveVisibleSlotAtUv } from "./workStripMath";
 
@@ -593,7 +592,7 @@ export function WorkClothStripScene() {
     }
     u.uTime.value = time;
     u.uScrollOffset.value = s.current;
-    u.uOpacity.value = useWorkToProjectTransitionStore.getState().stripOpacity;
+    u.uOpacity.value = 1;
 
     if ("uGravityScale" in u) {
       u.uGravityScale.value = sc.gravityScale ?? 2;

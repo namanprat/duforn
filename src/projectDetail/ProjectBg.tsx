@@ -13,7 +13,6 @@ import {
   buildProjectBgMaterialsWebGl,
   buildProjectBgMaterialsWebGpu,
 } from "../lib/projectDetail/projectBgMaterials";
-import { useWorkToProjectTransitionStore } from "../store/workToProjectTransition";
 
 export default function ProjectBg({ renderScale = 1 }) {
   const { gl, size } = useThree();
@@ -107,7 +106,6 @@ export default function ProjectBg({ renderScale = 1 }) {
       materialsRef.current = mats;
       prevSizeRef.current = { width: size.width, height: size.height };
       setReady(true);
-      useWorkToProjectTransitionStore.getState().setProjectBgReady?.(true);
     }
 
     void init();
@@ -115,7 +113,6 @@ export default function ProjectBg({ renderScale = 1 }) {
     return () => {
       cancelled = true;
       setReady(false);
-      useWorkToProjectTransitionStore.getState().setProjectBgReady?.(false);
       rt.dispose();
       materialsRef.current.forEach((m) => m.dispose());
       materialsRef.current = [];
@@ -252,12 +249,8 @@ export default function ProjectBg({ renderScale = 1 }) {
 
     if (quadMaterialRef.current) {
       quadMaterialRef.current.map = renderTargetRef.current.texture;
-      const transitionState = useWorkToProjectTransitionStore.getState();
-      const targetOpacity = transitionState.active
-        ? Math.min(1, Math.max(0, transitionState.projectBackgroundProgress))
-        : 1;
-      if (quadMaterialRef.current.opacity !== targetOpacity) {
-        quadMaterialRef.current.opacity = targetOpacity;
+      if (quadMaterialRef.current.opacity !== 1) {
+        quadMaterialRef.current.opacity = 1;
       }
       quadMaterialRef.current.needsUpdate = true;
     }
