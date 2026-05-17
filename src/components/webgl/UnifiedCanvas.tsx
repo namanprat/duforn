@@ -42,7 +42,7 @@ function UnifiedScene({ activePage, shadowMapSize }) {
  * Single persistent R3F canvas for all routes. Only one scene branch mounts at a time.
  */
 export default function UnifiedCanvas({ activePage }) {
-  const pointerEvents = activePage === "work" || activePage === "test" ? "auto" : "none";
+  const pointerEvents = activePage === "work" ? "auto" : "none";
   const isProjectDetail = activePage === "projectDetail";
   const setRendererType = useWebglStore((s) => s.setRendererType);
   const setQualityProfile = useWebglStore((s) => s.setQualityProfile);
@@ -58,11 +58,7 @@ export default function UnifiedCanvas({ activePage }) {
   return (
     <CanvasSurface
       id="background"
-      dpr={
-        activePage === "test"
-          ? getCanvasDpr(Math.min(1.85, quality.dprCap))
-          : getCanvasDpr(quality.dprCap)
-      }
+      dpr={getCanvasDpr(quality.dprCap)}
       pointerEvents={pointerEvents}
       gl={createRendererOpaque}
       shadows
