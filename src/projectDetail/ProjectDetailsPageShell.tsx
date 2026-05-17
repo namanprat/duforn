@@ -70,7 +70,7 @@ function ProjectDetailsHero({ hero }) {
               </p>
             </TextRevealLines>
             <TextRevealLines delay={0.05}>
-              <p className="project-details-overview-copy">{overview}</p>
+              <h2 className="project-details-overview-copy">{overview}</h2>
             </TextRevealLines>
           </article>
 
@@ -80,10 +80,10 @@ function ProjectDetailsHero({ hero }) {
                 Services
               </p>
             </TextRevealLines>
-            <div className="project-details-info-copy u-display-grid u-gap-4">
+            <div className="project-details-info-copy u-display-grid u-gap-2">
               {services?.map((service) => (
                 <TextRevealLines key={service} delay={0.02}>
-                  <p className="project-details-info-line">{service}</p>
+                  <h4 className="project-details-info-line">{service}</h4>
                 </TextRevealLines>
               ))}
             </div>
@@ -112,12 +112,12 @@ function ProjectDetailsHero({ hero }) {
                   {Array.isArray(item.value) ? (
                     item.value.map((entry) => (
                       <TextRevealLines key={entry} delay={0.02}>
-                        <p className="project-details-info-line">{entry}</p>
+                        <h4 className="project-details-info-line">{entry}</h4>
                       </TextRevealLines>
                     ))
                   ) : (
                     <TextRevealLines>
-                      <p className="project-details-info-line">{item.value}</p>
+                      <h4 className="project-details-info-line">{item.value}</h4>
                     </TextRevealLines>
                   )}
                 </div>

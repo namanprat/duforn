@@ -194,7 +194,6 @@ h2 {
   font-weight: 500;
   line-height: var(--typography-line-height-1);
   letter-spacing: var(--typography-letter-spacing);
-  text-transform: capitalize;
 }
 
 h3 {
@@ -210,7 +209,6 @@ h4 {
   font-size: var(--typography-font-size-h4);
   font-weight: 700;
   line-height: var(--typography-line-height-1);
-  text-transform: uppercase;
 }
 
 h5 {
@@ -3487,25 +3485,6 @@ body.preloader-active .bottom-nav-wrap {
   flex: 0 1 22%;
 }
 
-.project-details-overview-copy,
-.project-details-info-line,
-.project-details-outro-note {
-  text-transform: none;
-  font-family: var(--text-style-font-secondary);
-}
-
-.project-details-overview-copy {
-  font-size: var(--typography-font-size-h3);
-  line-height: 1.05;
-  letter-spacing: calc(var(--typography-letter-spacing) * 0.5);
-}
-
-.project-details-info-line {
-  font-size: var(--typography-font-size-h4);
-  line-height: 1;
-  letter-spacing: calc(var(--typography-letter-spacing) * 0.35);
-}
-
 .project-details-cover-frame {
   position: relative;
   width: 100%;
@@ -3657,9 +3636,6 @@ body.preloader-active .bottom-nav-wrap {
     font-size: var(--typography-font-size-h2);
   }
 
-  .project-details-info-line {
-    font-size: var(--typography-font-size-h5);
-  }
 
   .project-details-screen-grid {
     grid-template-columns: 1fr;
