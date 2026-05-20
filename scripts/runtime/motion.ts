@@ -59,9 +59,44 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-export function mapDeviceOrientationToParallax(event) {
+export function getScreenOrientationAngle() {
+  if (typeof window === "undefined") return 0;
+  if (window.screen?.orientation && Number.isFinite(window.screen.orientation.angle)) {
+    return window.screen.orientation.angle;
+  }
+  if (Number.isFinite(window.orientation)) {
+    return window.orientation;
+  }
+  return 0;
+}
+
+export function remapOrientationToScreenSpace(
+  beta,
+  gamma,
+  orientationAngle = getScreenOrientationAngle(),
+) {
+  const angle = ((orientationAngle % 360) + 360) % 360;
+
+  switch (angle) {
+    case 90:
+      return { beta: gamma, gamma: -beta };
+    case 180:
+      return { beta: -beta, gamma: -gamma };
+    case 270:
+      return { beta: -gamma, gamma: beta };
+    default:
+      return { beta, gamma };
+  }
+}
+
+export function mapDeviceOrientationToParallax(
+  event,
+  orientationAngle = getScreenOrientationAngle(),
+) {
   if (!event || event.gamma === null || event.beta === null) return null;
-  const x = clamp(event.gamma / 45, -1, 1);
-  const y = clamp((event.beta - 45) / 45, -1, 1);
+
+  const { beta, gamma } = remapOrientationToScreenSpace(event.beta, event.gamma, orientationAngle);
+  const x = clamp(gamma / 45, -1, 1);
+  const y = clamp((beta - 45) / 45, -1, 1);
   return { x, y };
 }

@@ -13,10 +13,6 @@
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://duforn.com/film</loc>
-    <priority>0.8</priority>
-  </url>
-  <url>
     <loc>https://duforn.com/contact</loc>
     <priority>0.8</priority>
   </url>

@@ -2,6 +2,7 @@
 import { ACESFilmicToneMapping, SRGBColorSpace, WebGLRenderer } from "three";
 import { logWebGPU, logWebGPUOnce } from "../webgpu/debugWebGPU";
 import { getClampedPixelRatio } from "./canvasPixelRatio";
+import { getStableViewportSize } from "../viewport/stableViewport";
 
 let webgpuSupportPromise;
 const ENABLE_WEBGPU = true;
@@ -50,7 +51,8 @@ function configureRenderer(renderer, { alpha }) {
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1;
   renderer.setPixelRatio(getClampedPixelRatio(2));
-  renderer.setSize(window.innerWidth, window.innerHeight, false);
+  const { width, height } = getStableViewportSize();
+  renderer.setSize(width, height, false);
 
   if ("shadowMap" in renderer && renderer.shadowMap) {
     renderer.shadowMap.enabled = true;

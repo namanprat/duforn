@@ -7,12 +7,14 @@ import {
   buildProjectDetailBackgroundMaterialWebGpu,
 } from "../lib/projectDetail/projectDetailBackgroundMaterials";
 import { usePointerField } from "./usePointerField";
+import { useStableViewportSize } from "../lib/viewport/useStableViewportSize";
 
 export default function ProjectDetailBackground({ controls }) {
   const meshRef = useRef(null);
   const systemRef = useRef(null);
   const [ready, setReady] = useState(false);
-  const { gl, size } = useThree();
+  const { gl } = useThree();
+  const stableViewport = useStableViewportSize();
   const { pointerRef, velocityRef, step } = usePointerField();
 
   useEffect(() => {
@@ -49,14 +51,14 @@ export default function ProjectDetailBackground({ controls }) {
 
     if (meshRef.current) {
       meshRef.current.position.set(0, 0, -25);
-      meshRef.current.scale.set(size.width, size.height, 1);
+      meshRef.current.scale.set(stableViewport.width, stableViewport.height, 1);
     }
 
     const system = systemRef.current;
     if (!system) return;
 
     system.uniforms.uTime.value = state.clock.elapsedTime;
-    system.uniforms.uResolution.value.set(size.width, size.height);
+    system.uniforms.uResolution.value.set(stableViewport.width, stableViewport.height);
     system.uniforms.uPointer.value.copy(pointerRef.current);
     system.uniforms.uVelocity.value.copy(velocityRef.current);
   });

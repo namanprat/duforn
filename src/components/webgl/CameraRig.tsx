@@ -3,6 +3,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import React, { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { useWebglStore } from "../../store/webgl";
+import { normalizeViewportPoint } from "../../lib/viewport/stableViewport";
 import {
   PARALLAX_MOTION_CONFIG,
   mapDeviceOrientationToParallax,
@@ -36,7 +37,17 @@ export default function CameraRig({
 
   const orbitOffset = useRef({ x: 0, y: 0, z: 0 });
   const current = useRef({ angle: Math.PI / 2, y: 0, tilt: 0 });
-  const target = useRef({ angle: Math.PI / 2, y: 0, tilt: 0 });
+  const pointerTarget = useRef({ angle: Math.PI / 2, y: 0, tilt: 0 });
+  const gyroTarget = useRef({ angle: Math.PI / 2, y: 0, tilt: 0 });
+  const gyroHasValue = useRef(false);
+
+  const applyParallaxInput = (targetRef, x, y) => {
+    const ps = parallaxScale;
+    const pa = parallaxAngleScale;
+    targetRef.current.angle = Math.PI / 2 + x * PARALLAX_MOTION_CONFIG.angleRange * ps * pa;
+    targetRef.current.y = y * PARALLAX_MOTION_CONFIG.yRange * ps;
+    targetRef.current.tilt = x * PARALLAX_MOTION_CONFIG.tiltRange * ps * pa;
+  };
 
   // Contact page orbit shift
   useEffect(() => {
@@ -55,13 +66,8 @@ export default function CameraRig({
 
   useEffect(() => {
     const onPointerMove = (event) => {
-      const mx = (event.clientX / window.innerWidth) * 2 - 1;
-      const my = -(event.clientY / window.innerHeight) * 2 + 1;
-      const ps = parallaxScale;
-      const pa = parallaxAngleScale;
-      target.current.angle = Math.PI / 2 + mx * PARALLAX_MOTION_CONFIG.angleRange * ps * pa;
-      target.current.y = -my * PARALLAX_MOTION_CONFIG.yRange * ps;
-      target.current.tilt = mx * PARALLAX_MOTION_CONFIG.tiltRange * ps * pa;
+      const { x, y } = normalizeViewportPoint(event.clientX, event.clientY);
+      applyParallaxInput(pointerTarget, x, -y);
     };
 
     window.addEventListener("pointermove", onPointerMove, { passive: true });
@@ -69,16 +75,21 @@ export default function CameraRig({
   }, [parallaxScale, parallaxAngleScale]);
 
   useEffect(() => {
-    if (!gyroEnabled) return;
+    if (!gyroEnabled) {
+      gyroHasValue.current = false;
+      return;
+    }
 
     const onDeviceOrientation = (event) => {
       const mapped = mapDeviceOrientationToParallax(event);
       if (!mapped) return;
       const ps = parallaxScale;
       const pa = parallaxAngleScale;
-      target.current.angle = Math.PI / 2 + mapped.x * PARALLAX_MOTION_CONFIG.angleRange * ps * pa;
-      target.current.y = mapped.y * PARALLAX_MOTION_CONFIG.yRange * 1.1 * ps;
-      target.current.tilt = mapped.x * PARALLAX_MOTION_CONFIG.tiltRange * ps * pa;
+      gyroTarget.current.angle =
+        Math.PI / 2 + mapped.x * PARALLAX_MOTION_CONFIG.angleRange * ps * pa;
+      gyroTarget.current.y = mapped.y * PARALLAX_MOTION_CONFIG.yRange * 1.1 * ps;
+      gyroTarget.current.tilt = mapped.x * PARALLAX_MOTION_CONFIG.tiltRange * ps * pa;
+      gyroHasValue.current = true;
     };
 
     window.addEventListener("deviceorientation", onDeviceOrientation, { passive: true });
@@ -88,6 +99,9 @@ export default function CameraRig({
   useFrame((state, delta) => {
     if (locked) return;
 
+    const activeTarget =
+      gyroEnabled && gyroHasValue.current ? gyroTarget.current : pointerTarget.current;
+
     const safeDelta = Math.min(delta, 0.1);
     const fpsFactor = Math.min((safeDelta * 1000) / 16.666, 3.0);
     const baseLerp =
@@ -96,9 +110,9 @@ export default function CameraRig({
         : PARALLAX_MOTION_CONFIG.lerp;
     const lerpFactor = Math.min(baseLerp * fpsFactor, 1.0);
 
-    current.current.angle += (target.current.angle - current.current.angle) * lerpFactor;
-    current.current.y += (target.current.y - current.current.y) * lerpFactor;
-    current.current.tilt += (target.current.tilt - current.current.tilt) * lerpFactor;
+    current.current.angle += (activeTarget.angle - current.current.angle) * lerpFactor;
+    current.current.y += (activeTarget.y - current.current.y) * lerpFactor;
+    current.current.tilt += (activeTarget.tilt - current.current.tilt) * lerpFactor;
 
     const [ocx, ocy, ocz] = orbitCenter;
     const cx = orbitOffset.current.x + ocx;

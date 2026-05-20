@@ -10,6 +10,7 @@ import {
   buildNotFoundScreenMaterialWebGpu,
 } from "../../lib/notFound/notFoundScreenMaterials";
 import { useWebglStore } from "../../store/webgl";
+import { normalizeViewportPoint } from "../../lib/viewport/stableViewport";
 import {
   PARALLAX_MOTION_CONFIG,
   mapDeviceOrientationToParallax,
@@ -117,8 +118,9 @@ export default function NotFoundScene() {
 
   useEffect(() => {
     const onPointerMove = (event) => {
-      pointerRef.current.x = (event.clientX / window.innerWidth) * 2 - 1;
-      pointerRef.current.y = (event.clientY / window.innerHeight) * 2 - 1;
+      const { x, y } = normalizeViewportPoint(event.clientX, event.clientY);
+      pointerRef.current.x = x;
+      pointerRef.current.y = -y;
     };
     window.addEventListener("pointermove", onPointerMove, { passive: true });
     return () => window.removeEventListener("pointermove", onPointerMove);

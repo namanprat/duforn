@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { normalizeViewportPoint } from "../lib/viewport/stableViewport";
 
 export function usePointerField() {
   const pointerRef = useRef(new THREE.Vector2(0, 0));
@@ -10,10 +11,8 @@ export function usePointerField() {
 
   useEffect(() => {
     const onPointerMove = (event) => {
-      targetRef.current.set(
-        (event.clientX / window.innerWidth) * 2 - 1,
-        -((event.clientY / window.innerHeight) * 2 - 1),
-      );
+      const { x, y } = normalizeViewportPoint(event.clientX, event.clientY);
+      targetRef.current.set(x, y);
     };
 
     window.addEventListener("pointermove", onPointerMove, { passive: true });
