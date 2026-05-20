@@ -1,11 +1,14 @@
 // @ts-nocheck
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useTexture } from "@react-three/drei";
 import { useMonitorModel } from "../../models/generated/useMonitorModel";
 import * as THREE from "three";
-import { MeshBasicNodeMaterial } from "three/webgpu";
-import { clamp, float, mix, sin, step, texture, uniform, uv, vec2, vec3 } from "three/tsl";
+import { pickGpuBranchAsync } from "../../lib/rendering";
+import {
+  buildNotFoundScreenMaterialWebGl,
+  buildNotFoundScreenMaterialWebGpu,
+} from "../../lib/notFound/notFoundScreenMaterials";
 import { useWebglStore } from "../../store/webgl";
 import {
   PARALLAX_MOTION_CONFIG,
@@ -42,8 +45,10 @@ function createScreenGeometry(width, height, radius) {
 
 export default function NotFoundScene() {
   const groupRef = useRef(null);
+  const screenSystemRef = useRef(null);
+  const [screenReady, setScreenReady] = useState(false);
   const camera = useThree((state) => state.camera);
-  const size = useThree((state) => state.size);
+  const { gl, size } = useThree();
   const gyroEnabled = useWebglStore((state) => state.gyroEnabled);
   const orientationRef = useRef({ x: 0, y: 0, hasValue: false });
   const pointerRef = useRef({ x: 0, y: 0 });
@@ -60,63 +65,45 @@ export default function NotFoundScene() {
 
   const screenGeometry = useMemo(() => createScreenGeometry(1, 1, 0.03), []);
 
-  const timeUniform = useMemo(() => uniform(0), []);
-  const imageAspectUniform = useMemo(() => uniform(1), []);
-  const resolutionYUniform = useMemo(() => uniform(size.height), [size.height]);
-
-  const screenMaterial = useMemo(() => {
-    const material = new MeshBasicNodeMaterial();
-    const baseUv = uv();
-    const planeAspect = float(0.28 / 0.235);
-    const imageAspect = imageAspectUniform;
-    const branch = step(imageAspect, planeAspect);
-    const one = float(1);
-
-    const yScale = imageAspect.div(planeAspect);
-    const xScale = planeAspect.div(imageAspect);
-    const coveredUv = vec2(
-      mix(baseUv.x.mul(xScale).add(one.sub(xScale).mul(0.5)), baseUv.x, branch),
-      mix(baseUv.y, baseUv.y.mul(yScale).add(one.sub(yScale).mul(0.5)), branch),
-    );
-
-    const rgbShift = float(0.0025);
-    const rUv = coveredUv.add(vec2(rgbShift, rgbShift));
-    const bUv = coveredUv.add(vec2(rgbShift.mul(-1), float(0)));
-    const source = texture(imageTexture, coveredUv).rgb;
-    const red = texture(imageTexture, rUv).r;
-    const blue = texture(imageTexture, bUv).b;
-    const crtRgb = vec3(red, source.g, blue).mul(vec3(0.95, 1.05, 0.95));
-
-    const scanline = sin(coveredUv.y.mul(resolutionYUniform).mul(1.5).add(timeUniform.mul(10)))
-      .mul(0.2)
-      .add(0.8);
-    const vignette = coveredUv.x
-      .mul(coveredUv.y)
-      .mul(one.sub(coveredUv.x))
-      .mul(one.sub(coveredUv.y))
-      .mul(16)
-      .pow(0.12);
-    const crt = crtRgb.mul(scanline).mul(vignette);
-    const boosted = clamp(crt.mul(1.08), vec3(0), vec3(1));
-
-    material.colorNode = boosted;
-    return material;
-  }, [imageAspectUniform, imageTexture, resolutionYUniform, timeUniform]);
-
   useEffect(() => {
     imageTexture.colorSpace = THREE.SRGBColorSpace;
     imageTexture.minFilter = THREE.LinearFilter;
     imageTexture.magFilter = THREE.LinearFilter;
     imageTexture.needsUpdate = true;
-    const { image } = imageTexture;
-    if (image?.width && image?.height) {
-      imageAspectUniform.value = image.width / image.height;
-    }
-  }, [imageAspectUniform, imageTexture]);
+  }, [imageTexture]);
 
   useEffect(() => {
-    resolutionYUniform.value = size.height;
-  }, [resolutionYUniform, size.height]);
+    let cancelled = false;
+
+    async function build() {
+      const system = await pickGpuBranchAsync(gl, {
+        webgpu: () => buildNotFoundScreenMaterialWebGpu(imageTexture),
+        webgl: () => buildNotFoundScreenMaterialWebGl(imageTexture),
+      });
+
+      if (cancelled) {
+        system.material.dispose();
+        return;
+      }
+
+      const { image } = imageTexture;
+      if (image?.width && image?.height) {
+        system.uniforms.uImageAspect.value = image.width / image.height;
+      }
+
+      screenSystemRef.current = system;
+      setScreenReady(true);
+    }
+
+    build();
+
+    return () => {
+      cancelled = true;
+      setScreenReady(false);
+      screenSystemRef.current?.material.dispose();
+      screenSystemRef.current = null;
+    };
+  }, [gl, imageTexture]);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -158,9 +145,8 @@ export default function NotFoundScene() {
   useEffect(() => {
     return () => {
       screenGeometry.dispose();
-      screenMaterial.dispose();
     };
-  }, [screenGeometry, screenMaterial]);
+  }, [screenGeometry]);
 
   useEffect(() => {
     if (!camera || !("isPerspectiveCamera" in camera) || !camera.isPerspectiveCamera) return;
@@ -175,7 +161,6 @@ export default function NotFoundScene() {
     const fitWidthDistance = modelSize.x / (2 * tanHalfFov * safeAspect);
     const distance = Math.max(fitHeightDistance, fitWidthDistance) * 1.3;
 
-    // Keep a gentle top framing while ensuring the full monitor fits.
     const targetY = modelCenter.y + modelSize.y * 0.05;
     camera.position.set(modelCenter.x, targetY, modelCenter.z + distance);
     camera.near = 0.1;
@@ -185,6 +170,12 @@ export default function NotFoundScene() {
   }, [camera, model, size.height, size.width]);
 
   useFrame((state, delta) => {
+    const system = screenSystemRef.current;
+    if (system) {
+      system.uniforms.uTime.value = state.clock.elapsedTime;
+      system.uniforms.uResolutionY.value = size.height;
+    }
+
     if (!groupRef.current) return;
     const prefersReducedMotion = reducedMotionRef.current;
     const amplitudeScale = prefersReducedMotion ? 0.08 : 1;
@@ -211,8 +202,21 @@ export default function NotFoundScene() {
       motionLerp,
       delta,
     );
-    timeUniform.value = state.clock.elapsedTime;
   });
+
+  if (!screenReady || !screenSystemRef.current) {
+    return (
+      <>
+        <color attach="background" args={["#b0b0b0"]} />
+        <ambientLight intensity={5} />
+        <directionalLight position={[15, 10, -5]} intensity={2.5} />
+        <pointLight position={[-5, -2.5, 0]} intensity={5} distance={10} decay={0.3} />
+        <group ref={groupRef}>
+          <primitive object={model} />
+        </group>
+      </>
+    );
+  }
 
   return (
     <>
@@ -225,7 +229,7 @@ export default function NotFoundScene() {
         <primitive object={model} />
         <mesh
           geometry={screenGeometry}
-          material={screenMaterial}
+          material={screenSystemRef.current.material}
           scale={[0.28, 0.235, 1]}
           position={[-0.008, 0.005, 0.041]}
           rotation={[-0.18, 0, 0]}

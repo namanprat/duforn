@@ -5,6 +5,11 @@ import { useFrame, useThree } from "@react-three/fiber";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { configureTexture } from "../../scripts/runtime/assets";
+import { pickGpuBranchAsync } from "../lib/rendering";
+import {
+  buildProjectDetailRevealMaterialWebGl,
+  buildProjectDetailRevealMaterialWebGpu,
+} from "../lib/projectDetail/projectDetailRevealMaterials";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -27,81 +32,6 @@ function getCoverUvTransform({ textureWidth, textureHeight, frameWidth, frameHei
   }
 
   return { scale, offset };
-}
-
-async function createRevealMaterial(texture) {
-  const tsl = await import("three/tsl");
-  const { MeshBasicNodeMaterial } = await import("three/webgpu");
-  const {
-    Fn,
-    float,
-    vec3,
-    uv,
-    uniform,
-    uniformTexture,
-    texture: textureNode,
-    mix,
-    smoothstep,
-    dot,
-    mx_noise_float,
-  } = tsl;
-
-  const uniforms = {
-    uTex: uniformTexture(texture),
-    uReveal: uniform(0),
-    uEdge: uniform(0.12),
-    uNoiseScale: uniform(10.0),
-    uNoiseStrength: uniform(0.15),
-    uGreyLevel: uniform(0.55),
-    uTime: uniform(0),
-    uUvScale: uniform(new THREE.Vector2(1, 1)),
-    uUvOffset: uniform(new THREE.Vector2(0, 0)),
-  };
-
-  const material = new MeshBasicNodeMaterial({
-    transparent: true,
-    depthWrite: false,
-  });
-
-  material.colorNode = Fn(() => {
-    const coord = uv();
-    const sampleCoord = coord.mul(uniforms.uUvScale).add(uniforms.uUvOffset);
-    const sample = textureNode(uniforms.uTex, sampleCoord);
-    const animatedNoise = mx_noise_float(
-      vec3(coord.mul(uniforms.uNoiseScale), uniforms.uTime.mul(0.08).add(coord.y.mul(0.35))),
-    );
-    const threshold = coord.x.add(animatedNoise.mul(uniforms.uNoiseStrength));
-    const sweep = smoothstep(float(-1), float(1), uniforms.uReveal.mul(2).sub(1))
-      .mul(float(1).add(uniforms.uEdge.mul(2)))
-      .sub(uniforms.uEdge);
-    const progress = sweep.sub(threshold);
-    const resolved = smoothstep(float(0), uniforms.uEdge, progress);
-    const luma = dot(sample.rgb, vec3(0.299, 0.587, 0.114));
-    const grey = vec3(luma.mul(uniforms.uGreyLevel));
-    return mix(grey, sample.rgb, resolved);
-  })();
-
-  material.opacityNode = Fn(() => {
-    const coord = uv();
-    const sampleCoord = coord.mul(uniforms.uUvScale).add(uniforms.uUvOffset);
-    const sample = textureNode(uniforms.uTex, sampleCoord);
-    const animatedNoise = mx_noise_float(
-      vec3(coord.mul(uniforms.uNoiseScale), uniforms.uTime.mul(0.08).add(coord.y.mul(0.35))),
-    );
-    const threshold = coord.x.add(animatedNoise.mul(uniforms.uNoiseStrength));
-    const sweep = smoothstep(float(-1), float(1), uniforms.uReveal.mul(2).sub(1))
-      .mul(float(1).add(uniforms.uEdge.mul(2)))
-      .sub(uniforms.uEdge);
-    const progress = sweep.sub(threshold);
-    const visible = smoothstep(
-      uniforms.uEdge.negate().mul(0.8),
-      uniforms.uEdge.mul(0.18),
-      progress,
-    );
-    return visible.mul(sample.a);
-  })();
-
-  return { material, uniforms };
 }
 
 function useImagePlaneMaterial({ gl, imgElement }) {
@@ -134,7 +64,10 @@ function useImagePlaneMaterial({ gl, imgElement }) {
         configureTexture(texture, { renderer: gl });
 
         try {
-          const system = await createRevealMaterial(texture);
+          const system = await pickGpuBranchAsync(gl, {
+            webgpu: () => buildProjectDetailRevealMaterialWebGpu(texture),
+            webgl: () => buildProjectDetailRevealMaterialWebGl(texture),
+          });
 
           if (cancelled) {
             system.material.dispose();

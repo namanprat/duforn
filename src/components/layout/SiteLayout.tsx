@@ -129,7 +129,7 @@ export default function SiteLayout({ children }) {
       return;
     }
     await hideAllRegisteredMenuText();
-    if (rendererType === "webgpu" && canvasInk.isReady?.()) {
+    if (canvasInk.isReady?.()) {
       void canvasInk.enter({
         skipExpand: true,
         origin: resolveCanvasInkOrigin(menuToggleRef.current),
@@ -159,7 +159,7 @@ export default function SiteLayout({ children }) {
     }
     await hideAllRegisteredPageText();
     previouslyFocusedElementRef.current = document.activeElement;
-    if (rendererType === "webgpu" && canvasInk.isReady?.()) {
+    if (canvasInk.isReady?.()) {
       try {
         await canvasInk.cover({
           origin: resolveCanvasInkOrigin(menuToggleRef.current),

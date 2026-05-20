@@ -7,13 +7,14 @@
  * are sampled directly from the shallow-water `h` buffer (no storage textures —
  * see docs/TSL_WEBGPU.md → "Storage Textures - DOESN'T WORK YET").
  *
- * On WebGL the fallback path keeps the source `MeshPhysicalMaterial` and only
- * perturbs the normal via onBeforeCompile using the CPU sim's height texture.
+ * On WebGL the fallback path uses a dedicated ShaderMaterial with the same
+ * ocean-webgpu-style shading as the WebGPU TSL path.
  */
 import * as THREE from "three";
 import { POOL_SIM_DEFAULTS, POOL_WATER_DEFAULTS } from "../config/poolWaterDefaults";
 import { planarBoundsToUniform } from "../waterPlanarMapping";
 import { isGpuShallowWaterSim } from "../compute/createPoolWaterSim";
+import { createPoolWaterMaterialWebGl } from "./poolWaterMaterialWebGl";
 
 function sunDirectionFromAngles(elevationDeg, azimuthDeg, target = new THREE.Vector3()) {
   const elevation = THREE.MathUtils.degToRad(elevationDeg);
@@ -295,95 +296,11 @@ async function createWebGPU({ sim, bounds, envMap, waterParams, useUvMapping }) 
   };
 }
 
-function createWebGL({ source, sim, bounds, waterParams, useUvMapping }) {
-  const p = { ...POOL_WATER_DEFAULTS, ...waterParams };
-  const material = source.clone();
-  material.transparent = true;
-  material.depthWrite = false;
-  material.opacity = p.opacity;
-
-  const planarMin = new THREE.Vector2(bounds.minX, bounds.minZ);
-  const planarSize = new THREE.Vector2(bounds.width, bounds.depth);
-  const heightTex = sim.getHeightTexture();
-  const res = sim.getResolution();
-
-  const uniforms = {
-    uHeightMap: { value: heightTex },
-    uPlanarMin: { value: planarMin },
-    uPlanarSize: { value: planarSize },
-    uSimRes: { value: res },
-    uTexelSize: { value: 1 / Math.max(res - 1, 1) },
-    uNormalScale: { value: POOL_SIM_DEFAULTS.normalScale },
-    uRippleStrength: { value: p.normalStrength },
-  };
-
-  material.customProgramCacheKey = () => `dufornPoolWaterV3-${useUvMapping ? "uv" : "planar"}`;
-  material.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, uniforms);
-    if (useUvMapping) {
-      shader.vertexShader = `varying vec2 vWaterUv;\n${shader.vertexShader}`;
-      shader.vertexShader = shader.vertexShader.replace(
-        "#include <uv_vertex>",
-        "#include <uv_vertex>\nvWaterUv = uv;",
-      );
-    } else {
-      shader.vertexShader = `varying vec3 vPoolWorldPos;\n${shader.vertexShader}`;
-      shader.vertexShader = shader.vertexShader.replace(
-        "#include <worldpos_vertex>",
-        "#include <worldpos_vertex>\nvPoolWorldPos = worldPosition.xyz;",
-      );
-    }
-    shader.fragmentShader =
-      `${useUvMapping ? "varying vec2 vWaterUv;" : "varying vec3 vPoolWorldPos;"}
-uniform sampler2D uHeightMap;
-uniform vec2 uPlanarMin;
-uniform vec2 uPlanarSize;
-uniform float uSimRes;
-uniform float uTexelSize;
-uniform float uNormalScale;
-uniform float uRippleStrength;
-float dufornDecodeH(float r) { return (r - 0.5) * 2.0; }
-float dufornSampleHeight(vec2 uv) {
-  return dufornDecodeH(texture2D(uHeightMap, clamp(uv, 0.0, 1.0)).r);
-}
-` + shader.fragmentShader;
-
-    shader.fragmentShader = shader.fragmentShader.replace(
-      "#include <normal_fragment_maps>",
-      `#include <normal_fragment_maps>
-vec2 rippleUv = ${
-        useUvMapping
-          ? "clamp(vWaterUv, 0.0, 1.0)"
-          : "clamp((vPoolWorldPos.xz - uPlanarMin) / uPlanarSize, 0.0, 1.0)"
-      };
-float hL = dufornSampleHeight(rippleUv + vec2(-uTexelSize, 0.0));
-float hR = dufornSampleHeight(rippleUv + vec2(uTexelSize, 0.0));
-float hU = dufornSampleHeight(rippleUv + vec2(0.0, -uTexelSize));
-float hD = dufornSampleHeight(rippleUv + vec2(0.0, uTexelSize));
-vec3 rippleN = normalize(vec3((hL - hR) * uNormalScale, 1.0, (hU - hD) * uNormalScale));
-normal = normalize(mix(normal, rippleN, uRippleStrength));
-`,
-    );
-  };
-
-  return {
-    material,
-    setPlanarBounds(nextBounds) {
-      planarMin.set(nextBounds.minX, nextBounds.minZ);
-      planarSize.set(nextBounds.width, nextBounds.depth);
-    },
-    updateSun() {},
-    updateWaterParams(next) {
-      if (next.normalStrength != null) uniforms.uRippleStrength.value = next.normalStrength;
-      if (next.opacity != null) material.opacity = next.opacity;
-    },
-    dispose() {
-      material.dispose();
-    },
-  };
+function createWebGL({ sim, bounds, envMap, waterParams, useUvMapping }) {
+  return createPoolWaterMaterialWebGl({ sim, bounds, envMap, waterParams, useUvMapping });
 }
 
-export async function createPoolWaterMaterial(gl, { mesh, sim, bounds, envMap, waterParams }) {
+export async function createPoolWaterMaterial(_gl, { mesh, sim, bounds, envMap, waterParams }) {
   const source = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
   if (!source) throw new Error("[createPoolWaterMaterial] mesh has no material");
   const useUvMapping = Boolean(mesh.geometry?.getAttribute?.("uv"));
@@ -391,5 +308,5 @@ export async function createPoolWaterMaterial(gl, { mesh, sim, bounds, envMap, w
   if (isGpuShallowWaterSim(sim)) {
     return createWebGPU({ sim, bounds, envMap, waterParams, useUvMapping });
   }
-  return createWebGL({ source, sim, bounds, waterParams, useUvMapping });
+  return createWebGL({ sim, bounds, envMap, waterParams, useUvMapping });
 }

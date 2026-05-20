@@ -52,7 +52,6 @@ export default function WaterRipples({ mesh }) {
   const previousMaterialRef = useRef(null);
   const lastSpawnTimeRef = useRef(0);
   const lastSpawnCellRef = useRef(new THREE.Vector2(-1, -1));
-  const lastActivityRef = useRef(0);
   const lastBreezeImpulseRef = useRef(0);
   const breezePhaseRef = useRef(Math.random());
   const breezeStrengthRef = useRef(POOL_SIM_DEFAULTS.breezeStrength);
@@ -137,8 +136,7 @@ export default function WaterRipples({ mesh }) {
     previousMaterialRef.current = mesh.material;
     mesh.frustumCulled = false;
     mesh.renderOrder = POOL_WATER_RENDER_ORDER;
-    lastActivityRef.current = performance.now();
-    lastBreezeImpulseRef.current = lastActivityRef.current;
+    lastBreezeImpulseRef.current = performance.now();
 
     const bounds = refreshBounds();
 
@@ -228,7 +226,6 @@ export default function WaterRipples({ mesh }) {
       if (!gridPoint) return;
 
       const now = performance.now();
-      lastActivityRef.current = now;
       if (now - lastSpawnTimeRef.current < POOL_SIM_DEFAULTS.pointerThrottleMs) return;
       const last = lastSpawnCellRef.current;
       const dx = gridPoint.gx - last.x;

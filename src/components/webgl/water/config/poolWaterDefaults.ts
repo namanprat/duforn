@@ -8,8 +8,6 @@
 
 export const POOL_SIM_DEFAULTS = {
   gridSize: 384,
-  gridSizeLow: 128,
-  gridSizeMobile: 192,
   /** Wave-equation damping per step (MODIFIER in 4rknova shader). */
   modifier: 0.992,
   /** Number of integration steps per frame. */

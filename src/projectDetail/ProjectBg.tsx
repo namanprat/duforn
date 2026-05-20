@@ -182,6 +182,11 @@ export default function ProjectBg({ renderScale = 1 }) {
   useFrame((state, delta) => {
     if (!ready) return;
 
+    const virtualScene = virtualSceneRef.current;
+    const virtualCamera = virtualCameraRef.current;
+    const renderTarget = renderTargetRef.current;
+    if (!virtualScene || !virtualCamera || !renderTarget) return;
+
     const dt = Math.min(delta, 0.05);
     const mobileOrbitSpeed = 0.32;
     const mobileOrbitRadius = 0.42;
@@ -232,23 +237,23 @@ export default function ProjectBg({ renderScale = 1 }) {
     const { width, height } = state.size;
     if (width !== prevSizeRef.current.width || height !== prevSizeRef.current.height) {
       const dpr = Math.min(gl.getPixelRatio(), getClampedPixelRatio(2));
-      renderTargetRef.current.setSize(
+      renderTarget.setSize(
         Math.max(1, Math.floor(width * dpr * renderScale)),
         Math.max(1, Math.floor(height * dpr * renderScale)),
       );
-      virtualCameraRef.current.aspect = width / height;
-      virtualCameraRef.current.updateProjectionMatrix();
+      virtualCamera.aspect = width / height;
+      virtualCamera.updateProjectionMatrix();
       prevSizeRef.current = { width, height };
     }
 
     const prevTarget = gl.getRenderTarget();
-    gl.setRenderTarget(renderTargetRef.current);
+    gl.setRenderTarget(renderTarget);
     gl.clear();
-    gl.render(virtualSceneRef.current, virtualCameraRef.current);
+    gl.render(virtualScene, virtualCamera);
     gl.setRenderTarget(prevTarget);
 
     if (quadMaterialRef.current) {
-      quadMaterialRef.current.map = renderTargetRef.current.texture;
+      quadMaterialRef.current.map = renderTarget.texture;
       if (quadMaterialRef.current.opacity !== 1) {
         quadMaterialRef.current.opacity = 1;
       }
