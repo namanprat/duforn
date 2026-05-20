@@ -54,6 +54,7 @@ export function applyModelMaterialTuning(
 ) {
   model.traverse((child) => {
     if (!child.isMesh) return;
+    if (child.userData?.isWater) return;
     child.castShadow = true;
     child.receiveShadow = true;
 

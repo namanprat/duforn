@@ -1,7 +1,9 @@
 // @ts-nocheck
-import React, { useLayoutEffect, useRef } from "react";
+import React, { useLayoutEffect, useRef, useState } from "react";
 import TestModel from "../../models/generated/TestModel";
 import { applyModelMaterialTuning, normalizeModelBounds } from "./sceneUtils";
+import { findWaterMesh } from "./water/findWaterMesh";
+import WaterRipples from "./water/WaterRipples";
 
 const MODEL_SCALE = 13;
 
@@ -16,13 +18,44 @@ const MATERIAL_TUNE = {
 export default function TestScene() {
   const modelRef = useRef(null);
   const didInitializeRef = useRef(false);
+  const [waterMesh, setWaterMesh] = useState(null);
 
   useLayoutEffect(() => {
-    const model = modelRef.current;
-    if (!model || didInitializeRef.current) return;
-    normalizeModelBounds(model);
-    applyModelMaterialTuning(model, MATERIAL_TUNE);
-    didInitializeRef.current = true;
+    const tryInit = () => {
+      const model = modelRef.current;
+      if (!model || didInitializeRef.current) return false;
+
+      let hasMesh = false;
+      model.traverse((o) => {
+        if (o.isMesh) hasMesh = true;
+      });
+      if (!hasMesh) return false;
+
+      normalizeModelBounds(model);
+
+      const mesh = findWaterMesh(model);
+      if (mesh) {
+        mesh.userData.isWater = true;
+        setWaterMesh(mesh);
+      } else {
+        console.warn("[TestScene] water mesh not found in test.glb");
+      }
+
+      applyModelMaterialTuning(model, MATERIAL_TUNE);
+
+      didInitializeRef.current = true;
+      return true;
+    };
+
+    if (tryInit()) return undefined;
+
+    let raf = 0;
+    const tick = () => {
+      if (tryInit()) return;
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   return (
@@ -49,6 +82,7 @@ export default function TestScene() {
       <group ref={modelRef}>
         <TestModel />
       </group>
+      {waterMesh && <WaterRipples mesh={waterMesh} />}
     </group>
   );
 }

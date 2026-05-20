@@ -16,10 +16,14 @@ export default function ShaderCompiler({ sceneKey = "default" }) {
 
   useEffect(() => {
     let cancelled = false;
-    const markReady = useLoadingStore.getState().markReady;
+    const store = useLoadingStore.getState();
+    // Flip phase to 'compiling' so other consumers (e.g. WaterRipples'
+    // animation loop) can pause their renders while WebGPU's command encoder
+    // is in use by compileAsync. Avoids "RenderPassEncoder already ended".
+    useLoadingStore.setState({ phase: "compiling" });
 
     const finish = () => {
-      if (!cancelled) markReady();
+      if (!cancelled) store.markReady();
     };
 
     const raf = requestAnimationFrame(() => {

@@ -24,8 +24,11 @@ export default function CameraRig({
   orbitCenter = [0, -1, -5],
   enableContactOffset = true,
   parallaxScale = 1,
+  parallaxAngleScale = 1,
+  parallaxLerp,
   handheldDriftScale = 1,
   orbitRadius: orbitRadiusProp,
+  locked = false,
 }) {
   const activePage = useWebglStore((state) => state.activePage);
   const gyroEnabled = useWebglStore((state) => state.gyroEnabled);
@@ -55,14 +58,15 @@ export default function CameraRig({
       const mx = (event.clientX / window.innerWidth) * 2 - 1;
       const my = -(event.clientY / window.innerHeight) * 2 + 1;
       const ps = parallaxScale;
-      target.current.angle = Math.PI / 2 + mx * PARALLAX_MOTION_CONFIG.angleRange * ps;
+      const pa = parallaxAngleScale;
+      target.current.angle = Math.PI / 2 + mx * PARALLAX_MOTION_CONFIG.angleRange * ps * pa;
       target.current.y = -my * PARALLAX_MOTION_CONFIG.yRange * ps;
-      target.current.tilt = mx * PARALLAX_MOTION_CONFIG.tiltRange * ps;
+      target.current.tilt = mx * PARALLAX_MOTION_CONFIG.tiltRange * ps * pa;
     };
 
     window.addEventListener("pointermove", onPointerMove, { passive: true });
     return () => window.removeEventListener("pointermove", onPointerMove);
-  }, [parallaxScale]);
+  }, [parallaxScale, parallaxAngleScale]);
 
   useEffect(() => {
     if (!gyroEnabled) return;
@@ -71,19 +75,26 @@ export default function CameraRig({
       const mapped = mapDeviceOrientationToParallax(event);
       if (!mapped) return;
       const ps = parallaxScale;
-      target.current.angle = Math.PI / 2 + mapped.x * PARALLAX_MOTION_CONFIG.angleRange * ps;
+      const pa = parallaxAngleScale;
+      target.current.angle = Math.PI / 2 + mapped.x * PARALLAX_MOTION_CONFIG.angleRange * ps * pa;
       target.current.y = mapped.y * PARALLAX_MOTION_CONFIG.yRange * 1.1 * ps;
-      target.current.tilt = mapped.x * PARALLAX_MOTION_CONFIG.tiltRange * ps;
+      target.current.tilt = mapped.x * PARALLAX_MOTION_CONFIG.tiltRange * ps * pa;
     };
 
     window.addEventListener("deviceorientation", onDeviceOrientation, { passive: true });
     return () => window.removeEventListener("deviceorientation", onDeviceOrientation);
-  }, [gyroEnabled, parallaxScale]);
+  }, [gyroEnabled, parallaxScale, parallaxAngleScale]);
 
   useFrame((state, delta) => {
+    if (locked) return;
+
     const safeDelta = Math.min(delta, 0.1);
     const fpsFactor = Math.min((safeDelta * 1000) / 16.666, 3.0);
-    const lerpFactor = Math.min(PARALLAX_MOTION_CONFIG.lerp * fpsFactor, 1.0);
+    const baseLerp =
+      typeof parallaxLerp === "number" && Number.isFinite(parallaxLerp)
+        ? parallaxLerp
+        : PARALLAX_MOTION_CONFIG.lerp;
+    const lerpFactor = Math.min(baseLerp * fpsFactor, 1.0);
 
     current.current.angle += (target.current.angle - current.current.angle) * lerpFactor;
     current.current.y += (target.current.y - current.current.y) * lerpFactor;

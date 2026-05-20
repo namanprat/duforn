@@ -42,7 +42,7 @@ function UnifiedScene({ activePage, shadowMapSize }) {
  * Single persistent R3F canvas for all routes. Only one scene branch mounts at a time.
  */
 export default function UnifiedCanvas({ activePage }) {
-  const pointerEvents = activePage === "work" ? "auto" : "none";
+  const pointerEvents = activePage === "work" || activePage === "test" ? "auto" : "none";
   const isProjectDetail = activePage === "projectDetail";
   const setRendererType = useWebglStore((s) => s.setRendererType);
   const setQualityProfile = useWebglStore((s) => s.setQualityProfile);
@@ -55,6 +55,12 @@ export default function UnifiedCanvas({ activePage }) {
     }
   }, [quality.tier, setQualityProfile]);
 
+  // Test scene runs its own animation loop via gl.setAnimationLoop so it can
+  // await compute kernels before the render pass — avoids WebGPU
+  // "RenderPassEncoder was already ended" when ripples are dense. See
+  // WaterRipples.tsx and PoolShallowWaterSim.stepAsync().
+  const frameloop = activePage === "test" ? "never" : "always";
+
   return (
     <CanvasSurface
       id="background"
@@ -62,6 +68,7 @@ export default function UnifiedCanvas({ activePage }) {
       pointerEvents={pointerEvents}
       gl={createRendererOpaque}
       shadows
+      frameloop={frameloop}
       wrapperProps={{ "data-active-canvas": "true" }}
       onCreated={({ gl }) => {
         const rendererType = getRendererType(gl);

@@ -40,8 +40,10 @@ export function TestCanvasBranch() {
         orbitCenter={[0, 0.5, 0]}
         orbitRadius={5}
         enableContactOffset={false}
-        parallaxScale={0.4}
-        handheldDriftScale={0.3}
+        parallaxScale={0.45}
+        parallaxAngleScale={0.525}
+        parallaxLerp={0.035}
+        handheldDriftScale={0}
       />
       <TestScene />
     </>
