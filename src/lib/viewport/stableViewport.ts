@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { getScreenOrientationAngle } from "../../../scripts/runtime/motion";
 
 let lockedMobileHeight = 0;
 let lastMobileWidth = 0;
@@ -10,17 +11,6 @@ function isCoarsePointer() {
     typeof window.matchMedia === "function" &&
     window.matchMedia("(pointer: coarse)").matches
   );
-}
-
-export function getScreenOrientationAngle() {
-  if (typeof window === "undefined") return 0;
-  if (window.screen?.orientation && Number.isFinite(window.screen.orientation.angle)) {
-    return window.screen.orientation.angle;
-  }
-  if (Number.isFinite(window.orientation)) {
-    return window.orientation;
-  }
-  return 0;
 }
 
 function readViewportDimensions() {

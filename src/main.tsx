@@ -9,6 +9,7 @@ import App from "./App";
 import { patchThreeTSL } from "./lib/webgpu/patchThreeTSL";
 import { startWorkTexturePreload } from "../scripts/work-preload";
 import { trackPromise } from "./lib/preloader/preloaderGate";
+import { registerEssentialAssetTasks } from "./models/generated/registerPreloads";
 import { installBackgroundWarmup } from "./lib/preloader/backgroundWarmup";
 import "../styles.css";
 
@@ -34,7 +35,11 @@ async function bootstrap() {
   // Kick off essentials in parallel; their completion is tracked by the
   // preloader gate so the intro ring + Enter button reflect real readiness.
   registerFontsTask();
-  void startWorkTexturePreload();
+  registerEssentialAssetTasks();
+  trackPromise("textures:work-strip", startWorkTexturePreload(), {
+    label: "Work textures",
+    weight: 2,
+  }).catch(() => {});
   installBackgroundWarmup();
 
   createRoot(document.getElementById("root")!).render(

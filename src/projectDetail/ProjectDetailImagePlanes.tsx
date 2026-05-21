@@ -43,6 +43,7 @@ function useImagePlaneMaterial({ gl, imgElement }) {
     if (!source) return;
 
     let cancelled = false;
+    // Route-local scroll-reveal texture: intentionally outside the preloader gate.
     const loader = new THREE.TextureLoader();
     const showDomFallback = () => {
       imgElement.style.opacity = "";

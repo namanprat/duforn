@@ -59,15 +59,47 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+function isCoarsePointerDevice() {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(pointer: coarse)").matches
+  );
+}
+
+function getVisualOrientationAngle() {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return null;
+  }
+  return window.matchMedia("(orientation: landscape)").matches ? 90 : 0;
+}
+
 export function getScreenOrientationAngle() {
   if (typeof window === "undefined") return 0;
+
+  let angle = 0;
   if (window.screen?.orientation && Number.isFinite(window.screen.orientation.angle)) {
-    return window.screen.orientation.angle;
+    angle = window.screen.orientation.angle;
+  } else if (Number.isFinite(window.orientation)) {
+    angle = window.orientation;
   }
-  if (Number.isFinite(window.orientation)) {
-    return window.orientation;
+
+  angle = ((angle % 360) + 360) % 360;
+
+  // iPad Safari can expose orientation relative to a different natural axis than
+  // the current layout. Reconcile against visual orientation on touch devices.
+  if (isCoarsePointerDevice()) {
+    const visualAngle = getVisualOrientationAngle();
+    if (visualAngle !== null) {
+      const axisAngle = angle % 180;
+      const visualAxis = ((visualAngle % 360) + 360) % 180;
+      if (axisAngle !== visualAxis) {
+        angle = visualAngle;
+      }
+    }
   }
-  return 0;
+
+  return angle;
 }
 
 export function remapOrientationToScreenSpace(
@@ -75,18 +107,14 @@ export function remapOrientationToScreenSpace(
   gamma,
   orientationAngle = getScreenOrientationAngle(),
 ) {
-  const angle = ((orientationAngle % 360) + 360) % 360;
+  const angleRad = (orientationAngle * Math.PI) / 180;
+  const sin = Math.sin(angleRad);
+  const cos = Math.cos(angleRad);
 
-  switch (angle) {
-    case 90:
-      return { beta: gamma, gamma: -beta };
-    case 180:
-      return { beta: -beta, gamma: -gamma };
-    case 270:
-      return { beta: -gamma, gamma: beta };
-    default:
-      return { beta, gamma };
-  }
+  return {
+    beta: beta * cos - gamma * sin,
+    gamma: gamma * cos + beta * sin,
+  };
 }
 
 export function mapDeviceOrientationToParallax(
@@ -96,6 +124,7 @@ export function mapDeviceOrientationToParallax(
   if (!event || event.gamma === null || event.beta === null) return null;
 
   const { beta, gamma } = remapOrientationToScreenSpace(event.beta, event.gamma, orientationAngle);
+
   const x = clamp(gamma / 45, -1, 1);
   const y = clamp((beta - 45) / 45, -1, 1);
   return { x, y };
