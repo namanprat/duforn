@@ -12,7 +12,7 @@ import { boxToPlanarBounds } from "./waterPlanarMapping";
 import { getWaterPlanarBounds } from "./findWaterMesh";
 import { POOL_SIM_DEFAULTS, POOL_WATER_RENDER_ORDER } from "./config/poolWaterDefaults";
 import { getPoolSimResolutionForTier, uvToSimGrid } from "./waterSimUtils";
-import TestWaterControls from "./ui/TestWaterControls";
+import MainWaterControls from "./ui/MainWaterControls";
 
 function prefersReducedMotion() {
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
@@ -35,7 +35,7 @@ function buildStartupImpulseQueue(gridSize) {
 }
 
 /**
- * Shallow-water ripples + ocean-style pool material on the test GLB water mesh.
+ * Shallow-water ripples + ocean-style pool material on the main GLB water mesh.
  *
  * The host Canvas runs in frameloop="never" (UnifiedCanvas, WebGPU compute
  * ordering). The animation loop here calls `advance(wallClockMs)` so R3F's
@@ -242,8 +242,8 @@ export default function WaterRipples({ mesh }) {
       enqueueImpulse(gridPoint.gx, gridPoint.gy);
     };
 
-    canvas.addEventListener("pointermove", spawnImpulse, { passive: true });
-    return () => canvas.removeEventListener("pointermove", spawnImpulse);
+    window.addEventListener("pointermove", spawnImpulse, { passive: true });
+    return () => window.removeEventListener("pointermove", spawnImpulse);
   }, [mesh, gl, camera, gridSize]);
 
   useEffect(() => {
@@ -259,6 +259,7 @@ export default function WaterRipples({ mesh }) {
 
     let running = true;
     let simBusy = false;
+    let frameIndex = 0;
 
     const maybeStepSim = (now) => {
       const sim = simRef.current;
@@ -296,8 +297,9 @@ export default function WaterRipples({ mesh }) {
 
       const t = typeof timestampMs === "number" ? timestampMs : performance.now();
       advance(t);
-      maybeStepSim(t);
       renderer.render(scene, camera);
+      // Half-rate sim keeps ripples alive while freeing GPU for camera + render.
+      if ((frameIndex++ & 1) === 0) maybeStepSim(t);
     };
 
     renderer.setAnimationLoop(tick);
@@ -308,7 +310,7 @@ export default function WaterRipples({ mesh }) {
   }, [gl, scene, camera, advance, loadingPhase]);
 
   return controlsTarget ? (
-    <TestWaterControls
+    <MainWaterControls
       materialApi={controlsTarget.materialApi}
       sim={controlsTarget.sim}
       breeze={controlsTarget.breeze}

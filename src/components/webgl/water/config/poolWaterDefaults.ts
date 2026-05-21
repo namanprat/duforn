@@ -7,7 +7,7 @@
  */
 
 export const POOL_SIM_DEFAULTS = {
-  gridSize: 384,
+  gridSize: 256,
   /** Wave-equation damping per step (MODIFIER in 4rknova shader). */
   modifier: 0.992,
   /** Number of integration steps per frame. */
@@ -25,7 +25,7 @@ export const POOL_SIM_DEFAULTS = {
   startupImpulseStrengthScale: 0.24,
   /** Subtle directional breeze — replaces the old random ambient. */
   breezeStrength: 0.8,
-  breezeIntervalMs: 650,
+  breezeIntervalMs: 900,
   breezeStep: 0.07,
   /** Keep impulses well clear of the 10-cell absorbing edge band. */
   breezeYInset: 0.28,

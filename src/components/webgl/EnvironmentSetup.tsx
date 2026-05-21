@@ -8,10 +8,12 @@ import { Environment } from "@react-three/drei";
  * @param {boolean} [showHdriBackground=false] — when true, HDR fills scene.background (omit solid color)
  * @param {number|string} [fogColor=0xe6e4dc]
  * @param {number} [fogDensity=0.0165]
+ * @param {number} [backgroundColor=0xe8e6de] — scene clear color when showHdriBackground is false
  */
 export default function EnvironmentSetup({
   hdrFiles = "/home.hdr",
   showHdriBackground = false,
+  backgroundColor = 0xe8e6de,
   fogColor = 0xe6e4dc,
   fogDensity = 0.0165,
   showShadowCatcher = true,
@@ -19,7 +21,7 @@ export default function EnvironmentSetup({
   return (
     <>
       <Environment files={hdrFiles} background={showHdriBackground} />
-      {!showHdriBackground ? <color attach="background" args={[0xe8e6de]} /> : null}
+      {!showHdriBackground ? <color attach="background" args={[backgroundColor]} /> : null}
 
       {fogDensity > 1e-6 ? <fogExp2 attach="fog" color={fogColor} density={fogDensity} /> : null}
 

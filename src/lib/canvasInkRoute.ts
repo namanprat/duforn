@@ -24,13 +24,13 @@ export const CANVAS_INK_MENU_TIMING = {
 } as const;
 
 const PATH_TO_NAMESPACE: Record<string, string> = {
-  "/": "home",
+  "/": "main",
   "/work": "work",
   "/contact": "contact",
   "/archive": "archive",
   "/money-me": "projectDetail",
   "/404": "notFound",
-  "/test": "test",
+  "/old": "old",
 };
 
 /** Namespaces where route navigation may use the full-screen ink bleed (archive + 404). */

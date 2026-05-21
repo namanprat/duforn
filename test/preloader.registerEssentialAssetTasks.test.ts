@@ -11,7 +11,7 @@ const EXPECTED_IDS = [
   "gltf:work",
   "gltf:project-bg",
   "gltf:monitor",
-  "gltf:test",
+  "gltf:main",
   "hdr:home",
   "texture:default",
 ];

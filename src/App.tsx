@@ -3,13 +3,13 @@ import React, { useEffect, useRef } from "react";
 import { Route, Routes, useLocation, useNavigate, useOutlet } from "react-router-dom";
 
 import SiteLayout from "./components/layout/SiteLayout";
-import HomePage from "./routes/HomePage";
+import MainPage from "./routes/MainPage";
+import OldHomePage from "./routes/OldHomePage";
 import WorkPage from "./routes/WorkPage";
 import ContactPage from "./routes/ContactPage";
 import ArchivePage from "./routes/ArchivePage";
 import ProjectDetailPage from "./routes/ProjectDetailPage";
 import NotFoundPage from "./routes/NotFoundPage";
-import TestPage from "./routes/TestPage";
 import { useWebglStore } from "./store/webgl";
 import { initLinkHover, destroyLinkHover } from "../scripts/link-hover";
 import { initButtonHoverScale, destroyButtonHoverScale } from "../scripts/button-hover-scale";
@@ -27,23 +27,23 @@ import { hideAllRegisteredPageText } from "./lib/textReveal/textRevealRegistry";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 const TITLES = {
-  "/": "Duforn | Home",
+  "/": "Duforn",
   "/work": "Duforn | Work",
   "/contact": "Duforn | Contact",
   "/archive": "Duforn | Archive",
   "/money-me": "Duforn | money.me Project Details",
   "/404": "Duforn | 404",
-  "/test": "Duforn | Test",
+  "/old": "Duforn | Old Home",
 };
 
 const PATH_TO_NAMESPACE = {
-  "/": "home",
+  "/": "main",
   "/work": "work",
   "/contact": "contact",
   "/archive": "archive",
   "/money-me": "projectDetail",
   "/404": "notFound",
-  "/test": "test",
+  "/old": "old",
 };
 
 function normalizePath(pathname) {
@@ -263,13 +263,13 @@ export default function App() {
   return (
     <Routes>
       <Route element={<AppShell />}>
-        <Route path="/" element={<HomePage />} />
+        <Route path="/" element={<MainPage />} />
         <Route path="/work" element={<WorkPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/archive" element={<ArchivePage />} />
         <Route path="/money-me" element={<ProjectDetailPage />} />
         <Route path="/404" element={<NotFoundPage />} />
-        <Route path="/test" element={<TestPage />} />
+        <Route path="/old" element={<OldHomePage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

@@ -10,9 +10,9 @@ import WorkPageScene from "./WorkPageScene";
 import ShaderCompiler from "./ShaderCompiler";
 import {
   HomeCanvasBranch,
+  MainCanvasBranch,
   NotFoundCanvasBranch,
   ProjectDetailCanvasBranch,
-  TestCanvasBranch,
 } from "./GlobalSceneBranches";
 import WarmupOrchestrator from "./WarmupOrchestrator";
 
@@ -31,10 +31,12 @@ function UnifiedScene({ activePage, shadowMapSize }) {
       return <ProjectDetailCanvasBranch />;
     case "notFound":
       return <NotFoundCanvasBranch />;
-    case "test":
-      return <TestCanvasBranch />;
-    default:
+    case "old":
       return <HomeCanvasBranch />;
+    case "main":
+      return <MainCanvasBranch />;
+    default:
+      return <MainCanvasBranch />;
   }
 }
 
@@ -42,7 +44,7 @@ function UnifiedScene({ activePage, shadowMapSize }) {
  * Single persistent R3F canvas for all routes. Only one scene branch mounts at a time.
  */
 export default function UnifiedCanvas({ activePage }) {
-  const pointerEvents = activePage === "work" || activePage === "test" ? "auto" : "none";
+  const pointerEvents = activePage === "work" || activePage === "main" ? "auto" : "none";
   const isProjectDetail = activePage === "projectDetail";
   const setRendererType = useWebglStore((s) => s.setRendererType);
   const setQualityProfile = useWebglStore((s) => s.setQualityProfile);
@@ -55,16 +57,16 @@ export default function UnifiedCanvas({ activePage }) {
     }
   }, [quality.tier, setQualityProfile]);
 
-  // Test scene runs its own animation loop via gl.setAnimationLoop so it can
-  // await compute kernels before the render pass — avoids WebGPU
-  // "RenderPassEncoder was already ended" when ripples are dense. See
-  // WaterRipples.tsx and PoolShallowWaterSim.stepAsync().
-  const frameloop = activePage === "test" ? "never" : "always";
+  // Main + contact share MainCanvasBranch / WaterRipples. Custom loop via
+  // gl.setAnimationLoop keeps compute ordering and stable CameraRig deltas.
+  const frameloop = activePage === "main" || activePage === "contact" ? "never" : "always";
+  const isMainScene = activePage === "main" || activePage === "contact";
+  const dprCap = isMainScene ? Math.min(quality.dprCap, 1.5) : quality.dprCap;
 
   return (
     <CanvasSurface
       id="background"
-      dpr={getCanvasDpr(quality.dprCap)}
+      dpr={getCanvasDpr(dprCap)}
       pointerEvents={pointerEvents}
       gl={createRendererOpaque}
       shadows

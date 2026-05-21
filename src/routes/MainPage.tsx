@@ -6,7 +6,7 @@ import { shouldUseNavRotateHover } from "../../scripts/link-hover";
 
 const HERO_CTA_LABEL = "VIEW WORK";
 
-export default function HomePage() {
+export default function MainPage() {
   const brandClipRef = useRef<HTMLDivElement | null>(null);
   const [heroCopyWidthPx, setHeroCopyWidthPx] = useState<number | null>(null);
   const useRotateButtonHover = shouldUseNavRotateHover();
@@ -38,7 +38,7 @@ export default function HomePage() {
   }, []);
 
   return (
-    <main id="main" data-page-container="true" data-page-namespace="home">
+    <main id="main" data-page-container="true" data-page-namespace="main">
       <section className="hero u-color-light u-background-transparent u-min-height-screen">
         <div className="hero-stage__contain u-container-main u-height-full u-width-full u-max-width-full">
           <div className="hero-stage__center">
@@ -47,7 +47,7 @@ export default function HomePage() {
                 <TextRevealLines animateOnScroll={false} waitForPreloader>
                   <h1
                     className="home-hero-brand u-text-style-display"
-                    data-brand-handoff-title="home"
+                    data-brand-handoff-title="main"
                   >
                     duforn
                   </h1>

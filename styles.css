@@ -3155,22 +3155,22 @@ body.overlay-scroll-lock {
   }
 }
 
-body.page-wrap:has([data-page-namespace="home"]) .nav-wrap a,
-body.page-wrap:has([data-page-namespace="home"]) .nav-wrap button,
+body.page-wrap:has([data-page-namespace="main"]) .nav-wrap a,
+body.page-wrap:has([data-page-namespace="main"]) .nav-wrap button,
 body.page-wrap:has([data-page-namespace="contact"]) .nav-wrap a,
 body.page-wrap:has([data-page-namespace="contact"]) .nav-wrap button {
   color: var(--swatch-light);
 }
 
-body.page-wrap:has([data-page-namespace="home"]) .bottom-nav-wrap a,
-body.page-wrap:has([data-page-namespace="home"]) .bottom-nav-wrap #time,
+body.page-wrap:has([data-page-namespace="main"]) .bottom-nav-wrap a,
+body.page-wrap:has([data-page-namespace="main"]) .bottom-nav-wrap #time,
 body.page-wrap:has([data-page-namespace="contact"]) .bottom-nav-wrap a,
 body.page-wrap:has([data-page-namespace="contact"]) .bottom-nav-wrap #time {
   color: var(--swatch-light);
 }
 
 /* Home hero mobile MENU button should remain primary (light pill, dark text). */
-body.page-wrap:has([data-page-namespace="home"]) .nav-wrap .menu-toggle-btn.button-primary {
+body.page-wrap:has([data-page-namespace="main"]) .nav-wrap .menu-toggle-btn.button-primary {
   color: var(--swatch-dark);
 }
 
@@ -3635,7 +3635,6 @@ body.preloader-active .bottom-nav-wrap {
   .project-details-overview-copy {
     font-size: var(--typography-font-size-h2);
   }
-
 
   .project-details-screen-grid {
     grid-template-columns: 1fr;

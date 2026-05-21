@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useLayoutEffect, useRef, useState } from "react";
-import TestModel from "../../models/generated/TestModel";
+import MainModel from "../../models/generated/MainModel";
 import { applyModelMaterialTuning, normalizeModelBounds } from "./sceneUtils";
 import { findWaterMesh } from "./water/findWaterMesh";
 import WaterRipples from "./water/WaterRipples";
@@ -15,7 +15,7 @@ const MATERIAL_TUNE = {
   clearcoatRoughness: 0.26,
 };
 
-export default function TestScene() {
+export default function MainScene({ shadowMapSize = 1536 }) {
   const modelRef = useRef(null);
   const didInitializeRef = useRef(false);
   const [waterMesh, setWaterMesh] = useState(null);
@@ -38,7 +38,7 @@ export default function TestScene() {
         mesh.userData.isWater = true;
         setWaterMesh(mesh);
       } else {
-        console.warn("[TestScene] water mesh not found in test.glb");
+        console.warn("[MainScene] water mesh not found in main.glb");
       }
 
       applyModelMaterialTuning(model, MATERIAL_TUNE);
@@ -64,7 +64,7 @@ export default function TestScene() {
         position={[6, 8, 4]}
         intensity={2.35}
         castShadow
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={[shadowMapSize, shadowMapSize]}
         shadow-normalBias={0.02}
         shadow-bias={-0.0001}
       />
@@ -80,7 +80,7 @@ export default function TestScene() {
         target-position={[0, 0, 0]}
       />
       <group ref={modelRef}>
-        <TestModel />
+        <MainModel />
       </group>
       {waterMesh && <WaterRipples mesh={waterMesh} />}
     </group>

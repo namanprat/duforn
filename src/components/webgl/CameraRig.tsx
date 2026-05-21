@@ -40,6 +40,7 @@ export default function CameraRig({
   const pointerTarget = useRef({ angle: Math.PI / 2, y: 0, tilt: 0 });
   const gyroTarget = useRef({ angle: Math.PI / 2, y: 0, tilt: 0 });
   const gyroHasValue = useRef(false);
+  const smoothedDeltaRef = useRef(1 / 60);
 
   const applyParallaxInput = (targetRef, x, y) => {
     const ps = parallaxScale;
@@ -102,8 +103,10 @@ export default function CameraRig({
     const activeTarget =
       gyroEnabled && gyroHasValue.current ? gyroTarget.current : pointerTarget.current;
 
-    const safeDelta = Math.min(delta, 0.1);
-    const fpsFactor = Math.min((safeDelta * 1000) / 16.666, 3.0);
+    const rawDelta = Math.min(Math.max(delta, 1 / 120), 0.1);
+    const smoothedDelta = smoothedDeltaRef.current + (rawDelta - smoothedDeltaRef.current) * 0.22;
+    smoothedDeltaRef.current = Math.min(Math.max(smoothedDelta, 1 / 120), 1 / 30);
+    const fpsFactor = Math.min((smoothedDeltaRef.current * 1000) / 16.666, 3.0);
     const baseLerp =
       typeof parallaxLerp === "number" && Number.isFinite(parallaxLerp)
         ? parallaxLerp

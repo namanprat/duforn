@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { getRenderQualityProfile } from "../lib/rendering/qualityProfile";
 
 export const useWebglStore = create((set) => ({
-  activePage: "home",
+  activePage: "main",
   rendererType: "unknown",
   gyroEnabled: false,
   qualityProfile: getRenderQualityProfile(),

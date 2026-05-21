@@ -1,6 +1,6 @@
 // @ts-nocheck
-import React, { useEffect } from "react";
-import { useControls, folder } from "leva";
+import React, { useEffect, useState } from "react";
+import { Leva, useControls, folder } from "leva";
 import {
   POOL_ENV_DEFAULTS,
   POOL_SIM_DEFAULTS,
@@ -8,10 +8,10 @@ import {
 } from "../config/poolWaterDefaults";
 
 /**
- * Dev-only Leva panel for /test pool water — covers ocean-style look uniforms
+ * Dev-only Leva panel for the main pool water — covers ocean-style look uniforms
  * and the wave-equation ripple sim parameters.
  */
-export default function TestWaterControls({
+export default function MainWaterControls({
   materialApi,
   sim,
   breeze,
@@ -153,6 +153,16 @@ export default function TestWaterControls({
     breeze?.setIntervalMs?.(1000 / Math.max(0.05, values.rippleFrequencyHz));
   }, [enabled, materialApi, sim, breeze, values]);
 
+  const [hidden, setHidden] = useState(true);
+  useEffect(() => {
+    if (!enabled) return undefined;
+    const onKey = (e) => {
+      if (e.key === "h" || e.key === "H") setHidden((v) => !v);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [enabled]);
+
   if (!enabled) return null;
-  return null;
+  return <Leva hidden={hidden} collapsed={false} />;
 }

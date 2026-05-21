@@ -2,11 +2,14 @@
 import gsap from "gsap";
 
 const HOME_NAMESPACE = "home";
-const TEST_NAMESPACE = "test";
+const MAIN_NAMESPACE = "main";
+const OLD_NAMESPACE = "old";
 const CONTACT_NAMESPACE = "contact";
 
 function isNavBrandHiddenNamespace(namespace) {
-  return namespace === HOME_NAMESPACE || namespace === TEST_NAMESPACE;
+  return (
+    namespace === HOME_NAMESPACE || namespace === MAIN_NAMESPACE || namespace === OLD_NAMESPACE
+  );
 }
 
 function getNavBrandNode() {
@@ -26,8 +29,6 @@ function clearTitleMotion(title) {
 function setRestingState(namespace, { clearHeroTitleChars = true } = {}) {
   const hideNavBrand = isNavBrandHiddenNamespace(namespace);
   const navBrand = getNavBrandNode();
-  const homeBrand = getBrandTitleNode(HOME_NAMESPACE);
-  const contactBrand = getBrandTitleNode(CONTACT_NAMESPACE);
 
   if (navBrand) {
     gsap.set(navBrand, {
@@ -37,19 +38,12 @@ function setRestingState(namespace, { clearHeroTitleChars = true } = {}) {
     });
   }
 
-  if (homeBrand) {
-    const handoffToTextReveal = homeBrand.hasAttribute?.("data-text-reveal-root");
-    if (!handoffToTextReveal && clearHeroTitleChars) clearTitleMotion(homeBrand);
-    gsap.set(homeBrand, {
-      autoAlpha: 1,
-      ...(handoffToTextReveal ? {} : { clearProps: "transform" }),
-    });
-  }
-
-  if (contactBrand) {
-    const handoffToTextReveal = contactBrand.hasAttribute?.("data-text-reveal-root");
-    if (!handoffToTextReveal && clearHeroTitleChars) clearTitleMotion(contactBrand);
-    gsap.set(contactBrand, {
+  for (const ns of [HOME_NAMESPACE, MAIN_NAMESPACE, CONTACT_NAMESPACE]) {
+    const node = getBrandTitleNode(ns);
+    if (!node) continue;
+    const handoffToTextReveal = node.hasAttribute?.("data-text-reveal-root");
+    if (!handoffToTextReveal && clearHeroTitleChars) clearTitleMotion(node);
+    gsap.set(node, {
       autoAlpha: 1,
       ...(handoffToTextReveal ? {} : { clearProps: "transform" }),
     });
