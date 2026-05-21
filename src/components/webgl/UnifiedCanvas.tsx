@@ -31,8 +31,6 @@ function UnifiedScene({ activePage, shadowMapSize }) {
       return <ProjectDetailCanvasBranch />;
     case "notFound":
       return <NotFoundCanvasBranch />;
-    case "old":
-      return <HomeCanvasBranch />;
     case "main":
       return <MainCanvasBranch />;
     default:

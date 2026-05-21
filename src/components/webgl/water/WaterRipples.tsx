@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { useThree } from "@react-three/fiber";
 import { useWebglStore } from "../../../store/webgl";
@@ -12,8 +12,6 @@ import { boxToPlanarBounds } from "./waterPlanarMapping";
 import { getWaterPlanarBounds } from "./findWaterMesh";
 import { POOL_SIM_DEFAULTS, POOL_WATER_RENDER_ORDER } from "./config/poolWaterDefaults";
 import { getPoolSimResolutionForTier, uvToSimGrid } from "./waterSimUtils";
-import MainWaterControls from "./ui/MainWaterControls";
-
 function prefersReducedMotion() {
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -59,7 +57,6 @@ export default function WaterRipples({ mesh }) {
   const raycasterRef = useRef(new THREE.Raycaster());
   const ndcRef = useRef(new THREE.Vector2());
   const impulseQueueRef = useRef([]);
-  const [controlsTarget, setControlsTarget] = useState(null);
 
   const gridSize = getPoolSimResolutionForTier(qualityTier);
 
@@ -164,18 +161,6 @@ export default function WaterRipples({ mesh }) {
 
         materialApiRef.current = materialApi;
         mesh.material = materialApi.material;
-        setControlsTarget({
-          materialApi,
-          sim,
-          breeze: {
-            setStrength: (v) => {
-              breezeStrengthRef.current = v;
-            },
-            setIntervalMs: (v) => {
-              breezeIntervalRef.current = Math.max(50, v);
-            },
-          },
-        });
         impulseQueueRef.current = buildStartupImpulseQueue(gridSize);
 
         logWebGPUOnce("pool-water-ready", "WaterRipples", "Pool shallow water ready", {
@@ -196,7 +181,6 @@ export default function WaterRipples({ mesh }) {
       simRef.current?.dispose?.();
       simRef.current = null;
       impulseQueueRef.current = [];
-      setControlsTarget(null);
       if (mesh && previousMaterialRef.current) {
         mesh.material = previousMaterialRef.current;
         mesh.renderOrder = 0;
@@ -268,8 +252,7 @@ export default function WaterRipples({ mesh }) {
       const queue = impulseQueueRef.current;
       const reducedMotion = prefersReducedMotion();
 
-      // Breeze runs continuously (not gated on idle) so the surface always
-      // has a gentle ruffle. Slider can set strength to 0 to disable.
+      // Breeze runs continuously (not gated on idle) so the surface always has a gentle ruffle.
       if (!reducedMotion && now - lastBreezeImpulseRef.current > breezeIntervalRef.current) {
         enqueueBreezeImpulse(now);
       }
@@ -309,11 +292,5 @@ export default function WaterRipples({ mesh }) {
     };
   }, [gl, scene, camera, advance, loadingPhase]);
 
-  return controlsTarget ? (
-    <MainWaterControls
-      materialApi={controlsTarget.materialApi}
-      sim={controlsTarget.sim}
-      breeze={controlsTarget.breeze}
-    />
-  ) : null;
+  return null;
 }

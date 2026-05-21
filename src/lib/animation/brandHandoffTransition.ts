@@ -1,15 +1,11 @@
 // @ts-nocheck
 import gsap from "gsap";
 
-const HOME_NAMESPACE = "home";
 const MAIN_NAMESPACE = "main";
-const OLD_NAMESPACE = "old";
 const CONTACT_NAMESPACE = "contact";
 
 function isNavBrandHiddenNamespace(namespace) {
-  return (
-    namespace === HOME_NAMESPACE || namespace === MAIN_NAMESPACE || namespace === OLD_NAMESPACE
-  );
+  return namespace === MAIN_NAMESPACE;
 }
 
 function getNavBrandNode() {
@@ -38,7 +34,7 @@ function setRestingState(namespace, { clearHeroTitleChars = true } = {}) {
     });
   }
 
-  for (const ns of [HOME_NAMESPACE, MAIN_NAMESPACE, CONTACT_NAMESPACE]) {
+  for (const ns of [MAIN_NAMESPACE, CONTACT_NAMESPACE]) {
     const node = getBrandTitleNode(ns);
     if (!node) continue;
     const handoffToTextReveal = node.hasAttribute?.("data-text-reveal-root");

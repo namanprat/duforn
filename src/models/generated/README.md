@@ -7,7 +7,6 @@ npx gltfjsx@latest public/models/scene.glb -o src/models/generated/SceneModel.ts
 npx gltfjsx@latest public/models/work.glb -o src/models/generated/WorkModel.tsx
 npx gltfjsx@latest public/models/project-bg.glb -o src/models/generated/ProjectBgModel.tsx
 npx gltfjsx@latest public/monitor.glb -o src/models/generated/MonitorModel.tsx
-npx gltfjsx@latest public/models/test.glb -o src/models/generated/TestModel.tsx
 ```
 
 Add optional `--types`, `--transform` as needed. Keep [`registerPreloads.ts`](./registerPreloads.ts) URL list in sync with new assets.

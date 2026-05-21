@@ -30,7 +30,6 @@ const PATH_TO_NAMESPACE: Record<string, string> = {
   "/archive": "archive",
   "/money-me": "projectDetail",
   "/404": "notFound",
-  "/old": "old",
 };
 
 /** Namespaces where route navigation may use the full-screen ink bleed (archive + 404). */

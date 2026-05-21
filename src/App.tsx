@@ -4,7 +4,6 @@ import { Route, Routes, useLocation, useNavigate, useOutlet } from "react-router
 
 import SiteLayout from "./components/layout/SiteLayout";
 import MainPage from "./routes/MainPage";
-import OldHomePage from "./routes/OldHomePage";
 import WorkPage from "./routes/WorkPage";
 import ContactPage from "./routes/ContactPage";
 import ArchivePage from "./routes/ArchivePage";
@@ -33,7 +32,6 @@ const TITLES = {
   "/archive": "Duforn | Archive",
   "/money-me": "Duforn | money.me Project Details",
   "/404": "Duforn | 404",
-  "/old": "Duforn | Old Home",
 };
 
 const PATH_TO_NAMESPACE = {
@@ -43,7 +41,6 @@ const PATH_TO_NAMESPACE = {
   "/archive": "archive",
   "/money-me": "projectDetail",
   "/404": "notFound",
-  "/old": "old",
 };
 
 function normalizePath(pathname) {
@@ -269,7 +266,6 @@ export default function App() {
         <Route path="/archive" element={<ArchivePage />} />
         <Route path="/money-me" element={<ProjectDetailPage />} />
         <Route path="/404" element={<NotFoundPage />} />
-        <Route path="/old" element={<OldHomePage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

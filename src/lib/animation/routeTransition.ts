@@ -10,13 +10,13 @@ function compactElements(elements) {
   return elements.filter(Boolean);
 }
 
-const HOME_NAMESPACE = "home";
+const MAIN_NAMESPACE = "main";
 const CONTACT_NAMESPACE = "contact";
 
-function isHomeContactPair(a, b) {
+function isMainContactPair(a, b) {
   return (
-    (a === HOME_NAMESPACE && b === CONTACT_NAMESPACE) ||
-    (a === CONTACT_NAMESPACE && b === HOME_NAMESPACE)
+    (a === MAIN_NAMESPACE && b === CONTACT_NAMESPACE) ||
+    (a === CONTACT_NAMESPACE && b === MAIN_NAMESPACE)
   );
 }
 
@@ -27,7 +27,7 @@ function isHomeContactPair(a, b) {
  */
 export function shouldAnimateCanvasBetweenNamespaces(fromNamespace, toNamespace) {
   if (!fromNamespace || !toNamespace || fromNamespace === toNamespace) return false;
-  if (isHomeContactPair(fromNamespace, toNamespace)) return false;
+  if (isMainContactPair(fromNamespace, toNamespace)) return false;
   return true;
 }
 

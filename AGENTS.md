@@ -28,7 +28,7 @@ If a feature is implemented WebGL-only while the unified canvas is on WebGPU, th
 
 For node materials, compute shaders, storage buffers, and common TSL pitfalls, read **[docs/TSL_WEBGPU.md](docs/TSL_WEBGPU.md)**.
 
-**Test-page pool water** (`src/components/webgl/water/`): cursor ripples use a **wave-equation** compute sim (`PoolShallowWaterSim` / `PoolShallowWaterSimCPU`, 4rknova-style); surface look uses ocean-style fresnel/env on `PoolWaterMaterial` (WebGPU TSL + WebGL `ShaderMaterial` dual path). Do not use `EffectComposer` / gentlerain pressure sim for this feature.
+**Main scene pool water** (`src/components/webgl/water/`): cursor ripples use a **wave-equation** compute sim (`PoolShallowWaterSim` / `PoolShallowWaterSimCPU`, 4rknova-style); surface look uses ocean-style fresnel/env on `PoolWaterMaterial` (WebGPU TSL + WebGL `ShaderMaterial` dual path). Do not use `EffectComposer` / gentlerain pressure sim for this feature.
 
 # TSL & WebGPU Development Guide
 

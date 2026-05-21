@@ -6,10 +6,6 @@ describe("getRouteInkNamespace", () => {
     expect(getRouteInkNamespace("/")).toBe("main");
   });
 
-  it("maps /old to the old namespace", () => {
-    expect(getRouteInkNamespace("/old")).toBe("old");
-  });
-
   it("no longer recognises /test", () => {
     expect(getRouteInkNamespace("/test")).toBe("notFound");
   });
