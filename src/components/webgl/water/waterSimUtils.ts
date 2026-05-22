@@ -1,9 +1,9 @@
 import type { RenderQualityTier } from "../../../lib/rendering/qualityProfile";
 
 export const POOL_SIM_RESOLUTION_BY_TIER: Record<RenderQualityTier, number> = {
-  desktop: 256,
-  mobile: 192,
-  mobileReduced: 128,
+  desktop: 192,
+  mobile: 128,
+  mobileReduced: 96,
 };
 
 export function getPoolSimResolutionForTier(tier: RenderQualityTier): number {

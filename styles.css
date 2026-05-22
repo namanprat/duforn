@@ -3117,41 +3117,78 @@ body.overlay-scroll-lock {
     grid-template-columns: 1fr;
     grid-template-rows: auto;
     row-gap: var(--spacing-space-4);
+    justify-items: center;
+    text-align: center;
+    width: 100%;
+    max-width: 28rem;
+    margin-inline: auto;
+    padding-inline: var(--spacing-space-4);
   }
 
   .contact-grid__title {
     grid-column: 1;
     grid-row: 1;
-    justify-self: start;
+    justify-self: center;
+    width: 100%;
+    max-width: 22rem;
   }
 
   .contact-grid__intro {
     grid-column: 1;
     grid-row: 2;
-    justify-self: start;
-    max-width: 30ch;
+    justify-self: center;
+    width: 100%;
+    max-width: none;
   }
 
   .contact-grid__actions {
     grid-column: 1;
     grid-row: 3;
-    justify-self: start;
+    justify-self: center;
     width: 100%;
-    max-width: none;
-    align-self: start;
+    max-width: 22rem;
+    align-self: center;
+    align-items: center;
+  }
+
+  .contact-grid__buttons {
+    align-items: center;
   }
 
   .contact-grid__email {
-    justify-self: start;
+    justify-self: center;
+    text-align: center;
+    width: 100%;
   }
 
   .contact-grid__title .contact-page-title {
-    text-align: left;
+    text-align: center !important;
+    font-size: clamp(3rem, 14vw, 5rem);
+    line-height: 1;
+  }
+
+  .contact-grid__title .text-reveal-line-mask,
+  .contact-grid__intro .text-reveal-line-mask {
+    text-align: center !important;
   }
 
   .contact-intro {
-    max-width: 30ch;
-    text-align: left;
+    max-width: none;
+    width: 100%;
+    text-align: center !important;
+    margin-inline: auto;
+  }
+
+  .contact-grid__email,
+  .contact-email {
+    text-align: center !important;
+    width: 100%;
+  }
+
+  .contact-email a {
+    display: inline-block;
+    max-width: 100%;
+    word-break: break-word;
   }
 }
 

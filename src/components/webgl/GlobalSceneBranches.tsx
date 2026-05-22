@@ -43,7 +43,8 @@ export function MainCanvasBranch() {
       <CameraRig
         orbitCenter={[0, 0.5, 0]}
         orbitRadius={5}
-        parallaxScale={0.35}
+        parallaxScale={0.3}
+        parallaxLerp={0.03}
         handheldDriftScale={0}
       />
       <MainScene shadowMapSize={shadowMapSize} />
