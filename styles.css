@@ -273,10 +273,6 @@ a.button {
   border: 1px solid color-mix(in srgb, var(--swatch-light) 72%, transparent);
   color: var(--swatch-light);
   background-color: transparent;
-  &:hover {
-    background-color: color-mix(in srgb, var(--swatch-light) 72%, transparent);
-    color: var(--swatch-dark);
-  }
 }
 
 .page-wrap {
@@ -3010,10 +3006,11 @@ body.overlay-scroll-lock {
 /* 2×2 grid: title | chips / intro | email — same gap as former `u-gap-5` */
 .contact-content {
   display: grid;
-  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+  grid-template-columns: auto auto;
   grid-template-rows: auto auto;
   row-gap: var(--spacing-space-2);
   column-gap: clamp(2.25rem, 3.8vw, 3.75rem);
+  justify-content: center;
   align-items: start;
   /* `.u-container-main` sets height: 100%; without this, default align-content:stretch
      grows the two auto rows to fill the viewport and creates a huge gap between them. */
@@ -3027,22 +3024,31 @@ body.overlay-scroll-lock {
 .contact-grid__title {
   grid-column: 1;
   grid-row: 1;
-  justify-self: start;
+  justify-self: end;
   width: fit-content;
   max-width: 100%;
 }
 
 .contact-page-title {
-  font-size: calc(var(--typography-font-size-display) * 0.92);
+  font-size: calc(var(--typography-font-size-display) * 0.57);
   line-height: var(--typography-line-height-small);
 }
 
 .contact-grid__intro {
   grid-column: 1;
   grid-row: 2;
-  justify-self: start;
-  width: fit-content;
+  justify-self: end !important;
+  width: fit-content !important;
   max-width: min(100%, 30rem);
+  text-align: right;
+  margin-left: auto;
+}
+
+.contact-grid__intro .text-reveal-line-mask,
+.contact-grid__intro .text-reveal-line {
+  width: fit-content;
+  margin-left: auto;
+  text-align: right;
 }
 
 .contact-grid__actions {
@@ -3050,8 +3056,7 @@ body.overlay-scroll-lock {
   grid-row: 1 / span 2;
   justify-self: start;
   align-self: start;
-  margin-top: clamp(0.5rem, 2.2vh, 1.5rem);
-  width: min(100%, 25rem);
+  width: fit-content;
 }
 
 .contact-grid__buttons {
@@ -3069,7 +3074,9 @@ body.overlay-scroll-lock {
 }
 
 .contact-email a {
-  display: inline-block;
+  display: block;
+  width: 100%;
+  white-space: nowrap;
   line-height: var(--typography-line-height-small);
   font-family: var(--text-style-font-primary);
   font-weight: 300;
