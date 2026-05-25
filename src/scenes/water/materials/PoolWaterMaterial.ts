@@ -144,30 +144,14 @@ async function createWebGPU({ sim, bounds, envMap, waterParams, useUvMapping }) 
   });
 
   const sampleRippleNormal = Fn(([uvIn]) => {
+    // 4-tap central-difference normal — cheaper than the prior 8-tap Sobel.
     const texel = float(1).div(max(uRes.toFloat().sub(float(1)), float(1)));
-    // Smoothed central-difference gradient (Sobel-style) — samples at ±1 and
-    // ±2 cells so the derived normal isn't pixel-stepped at higher grid sizes.
-    const hL1 = sampleHBilinear(uvIn.add(vec2(texel.negate(), float(0))));
-    const hL2 = sampleHBilinear(uvIn.add(vec2(texel.mul(float(2)).negate(), float(0))));
-    const hR1 = sampleHBilinear(uvIn.add(vec2(texel, float(0))));
-    const hR2 = sampleHBilinear(uvIn.add(vec2(texel.mul(float(2)), float(0))));
-    const hU1 = sampleHBilinear(uvIn.add(vec2(float(0), texel.negate())));
-    const hU2 = sampleHBilinear(uvIn.add(vec2(float(0), texel.mul(float(2)).negate())));
-    const hD1 = sampleHBilinear(uvIn.add(vec2(float(0), texel)));
-    const hD2 = sampleHBilinear(uvIn.add(vec2(float(0), texel.mul(float(2)))));
-    // Weighted gradient: 2*near + 1*far on each side, divided by 6.
-    const gradX = hL1
-      .mul(float(2))
-      .add(hL2)
-      .sub(hR1.mul(float(2)))
-      .sub(hR2)
-      .mul(float(1 / 6));
-    const gradZ = hU1
-      .mul(float(2))
-      .add(hU2)
-      .sub(hD1.mul(float(2)))
-      .sub(hD2)
-      .mul(float(1 / 6));
+    const hL = sampleHBilinear(uvIn.add(vec2(texel.negate(), float(0))));
+    const hR = sampleHBilinear(uvIn.add(vec2(texel, float(0))));
+    const hU = sampleHBilinear(uvIn.add(vec2(float(0), texel.negate())));
+    const hD = sampleHBilinear(uvIn.add(vec2(float(0), texel)));
+    const gradX = hL.sub(hR).mul(float(0.5));
+    const gradZ = hU.sub(hD).mul(float(0.5));
     const nx = clamp(gradX.mul(uNormalScale), uMaxSlope.negate(), uMaxSlope);
     const nz = clamp(gradZ.mul(uNormalScale), uMaxSlope.negate(), uMaxSlope);
     return normalize(vec3(nx, float(1), nz));
@@ -206,32 +190,8 @@ async function createWebGPU({ sim, bounds, envMap, waterParams, useUvMapping }) 
     const depthFactor = smoothstep(float(0), depthFalloff, pathLength);
     let waterColor = mix(vec3(shallowColor), vec3(deepColor), depthFactor);
 
-    // Caustics — two-layer domain-warped sines on planar UV, attenuated in
-    // deep water and warped by the ripple normal so they bend with waves.
-    const causticsUv = uvIn.add(vec2(rippleN.x, rippleN.z).mul(float(0.15)));
-    const cp = causticsUv.mul(causticsScale);
-    const tt = uTime.mul(causticsSpeed);
-    const warpX = sin(cp.y.mul(float(1.3)).add(tt.mul(float(1.1)))).mul(float(0.35));
-    const warpY = cos(cp.x.mul(float(1.1)).sub(tt.mul(float(0.9)))).mul(float(0.35));
-    const cq = cp.add(vec2(warpX, warpY));
-    const cA = sin(cq.x.add(tt)).add(sin(cq.y.mul(float(1.2)).sub(tt.mul(float(0.7)))));
-    const cB = sin(
-      cq.x
-        .add(cq.y)
-        .mul(float(0.8))
-        .add(tt.mul(float(0.5))),
-    ).add(
-      sin(
-        cq.x
-          .sub(cq.y)
-          .mul(float(0.9))
-          .sub(tt.mul(float(0.4))),
-      ),
-    );
-    const cRaw = cA.add(cB).mul(float(0.25)).add(float(0.5));
-    const caustics = pow(clamp(cRaw, float(0), float(1)), float(3));
-    const causticsAtten = float(1).sub(depthFactor).mul(causticsIntensity);
-    waterColor = waterColor.add(vec3(causticsColor).mul(caustics).mul(causticsAtten));
+    // Caustics are projected onto the Ground mesh (see applyGroundCaustics)
+    // rather than tinted into the water surface color.
 
     const reflectDir = reflect(viewDir.negate(), fresnelN);
     const phi = atan(reflectDir.z, reflectDir.x);

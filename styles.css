@@ -3485,6 +3485,7 @@ body.preloader-active .bottom-nav-wrap {
 .project-details-story-stack {
   display: grid;
   gap: var(--spacing-section-space-large);
+  margin-inline: auto;
 }
 
 .project-details-kicker {
@@ -3494,6 +3495,8 @@ body.preloader-active .bottom-nav-wrap {
 
 .project-details-hero-info {
   margin-top: var(--spacing-section-space-medium);
+  margin-inline: auto;
+  justify-content: center;
 }
 
 .project-details-overview {
@@ -3510,6 +3513,7 @@ body.preloader-active .bottom-nav-wrap {
   position: relative;
   min-height: var(--site--viewport-min-height-cover);
   overflow: hidden;
+  margin-inline: auto;
 }
 
 .project-details-cover-frame :is(picture, img) {
@@ -3525,6 +3529,7 @@ body.preloader-active .bottom-nav-wrap {
 .project-details-supporting-image-frame {
   position: relative;
   overflow: hidden;
+  margin-inline: auto;
 }
 
 .project-details-supporting-image-frame :is(picture, img) {

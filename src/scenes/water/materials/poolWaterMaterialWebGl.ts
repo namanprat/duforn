@@ -109,36 +109,17 @@ const FRAG = /* glsl */ `
   }
 
   vec3 sampleRippleNormal(vec2 uvIn) {
+    // 4-tap central-difference normal — cheaper than the prior 8-tap Sobel.
     float texel = 1.0 / max(uSimRes - 1.0, 1.0);
-    float hL1 = sampleHBilinear(uvIn + vec2(-texel, 0.0));
-    float hL2 = sampleHBilinear(uvIn + vec2(-texel * 2.0, 0.0));
-    float hR1 = sampleHBilinear(uvIn + vec2(texel, 0.0));
-    float hR2 = sampleHBilinear(uvIn + vec2(texel * 2.0, 0.0));
-    float hU1 = sampleHBilinear(uvIn + vec2(0.0, -texel));
-    float hU2 = sampleHBilinear(uvIn + vec2(0.0, -texel * 2.0));
-    float hD1 = sampleHBilinear(uvIn + vec2(0.0, texel));
-    float hD2 = sampleHBilinear(uvIn + vec2(0.0, texel * 2.0));
-    float gradX = (hL1 * 2.0 + hL2 - hR1 * 2.0 - hR2) / 6.0;
-    float gradZ = (hU1 * 2.0 + hU2 - hD1 * 2.0 - hD2) / 6.0;
+    float hL = sampleHBilinear(uvIn + vec2(-texel, 0.0));
+    float hR = sampleHBilinear(uvIn + vec2( texel, 0.0));
+    float hU = sampleHBilinear(uvIn + vec2(0.0, -texel));
+    float hD = sampleHBilinear(uvIn + vec2(0.0,  texel));
+    float gradX = (hL - hR) * 0.5;
+    float gradZ = (hU - hD) * 0.5;
     float nx = clamp(gradX * uNormalScale, -uMaxSlope, uMaxSlope);
     float nz = clamp(gradZ * uNormalScale, -uMaxSlope, uMaxSlope);
     return normalize(vec3(nx, 1.0, nz));
-  }
-
-  // Two-layer domain-warped sine caustics. Returns a non-negative scalar.
-  float causticsPattern(vec2 uv, float t) {
-    vec2 p = uv * uCausticsScale;
-    float tt = t * uCausticsSpeed;
-    vec2 warp = vec2(
-      sin(p.y * 1.3 + tt * 1.1),
-      cos(p.x * 1.1 - tt * 0.9)
-    ) * 0.35;
-    vec2 q = p + warp;
-    float a = sin(q.x + tt) + sin(q.y * 1.2 - tt * 0.7);
-    float b = sin((q.x + q.y) * 0.8 + tt * 0.5) + sin((q.x - q.y) * 0.9 - tt * 0.4);
-    float v = (a + b) * 0.25 + 0.5;
-    v = pow(clamp(v, 0.0, 1.0), 3.0);
-    return v;
   }
 
   vec2 equirectUV(vec3 dir) {
@@ -163,12 +144,8 @@ const FRAG = /* glsl */ `
     float depthFactor = smoothstep(0.0, uDepthFalloff, pathLength);
     vec3 waterColor = mix(uShallowColor, uDeepColor, depthFactor);
 
-    // Caustics — light bands on the underwater color. Attenuated in deep water
-    // and warped by the ripple normal so they bend with the surface.
-    vec2 causticsUv = vRippleUv + rippleN.xz * 0.15;
-    float caustics = causticsPattern(causticsUv, uTime);
-    float causticsAttenuation = (1.0 - depthFactor) * uCausticsIntensity;
-    waterColor += uCausticsColor * caustics * causticsAttenuation;
+    // Caustics are projected onto the Ground mesh (see applyGroundCaustics) —
+    // no longer baked into the water surface tint.
 
     vec3 reflectDir = reflect(-viewDir, fresnelN);
     vec2 baseEnvUV = equirectUV(reflectDir);

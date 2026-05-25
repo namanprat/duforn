@@ -63,7 +63,7 @@ function ProjectDetailsHero({ hero }) {
       <div className="u-container-main u-flex-vertical-nowrap">
         <ProjectDetailsHeroHeadline lines={titleLines} />
 
-        <div className="project-details-hero-info u-column-width-10 u-flex-horizontal-nowrap u-justify-content-between u-gap-gutter u-align-items-start">
+        <div className="project-details-hero-info u-column-width-10 u-margin-x-auto u-flex-horizontal-nowrap u-justify-content-center u-gap-gutter u-align-items-start">
           <article className="project-details-overview">
             <TextRevealLines>
               <p className="project-details-kicker u-text-style-small u-text-style-font-secondary">
@@ -134,7 +134,7 @@ function ProjectDetailsCover({ item }) {
     <section className="project-details-cover">
       <div className="u-container-main">
         <div
-          className="project-details-cover-frame u-column-width-10"
+          className="project-details-cover-frame u-column-width-10 u-margin-x-auto"
           data-film-plane-trigger="true"
         >
           <ProjectDetailsImage item={item} eager />
@@ -163,8 +163,8 @@ function ProjectDetailsStorySection({ section }) {
 
 function ProjectDetailsSupportingImage({ item, wide = false }) {
   const cls = wide
-    ? "project-details-supporting-image u-column-width-10 u-margin-top-0"
-    : "project-details-supporting-image u-column-width-10";
+    ? "project-details-supporting-image u-column-width-10 u-margin-x-auto u-margin-top-0"
+    : "project-details-supporting-image u-column-width-10 u-margin-x-auto";
   return (
     <section className={cls}>
       <div className="project-details-supporting-image-frame" data-film-plane-trigger="true">
@@ -198,7 +198,7 @@ export default function ProjectDetailsPageShell({
 
       {introSections.length ? (
         <section className="u-margin-top-0">
-          <div className="u-container-main project-details-story-stack u-column-width-10">
+          <div className="u-container-main project-details-story-stack u-column-width-10 u-margin-x-auto">
             {introSections.map((section) => (
               <ProjectDetailsStorySection key={section.heading} section={section} />
             ))}
@@ -214,7 +214,7 @@ export default function ProjectDetailsPageShell({
 
       {restSections.length ? (
         <section className="u-margin-top-0">
-          <div className="u-container-main project-details-story-stack u-column-width-10">
+          <div className="u-container-main project-details-story-stack u-column-width-10 u-margin-x-auto">
             {restSections.map((section) => (
               <ProjectDetailsStorySection key={section.heading} section={section} />
             ))}
@@ -224,7 +224,7 @@ export default function ProjectDetailsPageShell({
 
       {closingSection ? (
         <section className="u-margin-top-0">
-          <div className="u-container-main project-details-story-stack u-column-width-10">
+          <div className="u-container-main project-details-story-stack u-column-width-10 u-margin-x-auto">
             <ProjectDetailsStorySection section={closingSection} />
           </div>
         </section>
@@ -233,7 +233,7 @@ export default function ProjectDetailsPageShell({
       {outro ? (
         <section className="project-details-outro">
           <div className="u-container-main">
-            <div className="u-column-width-10 u-align-items-start">
+            <div className="u-column-width-10 u-margin-x-auto u-align-items-start">
               <TextRevealLines>
                 <p>{outro}</p>
               </TextRevealLines>

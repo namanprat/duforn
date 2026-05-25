@@ -7,7 +7,7 @@
  */
 
 export const POOL_SIM_DEFAULTS = {
-  gridSize: 256,
+  gridSize: 192,
   /** Wave-equation damping per step (MODIFIER in 4rknova shader). */
   modifier: 0.994,
   /** Number of integration steps per frame. */
@@ -61,9 +61,9 @@ export const POOL_WATER_DEFAULTS = {
   foamAmount: 0.05,
   foamThreshold: 0.6,
   // Caustics — procedural light bands on the underwater color.
-  causticsIntensity: 0.55,
-  causticsScale: 5.5,
-  causticsSpeed: 0.35,
+  causticsIntensity: 0.9,
+  causticsScale: 9.0,
+  causticsSpeed: 0.25,
   causticsColor: "#fff6df",
 };
 

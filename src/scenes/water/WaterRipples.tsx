@@ -8,8 +8,9 @@ import { logWebGPUOnce } from "../../lib/gpu/debug";
 import { getRendererType } from "../../lib/render";
 import { createPoolWaterSim } from "./compute/createPoolWaterSim";
 import { createPoolWaterMaterial } from "./materials/PoolWaterMaterial";
+import { applyGroundCaustics } from "./materials/applyGroundCaustics";
 import { boxToPlanarBounds } from "./waterPlanarMapping";
-import { getWaterPlanarBounds } from "./findWaterMesh";
+import { getWaterPlanarBounds, findGroundMesh } from "./findWaterMesh";
 import { POOL_SIM_DEFAULTS, POOL_WATER_RENDER_ORDER } from "./config/poolWaterDefaults";
 import { getPoolSimResolutionForTier, uvToSimGrid } from "./waterSimUtils";
 import { tickTheatreRafDriver } from "../../lib/theatre/raf";
@@ -47,6 +48,7 @@ export default function WaterRipples({ mesh }) {
 
   const simRef = useRef(null);
   const materialApiRef = useRef(null);
+  const groundCausticsRef = useRef(null);
   const boundsRef = useRef(null);
   const previousMaterialRef = useRef(null);
   const lastSpawnTimeRef = useRef(0);
@@ -124,6 +126,7 @@ export default function WaterRipples({ mesh }) {
     const bounds = boxToPlanarBounds(box);
     boundsRef.current = bounds;
     materialApiRef.current?.setPlanarBounds?.(bounds);
+    groundCausticsRef.current?.setPlanarBounds?.(bounds);
     return bounds;
   };
 
@@ -164,6 +167,16 @@ export default function WaterRipples({ mesh }) {
         mesh.material = materialApi.material;
         impulseQueueRef.current = buildStartupImpulseQueue(gridSize);
 
+        const groundMesh = findGroundMesh(scene);
+        if (groundMesh) {
+          groundCausticsRef.current = applyGroundCaustics({
+            mesh: groundMesh,
+            sim,
+            bounds,
+            waterParams: undefined,
+          });
+        }
+
         logWebGPUOnce("pool-water-ready", "WaterRipples", "Pool shallow water ready", {
           meshName: mesh.name,
           bounds,
@@ -177,6 +190,8 @@ export default function WaterRipples({ mesh }) {
 
     return () => {
       cancelled = true;
+      groundCausticsRef.current?.dispose?.();
+      groundCausticsRef.current = null;
       materialApiRef.current?.dispose();
       materialApiRef.current = null;
       simRef.current?.dispose?.();
@@ -284,6 +299,7 @@ export default function WaterRipples({ mesh }) {
       tickTheatreRafDriver(t);
       advance(t);
       materialApiRef.current?.updateTime?.(t * 0.001);
+      groundCausticsRef.current?.updateTime?.(t * 0.001);
       renderer.render(scene, camera);
       // Half-rate sim keeps ripples alive while freeing GPU for camera + render.
       if ((frameIndex++ & 1) === 0) maybeStepSim(t);
