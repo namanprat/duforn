@@ -1,16 +1,16 @@
 // @ts-nocheck
 import { create } from "zustand";
-import { getSnapshot, subscribe } from "../lib/preloader/preloaderGate";
+import { getSnapshot, subscribe } from "../lib/preload/gate";
 
 /**
  * Loading store mirrors the preloader gate (asset readiness) plus the
- * `phase` flag flipped by `ShaderCompiler` once the active scene branch's
+ * `phase` flag flipped by `ShaderWarmup` once the active scene branch's
  * shaders are compiled.
  *
- * - `phase` becomes `ready` when `ShaderCompiler` finishes (`compile` /
+ * - `phase` becomes `ready` when `ShaderWarmup` finishes (`compile` /
  *   `compileAsync`) for the active branch.
  * - `progress` (0..1) and `essentialsReady` come from `preloaderGate` and
- *   reflect fonts, GLBs (see `src/models/generated/registerPreloads.ts`), HDR, and work-strip textures.
+ *   reflect fonts, GLBs (see `src/models/gen/preloads.ts`), HDR, and work-strip textures.
  */
 export const useLoadingStore = create((set) => ({
   phase: "assets", // 'assets' | 'compiling' | 'ready'

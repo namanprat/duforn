@@ -1,16 +1,16 @@
 import "./store/loading";
-import "./models/generated";
+import "./models/gen";
 
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import App from "./App";
-import { patchThreeTSL } from "./lib/webgpu/patchThreeTSL";
+import { patchThreeTSL } from "./lib/gpu/patch";
 import { startWorkTexturePreload } from "../scripts/work-preload";
-import { trackPromise } from "./lib/preloader/preloaderGate";
-import { registerEssentialAssetTasks } from "./models/generated/registerPreloads";
-import { installBackgroundWarmup } from "./lib/preloader/backgroundWarmup";
+import { trackPromise } from "./lib/preload/gate";
+import { registerEssentialAssetTasks } from "./models/gen/preloads";
+import { installBackgroundWarmup } from "./lib/preload/warmup";
 import "../styles.css";
 
 function ensureOverlayRoot() {

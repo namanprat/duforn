@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useEffect, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { pickGpuBranchAsync } from "../lib/rendering";
+import { pickGpuBranchAsync } from "../lib/render";
 import {
   buildProjectDetailBackgroundMaterialWebGl,
   buildProjectDetailBackgroundMaterialWebGpu,

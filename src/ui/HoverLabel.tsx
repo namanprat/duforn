@@ -2,7 +2,7 @@
 import { useLayoutEffect, useRef } from "react";
 import gsap from "gsap";
 import { triggerNavHaptic } from "../../scripts/haptic-feedback";
-import { MOTION_TOKENS } from "../lib/animation/motionTokens";
+import { MOTION_TOKENS } from "../lib/anim/tokens";
 
 /**
  * CodePen-style stacked duplicate line + per-glyph Y slide (web_taku / QWmXyLd).

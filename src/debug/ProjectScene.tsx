@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import {
   DEFAULT_PROJECT_DETAIL_SCENE_CONTROLS,
   useProjectDetailSceneControlsStore,
-} from "../store/projectDetailSceneControls";
+} from "../store/projectScene";
 
 const CONTROL_SECTIONS = [
   {

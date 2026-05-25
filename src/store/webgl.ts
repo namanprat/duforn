@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { getRenderQualityProfile } from "../lib/rendering/qualityProfile";
+import { getRenderQualityProfile } from "../lib/render/profile";
 
 export const useWebglStore = create((set) => ({
   activePage: "main",

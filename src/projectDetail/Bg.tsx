@@ -2,12 +2,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
-import { useProjectBgModel } from "../models/generated/useProjectBgModel";
+import { useProjectBgModel } from "../models/gen/useProjectBg";
 import { usePointerField } from "./usePointerField";
-import { useProjectDetailSceneControlsStore } from "../store/projectDetailSceneControls";
+import { useProjectDetailSceneControlsStore } from "../store/projectScene";
 import { PROJECT_DETAIL_BG_CAMERA_Z } from "./sceneConfig";
-import { pickGpuBranchAsync } from "../lib/rendering";
-import { getClampedPixelRatio } from "../lib/rendering/canvasPixelRatio";
+import { pickGpuBranchAsync } from "../lib/render";
+import { getClampedPixelRatio } from "../lib/render/pixelRatio";
 import { ProjectBgTrailCanvas } from "./bgTrail";
 import { buildProjectBgMaterialsWebGl, buildProjectBgMaterialsWebGpu } from "./bgMaterials";
 

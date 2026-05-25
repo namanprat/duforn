@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useRef, useState } from "react";
-import { navigateTo } from "../lib/navigationBridge";
+import { navigateTo } from "../lib/nav";
 import TextRevealLines from "../text/Reveal";
 import RotateHoverLabel from "../ui/HoverLabel";
 import { shouldUseNavRotateHover } from "../../scripts/link-hover";

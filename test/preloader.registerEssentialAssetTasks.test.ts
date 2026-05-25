@@ -3,8 +3,8 @@ import {
   __resetPreloaderGate,
   getSnapshot,
   subscribe,
-} from "../src/lib/preloader/preloaderGate";
-import { registerEssentialAssetTasks } from "../src/models/generated/registerPreloads";
+} from "../src/lib/preload/gate";
+import { registerEssentialAssetTasks } from "../src/models/gen/preloads";
 
 const EXPECTED_IDS = [
   "gltf:scene",

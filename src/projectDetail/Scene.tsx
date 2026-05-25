@@ -6,9 +6,9 @@ import ProjectBg from "./Bg";
 import ProjectDetailBackground from "./Background";
 import ProjectDetailImagePlanes from "./ImagePlanes";
 import { useProjectDetailController } from "./useController";
-import { useProjectDetailSceneControlsStore } from "../store/projectDetailSceneControls";
+import { useProjectDetailSceneControlsStore } from "../store/projectScene";
 import { PROJECT_DETAIL_REVEAL_SETTINGS } from "./sceneConfig";
-import SceneExposure from "../scenes/SceneExposure";
+import Exposure from "../scenes/Exposure";
 
 function ProjectDetailCamera() {
   const { size } = useThree();
@@ -43,7 +43,7 @@ export default function ProjectDetailScene({ projectBgRenderScale = 1 }) {
     <>
       <ProjectDetailCamera />
       <ProjectDetailController />
-      <SceneExposure exposure={exposure} />
+      <Exposure exposure={exposure} />
       <ProjectDetailBackground controls={projectBgFallbackControls} />
       <Suspense fallback={null}>
         <ProjectBg renderScale={projectBgRenderScale} />

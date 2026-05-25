@@ -3,7 +3,7 @@ import React, { useRef, useEffect, useState, useCallback } from "react";
 import { flushSync } from "react-dom";
 import { useLocation } from "react-router-dom";
 import gsap from "gsap";
-import { navigateTo } from "../lib/navigationBridge";
+import { navigateTo } from "../lib/nav";
 import { canvasInk } from "../lib/ink/transition";
 import { resolveCanvasInkOrigin } from "../lib/ink/origin";
 import { CANVAS_INK_MENU_TIMING, CANVAS_INK_ROUTE_TIMING, normalizePath } from "../lib/ink/route";
@@ -12,17 +12,17 @@ import {
   hideAllRegisteredPageText,
   showAllRegisteredMenuText,
   showAllRegisteredPageText,
-} from "../lib/textReveal/textRevealRegistry";
-import UnifiedCanvas from "../scenes/UnifiedCanvas";
+} from "../lib/text";
+import Canvas from "../scenes/Canvas";
 import ChromaticAberrationFilter from "../fx/Chromatic";
-import OverlayTransitionCanvas from "../scenes/OverlayTransitionCanvas";
+import OverlayCanvas from "../scenes/OverlayCanvas";
 import RotateHoverLabel from "../ui/HoverLabel";
 import MenuOverlayLayer from "./Menu";
 import OverlayPortal from "./Portal";
 import PreloaderOverlayLayer from "./Preloader";
 import { useWebglStore } from "../store/webgl";
 import { useLoadingStore } from "../store/loading";
-import { usePreloaderOverlayStore } from "../store/preloaderOverlayStore";
+import { usePreloaderOverlayStore } from "../store/overlay";
 import { requestDeviceOrientationPermission } from "../../scripts/runtime/motion";
 import { triggerNavHaptic } from "../../scripts/haptic-feedback";
 import { shouldUseNavRotateHover } from "../../scripts/link-hover";
@@ -77,7 +77,7 @@ export default function SiteLayout({ children }) {
   const [introRingComplete, setIntroRingComplete] = useState(false);
   const [permissionsPending, setPermissionsPending] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  /** When false while open, menu-wrap is transparent so the UnifiedCanvas ink overlay reads as the backdrop. */
+  /** When false while open, menu-wrap is transparent so the Canvas ink overlay reads as the backdrop. */
   const [menuSurfaceSolid, setMenuSurfaceSolid] = useState(true);
   const preloaderTimerRef = useRef(0);
   const introTimelineRef = useRef(null);
@@ -507,7 +507,7 @@ export default function SiteLayout({ children }) {
 
       <OverlayPortal>
         <div className="fullscreen-overlay-cluster" aria-hidden={!preloaderVisible && !isMenuOpen}>
-          <OverlayTransitionCanvas />
+          <OverlayCanvas />
           <PreloaderOverlayLayer
             visible={preloaderVisible}
             fading={preloaderFading}
@@ -584,7 +584,7 @@ export default function SiteLayout({ children }) {
       </header>
 
       <div className="page-canvas">
-        <UnifiedCanvas activePage={activePage} />
+        <Canvas activePage={activePage} />
         <ChromaticAberrationFilter offsetX={1.2} />
       </div>
 

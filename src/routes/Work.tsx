@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { workItems } from "../../data/work-items";
-import { navigateTo } from "../lib/navigationBridge";
+import { navigateTo } from "../lib/nav";
 import TextRevealLines from "../text/Reveal";
 
 export default function WorkPage() {

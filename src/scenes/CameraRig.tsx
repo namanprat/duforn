@@ -2,7 +2,7 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import React, { useEffect, useRef } from "react";
 import { useWebglStore } from "../store/webgl";
-import { cameraBasePoseRef } from "../lib/theatre/cameraBasePose";
+import { cameraBasePoseRef } from "../lib/theatre/pose";
 import { normalizeViewportPoint } from "../lib/viewport/stableViewport";
 import {
   PARALLAX_MOTION_CONFIG,

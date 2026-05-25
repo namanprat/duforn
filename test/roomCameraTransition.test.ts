@@ -9,7 +9,7 @@ import {
   ROOM_POSES,
   ROOM_ROUTES,
   snapToRoom,
-} from "../src/lib/theatre/roomCameraTransition";
+} from "../src/lib/theatre/roomCam";
 
 describe("roomCameraTransition", () => {
   beforeEach(() => {

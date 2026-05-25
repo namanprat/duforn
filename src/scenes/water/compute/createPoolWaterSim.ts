@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { pickGpuBranchAsync, isWebGPURenderer } from "../../../lib/rendering";
+import { pickGpuBranchAsync, isWebGPURenderer } from "../../../lib/render";
 import { PoolShallowWaterSim } from "./PoolShallowWaterSim";
 import { PoolShallowWaterSimCPU } from "./PoolShallowWaterSimCPU";
 

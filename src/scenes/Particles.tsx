@@ -2,8 +2,8 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import { pickGpuBranch } from "../lib/rendering";
-import { logWebGPUOnce } from "../lib/webgpu/debugWebGPU";
+import { pickGpuBranch } from "../lib/render";
+import { logWebGPUOnce } from "../lib/gpu/debug";
 
 const DEFAULT_COUNT = 200;
 const DEFAULT_BOUNDS = { xHalf: 6, yMin: -2, yMax: 4, zMin: -10, zMax: 2 };

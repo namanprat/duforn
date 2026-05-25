@@ -4,15 +4,15 @@ import * as THREE from "three";
 import { useThree } from "@react-three/fiber";
 import { useWebglStore } from "../../store/webgl";
 import { useLoadingStore } from "../../store/loading";
-import { logWebGPUOnce } from "../../lib/webgpu/debugWebGPU";
-import { getRendererType } from "../../lib/rendering";
+import { logWebGPUOnce } from "../../lib/gpu/debug";
+import { getRendererType } from "../../lib/render";
 import { createPoolWaterSim } from "./compute/createPoolWaterSim";
 import { createPoolWaterMaterial } from "./materials/PoolWaterMaterial";
 import { boxToPlanarBounds } from "./waterPlanarMapping";
 import { getWaterPlanarBounds } from "./findWaterMesh";
 import { POOL_SIM_DEFAULTS, POOL_WATER_RENDER_ORDER } from "./config/poolWaterDefaults";
 import { getPoolSimResolutionForTier, uvToSimGrid } from "./waterSimUtils";
-import { tickTheatreRafDriver } from "../../lib/theatre/theatreRafDriver";
+import { tickTheatreRafDriver } from "../../lib/theatre/raf";
 function prefersReducedMotion() {
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -36,7 +36,7 @@ function buildStartupImpulseQueue(gridSize) {
 /**
  * Shallow-water ripples + ocean-style pool material on the main GLB water mesh.
  *
- * The host Canvas runs in frameloop="never" (UnifiedCanvas, WebGPU compute
+ * The host Canvas runs in frameloop="never" (Canvas, WebGPU compute
  * ordering). The animation loop here calls `advance(wallClockMs)` so R3F's
  * clock tracks real time — handheld drift / parallax in CameraRig stay smooth.
  */

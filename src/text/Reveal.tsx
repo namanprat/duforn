@@ -4,11 +4,8 @@ import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import { SplitText } from "gsap/SplitText";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import {
-  registerMenuTextReveal,
-  registerPageTextReveal,
-} from "../lib/textReveal/textRevealRegistry";
-import { MOTION_TOKENS } from "../lib/animation/motionTokens";
+import { registerMenuTextReveal, registerPageTextReveal } from "../lib/text";
+import { MOTION_TOKENS } from "../lib/anim/tokens";
 
 gsap.registerPlugin(SplitText, ScrollTrigger);
 

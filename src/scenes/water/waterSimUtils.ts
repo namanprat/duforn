@@ -1,4 +1,4 @@
-import type { RenderQualityTier } from "../../lib/rendering/qualityProfile";
+import type { RenderQualityTier } from "../../lib/render/profile";
 
 export const POOL_SIM_RESOLUTION_BY_TIER: Record<RenderQualityTier, number> = {
   desktop: 192,

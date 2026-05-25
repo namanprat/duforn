@@ -37,17 +37,17 @@ vi.mock("../scripts/lenis-scroll", () => ({
   destroyLenis: vi.fn(),
 }));
 
-vi.mock("../src/lib/navigationBridge", () => ({
+vi.mock("../src/lib/nav", () => ({
   setNavigateHandler: vi.fn(),
 }));
 
-vi.mock("../src/lib/animation/routeTransition", () => ({
+vi.mock("../src/lib/anim/route", () => ({
   shouldAnimateCanvasBetweenNamespaces: vi.fn(() => false),
   runRouteEnterTransition: vi.fn(() => () => {}),
   runRouteLeaveTransition: vi.fn(() => Promise.resolve()),
 }));
 
-vi.mock("../src/lib/animation/brandHandoffTransition", () => ({
+vi.mock("../src/lib/anim/brandHandoff", () => ({
   cleanupBrandHandoff: vi.fn(),
   runBrandHandoff: vi.fn(() => Promise.resolve()),
 }));
@@ -63,7 +63,7 @@ vi.mock("../src/lib/ink/route", () => ({
   shouldUseRouteInkBleed: vi.fn(() => false),
 }));
 
-vi.mock("../src/lib/textReveal/textRevealRegistry", () => ({
+vi.mock("../src/lib/text", () => ({
   hideAllRegisteredPageText: vi.fn(() => Promise.resolve()),
 }));
 

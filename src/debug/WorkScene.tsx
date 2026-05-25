@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState } from "react";
-import { DEFAULT_WORK_SCENE_CONTROLS, useWorkSceneControlsStore } from "../store/workSceneControls";
+import { DEFAULT_WORK_SCENE_CONTROLS, useWorkSceneControlsStore } from "../store/workScene";
 
 const CONTROL_SECTIONS = [
   {

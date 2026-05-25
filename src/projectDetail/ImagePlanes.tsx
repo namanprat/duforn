@@ -5,7 +5,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { configureTexture } from "../../scripts/runtime/assets";
-import { pickGpuBranchAsync } from "../lib/rendering";
+import { pickGpuBranchAsync } from "../lib/render";
 import {
   buildProjectDetailRevealMaterialWebGl,
   buildProjectDetailRevealMaterialWebGpu,

@@ -1,6 +1,6 @@
 // @ts-nocheck
 import gsap from "gsap";
-import { MOTION_TOKENS } from "../src/lib/animation/motionTokens";
+import { MOTION_TOKENS } from "../src/lib/anim/tokens";
 
 /** Pill CTAs (`button.button` / `a.button`), including the mobile menu toggle. */
 const BUTTON_SELECTOR =

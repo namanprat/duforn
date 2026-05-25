@@ -2,24 +2,24 @@
 import React, { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { createRoot } from "react-dom/client";
-import TheatreCameraController from "../src/scenes/TheatreCameraController";
-import { DEFAULT_CAMERA_BASE_POSE, cameraBasePoseRef } from "../src/lib/theatre/cameraBasePose";
+import TheatreCam from "../src/scenes/TheatreCam";
+import { DEFAULT_CAMERA_BASE_POSE, cameraBasePoseRef } from "../src/lib/theatre/pose";
 import { useWebglStore } from "../src/store/webgl";
-import { getRoomCameraObject, getRoomCameraSheet } from "../src/lib/theatre/dufornProject";
-import { playToRoom, snapToRoom } from "../src/lib/theatre/roomCameraTransition";
+import { getRoomCameraObject, getRoomCameraSheet } from "../src/lib/theatre/project";
+import { playToRoom, snapToRoom } from "../src/lib/theatre/roomCam";
 
-vi.mock("../src/lib/theatre/dufornProject", () => ({
+vi.mock("../src/lib/theatre/project", () => ({
   getRoomCameraSheet: vi.fn(),
   getRoomCameraObject: vi.fn(),
 }));
 
-vi.mock("../src/lib/theatre/roomCameraTransition", () => ({
+vi.mock("../src/lib/theatre/roomCam", () => ({
   isRoomNamespace: (value) => ["main", "contact", "work"].includes(value),
   playToRoom: vi.fn(() => Promise.resolve(true)),
   snapToRoom: vi.fn(),
 }));
 
-vi.mock("../src/lib/theatre/theatreRafDriver", () => ({
+vi.mock("../src/lib/theatre/raf", () => ({
   getTheatreRafDriver: vi.fn(() => undefined),
 }));
 
@@ -34,7 +34,7 @@ async function renderController() {
   const root = createRoot(container);
 
   await act(async () => {
-    root.render(<TheatreCameraController />);
+    root.render(<TheatreCam />);
     await flushEffects();
   });
 
@@ -52,7 +52,7 @@ afterEach(() => {
   cameraBasePoseRef.current = { ...DEFAULT_CAMERA_BASE_POSE };
 });
 
-describe("TheatreCameraController", () => {
+describe("TheatreCam", () => {
   it("snaps to the current room on mount instead of seeding a default contact pose", async () => {
     const sheet = { sequence: { pause: vi.fn(), position: 0 } };
     const values = {

@@ -13,16 +13,16 @@ import { useWebglStore } from "./store/webgl";
 import { initLinkHover, destroyLinkHover } from "../scripts/link-hover";
 import { initButtonHoverScale, destroyButtonHoverScale } from "../scripts/button-hover-scale";
 import { initLenis, destroyLenis } from "../scripts/lenis-scroll";
-import { setNavigateHandler } from "./lib/navigationBridge";
+import { setNavigateHandler } from "./lib/nav";
 import {
   shouldAnimateCanvasBetweenNamespaces,
   runRouteEnterTransition,
   runRouteLeaveTransition,
-} from "./lib/animation/routeTransition";
-import { cleanupBrandHandoff, runBrandHandoff } from "./lib/animation/brandHandoffTransition";
+} from "./lib/anim/route";
+import { cleanupBrandHandoff, runBrandHandoff } from "./lib/anim/brandHandoff";
 import { canvasInk } from "./lib/ink/transition";
 import { CANVAS_INK_ROUTE_TIMING, shouldUseRouteInkBleed } from "./lib/ink/route";
-import { hideAllRegisteredPageText } from "./lib/textReveal/textRevealRegistry";
+import { hideAllRegisteredPageText } from "./lib/text";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 const TITLES = {
