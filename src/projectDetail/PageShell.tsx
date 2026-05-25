@@ -4,6 +4,13 @@ import TextRevealLines from "../text/Reveal";
 import RotateHoverLabel from "../ui/HoverLabel";
 import { shouldUseNavRotateHover } from "../../scripts/link-hover";
 
+/**
+ * Project detail layout. Each major block uses a `project-details-*`
+ * component class that owns its column width and horizontal centering
+ * (see `.project-details-{content,hero-info,cover-frame,supporting-image}`
+ * in styles.css). Text inside stays default left-aligned.
+ */
+
 function ProjectDetailsImage({ item, eager = false }) {
   const fit = item.objectFit === "contain" ? "u-object-fit-contain" : "u-object-fit-cover";
   const imgProps = {
@@ -60,11 +67,11 @@ function ProjectDetailsHero({ hero }) {
 
   return (
     <section className="u-margin-top-0">
-      <div className="u-container-main u-flex-vertical-nowrap">
+      <div className="u-container-main">
         <ProjectDetailsHeroHeadline lines={titleLines} />
 
-        <div className="project-details-hero-info u-column-width-10 u-margin-x-auto u-flex-horizontal-nowrap u-justify-content-center u-gap-gutter u-align-items-start">
-          <article className="project-details-overview">
+        <div className="project-details-hero-info u-grid-autofit u-align-items-start">
+          <article className="project-details-overview u-column-span-6">
             <TextRevealLines>
               <p className="project-details-kicker u-text-style-small u-text-style-font-secondary">
                 Project Overview
@@ -75,7 +82,7 @@ function ProjectDetailsHero({ hero }) {
             </TextRevealLines>
           </article>
 
-          <div className="project-details-services">
+          <div className="project-details-services u-column-span-3">
             <TextRevealLines>
               <p className="project-details-kicker u-text-style-small u-text-style-font-secondary">
                 Services
@@ -99,7 +106,7 @@ function ProjectDetailsHero({ hero }) {
             ) : null}
           </div>
 
-          <div className="project-details-facts u-flex-vertical-nowrap u-gap-4">
+          <div className="project-details-facts u-column-span-3 u-flex-vertical-nowrap u-gap-4">
             {facts?.map((item) => (
               <article key={item.label}>
                 <TextRevealLines>
@@ -133,10 +140,7 @@ function ProjectDetailsCover({ item }) {
   return (
     <section className="project-details-cover">
       <div className="u-container-main">
-        <div
-          className="project-details-cover-frame u-column-width-10 u-margin-x-auto"
-          data-film-plane-trigger="true"
-        >
+        <div className="project-details-cover-frame" data-film-plane-trigger="true">
           <ProjectDetailsImage item={item} eager />
         </div>
       </div>
@@ -161,14 +165,32 @@ function ProjectDetailsStorySection({ section }) {
   );
 }
 
+function ProjectDetailsStorySectionGroup({ sections }) {
+  if (!sections?.length) return null;
+
+  return (
+    <section className="u-margin-top-0">
+      <div className="u-container-main">
+        <div className="project-details-content project-details-story-stack">
+          {sections.map((section) => (
+            <ProjectDetailsStorySection key={section.heading} section={section} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function ProjectDetailsSupportingImage({ item, wide = false }) {
   const cls = wide
-    ? "project-details-supporting-image u-column-width-10 u-margin-x-auto u-margin-top-0"
-    : "project-details-supporting-image u-column-width-10 u-margin-x-auto";
+    ? "project-details-supporting-image u-margin-top-0"
+    : "project-details-supporting-image";
   return (
     <section className={cls}>
-      <div className="project-details-supporting-image-frame" data-film-plane-trigger="true">
-        <ProjectDetailsImage item={item} />
+      <div className="u-container-main">
+        <div className="project-details-supporting-image-frame" data-film-plane-trigger="true">
+          <ProjectDetailsImage item={item} />
+        </div>
       </div>
     </section>
   );
@@ -196,44 +218,18 @@ export default function ProjectDetailsPageShell({
 
       {heroImage ? <ProjectDetailsCover item={heroImage} /> : null}
 
-      {introSections.length ? (
-        <section className="u-margin-top-0">
-          <div className="u-container-main project-details-story-stack u-column-width-10 u-margin-x-auto">
-            {introSections.map((section) => (
-              <ProjectDetailsStorySection key={section.heading} section={section} />
-            ))}
-          </div>
-        </section>
-      ) : null}
+      <ProjectDetailsStorySectionGroup sections={introSections} />
 
-      {interstitialImage ? (
-        <div className="u-container-main">
-          <ProjectDetailsSupportingImage item={interstitialImage} wide />
-        </div>
-      ) : null}
+      {interstitialImage ? <ProjectDetailsSupportingImage item={interstitialImage} wide /> : null}
 
-      {restSections.length ? (
-        <section className="u-margin-top-0">
-          <div className="u-container-main project-details-story-stack u-column-width-10 u-margin-x-auto">
-            {restSections.map((section) => (
-              <ProjectDetailsStorySection key={section.heading} section={section} />
-            ))}
-          </div>
-        </section>
-      ) : null}
+      <ProjectDetailsStorySectionGroup sections={restSections} />
 
-      {closingSection ? (
-        <section className="u-margin-top-0">
-          <div className="u-container-main project-details-story-stack u-column-width-10 u-margin-x-auto">
-            <ProjectDetailsStorySection section={closingSection} />
-          </div>
-        </section>
-      ) : null}
+      {closingSection ? <ProjectDetailsStorySectionGroup sections={[closingSection]} /> : null}
 
       {outro ? (
         <section className="project-details-outro">
           <div className="u-container-main">
-            <div className="u-column-width-10 u-margin-x-auto u-align-items-start">
+            <div className="project-details-content">
               <TextRevealLines>
                 <p>{outro}</p>
               </TextRevealLines>

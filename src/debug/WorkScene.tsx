@@ -1,74 +1,12 @@
 // @ts-nocheck
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { DEFAULT_WORK_SCENE_CONTROLS, useWorkSceneControlsStore } from "../store/workScene";
 
 const CONTROL_SECTIONS = [
   {
-    key: "scene",
-    title: "Scene",
-    fields: [
-      { path: "scene.exposure", label: "Exposure", min: 0.4, max: 1.6, step: 0.01 },
-      { path: "scene.background", label: "Background", type: "color" },
-      { path: "scene.fogColor", label: "Fog Color", type: "color" },
-      { path: "scene.fogDensity", label: "Fog Density", min: 0, max: 0.12, step: 0.001 },
-    ],
-  },
-  {
-    key: "model",
-    title: "Model",
-    fields: [
-      { path: "model.x", label: "X", min: -8, max: 8, step: 0.01 },
-      { path: "model.y", label: "Y", min: -12, max: 4, step: 0.01 },
-      { path: "model.z", label: "Z", min: -30, max: -4, step: 0.1 },
-      { path: "model.scale", label: "Scale", min: 0.2, max: 2.4, step: 0.01 },
-      { path: "model.roughnessScale", label: "Roughness", min: 0.2, max: 2, step: 0.01 },
-      { path: "model.metalnessScale", label: "Metalness", min: 0, max: 2, step: 0.01 },
-      { path: "model.envReflection", label: "Env Reflection", min: 0, max: 3, step: 0.01 },
-      { path: "model.clearcoat", label: "Clearcoat", min: 0, max: 1, step: 0.01 },
-      {
-        path: "model.clearcoatRoughness",
-        label: "Clearcoat Roughness",
-        min: 0,
-        max: 1,
-        step: 0.01,
-      },
-    ],
-  },
-  {
-    key: "lights",
-    title: "Lights",
-    fields: [
-      { path: "lights.keyX", label: "Key X", min: -20, max: 20, step: 0.1 },
-      { path: "lights.keyY", label: "Key Y", min: -4, max: 24, step: 0.1 },
-      { path: "lights.keyZ", label: "Key Z", min: -24, max: 24, step: 0.1 },
-      { path: "lights.keyIntensity", label: "Key Power", min: 0, max: 2400, step: 10 },
-      { path: "lights.keyColor", label: "Key Color", type: "color" },
-      { path: "lights.keyAngle", label: "Key Angle", min: 0.1, max: 1.4, step: 0.001 },
-      { path: "lights.keyPenumbra", label: "Key Penumbra", min: 0, max: 1, step: 0.01 },
-      { path: "lights.keyDecay", label: "Key Decay", min: 0, max: 4, step: 0.01 },
-      { path: "lights.fillX", label: "Fill X", min: -20, max: 20, step: 0.1 },
-      { path: "lights.fillY", label: "Fill Y", min: -4, max: 24, step: 0.1 },
-      { path: "lights.fillZ", label: "Fill Z", min: -24, max: 24, step: 0.1 },
-      { path: "lights.fillIntensity", label: "Fill Power", min: 0, max: 2400, step: 10 },
-      { path: "lights.fillColor", label: "Fill Color", type: "color" },
-      { path: "lights.fillAngle", label: "Fill Angle", min: 0.1, max: 1.4, step: 0.001 },
-      { path: "lights.fillPenumbra", label: "Fill Penumbra", min: 0, max: 1, step: 0.01 },
-      { path: "lights.fillDecay", label: "Fill Decay", min: 0, max: 4, step: 0.01 },
-      { path: "lights.pointX", label: "Point X", min: -24, max: 24, step: 0.1 },
-      { path: "lights.pointY", label: "Point Y", min: -12, max: 12, step: 0.1 },
-      { path: "lights.pointZ", label: "Point Z", min: -24, max: 24, step: 0.1 },
-      { path: "lights.pointIntensity", label: "Point Power", min: 0, max: 8, step: 0.01 },
-      { path: "lights.pointColor", label: "Point Color", type: "color" },
-      { path: "lights.pointDecay", label: "Point Decay", min: 0, max: 4, step: 0.01 },
-      { path: "lights.pointDistance", label: "Point Distance", min: 0, max: 60, step: 0.1 },
-      { path: "lights.ambientIntensity", label: "Ambient", min: 0, max: 2, step: 0.01 },
-      { path: "lights.ambientColor", label: "Ambient Color", type: "color" },
-      { path: "lights.shadowOpacity", label: "Shadow Opacity", min: 0, max: 0.5, step: 0.01 },
-    ],
-  },
-  {
-    key: "strip",
-    title: "Strip",
+    key: "transform",
+    title: "Transform",
     fields: [
       { path: "strip.x", label: "X", min: -4, max: 4, step: 0.01 },
       { path: "strip.y", label: "Y", min: -4, max: 4, step: 0.01 },
@@ -77,6 +15,12 @@ const CONTROL_SECTIONS = [
       { path: "strip.rx", label: "Rotation X", min: -Math.PI, max: Math.PI, step: 0.01 },
       { path: "strip.ry", label: "Rotation Y", min: -Math.PI, max: Math.PI, step: 0.01 },
       { path: "strip.rz", label: "Rotation Z", min: -Math.PI, max: Math.PI, step: 0.01 },
+    ],
+  },
+  {
+    key: "layout",
+    title: "Layout",
+    fields: [
       {
         path: "strip.visibleItems",
         label: "Visible Items",
@@ -90,19 +34,34 @@ const CONTROL_SECTIONS = [
       { path: "strip.curveAmount", label: "Curve Amount", min: 0.4, max: 2.8, step: 0.01 },
       { path: "strip.stripHeight", label: "Height", min: 1, max: 10, step: 0.01 },
       { path: "strip.stripYOffset", label: "Y Offset", min: -6, max: 6, step: 0.01 },
-      { path: "strip.bottomSway", label: "Bottom Sway", min: 0, max: 1.2, step: 0.01 },
-      { path: "strip.depthOffset", label: "Depth Offset", min: -2, max: 2, step: 0.01 },
+    ],
+  },
+  {
+    key: "material",
+    title: "Material",
+    fields: [
       { path: "strip.roughness", label: "Roughness", min: 0.05, max: 1, step: 0.01 },
       { path: "strip.sheenR", label: "Sheen R", min: 0, max: 1.5, step: 0.01 },
       { path: "strip.sheenG", label: "Sheen G", min: 0, max: 1.5, step: 0.01 },
       { path: "strip.sheenB", label: "Sheen B", min: 0, max: 1.5, step: 0.01 },
       { path: "strip.subsurfaceStr", label: "Subsurface", min: 0, max: 1, step: 0.01 },
+    ],
+  },
+  {
+    key: "motion",
+    title: "Motion",
+    fields: [
       { path: "strip.windStrength", label: "Wind", min: 0, max: 16, step: 0.01 },
       { path: "strip.flutterAmplitude", label: "Flutter Amp", min: 0, max: 1, step: 0.001 },
       { path: "strip.flutterFrequency", label: "Flutter Freq", min: 0, max: 30, step: 0.01 },
       { path: "strip.gravityScale", label: "Gravity", min: 0, max: 10, step: 0.01 },
-      { path: "strip.shearStrength", label: "Shear", min: 0, max: 1.5, step: 0.01 },
       { path: "strip.constraintMix", label: "Constraint", min: 0.2, max: 1.2, step: 0.01 },
+    ],
+  },
+  {
+    key: "interaction",
+    title: "Interaction",
+    fields: [
       {
         path: "strip.wheelSensitivity",
         label: "Wheel Sense",
@@ -193,17 +152,24 @@ export default function WorkSceneControls() {
     setControl(field.path, parseFieldValue(field, rawValue));
   };
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <aside
       data-work-scene-controls="true"
+      data-lenis-prevent="true"
+      onWheelCapture={(event) => event.stopPropagation()}
+      onTouchMoveCapture={(event) => event.stopPropagation()}
       style={{
         position: "fixed",
         top: 88,
         right: 16,
-        zIndex: 30,
+        zIndex: 9999,
         width: "min(360px, calc(100vw - 24px))",
         maxHeight: "calc(100vh - 104px)",
         overflow: "auto",
+        overscrollBehavior: "contain",
+        WebkitOverflowScrolling: "touch",
         padding: 12,
         borderRadius: 18,
         border: "1px solid rgba(255, 255, 255, 0.12)",
@@ -226,9 +192,9 @@ export default function WorkSceneControls() {
       >
         <div>
           <div style={{ fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase" }}>
-            Work Scene
+            Work
           </div>
-          <div style={{ fontSize: 18, lineHeight: 1.1 }}>3D Controls</div>
+          <div style={{ fontSize: 18, lineHeight: 1.1 }}>Strip Controls</div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button
@@ -335,6 +301,7 @@ export default function WorkSceneControls() {
             </div>
           </details>
         ))}
-    </aside>
+    </aside>,
+    document.body,
   );
 }

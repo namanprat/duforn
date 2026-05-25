@@ -473,6 +473,13 @@ body.page-wrap:has([data-page-namespace="work"])
   pointer-events: auto;
 }
 
+/* Dev-only debug GUI — make sure every descendant stays interactive even when
+   sibling/ancestor rules disable pointer-events. */
+[data-work-scene-controls="true"],
+[data-work-scene-controls="true"] * {
+  pointer-events: auto !important;
+}
+
 /* Layout, Sizing, and Positioning */
 .u-layout-wrapper {
   grid-column-gap: var(--site--gutter);
@@ -3485,6 +3492,21 @@ body.preloader-active .bottom-nav-wrap {
 .project-details-story-stack {
   display: grid;
   gap: var(--spacing-section-space-large);
+}
+
+/* Body copy column — narrower than the visuals so long-form text stays
+   readable. 7 cols on desktop, full-width below 768px. */
+.project-details-content {
+  width: var(--column-width-7);
+  margin-inline: auto;
+}
+
+/* Hero info row, cover image, and supporting image share the wider 10-col
+   centered column. */
+.project-details-hero-info,
+.project-details-cover-frame,
+.project-details-supporting-image {
+  width: var(--column-width-10);
   margin-inline: auto;
 }
 
@@ -3495,25 +3517,15 @@ body.preloader-active .bottom-nav-wrap {
 
 .project-details-hero-info {
   margin-top: var(--spacing-section-space-medium);
-  margin-inline: auto;
-  justify-content: center;
 }
 
-.project-details-overview {
-  flex: 1 1 50%;
-  max-width: var(--column-width-5);
-}
-
-.project-details-services,
-.project-details-facts {
-  flex: 0 1 22%;
-}
+/* Grid items inside .project-details-hero-info — span widths set via
+   `u-column-span-*` utilities in JSX. */
 
 .project-details-cover-frame {
   position: relative;
   min-height: var(--site--viewport-min-height-cover);
   overflow: hidden;
-  margin-inline: auto;
 }
 
 .project-details-cover-frame :is(picture, img) {
@@ -3529,7 +3541,6 @@ body.preloader-active .bottom-nav-wrap {
 .project-details-supporting-image-frame {
   position: relative;
   overflow: hidden;
-  margin-inline: auto;
 }
 
 .project-details-supporting-image-frame :is(picture, img) {
@@ -3551,19 +3562,27 @@ body.preloader-active .bottom-nav-wrap {
 }
 
 @media (max-width: 991px) {
+  .project-details-cover-frame {
+    min-height: var(--site--viewport-min-height-row);
+  }
+}
+
+@media (max-width: 768px) {
+  /* Text body collapses to full width. */
+  .project-details-content {
+    width: 100%;
+  }
+
+  /* Hero info collapses from 4-col grid (12-track / 6+3+3 spans) to a single
+     stacked column so overview / services / facts read top-to-bottom. */
   .project-details-hero-info {
-    flex-wrap: wrap;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .project-details-hero-info > .project-details-overview,
   .project-details-hero-info > .project-details-services,
   .project-details-hero-info > .project-details-facts {
-    flex: 1 1 100%;
-    max-width: none;
-  }
-
-  .project-details-cover-frame {
-    min-height: var(--site--viewport-min-height-row);
+    grid-column: 1 / -1;
   }
 }
 

@@ -412,24 +412,12 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
 export function WorkClothStripScene() {
   const { gl } = useThree();
   const systemRef = useRef(null);
+  const groupRef = useRef<THREE.Group>(null);
   const stripControls = useWorkSceneControlsStore((state) => state.controls.strip);
   const visibleItems = Math.max(1, stripControls.visibleItems ?? DEFAULT_VISIBLE_ITEMS);
   const gapSize = stripControls.gapSize ?? DEFAULT_GAP_SIZE;
-  /**
-   * Stable [x,y,z] tuple — avoids handing R3F a fresh array reference each
-   * render, which would otherwise reapply the group's position every parent
-   * re-render and produce visible 1-frame jitter alongside the cloth shader's
-   * own sway.
-   */
-  const stripPosition = useMemo<[number, number, number]>(
-    () => [stripControls.x, stripControls.y, stripControls.z],
-    [stripControls.x, stripControls.y, stripControls.z],
-  );
-  const stripRotation = useMemo<[number, number, number]>(
-    () => [stripControls.rx ?? 0, stripControls.ry ?? 0, stripControls.rz ?? 0],
-    [stripControls.rx, stripControls.ry, stripControls.rz],
-  );
-  const stripScale = stripControls.scale;
+  // Transform is applied imperatively inside useFrame (see below) so debug
+  // sliders take effect even though the canvas runs frameloop="never".
   const wind = {
     windStrength: stripControls.windStrength,
     flutterAmplitude: stripControls.flutterAmplitude,
@@ -584,6 +572,16 @@ export function WorkClothStripScene() {
     if (!sys) return;
 
     const sc = useWorkSceneControlsStore.getState().controls.strip;
+
+    // Imperative transform — bypass React reconciliation so GUI sliders move
+    // the strip in real time on a frameloop="never" canvas.
+    const group = groupRef.current;
+    if (group) {
+      group.position.set(sc.x ?? 0, sc.y ?? 0, sc.z ?? 0);
+      group.rotation.set(sc.rx ?? 0, sc.ry ?? 0, sc.rz ?? 0);
+      const s = sc.scale ?? 1;
+      group.scale.set(s, s, s);
+    }
     /**
      * Use wall-clock seconds directly. With Canvas in `frameloop="never"`
      * and Theatre + WaterRipples each driving advance/render, R3F's clock can
@@ -663,7 +661,7 @@ export function WorkClothStripScene() {
   };
 
   return (
-    <group position={stripPosition} rotation={stripRotation} scale={stripScale}>
+    <group ref={groupRef}>
       <mesh
         geometry={geometry}
         material={tslMaterial}

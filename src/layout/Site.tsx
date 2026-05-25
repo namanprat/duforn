@@ -6,7 +6,12 @@ import gsap from "gsap";
 import { navigateTo } from "../lib/nav";
 import { canvasInk } from "../lib/ink/transition";
 import { resolveCanvasInkOrigin } from "../lib/ink/origin";
-import { CANVAS_INK_MENU_TIMING, CANVAS_INK_ROUTE_TIMING, normalizePath } from "../lib/ink/route";
+import {
+  CANVAS_INK_MENU_TIMING,
+  CANVAS_INK_ROUTE_TIMING,
+  getRouteInkNamespace,
+  normalizePath,
+} from "../lib/ink/route";
 import {
   hideAllRegisteredMenuText,
   hideAllRegisteredPageText,
@@ -64,6 +69,12 @@ function NavLink({ to, className, children, ...props }) {
   );
 }
 
+function shouldShowIntroPreloader(pathname) {
+  // The detail route is the only vertical page; skip the intro lock there so a
+  // deep link does not boot into a fixed-body state that blocks scrolling.
+  return getRouteInkNamespace(pathname) !== "projectDetail";
+}
+
 export default function SiteLayout({ children }) {
   const location = useLocation();
   const activePage = useWebglStore((s) => s.activePage);
@@ -73,7 +84,9 @@ export default function SiteLayout({ children }) {
   const essentialsReady = useLoadingStore((s) => s.essentialsReady);
   const setPreloaderOverlayVisible = usePreloaderOverlayStore((s) => s.setVisible);
   const [preloaderFading, setPreloaderFading] = useState(false);
-  const [preloaderVisible, setPreloaderVisible] = useState(true);
+  const [preloaderVisible, setPreloaderVisible] = useState(() =>
+    shouldShowIntroPreloader(location.pathname),
+  );
   const [introRingComplete, setIntroRingComplete] = useState(false);
   const [permissionsPending, setPermissionsPending] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);

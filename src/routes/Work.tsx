@@ -2,6 +2,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import { workItems } from "../../data/work-items";
 import { navigateTo } from "../lib/nav";
 import TextRevealLines from "../text/Reveal";
+import WorkSceneControls from "../debug/WorkScene";
+
+// Dev-only debug GUI for the live work strip controls.
+const SHOW_WORK_SCENE_CONTROLS = import.meta.env.DEV;
 
 export default function WorkPage() {
   const initialTitle = workItems[0]?.title ?? "Work";
@@ -42,25 +46,12 @@ export default function WorkPage() {
   };
 
   return (
-    <main id="main" data-page-container="true" data-page-namespace="work">
-      <div className="u-section-spacer-medium" />
-      {plainMode ? (
-        <h1
-          className="u-container-full u-text-align-center u-text-style-display work-page__title"
-          data-work-strip-title
-          role="link"
-          tabIndex={0}
-          data-href=""
-          onClick={handleTitleActivate}
-          onKeyDown={handleTitleKeyDown}
-        >
-          <span className="work-page__title-line">{firstLine}</span>
-          {secondLine ? <span className="work-page__title-line">{secondLine}</span> : null}
-        </h1>
-      ) : (
-        <TextRevealLines animateOnScroll={false}>
+    <>
+      <main id="main" data-page-container="true" data-page-namespace="work">
+        <div className="u-section-spacer-medium" />
+        {plainMode ? (
           <h1
-            className="u-container-full u-text-align-center u-text-style-display work-page__title"
+            className="u-container-full u-text-align-left u-text-style-display work-page__title"
             data-work-strip-title
             role="link"
             tabIndex={0}
@@ -68,10 +59,26 @@ export default function WorkPage() {
             onClick={handleTitleActivate}
             onKeyDown={handleTitleKeyDown}
           >
-            <span className="work-page__title-line">{initialTitle}</span>
+            <span className="work-page__title-line">{firstLine}</span>
+            {secondLine ? <span className="work-page__title-line">{secondLine}</span> : null}
           </h1>
-        </TextRevealLines>
-      )}
-    </main>
+        ) : (
+          <TextRevealLines animateOnScroll={false}>
+            <h1
+              className="u-container-full u-text-align-left u-text-style-display work-page__title"
+              data-work-strip-title
+              role="link"
+              tabIndex={0}
+              data-href=""
+              onClick={handleTitleActivate}
+              onKeyDown={handleTitleKeyDown}
+            >
+              <span className="work-page__title-line">{initialTitle}</span>
+            </h1>
+          </TextRevealLines>
+        )}
+      </main>
+      {SHOW_WORK_SCENE_CONTROLS ? <WorkSceneControls /> : null}
+    </>
   );
 }

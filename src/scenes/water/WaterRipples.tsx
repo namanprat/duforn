@@ -167,14 +167,17 @@ export default function WaterRipples({ mesh }) {
         mesh.material = materialApi.material;
         impulseQueueRef.current = buildStartupImpulseQueue(gridSize);
 
-        const groundMesh = findGroundMesh(scene);
+        const groundMesh = findGroundMesh(scene, mesh);
         if (groundMesh) {
           groundCausticsRef.current = applyGroundCaustics({
             mesh: groundMesh,
             sim,
             bounds,
+            renderer: gl,
             waterParams: undefined,
           });
+        } else {
+          console.warn("[WaterRipples] Ground mesh not found; caustics disabled");
         }
 
         logWebGPUOnce("pool-water-ready", "WaterRipples", "Pool shallow water ready", {
