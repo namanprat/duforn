@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   ShallowWaterState,
   createShallowWaterParams,
-} from "../src/components/webgl/water/compute/shallowWaterCPU";
+} from "../src/scenes/water/compute/shallowWaterCPU";
 
 describe("ShallowWaterState (CPU, wave-equation)", () => {
   it("propagates a drop outward and decays the central peak", () => {

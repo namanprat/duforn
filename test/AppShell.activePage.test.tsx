@@ -11,16 +11,16 @@ import {
 import { AppShell } from "../src/App";
 import { useWebglStore } from "../src/store/webgl";
 
-vi.mock("../src/components/layout/SiteLayout", () => ({
+vi.mock("../src/layout/Site", () => ({
   default: ({ children }) => children,
 }));
 
-vi.mock("../src/routes/MainPage", () => ({ default: () => null }));
-vi.mock("../src/routes/WorkPage", () => ({ default: () => null }));
-vi.mock("../src/routes/ContactPage", () => ({ default: () => null }));
-vi.mock("../src/routes/ArchivePage", () => ({ default: () => null }));
-vi.mock("../src/routes/ProjectDetailPage", () => ({ default: () => null }));
-vi.mock("../src/routes/NotFoundPage", () => ({ default: () => null }));
+vi.mock("../src/routes/Main", () => ({ default: () => null }));
+vi.mock("../src/routes/Work", () => ({ default: () => null }));
+vi.mock("../src/routes/Contact", () => ({ default: () => null }));
+vi.mock("../src/routes/Archive", () => ({ default: () => null }));
+vi.mock("../src/routes/Project", () => ({ default: () => null }));
+vi.mock("../src/routes/NotFound", () => ({ default: () => null }));
 
 vi.mock("../scripts/link-hover", () => ({
   initLinkHover: vi.fn(),
@@ -52,13 +52,13 @@ vi.mock("../src/lib/animation/brandHandoffTransition", () => ({
   runBrandHandoff: vi.fn(() => Promise.resolve()),
 }));
 
-vi.mock("../src/lib/fx/canvasInkTransition", () => ({
+vi.mock("../src/lib/ink/transition", () => ({
   canvasInk: {
     isReady: vi.fn(() => false),
   },
 }));
 
-vi.mock("../src/lib/canvasInkRoute", () => ({
+vi.mock("../src/lib/ink/route", () => ({
   CANVAS_INK_ROUTE_TIMING: { expandMs: 0, holdMs: 0, collapseMs: 0 },
   shouldUseRouteInkBleed: vi.fn(() => false),
 }));

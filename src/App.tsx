@@ -2,13 +2,13 @@
 import React, { useEffect, useLayoutEffect, useRef } from "react";
 import { Route, Routes, useLocation, useNavigate, useOutlet } from "react-router-dom";
 
-import SiteLayout from "./components/layout/SiteLayout";
-import MainPage from "./routes/MainPage";
-import WorkPage from "./routes/WorkPage";
-import ContactPage from "./routes/ContactPage";
-import ArchivePage from "./routes/ArchivePage";
-import ProjectDetailPage from "./routes/ProjectDetailPage";
-import NotFoundPage from "./routes/NotFoundPage";
+import SiteLayout from "./layout/Site";
+import MainPage from "./routes/Main";
+import WorkPage from "./routes/Work";
+import ContactPage from "./routes/Contact";
+import ArchivePage from "./routes/Archive";
+import ProjectDetailPage from "./routes/Project";
+import NotFoundPage from "./routes/NotFound";
 import { useWebglStore } from "./store/webgl";
 import { initLinkHover, destroyLinkHover } from "../scripts/link-hover";
 import { initButtonHoverScale, destroyButtonHoverScale } from "../scripts/button-hover-scale";
@@ -20,8 +20,8 @@ import {
   runRouteLeaveTransition,
 } from "./lib/animation/routeTransition";
 import { cleanupBrandHandoff, runBrandHandoff } from "./lib/animation/brandHandoffTransition";
-import { canvasInk } from "./lib/fx/canvasInkTransition";
-import { CANVAS_INK_ROUTE_TIMING, shouldUseRouteInkBleed } from "./lib/canvasInkRoute";
+import { canvasInk } from "./lib/ink/transition";
+import { CANVAS_INK_ROUTE_TIMING, shouldUseRouteInkBleed } from "./lib/ink/route";
 import { hideAllRegisteredPageText } from "./lib/textReveal/textRevealRegistry";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 

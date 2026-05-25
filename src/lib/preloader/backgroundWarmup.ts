@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { projectDetailContent } from "../../projectDetail/projectDetailContent";
+import { projectDetailContent } from "../../projectDetail/content";
 
 /**
  * Phase 2 — Background warmup after preloader dismissal.
@@ -139,10 +139,4 @@ export function installBackgroundWarmup() {
     void runWarmupSequence();
   };
   window.addEventListener("duforn:preloader-dismissed", onDismissed, { once: true });
-}
-
-/** Test-only escape hatch. */
-export function __resetBackgroundWarmup() {
-  installed = false;
-  kicked = false;
 }

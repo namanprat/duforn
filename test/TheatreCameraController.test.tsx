@@ -2,7 +2,7 @@
 import React, { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { createRoot } from "react-dom/client";
-import TheatreCameraController from "../src/components/webgl/TheatreCameraController";
+import TheatreCameraController from "../src/scenes/TheatreCameraController";
 import { DEFAULT_CAMERA_BASE_POSE, cameraBasePoseRef } from "../src/lib/theatre/cameraBasePose";
 import { useWebglStore } from "../src/store/webgl";
 import { getRoomCameraObject, getRoomCameraSheet } from "../src/lib/theatre/dufornProject";

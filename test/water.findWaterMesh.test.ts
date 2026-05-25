@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import * as THREE from "three";
-import { findWaterMesh } from "../src/components/webgl/water/findWaterMesh";
-import { boxToPlanarBounds } from "../src/components/webgl/water/waterPlanarMapping";
+import { findWaterMesh } from "../src/scenes/water/findWaterMesh";
+import { boxToPlanarBounds } from "../src/scenes/water/waterPlanarMapping";
 
 describe("findWaterMesh", () => {
   it("finds mesh by material name Water", () => {
