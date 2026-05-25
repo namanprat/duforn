@@ -1,47 +1,38 @@
 // @ts-nocheck
 import React, { Suspense, useEffect } from "react";
-import { PerspectiveCamera } from "@react-three/drei";
 import CanvasSurface, { getCanvasDpr } from "./CanvasSurface";
 import { createRendererOpaque, getRendererType } from "../../lib/rendering";
 import { logWebGPU } from "../../lib/webgpu/debugWebGPU";
 import { useWebglStore } from "../../store/webgl";
 import { getRenderQualityProfile } from "../../lib/rendering/qualityProfile";
-import WorkPageScene from "./WorkPageScene";
 import ShaderCompiler from "./ShaderCompiler";
-import {
-  HomeCanvasBranch,
-  MainCanvasBranch,
-  NotFoundCanvasBranch,
-  ProjectDetailCanvasBranch,
-} from "./GlobalSceneBranches";
+import { NotFoundCanvasBranch, ProjectDetailCanvasBranch } from "./GlobalSceneBranches";
+import SharedRoomCanvasBranch from "./SharedRoomCanvasBranch";
 import WarmupOrchestrator from "./WarmupOrchestrator";
+import { isRoomNamespace } from "../../lib/theatre/roomCameraTransition";
 
 function UnifiedScene({ activePage, shadowMapSize }) {
   switch (activePage) {
-    case "work":
-      return (
-        <>
-          <PerspectiveCamera makeDefault position={[0, 1, 5]} fov={75} />
-          <WorkPageScene shadowMapSize={shadowMapSize} />
-        </>
-      );
     case "archive":
-      return <HomeCanvasBranch />;
+      return null;
     case "projectDetail":
       return <ProjectDetailCanvasBranch />;
     case "notFound":
       return <NotFoundCanvasBranch />;
     case "main":
-      return <MainCanvasBranch />;
+    case "work":
+    case "contact":
+      return <SharedRoomCanvasBranch shadowMapSize={shadowMapSize} />;
     default:
-      return <MainCanvasBranch />;
+      return <SharedRoomCanvasBranch shadowMapSize={shadowMapSize} />;
   }
 }
 
 /**
- * Single persistent R3F canvas for all routes. Only one scene branch mounts at a time.
+ * Single persistent R3F canvas for all routes. Room pages share one scene branch.
  */
 export default function UnifiedCanvas({ activePage }) {
+  const isRoomPage = isRoomNamespace(activePage);
   const pointerEvents = activePage === "work" || activePage === "main" ? "auto" : "none";
   const isProjectDetail = activePage === "projectDetail";
   const setRendererType = useWebglStore((s) => s.setRendererType);
@@ -55,11 +46,8 @@ export default function UnifiedCanvas({ activePage }) {
     }
   }, [quality.tier, setQualityProfile]);
 
-  // Main + contact share MainCanvasBranch / WaterRipples. Custom loop via
-  // gl.setAnimationLoop keeps compute ordering and stable CameraRig deltas.
-  const frameloop = activePage === "main" || activePage === "contact" ? "never" : "always";
-  const isMainScene = activePage === "main" || activePage === "contact";
-  const dprCap = isMainScene ? Math.min(quality.dprCap, 1.5) : quality.dprCap;
+  const frameloop = isRoomPage ? "never" : "always";
+  const dprCap = isRoomPage ? Math.min(quality.dprCap, 1.5) : quality.dprCap;
 
   return (
     <CanvasSurface

@@ -81,6 +81,11 @@ const FRAG = /* glsl */ `
   uniform vec3 uFogColor;
   uniform float uFoamAmount;
   uniform float uFoamThreshold;
+  uniform float uTime;
+  uniform float uCausticsIntensity;
+  uniform float uCausticsScale;
+  uniform float uCausticsSpeed;
+  uniform vec3 uCausticsColor;
 
   float decodeH(float r) { return (r - 0.5) * 2.0; }
 
@@ -120,6 +125,22 @@ const FRAG = /* glsl */ `
     return normalize(vec3(nx, 1.0, nz));
   }
 
+  // Two-layer domain-warped sine caustics. Returns a non-negative scalar.
+  float causticsPattern(vec2 uv, float t) {
+    vec2 p = uv * uCausticsScale;
+    float tt = t * uCausticsSpeed;
+    vec2 warp = vec2(
+      sin(p.y * 1.3 + tt * 1.1),
+      cos(p.x * 1.1 - tt * 0.9)
+    ) * 0.35;
+    vec2 q = p + warp;
+    float a = sin(q.x + tt) + sin(q.y * 1.2 - tt * 0.7);
+    float b = sin((q.x + q.y) * 0.8 + tt * 0.5) + sin((q.x - q.y) * 0.9 - tt * 0.4);
+    float v = (a + b) * 0.25 + 0.5;
+    v = pow(clamp(v, 0.0, 1.0), 3.0);
+    return v;
+  }
+
   vec2 equirectUV(vec3 dir) {
     float phi = atan(dir.z, dir.x);
     float theta = asin(clamp(dir.y, -1.0, 1.0));
@@ -141,6 +162,13 @@ const FRAG = /* glsl */ `
     float pathLength = uWaterDepth / viewAngle;
     float depthFactor = smoothstep(0.0, uDepthFalloff, pathLength);
     vec3 waterColor = mix(uShallowColor, uDeepColor, depthFactor);
+
+    // Caustics — light bands on the underwater color. Attenuated in deep water
+    // and warped by the ripple normal so they bend with the surface.
+    vec2 causticsUv = vRippleUv + rippleN.xz * 0.15;
+    float caustics = causticsPattern(causticsUv, uTime);
+    float causticsAttenuation = (1.0 - depthFactor) * uCausticsIntensity;
+    waterColor += uCausticsColor * caustics * causticsAttenuation;
 
     vec3 reflectDir = reflect(-viewDir, fresnelN);
     vec2 baseEnvUV = equirectUV(reflectDir);
@@ -222,6 +250,11 @@ export function createPoolWaterMaterialWebGl({ sim, bounds, envMap, waterParams,
     uFogColor: { value: new THREE.Color(p.fogColor) },
     uFoamAmount: { value: p.foamAmount },
     uFoamThreshold: { value: p.foamThreshold },
+    uTime: { value: 0 },
+    uCausticsIntensity: { value: p.causticsIntensity },
+    uCausticsScale: { value: p.causticsScale },
+    uCausticsSpeed: { value: p.causticsSpeed },
+    uCausticsColor: { value: new THREE.Color(p.causticsColor) },
   };
 
   const material = new THREE.ShaderMaterial({
@@ -274,6 +307,14 @@ export function createPoolWaterMaterialWebGl({ sim, bounds, envMap, waterParams,
       if (next.fogColor) uniforms.uFogColor.value.set(next.fogColor);
       if (next.foamAmount != null) uniforms.uFoamAmount.value = next.foamAmount;
       if (next.foamThreshold != null) uniforms.uFoamThreshold.value = next.foamThreshold;
+      if (next.causticsIntensity != null)
+        uniforms.uCausticsIntensity.value = next.causticsIntensity;
+      if (next.causticsScale != null) uniforms.uCausticsScale.value = next.causticsScale;
+      if (next.causticsSpeed != null) uniforms.uCausticsSpeed.value = next.causticsSpeed;
+      if (next.causticsColor) uniforms.uCausticsColor.value.set(next.causticsColor);
+    },
+    updateTime(t) {
+      uniforms.uTime.value = t;
     },
     dispose() {
       material.dispose();

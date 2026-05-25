@@ -77,6 +77,9 @@ const CONTROL_SECTIONS = [
       { path: "strip.y", label: "Y", min: -4, max: 4, step: 0.01 },
       { path: "strip.z", label: "Z", min: -12, max: 2, step: 0.01 },
       { path: "strip.scale", label: "Scale", min: 0.2, max: 1.4, step: 0.01 },
+      { path: "strip.rx", label: "Rotation X", min: -Math.PI, max: Math.PI, step: 0.01 },
+      { path: "strip.ry", label: "Rotation Y", min: -Math.PI, max: Math.PI, step: 0.01 },
+      { path: "strip.rz", label: "Rotation Z", min: -Math.PI, max: Math.PI, step: 0.01 },
       {
         path: "strip.visibleItems",
         label: "Visible Items",

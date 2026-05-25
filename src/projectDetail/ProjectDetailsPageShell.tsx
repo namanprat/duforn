@@ -88,15 +88,13 @@ function ProjectDetailsHero({ hero }) {
               ))}
             </div>
             {cta ? (
-              <a
+              <button
+                type="button"
                 className="button button-primary button-primary--black project-details-cta"
-                href={cta.href}
-                target={cta.target}
-                rel={cta.rel}
                 data-rotate-hover={useRotateCtaHover ? "" : undefined}
               >
                 {useRotateCtaHover ? <RotateHoverLabel text={cta.label} /> : cta.label}
-              </a>
+              </button>
             ) : null}
           </div>
 
@@ -130,18 +128,6 @@ function ProjectDetailsHero({ hero }) {
   );
 }
 
-function ProjectDetailsMedia({ item, eager = false }) {
-  return (
-    <article
-      className={`project-details-media-card project-details-media-card--${item.layout || "landscape"} u-display-grid u-gap-3`}
-    >
-      <div className="project-details-media-frame" data-film-plane-trigger="true">
-        <ProjectDetailsImage item={item} eager={eager} />
-      </div>
-    </article>
-  );
-}
-
 function ProjectDetailsCover({ item }) {
   return (
     <section className="project-details-cover">
@@ -156,61 +142,18 @@ function ProjectDetailsCover({ item }) {
 
 function ProjectDetailsStorySection({ section }) {
   return (
-    <section className="project-details-story-row project-details-content u-display-grid u-gap-row-3 u-gap-column-8">
-      <div className="project-details-story-heading">
-        <TextRevealLines>
-          <h2 className="u-text-style-h4">{section.heading}</h2>
-        </TextRevealLines>
-      </div>
-      <div className="project-details-story-copy u-display-grid u-gap-4">
-        {section.intro ? (
-          <TextRevealLines>
-            <p>{section.intro}</p>
-          </TextRevealLines>
-        ) : null}
+    <article className="project-details-story-section">
+      <TextRevealLines>
+        <h2 className="project-details-story-heading u-text-style-h4">{section.heading}</h2>
+      </TextRevealLines>
+      <div className="project-details-story-copy">
         {section.body?.map((paragraph) => (
           <TextRevealLines key={paragraph}>
-            <p>{paragraph}</p>
+            <p className="project-details-story-paragraph">{paragraph}</p>
           </TextRevealLines>
         ))}
-        {section.questions?.length ? (
-          <ol className="project-details-question-list u-display-grid u-gap-2 u-padding-left-4">
-            {section.questions.map((question) => (
-              <li key={question}>
-                <TextRevealLines>
-                  <span className="project-details-question-text">{question}</span>
-                </TextRevealLines>
-              </li>
-            ))}
-          </ol>
-        ) : null}
       </div>
-    </section>
-  );
-}
-
-function ProjectDetailsFindingsSection({ section }) {
-  return (
-    <section className="project-details-story-row project-details-content u-display-grid u-gap-row-3 u-gap-column-8">
-      <div className="project-details-story-heading">
-        <TextRevealLines>
-          <h2 className="u-text-style-h4">{section.heading}</h2>
-        </TextRevealLines>
-      </div>
-      <div className="project-details-story-copy u-display-grid u-gap-4">
-        <div className="project-details-findings-grid u-display-grid u-gap-gutter">
-          {section.items.map((item, index) => (
-            <article key={item} className="project-details-finding-card u-padding-3">
-              <TextRevealLines>
-                <p>
-                  {index + 1}. {item}
-                </p>
-              </TextRevealLines>
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
+    </article>
   );
 }
 
@@ -224,39 +167,17 @@ function ProjectDetailsSupportingImage({ item, className = "" }) {
   );
 }
 
-function ProjectDetailsScreenGallery({ intro, images }) {
-  if (!images?.length) return null;
-
-  return (
-    <section className="project-details-screens" id="project-gallery">
-      <div className="u-container-main">
-        {intro ? (
-          <TextRevealLines>
-            <p className="project-details-gallery-intro project-details-content">{intro}</p>
-          </TextRevealLines>
-        ) : null}
-        <div className="project-details-screen-grid u-display-grid u-gap-gutter u-margin-top-5">
-          {images.map((image) => (
-            <ProjectDetailsMedia key={image.alt} item={image} />
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 export default function ProjectDetailsPageShell({
   projectHero,
   heroImage,
   sections,
   interstitialImage,
-  findingsSection,
-  figureImage,
   closingSection,
-  galleryIntro = "Selected frames",
-  galleryImages,
   outro,
 }) {
+  const introSections = sections?.slice(0, 2) ?? [];
+  const restSections = sections?.slice(2) ?? [];
+
   return (
     <main
       id="main"
@@ -268,10 +189,10 @@ export default function ProjectDetailsPageShell({
 
       {heroImage ? <ProjectDetailsCover item={heroImage} /> : null}
 
-      {sections?.length ? (
-        <section className="project-details-story">
-          <div className="u-container-main u-display-grid u-gap-section-md">
-            {sections.map((section) => (
+      {introSections.length ? (
+        <section className="project-details-story u-margin-top-0">
+          <div className="u-container-main project-details-story-stack u-column-width-10">
+            {introSections.map((section) => (
               <ProjectDetailsStorySection key={section.heading} section={section} />
             ))}
           </div>
@@ -287,34 +208,28 @@ export default function ProjectDetailsPageShell({
         </div>
       ) : null}
 
-      {findingsSection ? (
-        <section className="project-details-story">
-          <div className="u-container-main u-display-grid u-gap-section-md">
-            <ProjectDetailsFindingsSection section={findingsSection} />
+      {restSections.length ? (
+        <section className="project-details-story u-margin-top-0">
+          <div className="u-container-main project-details-story-stack u-column-width-10">
+            {restSections.map((section) => (
+              <ProjectDetailsStorySection key={section.heading} section={section} />
+            ))}
           </div>
         </section>
       ) : null}
 
-      {figureImage ? (
-        <div className="u-container-main">
-          <ProjectDetailsSupportingImage item={figureImage} />
-        </div>
-      ) : null}
-
       {closingSection ? (
-        <section className="project-details-story">
-          <div className="u-container-main u-display-grid u-gap-section-md">
+        <section className="project-details-story u-margin-top-0">
+          <div className="u-container-main project-details-story-stack u-column-width-10">
             <ProjectDetailsStorySection section={closingSection} />
           </div>
         </section>
       ) : null}
 
-      <ProjectDetailsScreenGallery intro={galleryIntro} images={galleryImages} />
-
       {outro ? (
         <section className="project-details-outro">
           <div className="u-container-main">
-            <div className="project-details-outro-grid project-details-content u-display-grid u-gap-row-3 u-gap-column-8">
+            <div className="project-details-outro-grid project-details-content">
               <TextRevealLines>
                 <p className="project-details-outro-note">{outro}</p>
               </TextRevealLines>

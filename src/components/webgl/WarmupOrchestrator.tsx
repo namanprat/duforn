@@ -1,13 +1,10 @@
 // @ts-nocheck
-import React, { Suspense, useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useThree } from "@react-three/fiber";
-import { WorkClothStripScene } from "../../work/WorkClothStrip";
 
 /**
- * After preloader dismissal, hidden-mount heavy branches and best-effort GPU compile.
- *
- * `projectDetail` / `ProjectBg` are skipped: off-screen RT + virtual scene are not the
- * visible R3F scene graph that `compileAsync` targets.
+ * After preloader dismissal, best-effort GPU compile for the shared room scene.
+ * WorkClothStrip is always mounted in SharedRoomCanvasBranch — no duplicate warmup mount.
  */
 
 const WARMUP_COMPILE_TIMEOUT_MS = 2500;
@@ -19,7 +16,7 @@ function shouldSkipWarmup() {
   return false;
 }
 
-function HiddenBranch({ onCompiled }: { onCompiled: () => void }) {
+function CompileWarmup({ onCompiled }: { onCompiled: () => void }) {
   const { gl, scene, camera } = useThree();
 
   useEffect(() => {
@@ -60,13 +57,7 @@ function HiddenBranch({ onCompiled }: { onCompiled: () => void }) {
     };
   }, [gl, scene, camera, onCompiled]);
 
-  return (
-    <group visible={false} renderOrder={-9999} matrixAutoUpdate={false}>
-      <Suspense fallback={null}>
-        <WorkClothStripScene />
-      </Suspense>
-    </group>
-  );
+  return null;
 }
 
 export default function WarmupOrchestrator({ activePage }: { activePage: string | undefined }) {
@@ -100,5 +91,5 @@ export default function WarmupOrchestrator({ activePage }: { activePage: string 
 
   if (!warming) return null;
 
-  return <HiddenBranch onCompiled={handleCompiled} />;
+  return <CompileWarmup onCompiled={handleCompiled} />;
 }

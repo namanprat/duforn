@@ -422,18 +422,22 @@ button.button .nav-link-hover__clip {
   font-size: var(--typography-font-size-text-small);
   line-height: var(--typography-line-height-medium);
   letter-spacing: var(--typography-letter-spacing);
+  color: var(--swatch-light);
+}
+
+/* Default: nav items are white. Project detail page overrides to black. */
+.nav-wrap a,
+.nav-wrap button,
+.bottom-nav-wrap a,
+.bottom-nav-wrap #time {
+  color: var(--swatch-light);
+}
+
+body.page-wrap:has([data-page-namespace="projectDetail"]) .nav-wrap a,
+body.page-wrap:has([data-page-namespace="projectDetail"]) .nav-wrap button,
+body.page-wrap:has([data-page-namespace="projectDetail"]) .bottom-nav-wrap a,
+body.page-wrap:has([data-page-namespace="projectDetail"]) .bottom-nav-wrap #time {
   color: var(--swatch-dark);
-}
-
-/* Archive: black page — nav and clock read as light */
-body.page-wrap:has([data-page-namespace="archive"]) .nav-wrap a,
-body.page-wrap:has([data-page-namespace="archive"]) .nav-wrap button {
-  color: var(--swatch-light);
-}
-
-body.page-wrap:has([data-page-namespace="archive"]) .bottom-nav-wrap a,
-body.page-wrap:has([data-page-namespace="archive"]) .bottom-nav-wrap #time {
-  color: var(--swatch-light);
 }
 
 /* Three.js Canvas */
@@ -2763,6 +2767,7 @@ section {
   display: inline-block;
   will-change: transform, opacity;
   white-space: nowrap;
+  text-transform: none;
   transition:
     transform 0.35s ease,
     color 0.35s ease;
@@ -2859,6 +2864,7 @@ button:focus-visible {
 .menu-fullscreen__brand {
   text-decoration: none;
   color: inherit;
+  text-transform: none;
 }
 
 .menu-fullscreen__brand--flicker {
@@ -3199,25 +3205,6 @@ body.overlay-scroll-lock {
   }
 }
 
-body.page-wrap:has([data-page-namespace="main"]) .nav-wrap a,
-body.page-wrap:has([data-page-namespace="main"]) .nav-wrap button,
-body.page-wrap:has([data-page-namespace="contact"]) .nav-wrap a,
-body.page-wrap:has([data-page-namespace="contact"]) .nav-wrap button {
-  color: var(--swatch-light);
-}
-
-body.page-wrap:has([data-page-namespace="main"]) .bottom-nav-wrap a,
-body.page-wrap:has([data-page-namespace="main"]) .bottom-nav-wrap #time,
-body.page-wrap:has([data-page-namespace="contact"]) .bottom-nav-wrap a,
-body.page-wrap:has([data-page-namespace="contact"]) .bottom-nav-wrap #time {
-  color: var(--swatch-light);
-}
-
-/* Home hero mobile MENU button should remain primary (light pill, dark text). */
-body.page-wrap:has([data-page-namespace="main"]) .nav-wrap .menu-toggle-btn.button-primary {
-  color: var(--swatch-dark);
-}
-
 /* WORK */
 img {
   width: 100%;
@@ -3243,6 +3230,7 @@ img {
   margin-inline: auto;
   overflow: hidden;
   text-wrap: balance;
+  color: var(--swatch-light);
 }
 
 .work-page__title-line {
@@ -3421,6 +3409,20 @@ body.preloader-active .bottom-nav-wrap {
   background: transparent;
 }
 
+/* Subtle chromatic fringing on the main R3F canvas only. Filter is rendered by
+   <ChromaticAberrationFilter /> (src/components/fx/ChromaticAberrationFilter.tsx).
+   Backend-agnostic — affects the browser compositor, not the GL/GPU render
+   path. Safe on both WebGL and WebGPU. HTML text/UI is untouched.
+
+   NOTE: deliberately NOT applied to the ink-bleed overlay canvas
+   (.fullscreen-overlay-cluster__canvas). Applying a CSS filter to that canvas
+   suppresses the alpha-blended ink visual during route transitions
+   (transparency-heavy content + feBlend screen wipes the visible signal). */
+#background.canvas-surface canvas {
+  filter: url(#duforn-chromatic-aberration);
+  will-change: filter;
+}
+
 .canvas-surface--overlay-transition {
   z-index: calc(var(--z-nav) - 1);
 }
@@ -3483,19 +3485,36 @@ body.preloader-active .bottom-nav-wrap {
 
 .project-details-hero-info,
 .project-details-cover-frame,
-.project-details-supporting-image,
-.project-details-screen-grid {
+.project-details-supporting-image {
   width: var(--column-width-10);
   margin-inline: auto;
 }
 
 .project-details-hero,
-.project-details-story,
 .project-details-cover,
-.project-details-screens,
 .project-details-outro {
   margin-top: var(--spacing-section-space-large);
 }
+
+.project-details-story-stack {
+  display: grid;
+  gap: var(--spacing-section-space-large);
+}
+
+.project-details-story-section {
+  display: grid;
+  gap: var(--spacing-space-2);
+}
+
+.project-details-story-heading {
+  margin: 0;
+}
+
+.project-details-story-copy {
+  display: grid;
+  gap: var(--spacing-space-4);
+}
+
 
 .project-details-hero {
   margin-top: 0;
@@ -3542,18 +3561,8 @@ body.preloader-active .bottom-nav-wrap {
   height: 100%;
 }
 
-.project-details-story-row,
 .project-details-outro-grid {
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
   align-items: start;
-}
-
-.project-details-findings-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.project-details-finding-card {
-  border: 1px solid var(--swatch-dark-o20);
 }
 
 .project-details-supporting-image {
@@ -3612,21 +3621,11 @@ body.preloader-active .bottom-nav-wrap {
   aspect-ratio: 16 / 10;
 }
 
-.project-details-screen-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  align-items: start;
-}
-
-.project-details-screen-grid .project-details-media-card:nth-child(2n) {
-  margin-top: var(--spacing-section-space-medium);
-}
-
 @media (max-width: 1024px) {
   .project-details-content,
   .project-details-hero-info,
   .project-details-cover-frame,
-  .project-details-supporting-image,
-  .project-details-screen-grid {
+  .project-details-supporting-image {
     width: var(--column-width-11);
   }
 }
@@ -3643,27 +3642,12 @@ body.preloader-active .bottom-nav-wrap {
     max-width: none;
   }
 
-  .project-details-story-row,
-  .project-details-outro-grid,
-  .project-details-screen-grid,
-  .project-details-findings-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .project-details-overview {
     max-width: none;
   }
 
-  .project-details-screen-grid .project-details-media-card:nth-child(2n) {
-    margin-top: 0;
-  }
-
   .project-details-cover-frame {
     min-height: var(--site--viewport-min-height-row);
-  }
-
-  .project-details-screen-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -3671,17 +3655,12 @@ body.preloader-active .bottom-nav-wrap {
   .project-details-content,
   .project-details-hero-info,
   .project-details-cover-frame,
-  .project-details-supporting-image,
-  .project-details-screen-grid {
+  .project-details-supporting-image {
     width: 100%;
   }
 
   .project-details-overview-copy {
     font-size: var(--typography-font-size-h2);
-  }
-
-  .project-details-screen-grid {
-    grid-template-columns: 1fr;
   }
 }
 

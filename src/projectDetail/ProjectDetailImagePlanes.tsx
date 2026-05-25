@@ -112,6 +112,7 @@ function ProjectDetailImagePlane({ imgElement, revealControls }) {
   const controlsRef = useRef(revealControls);
   const { gl } = useThree();
   const { ready, systemRef } = useImagePlaneMaterial({ gl, imgElement });
+  const [revealComplete, setRevealComplete] = useState(false);
 
   controlsRef.current = revealControls;
 
@@ -132,6 +133,11 @@ function ProjectDetailImagePlane({ imgElement, revealControls }) {
           value: 1,
           duration: controlsRef.current.duration,
           ease: "power2.out",
+          onComplete: () => {
+            imgElement.style.opacity = "";
+            imgElement.style.visibility = "";
+            setRevealComplete(true);
+          },
         });
       },
     });
@@ -147,6 +153,7 @@ function ProjectDetailImagePlane({ imgElement, revealControls }) {
   }, [gl, imgElement, ready]);
 
   useFrame((state) => {
+    if (revealComplete) return;
     if (!meshRef.current || !systemRef.current) return;
 
     const rect = imgElement.getBoundingClientRect();
@@ -183,6 +190,7 @@ function ProjectDetailImagePlane({ imgElement, revealControls }) {
   });
 
   if (!ready || !systemRef.current) return null;
+  if (revealComplete) return null;
 
   return (
     <mesh ref={meshRef} renderOrder={2}>

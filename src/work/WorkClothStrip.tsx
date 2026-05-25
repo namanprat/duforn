@@ -415,12 +415,21 @@ export function WorkClothStripScene() {
   const stripControls = useWorkSceneControlsStore((state) => state.controls.strip);
   const visibleItems = Math.max(1, stripControls.visibleItems ?? DEFAULT_VISIBLE_ITEMS);
   const gapSize = stripControls.gapSize ?? DEFAULT_GAP_SIZE;
-  const strip = {
-    x: stripControls.x,
-    y: stripControls.y,
-    z: stripControls.z,
-    scale: stripControls.scale,
-  };
+  /**
+   * Stable [x,y,z] tuple — avoids handing R3F a fresh array reference each
+   * render, which would otherwise reapply the group's position every parent
+   * re-render and produce visible 1-frame jitter alongside the cloth shader's
+   * own sway.
+   */
+  const stripPosition = useMemo<[number, number, number]>(
+    () => [stripControls.x, stripControls.y, stripControls.z],
+    [stripControls.x, stripControls.y, stripControls.z],
+  );
+  const stripRotation = useMemo<[number, number, number]>(
+    () => [stripControls.rx ?? 0, stripControls.ry ?? 0, stripControls.rz ?? 0],
+    [stripControls.rx, stripControls.ry, stripControls.rz],
+  );
+  const stripScale = stripControls.scale;
   const wind = {
     windStrength: stripControls.windStrength,
     flutterAmplitude: stripControls.flutterAmplitude,
@@ -570,12 +579,19 @@ export function WorkClothStripScene() {
     };
   }, [gl, activeTextures, stripConfig]);
 
-  useFrame((state) => {
+  useFrame(() => {
     const sys = systemRef.current;
     if (!sys) return;
 
     const sc = useWorkSceneControlsStore.getState().controls.strip;
-    const time = state.clock.getElapsedTime();
+    /**
+     * Use wall-clock seconds directly. With UnifiedCanvas in `frameloop="never"`
+     * and Theatre + WaterRipples each driving advance/render, R3F's clock can
+     * be advanced with non-monotonic deltas — feeding that into the cloth's
+     * sin-wave displacement made the strip shake violently. `performance.now()`
+     * is guaranteed monotonic.
+     */
+    const time = performance.now() * 0.001;
     const u = sys.uniforms;
     const s = scrollRef.current;
     const isDragging = inputRef.current.isDown;
@@ -612,8 +628,16 @@ export function WorkClothStripScene() {
     const newTitle = workItems[centerIdx]?.title || "";
     if (newTitle !== currentTitleRef.current) {
       currentTitleRef.current = newTitle;
-      const titleEl = document.querySelector("[data-work-strip-title]");
-      if (titleEl) titleEl.textContent = newTitle;
+      /**
+       * Dispatch via React rather than mutating textContent — the title <h1>
+       * contains <span class="work-page__title-line"> children that
+       * TextRevealLines transforms. Overwriting textContent destroyed those
+       * spans every time the centered item changed, then React reconciled
+       * them back, producing visible flicker mistaken for the strip shaking.
+       */
+      window.dispatchEvent(
+        new CustomEvent("duforn:work-strip-title", { detail: { title: newTitle } }),
+      );
     }
   });
 
@@ -639,7 +663,7 @@ export function WorkClothStripScene() {
   };
 
   return (
-    <group position={[strip.x, strip.y, strip.z]} scale={strip.scale}>
+    <group position={stripPosition} rotation={stripRotation} scale={stripScale}>
       <mesh
         geometry={geometry}
         material={tslMaterial}

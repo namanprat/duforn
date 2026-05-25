@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useLayoutEffect, useRef } from "react";
 import { Route, Routes, useLocation, useNavigate, useOutlet } from "react-router-dom";
 
 import SiteLayout from "./components/layout/SiteLayout";
@@ -148,7 +148,7 @@ function NavigationBridge() {
   return null;
 }
 
-function AppShell() {
+export function AppShell() {
   const location = useLocation();
   const outlet = useOutlet();
   const setActivePage = useWebglStore((s) => s.setActivePage);
@@ -157,6 +157,10 @@ function AppShell() {
   const namespace = getNamespace(currentPath);
 
   useClock();
+
+  useLayoutEffect(() => {
+    setActivePage(namespace);
+  }, [namespace, setActivePage]);
 
   useEffect(() => {
     const onPreloaderDismissed = () => {
@@ -213,7 +217,6 @@ function AppShell() {
     previousPathRef.current = currentPath;
     document.body.dataset.routePathname = currentPath;
     applyBodyRouteClasses(namespace);
-    setActivePage(namespace);
 
     if (namespace === "projectDetail") initLenis();
     else destroyLenis();
@@ -246,7 +249,7 @@ function AppShell() {
       destroyLenis();
       cleanupBrandHandoff();
     };
-  }, [location.pathname, setActivePage]);
+  }, [currentPath, namespace]);
 
   return (
     <>

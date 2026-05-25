@@ -57,6 +57,8 @@ async function createWebGPU({ sim, bounds, envMap, waterParams, useUvMapping }) 
     exp,
     transformNormalToView,
     uv,
+    sin,
+    cos,
   } = tsl;
 
   const p = { ...POOL_WATER_DEFAULTS, ...waterParams };
@@ -91,6 +93,11 @@ async function createWebGPU({ sim, bounds, envMap, waterParams, useUvMapping }) 
   const fogColor = uniform(new THREE.Color(p.fogColor));
   const foamAmount = uniform(p.foamAmount);
   const foamThreshold = uniform(p.foamThreshold);
+  const uTime = uniform(0);
+  const causticsIntensity = uniform(p.causticsIntensity);
+  const causticsScale = uniform(p.causticsScale);
+  const causticsSpeed = uniform(p.causticsSpeed);
+  const causticsColor = uniform(new THREE.Color(p.causticsColor));
   const uHasEnv = uniform(envMap ? 1 : 0);
   const envTex = texture(envMap ?? new THREE.Texture());
 
@@ -197,7 +204,34 @@ async function createWebGPU({ sim, bounds, envMap, waterParams, useUvMapping }) 
     const viewAngle = max(abs(viewDir.y), float(0.15));
     const pathLength = waterDepth.div(viewAngle);
     const depthFactor = smoothstep(float(0), depthFalloff, pathLength);
-    const waterColor = mix(vec3(shallowColor), vec3(deepColor), depthFactor);
+    let waterColor = mix(vec3(shallowColor), vec3(deepColor), depthFactor);
+
+    // Caustics — two-layer domain-warped sines on planar UV, attenuated in
+    // deep water and warped by the ripple normal so they bend with waves.
+    const causticsUv = uvIn.add(vec2(rippleN.x, rippleN.z).mul(float(0.15)));
+    const cp = causticsUv.mul(causticsScale);
+    const tt = uTime.mul(causticsSpeed);
+    const warpX = sin(cp.y.mul(float(1.3)).add(tt.mul(float(1.1)))).mul(float(0.35));
+    const warpY = cos(cp.x.mul(float(1.1)).sub(tt.mul(float(0.9)))).mul(float(0.35));
+    const cq = cp.add(vec2(warpX, warpY));
+    const cA = sin(cq.x.add(tt)).add(sin(cq.y.mul(float(1.2)).sub(tt.mul(float(0.7)))));
+    const cB = sin(
+      cq.x
+        .add(cq.y)
+        .mul(float(0.8))
+        .add(tt.mul(float(0.5))),
+    ).add(
+      sin(
+        cq.x
+          .sub(cq.y)
+          .mul(float(0.9))
+          .sub(tt.mul(float(0.4))),
+      ),
+    );
+    const cRaw = cA.add(cB).mul(float(0.25)).add(float(0.5));
+    const caustics = pow(clamp(cRaw, float(0), float(1)), float(3));
+    const causticsAtten = float(1).sub(depthFactor).mul(causticsIntensity);
+    waterColor = waterColor.add(vec3(causticsColor).mul(caustics).mul(causticsAtten));
 
     const reflectDir = reflect(viewDir.negate(), fresnelN);
     const phi = atan(reflectDir.z, reflectDir.x);
@@ -289,6 +323,13 @@ async function createWebGPU({ sim, bounds, envMap, waterParams, useUvMapping }) 
       if (next.fogColor) fogColor.value.set(next.fogColor);
       if (next.foamAmount != null) foamAmount.value = next.foamAmount;
       if (next.foamThreshold != null) foamThreshold.value = next.foamThreshold;
+      if (next.causticsIntensity != null) causticsIntensity.value = next.causticsIntensity;
+      if (next.causticsScale != null) causticsScale.value = next.causticsScale;
+      if (next.causticsSpeed != null) causticsSpeed.value = next.causticsSpeed;
+      if (next.causticsColor) causticsColor.value.set(next.causticsColor);
+    },
+    updateTime(t) {
+      uTime.value = t;
     },
     dispose() {
       material.dispose?.();

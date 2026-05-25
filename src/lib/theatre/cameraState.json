@@ -1,0 +1,1212 @@
+{
+  "sheetsById": {
+    "RoomCamera": {
+      "staticOverrides": {
+        "byObject": {}
+      },
+      "sequence": {
+        "type": "PositionalSequence",
+        "length": 17,
+        "subUnitsPerUnit": 30,
+        "tracksByObject": {
+          "CameraRig": {
+            "trackIdByPropPath": {
+              "[\"orbitCenterX\"]": "t_ocx",
+              "[\"orbitCenterY\"]": "t_ocy",
+              "[\"orbitCenterZ\"]": "t_ocz",
+              "[\"orbitRadius\"]": "t_or",
+              "[\"cameraHeight\"]": "t_ch",
+              "[\"fov\"]": "t_fov",
+              "[\"orbitAngleDeg\"]": "t_oad",
+              "[\"lookAtYawDeg\"]": "t_lyd",
+              "[\"lookAtPitchDeg\"]": "t_lpd"
+            },
+            "trackData": {
+              "t_ocx": {
+                "type": "BasicKeyframedTrack",
+                "keyframes": [
+                  {
+                    "id": "kf_ocx_0",
+                    "position": 0,
+                    "value": 0,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocx_1",
+                    "position": 1,
+                    "value": 2.8,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocx_2",
+                    "position": 2,
+                    "value": 4.2,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocx_3",
+                    "position": 3,
+                    "value": 4.2,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocx_4",
+                    "position": 4,
+                    "value": 3,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocx_5",
+                    "position": 5,
+                    "value": 0,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocx_6",
+                    "position": 6,
+                    "value": 0,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocx_7",
+                    "position": 7,
+                    "value": -2.8,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocx_8",
+                    "position": 8,
+                    "value": -5.4,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocx_9",
+                    "position": 9,
+                    "value": -5.4,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocx_10",
+                    "position": 10,
+                    "value": -2.2,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocx_11",
+                    "position": 11,
+                    "value": 0,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocx_12",
+                    "position": 12,
+                    "value": -5.4,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocx_13",
+                    "position": 13,
+                    "value": -0.6,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocx_14",
+                    "position": 14,
+                    "value": 4.2,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocx_15",
+                    "position": 15,
+                    "value": 4.2,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocx_16",
+                    "position": 16,
+                    "value": 0.4,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocx_17",
+                    "position": 17,
+                    "value": -5.4,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  }
+                ]
+              },
+              "t_ocy": {
+                "type": "BasicKeyframedTrack",
+                "keyframes": [
+                  {
+                    "id": "kf_ocy_0",
+                    "position": 0,
+                    "value": 0.5,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocy_1",
+                    "position": 1,
+                    "value": 0.8,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocy_2",
+                    "position": 2,
+                    "value": 0.6,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocy_3",
+                    "position": 3,
+                    "value": 0.6,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocy_4",
+                    "position": 4,
+                    "value": 0.9,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocy_5",
+                    "position": 5,
+                    "value": 0.5,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocy_6",
+                    "position": 6,
+                    "value": 0.5,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocy_7",
+                    "position": 7,
+                    "value": 0.9,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocy_8",
+                    "position": 8,
+                    "value": 1.15,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocy_9",
+                    "position": 9,
+                    "value": 1.15,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocy_10",
+                    "position": 10,
+                    "value": 1,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocy_11",
+                    "position": 11,
+                    "value": 0.5,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocy_12",
+                    "position": 12,
+                    "value": 1.15,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocy_13",
+                    "position": 13,
+                    "value": 1.25,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocy_14",
+                    "position": 14,
+                    "value": 0.6,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocy_15",
+                    "position": 15,
+                    "value": 0.6,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocy_16",
+                    "position": 16,
+                    "value": 1.4,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocy_17",
+                    "position": 17,
+                    "value": 1.15,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  }
+                ]
+              },
+              "t_ocz": {
+                "type": "BasicKeyframedTrack",
+                "keyframes": [
+                  {
+                    "id": "kf_ocz_0",
+                    "position": 0,
+                    "value": 0,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocz_1",
+                    "position": 1,
+                    "value": -3.4,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocz_2",
+                    "position": 2,
+                    "value": -5.6,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocz_3",
+                    "position": 3,
+                    "value": -5.6,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocz_4",
+                    "position": 4,
+                    "value": -2.4,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocz_5",
+                    "position": 5,
+                    "value": 0,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocz_6",
+                    "position": 6,
+                    "value": 0,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocz_7",
+                    "position": 7,
+                    "value": 1.6,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocz_8",
+                    "position": 8,
+                    "value": 3.6,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocz_9",
+                    "position": 9,
+                    "value": 3.6,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocz_10",
+                    "position": 10,
+                    "value": 0.9,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocz_11",
+                    "position": 11,
+                    "value": 0,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocz_12",
+                    "position": 12,
+                    "value": 3.6,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocz_13",
+                    "position": 13,
+                    "value": -1.3,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocz_14",
+                    "position": 14,
+                    "value": -5.6,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocz_15",
+                    "position": 15,
+                    "value": -5.6,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocz_16",
+                    "position": 16,
+                    "value": -0.8,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ocz_17",
+                    "position": 17,
+                    "value": 3.6,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  }
+                ]
+              },
+              "t_or": {
+                "type": "BasicKeyframedTrack",
+                "keyframes": [
+                  {
+                    "id": "kf_or_0",
+                    "position": 0,
+                    "value": 5,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_or_1",
+                    "position": 1,
+                    "value": 5.2,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_or_2",
+                    "position": 2,
+                    "value": 5.4,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_or_3",
+                    "position": 3,
+                    "value": 5.4,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_or_4",
+                    "position": 4,
+                    "value": 5.8,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_or_5",
+                    "position": 5,
+                    "value": 5,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_or_6",
+                    "position": 6,
+                    "value": 5,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_or_7",
+                    "position": 7,
+                    "value": 4.6,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_or_8",
+                    "position": 8,
+                    "value": 3.8,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_or_9",
+                    "position": 9,
+                    "value": 3.8,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_or_10",
+                    "position": 10,
+                    "value": 4.4,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_or_11",
+                    "position": 11,
+                    "value": 5,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_or_12",
+                    "position": 12,
+                    "value": 3.8,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_or_13",
+                    "position": 13,
+                    "value": 4.6,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_or_14",
+                    "position": 14,
+                    "value": 5.4,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_or_15",
+                    "position": 15,
+                    "value": 5.4,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_or_16",
+                    "position": 16,
+                    "value": 4.8,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_or_17",
+                    "position": 17,
+                    "value": 3.8,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  }
+                ]
+              },
+              "t_ch": {
+                "type": "BasicKeyframedTrack",
+                "keyframes": [
+                  {
+                    "id": "kf_ch_0",
+                    "position": 0,
+                    "value": 1,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ch_1",
+                    "position": 1,
+                    "value": 1.2,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ch_2",
+                    "position": 2,
+                    "value": 1.35,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ch_3",
+                    "position": 3,
+                    "value": 1.35,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ch_4",
+                    "position": 4,
+                    "value": 1.05,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ch_5",
+                    "position": 5,
+                    "value": 1,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ch_6",
+                    "position": 6,
+                    "value": 1,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ch_7",
+                    "position": 7,
+                    "value": 1.25,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ch_8",
+                    "position": 8,
+                    "value": 1.55,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ch_9",
+                    "position": 9,
+                    "value": 1.55,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ch_10",
+                    "position": 10,
+                    "value": 1.2,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ch_11",
+                    "position": 11,
+                    "value": 1,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ch_12",
+                    "position": 12,
+                    "value": 1.55,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ch_13",
+                    "position": 13,
+                    "value": 1.6,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ch_14",
+                    "position": 14,
+                    "value": 1.35,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ch_15",
+                    "position": 15,
+                    "value": 1.35,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ch_16",
+                    "position": 16,
+                    "value": 1.7,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_ch_17",
+                    "position": 17,
+                    "value": 1.55,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  }
+                ]
+              },
+              "t_fov": {
+                "type": "BasicKeyframedTrack",
+                "keyframes": [
+                  {
+                    "id": "kf_fov_0",
+                    "position": 0,
+                    "value": 65,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_fov_1",
+                    "position": 1,
+                    "value": 58,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_fov_2",
+                    "position": 2,
+                    "value": 52,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_fov_3",
+                    "position": 3,
+                    "value": 52,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_fov_4",
+                    "position": 4,
+                    "value": 57,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_fov_5",
+                    "position": 5,
+                    "value": 65,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_fov_6",
+                    "position": 6,
+                    "value": 65,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_fov_7",
+                    "position": 7,
+                    "value": 67,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_fov_8",
+                    "position": 8,
+                    "value": 69,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_fov_9",
+                    "position": 9,
+                    "value": 69,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_fov_10",
+                    "position": 10,
+                    "value": 66,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_fov_11",
+                    "position": 11,
+                    "value": 65,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_fov_12",
+                    "position": 12,
+                    "value": 69,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_fov_13",
+                    "position": 13,
+                    "value": 60,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_fov_14",
+                    "position": 14,
+                    "value": 52,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_fov_15",
+                    "position": 15,
+                    "value": 52,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_fov_16",
+                    "position": 16,
+                    "value": 62,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_fov_17",
+                    "position": 17,
+                    "value": 69,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  }
+                ]
+              },
+              "t_oad": {
+                "type": "BasicKeyframedTrack",
+                "keyframes": [
+                  {
+                    "id": "kf_oad_0",
+                    "position": 0,
+                    "value": 90,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_oad_1",
+                    "position": 1,
+                    "value": 45,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_oad_2",
+                    "position": 2,
+                    "value": 28,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_oad_3",
+                    "position": 3,
+                    "value": 28,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_oad_4",
+                    "position": 4,
+                    "value": 60,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_oad_5",
+                    "position": 5,
+                    "value": 90,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_oad_6",
+                    "position": 6,
+                    "value": 90,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_oad_7",
+                    "position": 7,
+                    "value": 130,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_oad_8",
+                    "position": 8,
+                    "value": 162,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_oad_9",
+                    "position": 9,
+                    "value": 162,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_oad_10",
+                    "position": 10,
+                    "value": 120,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_oad_11",
+                    "position": 11,
+                    "value": 90,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_oad_12",
+                    "position": 12,
+                    "value": 162,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_oad_13",
+                    "position": 13,
+                    "value": 95,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_oad_14",
+                    "position": 14,
+                    "value": 28,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_oad_15",
+                    "position": 15,
+                    "value": 28,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_oad_16",
+                    "position": 16,
+                    "value": 88,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_oad_17",
+                    "position": 17,
+                    "value": 162,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  }
+                ]
+              },
+              "t_lyd": {
+                "type": "BasicKeyframedTrack",
+                "keyframes": [
+                  {
+                    "id": "kf_lyd_0",
+                    "position": 0,
+                    "value": 0,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lyd_1",
+                    "position": 1,
+                    "value": 15,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lyd_2",
+                    "position": 2,
+                    "value": 26,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lyd_3",
+                    "position": 3,
+                    "value": 26,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lyd_4",
+                    "position": 4,
+                    "value": 8,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lyd_5",
+                    "position": 5,
+                    "value": 0,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lyd_6",
+                    "position": 6,
+                    "value": 0,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lyd_7",
+                    "position": 7,
+                    "value": -12,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lyd_8",
+                    "position": 8,
+                    "value": -24,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lyd_9",
+                    "position": 9,
+                    "value": -24,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lyd_10",
+                    "position": 10,
+                    "value": -8,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lyd_11",
+                    "position": 11,
+                    "value": 0,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lyd_12",
+                    "position": 12,
+                    "value": -24,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lyd_13",
+                    "position": 13,
+                    "value": 4,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lyd_14",
+                    "position": 14,
+                    "value": 26,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lyd_15",
+                    "position": 15,
+                    "value": 26,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lyd_16",
+                    "position": 16,
+                    "value": -4,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lyd_17",
+                    "position": 17,
+                    "value": -24,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  }
+                ]
+              },
+              "t_lpd": {
+                "type": "BasicKeyframedTrack",
+                "keyframes": [
+                  {
+                    "id": "kf_lpd_0",
+                    "position": 0,
+                    "value": 0,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lpd_1",
+                    "position": 1,
+                    "value": -6,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lpd_2",
+                    "position": 2,
+                    "value": -10,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lpd_3",
+                    "position": 3,
+                    "value": -10,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lpd_4",
+                    "position": 4,
+                    "value": -4,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lpd_5",
+                    "position": 5,
+                    "value": 0,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lpd_6",
+                    "position": 6,
+                    "value": 0,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lpd_7",
+                    "position": 7,
+                    "value": 4,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lpd_8",
+                    "position": 8,
+                    "value": 9,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lpd_9",
+                    "position": 9,
+                    "value": 9,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lpd_10",
+                    "position": 10,
+                    "value": 3,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lpd_11",
+                    "position": 11,
+                    "value": 0,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lpd_12",
+                    "position": 12,
+                    "value": 9,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lpd_13",
+                    "position": 13,
+                    "value": 0,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lpd_14",
+                    "position": 14,
+                    "value": -10,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lpd_15",
+                    "position": 15,
+                    "value": -10,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lpd_16",
+                    "position": 16,
+                    "value": 1,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  },
+                  {
+                    "id": "kf_lpd_17",
+                    "position": 17,
+                    "value": 9,
+                    "handles": [0.5, 1, 0.5, 0],
+                    "connectedRight": true
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitionVersion": "0.4.0",
+  "revisionHistory": ["00000000000000000000000000000003"]
+}

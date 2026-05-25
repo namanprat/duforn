@@ -8,7 +8,6 @@ import { registerEssentialAssetTasks } from "../src/models/generated/registerPre
 
 const EXPECTED_IDS = [
   "gltf:scene",
-  "gltf:work",
   "gltf:project-bg",
   "gltf:monitor",
   "gltf:main",

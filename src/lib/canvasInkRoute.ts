@@ -1,15 +1,14 @@
-/** Ink bleed is slowed 40% vs original base timings (duration × 1.4). */
-export const INK_TIMING_SCALE = 1.4 as const;
+export const INK_TIMING_SCALE = 1 as const;
 
 const BASE_ROUTE = {
-  expandMs: 700,
-  holdMs: 220,
-  collapseMs: 750,
+  expandMs: 1800,
+  holdMs: 560,
+  collapseMs: 1800,
 } as const;
 
 const BASE_MENU = {
-  expandMs: 600,
-  collapseMs: 600,
+  expandMs: 1800,
+  collapseMs: 1800,
 } as const;
 
 export const CANVAS_INK_ROUTE_TIMING = {

@@ -49,7 +49,7 @@ export default function MainPage() {
                     className="home-hero-brand u-text-style-display"
                     data-brand-handoff-title="main"
                   >
-                    duforn
+                    Duforn
                   </h1>
                 </TextRevealLines>
               </div>
@@ -67,8 +67,7 @@ export default function MainPage() {
                     >
                       <p className="u-text-align-center u-width-full">
                         Founded in 2024, we are an art direction and web studio in Mumbai. Working
-                        with cultural and commercial clients across websites, brand systems, and
-                        interfaces. Less interested in what's loud, more in what lasts.
+                        with culture, curating digital experiences.
                       </p>
                     </TextRevealLines>
                   </div>

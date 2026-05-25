@@ -10,24 +10,19 @@ function compactElements(elements) {
   return elements.filter(Boolean);
 }
 
-const MAIN_NAMESPACE = "main";
-const CONTACT_NAMESPACE = "contact";
+const ROOM_NAMESPACES = new Set(["main", "contact", "work"]);
 
-function isMainContactPair(a, b) {
-  return (
-    (a === MAIN_NAMESPACE && b === CONTACT_NAMESPACE) ||
-    (a === CONTACT_NAMESPACE && b === MAIN_NAMESPACE)
-  );
+function isRoomFamilyPair(a, b) {
+  return ROOM_NAMESPACES.has(a) && ROOM_NAMESPACES.has(b);
 }
 
 /**
  * One persistent R3F canvas wraps all routes. Canvas DOM wrapper slide/fade between namespaces
- * is disabled — routes swap without leave/enter motion (ink / other FX stay elsewhere).
- * Home and contact share the same canvas branch; still skip redundant canvas bookkeeping between them.
+ * is disabled — room-family routes swap without leave/enter motion (camera + text only).
  */
 export function shouldAnimateCanvasBetweenNamespaces(fromNamespace, toNamespace) {
   if (!fromNamespace || !toNamespace || fromNamespace === toNamespace) return false;
-  if (isMainContactPair(fromNamespace, toNamespace)) return false;
+  if (isRoomFamilyPair(fromNamespace, toNamespace)) return false;
   return true;
 }
 

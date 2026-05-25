@@ -60,6 +60,11 @@ export const POOL_WATER_DEFAULTS = {
   // Foam (tight band on near-breaking crests only)
   foamAmount: 0.05,
   foamThreshold: 0.6,
+  // Caustics — procedural light bands on the underwater color.
+  causticsIntensity: 0.55,
+  causticsScale: 5.5,
+  causticsSpeed: 0.35,
+  causticsColor: "#fff6df",
 };
 
 export const POOL_ENV_DEFAULTS = {

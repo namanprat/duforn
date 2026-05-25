@@ -18,6 +18,7 @@ import {
   showAllRegisteredPageText,
 } from "../../lib/textReveal/textRevealRegistry";
 import UnifiedCanvas from "../webgl/UnifiedCanvas";
+import ChromaticAberrationFilter from "../fx/ChromaticAberrationFilter";
 import OverlayTransitionCanvas from "../webgl/OverlayTransitionCanvas";
 import RotateHoverLabel from "../RotateHoverLabel";
 import MenuOverlayLayer from "./MenuOverlayLayer";
@@ -550,7 +551,7 @@ export default function SiteLayout({ children }) {
               className="link-main nav-brand"
               data-rotate-hover={useNavRotateHover ? "" : undefined}
             >
-              {useNavRotateHover ? <RotateHoverLabel text="DUFORN" /> : "DUFORN"}
+              {useNavRotateHover ? <RotateHoverLabel text="Duforn" /> : "Duforn"}
             </NavLink>
             <NavLink
               className="u-mobile-hidden"
@@ -588,6 +589,7 @@ export default function SiteLayout({ children }) {
 
       <div className="page-canvas">
         <UnifiedCanvas activePage={activePage} />
+        <ChromaticAberrationFilter offsetX={1.2} />
       </div>
 
       {children}

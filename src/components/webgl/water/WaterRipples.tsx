@@ -12,6 +12,7 @@ import { boxToPlanarBounds } from "./waterPlanarMapping";
 import { getWaterPlanarBounds } from "./findWaterMesh";
 import { POOL_SIM_DEFAULTS, POOL_WATER_RENDER_ORDER } from "./config/poolWaterDefaults";
 import { getPoolSimResolutionForTier, uvToSimGrid } from "./waterSimUtils";
+import { tickTheatreRafDriver } from "../../../lib/theatre/theatreRafDriver";
 function prefersReducedMotion() {
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -279,7 +280,10 @@ export default function WaterRipples({ mesh }) {
       if (useLoadingStore.getState().phase !== "ready") return;
 
       const t = typeof timestampMs === "number" ? timestampMs : performance.now();
+      // Keep Theatre camera timeline on the same clock as R3F advance/render.
+      tickTheatreRafDriver(t);
       advance(t);
+      materialApiRef.current?.updateTime?.(t * 0.001);
       renderer.render(scene, camera);
       // Half-rate sim keeps ripples alive while freeing GPU for camera + render.
       if ((frameIndex++ & 1) === 0) maybeStepSim(t);

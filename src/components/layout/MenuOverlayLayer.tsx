@@ -61,7 +61,7 @@ export default function MenuOverlayLayer({
             className="menu-fullscreen__brand menu-fullscreen__brand--flicker u-text-style-h2 u-text-style-font-primary"
             aria-hidden="true"
           >
-            DUFORN
+            Duforn
           </span>
         </div>
         <nav className="menu-fullscreen__nav" aria-label="Primary navigation">

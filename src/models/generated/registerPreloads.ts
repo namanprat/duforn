@@ -10,16 +10,9 @@ import { useLoader } from "@react-three/fiber";
 import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
 import { gltfLoaderOptions } from "../gltfLoaderOptions";
 import { trackPromise } from "../../lib/preloader/preloaderGate";
-import {
-  GLTF_URL_MAIN,
-  GLTF_URL_MONITOR,
-  GLTF_URL_PROJECT_BG,
-  GLTF_URL_SCENE,
-  GLTF_URL_WORK,
-} from "../gltfUrls";
+import { GLTF_URL_MAIN, GLTF_URL_MONITOR, GLTF_URL_PROJECT_BG, GLTF_URL_SCENE } from "../gltfUrls";
 
 useGLTF.preload(GLTF_URL_SCENE, gltfLoaderOptions);
-useGLTF.preload(GLTF_URL_WORK, gltfLoaderOptions);
 useGLTF.preload(GLTF_URL_PROJECT_BG, gltfLoaderOptions);
 useGLTF.preload(GLTF_URL_MONITOR, gltfLoaderOptions);
 useGLTF.preload(GLTF_URL_MAIN, gltfLoaderOptions);
@@ -29,7 +22,6 @@ useTexture.preload("/default.jpg");
 
 const ESSENTIAL_ASSETS: { id: string; url: string; label: string; weight: number }[] = [
   { id: "gltf:scene", url: GLTF_URL_SCENE, label: "Scene model", weight: 2 },
-  { id: "gltf:work", url: GLTF_URL_WORK, label: "Work model", weight: 2 },
   { id: "gltf:project-bg", url: GLTF_URL_PROJECT_BG, label: "Project background", weight: 2 },
   { id: "gltf:monitor", url: GLTF_URL_MONITOR, label: "Monitor model", weight: 2 },
   { id: "gltf:main", url: GLTF_URL_MAIN, label: "Main model", weight: 2 },
