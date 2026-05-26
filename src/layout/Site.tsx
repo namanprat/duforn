@@ -613,7 +613,7 @@ export default function SiteLayout({ children }) {
       {children}
 
       <footer className="u-visually-hidden">
-        <p>&copy; 2026 DUFORN. All rights reserved.</p>
+        <p>&copy; 2026 Duforn. All rights reserved.</p>
       </footer>
     </>
   );

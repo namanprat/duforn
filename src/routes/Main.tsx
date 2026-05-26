@@ -66,8 +66,8 @@ export default function MainPage() {
                       layoutKey={heroCopyWidthPx}
                     >
                       <p className="u-text-align-center u-width-full">
-                        Founded in 2024, we are an art direction and web studio in Mumbai. Working
-                        with culture, curating digital experiences.
+                        We are an art direction and web studio in Mumbai. Working with culture,
+                        curating digital experiences. Making work that moves people.
                       </p>
                     </TextRevealLines>
                   </div>
