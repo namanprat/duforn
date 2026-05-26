@@ -101,23 +101,9 @@ function applyWebGL({ materials, previousState, sim, bounds, p }) {
 
         float groundDecodeH(float r) { return (r - 0.5) * 2.0; }
 
+        // Texture is configured with LinearFilter — hardware bilinear is free.
         float groundSampleH(vec2 uvIn) {
-          float maxCoord = uSimRes - 1.0;
-          vec2 coord = clamp(uvIn, 0.0, 1.0) * maxCoord;
-          vec2 i0 = floor(coord);
-          vec2 i1 = min(i0 + 1.0, vec2(maxCoord));
-          vec2 t = coord - i0;
-          vec2 uv00 = (i0 + 0.5) / uSimRes;
-          vec2 uv10 = (vec2(i1.x, i0.y) + 0.5) / uSimRes;
-          vec2 uv01 = (vec2(i0.x, i1.y) + 0.5) / uSimRes;
-          vec2 uv11 = (i1 + 0.5) / uSimRes;
-          float h00 = groundDecodeH(texture2D(uHeightMap, uv00).r);
-          float h10 = groundDecodeH(texture2D(uHeightMap, uv10).r);
-          float h01 = groundDecodeH(texture2D(uHeightMap, uv01).r);
-          float h11 = groundDecodeH(texture2D(uHeightMap, uv11).r);
-          float hx0 = mix(h00, h10, t.x);
-          float hx1 = mix(h01, h11, t.x);
-          return mix(hx0, hx1, t.y);
+          return groundDecodeH(texture2D(uHeightMap, clamp(uvIn, 0.0, 1.0)).r);
         }
 
         vec3 groundRippleNormal(vec2 uvIn) {

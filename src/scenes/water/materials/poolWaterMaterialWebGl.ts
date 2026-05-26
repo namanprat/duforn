@@ -81,31 +81,12 @@ const FRAG = /* glsl */ `
   uniform vec3 uFogColor;
   uniform float uFoamAmount;
   uniform float uFoamThreshold;
-  uniform float uTime;
-  uniform float uCausticsIntensity;
-  uniform float uCausticsScale;
-  uniform float uCausticsSpeed;
-  uniform vec3 uCausticsColor;
 
   float decodeH(float r) { return (r - 0.5) * 2.0; }
 
+  // Texture is configured with LinearFilter — hardware bilinear is free.
   float sampleHBilinear(vec2 uvIn) {
-    float maxCoord = uSimRes - 1.0;
-    vec2 coord = clamp(uvIn, 0.0, 1.0) * maxCoord;
-    vec2 i0 = floor(coord);
-    vec2 i1 = min(i0 + 1.0, vec2(maxCoord));
-    vec2 t = coord - i0;
-    vec2 uv00 = (i0 + 0.5) / uSimRes;
-    vec2 uv10 = (vec2(i1.x, i0.y) + 0.5) / uSimRes;
-    vec2 uv01 = (vec2(i0.x, i1.y) + 0.5) / uSimRes;
-    vec2 uv11 = (i1 + 0.5) / uSimRes;
-    float h00 = decodeH(texture2D(uHeightMap, uv00).r);
-    float h10 = decodeH(texture2D(uHeightMap, uv10).r);
-    float h01 = decodeH(texture2D(uHeightMap, uv01).r);
-    float h11 = decodeH(texture2D(uHeightMap, uv11).r);
-    float hx0 = mix(h00, h10, t.x);
-    float hx1 = mix(h01, h11, t.x);
-    return mix(hx0, hx1, t.y);
+    return decodeH(texture2D(uHeightMap, clamp(uvIn, 0.0, 1.0)).r);
   }
 
   vec3 sampleRippleNormal(vec2 uvIn) {
@@ -227,11 +208,6 @@ export function createPoolWaterMaterialWebGl({ sim, bounds, envMap, waterParams,
     uFogColor: { value: new THREE.Color(p.fogColor) },
     uFoamAmount: { value: p.foamAmount },
     uFoamThreshold: { value: p.foamThreshold },
-    uTime: { value: 0 },
-    uCausticsIntensity: { value: p.causticsIntensity },
-    uCausticsScale: { value: p.causticsScale },
-    uCausticsSpeed: { value: p.causticsSpeed },
-    uCausticsColor: { value: new THREE.Color(p.causticsColor) },
   };
 
   const material = new THREE.ShaderMaterial({
@@ -284,14 +260,9 @@ export function createPoolWaterMaterialWebGl({ sim, bounds, envMap, waterParams,
       if (next.fogColor) uniforms.uFogColor.value.set(next.fogColor);
       if (next.foamAmount != null) uniforms.uFoamAmount.value = next.foamAmount;
       if (next.foamThreshold != null) uniforms.uFoamThreshold.value = next.foamThreshold;
-      if (next.causticsIntensity != null)
-        uniforms.uCausticsIntensity.value = next.causticsIntensity;
-      if (next.causticsScale != null) uniforms.uCausticsScale.value = next.causticsScale;
-      if (next.causticsSpeed != null) uniforms.uCausticsSpeed.value = next.causticsSpeed;
-      if (next.causticsColor) uniforms.uCausticsColor.value.set(next.causticsColor);
     },
-    updateTime(t) {
-      uniforms.uTime.value = t;
+    updateTime() {
+      /* no-op: surface material has no time-dependent term. Kept for API symmetry. */
     },
     dispose() {
       material.dispose();

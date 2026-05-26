@@ -56,7 +56,7 @@ export const projectDetailContent = {
     },
   ],
   interstitialImage: {
-    src: "/money-me/Showcase-1.webp",
+    kind: "money-me-strips",
     alt: "money.me showcase screen",
     caption: "A mid-case-study showcase image used in the original project page.",
   },

@@ -3,6 +3,7 @@ import React from "react";
 import TextRevealLines from "../text/Reveal";
 import RotateHoverLabel from "../ui/HoverLabel";
 import { shouldUseNavRotateHover } from "../../scripts/link-hover";
+import MoneyMeStripCanvas from "./MoneyMeStripCanvas";
 
 /**
  * Project detail layout. Each major block uses a `project-details-*`
@@ -62,7 +63,7 @@ function ProjectDetailsHeroHeadline({ lines = [] }) {
 function ProjectDetailsHero({ hero }) {
   if (!hero) return null;
 
-  const { titleLines, overview, services, facts, cta } = hero;
+  const { titleLines, overview, services, cta } = hero;
   const useRotateCtaHover = shouldUseNavRotateHover();
 
   return (
@@ -71,7 +72,7 @@ function ProjectDetailsHero({ hero }) {
         <ProjectDetailsHeroHeadline lines={titleLines} />
 
         <div className="project-details-hero-info u-grid-autofit u-align-items-start">
-          <article className="project-details-overview u-column-span-6">
+          <article className="project-details-overview u-column-span-9">
             <TextRevealLines>
               <p className="project-details-kicker u-text-style-small u-text-style-font-secondary">
                 Project Overview
@@ -88,7 +89,7 @@ function ProjectDetailsHero({ hero }) {
                 Services
               </p>
             </TextRevealLines>
-            <div className="u-display-grid u-gap-2">
+            <div className="u-display-grid">
               {services?.map((service) => (
                 <TextRevealLines key={service} delay={0.02}>
                   <h4>{service}</h4>
@@ -104,31 +105,6 @@ function ProjectDetailsHero({ hero }) {
                 {useRotateCtaHover ? <RotateHoverLabel text={cta.label} /> : cta.label}
               </button>
             ) : null}
-          </div>
-
-          <div className="project-details-facts u-column-span-3 u-flex-vertical-nowrap u-gap-4">
-            {facts?.map((item) => (
-              <article key={item.label}>
-                <TextRevealLines>
-                  <p className="project-details-kicker u-text-style-small u-text-style-font-secondary">
-                    {item.label}
-                  </p>
-                </TextRevealLines>
-                <div className="u-display-grid u-gap-4">
-                  {Array.isArray(item.value) ? (
-                    item.value.map((entry) => (
-                      <TextRevealLines key={entry} delay={0.02}>
-                        <h4>{entry}</h4>
-                      </TextRevealLines>
-                    ))
-                  ) : (
-                    <TextRevealLines>
-                      <h4>{item.value}</h4>
-                    </TextRevealLines>
-                  )}
-                </div>
-              </article>
-            ))}
           </div>
         </div>
       </div>
@@ -187,7 +163,11 @@ function ProjectDetailsSupportingImage({ item, wide = false }) {
     <section className={cls}>
       <div className="u-container-main">
         <div className="project-details-supporting-image-frame" data-film-plane-trigger="true">
-          <ProjectDetailsImage item={item} />
+          {item.kind === "money-me-strips" ? (
+            <MoneyMeStripCanvas />
+          ) : (
+            <ProjectDetailsImage item={item} />
+          )}
         </div>
       </div>
     </section>

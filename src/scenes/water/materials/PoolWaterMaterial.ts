@@ -93,11 +93,6 @@ async function createWebGPU({ sim, bounds, envMap, waterParams, useUvMapping }) 
   const fogColor = uniform(new THREE.Color(p.fogColor));
   const foamAmount = uniform(p.foamAmount);
   const foamThreshold = uniform(p.foamThreshold);
-  const uTime = uniform(0);
-  const causticsIntensity = uniform(p.causticsIntensity);
-  const causticsScale = uniform(p.causticsScale);
-  const causticsSpeed = uniform(p.causticsSpeed);
-  const causticsColor = uniform(new THREE.Color(p.causticsColor));
   const uHasEnv = uniform(envMap ? 1 : 0);
   const envTex = texture(envMap ?? new THREE.Texture());
 
@@ -283,13 +278,9 @@ async function createWebGPU({ sim, bounds, envMap, waterParams, useUvMapping }) 
       if (next.fogColor) fogColor.value.set(next.fogColor);
       if (next.foamAmount != null) foamAmount.value = next.foamAmount;
       if (next.foamThreshold != null) foamThreshold.value = next.foamThreshold;
-      if (next.causticsIntensity != null) causticsIntensity.value = next.causticsIntensity;
-      if (next.causticsScale != null) causticsScale.value = next.causticsScale;
-      if (next.causticsSpeed != null) causticsSpeed.value = next.causticsSpeed;
-      if (next.causticsColor) causticsColor.value.set(next.causticsColor);
     },
-    updateTime(t) {
-      uTime.value = t;
+    updateTime() {
+      /* no-op: surface material has no time-dependent term. Kept for API symmetry. */
     },
     dispose() {
       material.dispose?.();
