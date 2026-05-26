@@ -55,13 +55,13 @@ export default function PreloaderOverlayLayer({
           <span
             className={`intro-preloader-action-tagline${introRingComplete ? " intro-preloader-action-tagline--hidden" : ""}`}
           >
-            {essentialsReady ? "DUFORN" : "LOADING"}
+            {essentialsReady ? "Duforn" : "Loading"}
           </span>
           <span
             className={`intro-preloader-enter-label${introRingComplete ? " intro-preloader-enter-label--active" : ""}`}
             aria-hidden={!introRingComplete}
           >
-            ENTER
+            Enter
           </span>
           <div className="intro-preloader-ring" aria-hidden="true">
             <svg viewBox="0 0 320 320" fill="none" xmlns="http://www.w3.org/2000/svg">

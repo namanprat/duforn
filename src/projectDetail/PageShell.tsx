@@ -139,10 +139,8 @@ function ProjectDetailsHero({ hero }) {
 function ProjectDetailsCover({ item }) {
   return (
     <section className="project-details-cover">
-      <div className="u-container-main">
-        <div className="project-details-cover-frame" data-film-plane-trigger="true">
-          <ProjectDetailsImage item={item} eager />
-        </div>
+      <div className="project-details-cover-frame" data-film-plane-trigger="true">
+        <ProjectDetailsImage item={item} eager />
       </div>
     </section>
   );

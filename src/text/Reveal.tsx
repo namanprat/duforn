@@ -41,7 +41,7 @@ export default function TextRevealLines({
   layoutKey = 0,
 }) {
   const containerRef = useRef(null);
-  const effectiveDelay = scope === "menu" ? 0 : delay;
+  const effectiveDelay = delay;
 
   useGSAP(
     () => {

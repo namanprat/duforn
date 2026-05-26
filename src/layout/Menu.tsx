@@ -29,16 +29,16 @@ export default function MenuOverlayLayer({
   rotateHoverLabels,
   renderNavLink,
 }: MenuOverlayLayerProps) {
-  const menuLink = (to: string, label: string) =>
+  const menuLink = (to: string, label: string, delay = 0) =>
     renderNavLink({
-      className: "menu-fullscreen__link u-text-style-h2 u-text-style-font-primary",
+      className: "menu-fullscreen__link u-text-style-h1 u-text-style-font-primary",
       to,
       onClick: onCloseMenu,
       "data-rotate-hover": rotateHoverLabels ? "" : undefined,
       children: rotateHoverLabels ? (
         <RotateHoverLabel text={label} />
       ) : (
-        <TextRevealLines scope="menu" animateOnScroll={false}>
+        <TextRevealLines scope="menu" animateOnScroll={false} delay={delay}>
           <span className="menu-fullscreen__link-label">{label}</span>
         </TextRevealLines>
       ),
@@ -56,20 +56,10 @@ export default function MenuOverlayLayer({
       onClick={onBackdropClick}
     >
       <div className="menu-fullscreen">
-        <div className="menu-fullscreen__top">
-          <span
-            className="menu-fullscreen__brand menu-fullscreen__brand--flicker u-text-style-h2 u-text-style-font-primary"
-            aria-hidden="true"
-          >
-            Duforn
-          </span>
-        </div>
         <nav className="menu-fullscreen__nav" aria-label="Primary navigation">
-          {menuLink("/", "HOME")}
-          {menuLink("/work", "WORK")}
-          {menuLink("/contact", "CONTACT")}
-          {menuLink("/archive", "ARCHIVE")}
-          {menuLink("/money-me", "PROJECT")}
+          {menuLink("/work", "Work", 0)}
+          {menuLink("/contact", "Contact", 0.06)}
+          {menuLink("/archive", "Archive", 0.12)}
         </nav>
       </div>
     </div>

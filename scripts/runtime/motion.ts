@@ -26,13 +26,16 @@ function canRequestDeviceMotionPermission() {
   );
 }
 
-async function requestPermissionFrom(eventCtor) {
+function requestPermissionFrom(eventCtor) {
   if (!eventCtor || typeof eventCtor.requestPermission !== "function") return null;
+  // Call requestPermission() synchronously to keep iOS user-activation context.
   try {
-    const state = await eventCtor.requestPermission();
-    return state === "granted";
+    const promise = eventCtor.requestPermission();
+    return Promise.resolve(promise)
+      .then((state) => state === "granted")
+      .catch(() => false);
   } catch {
-    return false;
+    return Promise.resolve(false);
   }
 }
 
@@ -42,8 +45,13 @@ export async function requestDeviceOrientationPermission() {
     return true;
   }
 
-  const orientationPermission = await requestPermissionFrom(window.DeviceOrientationEvent);
-  const motionPermission = await requestPermissionFrom(window.DeviceMotionEvent);
+  // Kick off both prompts synchronously within the same user gesture, then await.
+  const orientationPromise = requestPermissionFrom(window.DeviceOrientationEvent);
+  const motionPromise = requestPermissionFrom(window.DeviceMotionEvent);
+  const [orientationPermission, motionPermission] = await Promise.all([
+    orientationPromise,
+    motionPromise,
+  ]);
 
   // If either API explicitly grants, treat gyro as enabled.
   if (orientationPermission === true || motionPermission === true) return true;

@@ -6,7 +6,7 @@ export const DEFAULT_WORK_SCENE_CONTROLS = {
     y: -1.15,
     z: -4.85,
     rx: 0,
-    ry: 0,
+    ry: -Math.PI / 2,
     rz: 0,
     scale: 0.85,
     visibleItems: 7,

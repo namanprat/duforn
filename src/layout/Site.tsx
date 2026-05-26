@@ -22,6 +22,7 @@ import Canvas from "../scenes/Canvas";
 import ChromaticAberrationFilter from "../fx/Chromatic";
 import OverlayCanvas from "../scenes/OverlayCanvas";
 import RotateHoverLabel from "../ui/HoverLabel";
+import ToggleRevealLabel from "../ui/ToggleRevealLabel";
 import MenuOverlayLayer from "./Menu";
 import OverlayPortal from "./Portal";
 import PreloaderOverlayLayer from "./Preloader";
@@ -553,11 +554,11 @@ export default function SiteLayout({ children }) {
               to="/contact"
               data-rotate-hover={useNavRotateHover ? "" : undefined}
             >
-              {useNavRotateHover ? <RotateHoverLabel text="contact" /> : "contact"}
+              {useNavRotateHover ? <RotateHoverLabel text="Contact" /> : "Contact"}
             </NavLink>
             <NavLink
               to="/"
-              className="link-main nav-brand"
+              className="link-main nav-brand menu-fullscreen__brand"
               data-rotate-hover={useNavRotateHover ? "" : undefined}
             >
               {useNavRotateHover ? <RotateHoverLabel text="Duforn" /> : "Duforn"}
@@ -567,19 +568,27 @@ export default function SiteLayout({ children }) {
               to="/work"
               data-rotate-hover={useNavRotateHover ? "" : undefined}
             >
-              {useNavRotateHover ? <RotateHoverLabel text="work" /> : "work"}
+              {useNavRotateHover ? <RotateHoverLabel text="Work" /> : "Work"}
             </NavLink>
             <button
               ref={menuToggleRef}
-              className="menu-toggle-btn button button-primary"
+              className="menu-toggle-btn button button-primary u-display-flex u-align-items-center u-justify-content-center u-position-relative"
               type="button"
+              data-state={isMenuOpen ? "open" : "closed"}
+              style={{ width: isMenuOpen ? "calc(5ch + 2.5rem)" : "calc(4ch + 2.5rem)" }}
               aria-label={isMenuOpen ? "Close menu" : "Open menu"}
               aria-haspopup="dialog"
               aria-controls="site-menu"
               aria-expanded={isMenuOpen}
               onClick={toggleMenu}
             >
-              <span className="menu-toggle-btn-wrapper">{isMenuOpen ? "CLOSE" : "MENU"}</span>
+              <span
+                className="menu-toggle-btn-wrapper u-display-inline-flex u-align-items-center u-justify-content-center u-position-relative u-overflow-hidden"
+                style={{ width: isMenuOpen ? "5ch" : "4ch" }}
+                aria-hidden="true"
+              >
+                <ToggleRevealLabel text="MENU" alternateText="CLOSE" active={isMenuOpen} />
+              </span>
             </button>
           </div>
         </nav>
@@ -587,7 +596,7 @@ export default function SiteLayout({ children }) {
         <div className="bottom-nav-wrap u-position-fixed u-container-full u-mobile-hidden">
           <div className="bottom-nav-contain u-flex-horizontal-nowrap u-justify-content-between u-align-items-center u-gap-3 u-width-full">
             <NavLink to="/archive" data-rotate-hover={useNavRotateHover ? "" : undefined}>
-              {useNavRotateHover ? <RotateHoverLabel text="archive" /> : "archive"}
+              {useNavRotateHover ? <RotateHoverLabel text="Archive" /> : "Archive"}
             </NavLink>
             <div id="time" aria-live="polite">
               12:34:56 IST

@@ -14,14 +14,6 @@
 }
 
 @font-face {
-  font-family: NeueMontreal;
-  font-style: normal;
-  font-weight: 300;
-  src: url("/PPNeueMontreal-Light.woff2") format("woff2");
-  font-display: swap;
-}
-
-@font-face {
   font-family: DufornMono;
   font-style: normal;
   font-weight: 500;
@@ -50,7 +42,6 @@ html {
   /* ─── Fonts ─────────────────────────────────────────── */
   --text-style-font-primary: ivypresto-display, serif;
   --text-style-font-secondary: DufornMono, monospace;
-  --text-style-font-tertiary: NeueMontreal, sans-serif;
 
   /* ─── Colours ────────────────────────────────────────── */
   --theme-accent: #f6f6f6;
@@ -243,6 +234,7 @@ p {
 
 button,
 a.button {
+  display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
   padding: 0.7rem 1.25rem;
@@ -431,6 +423,22 @@ button.button .nav-link-hover__clip {
 .bottom-nav-wrap a,
 .bottom-nav-wrap #time {
   color: var(--swatch-light);
+}
+
+/* Nav / menu headers render in title case — the literal text is already title
+   case in JSX; this overrides the global uppercase rule on `a`/`button`. */
+.nav-wrap a,
+.nav-wrap button,
+.bottom-nav-wrap a {
+  text-transform: capitalize;
+}
+
+/* Menu toggle keeps the uppercase pill treatment; the ToggleRevealLabel slides
+   between MENU and CLOSE on click. */
+.nav-wrap .menu-toggle-btn,
+.nav-wrap .menu-toggle-btn .toggle-reveal-label,
+.nav-wrap .menu-toggle-btn .toggle-reveal-label__line {
+  text-transform: uppercase;
 }
 
 body.page-wrap:has([data-page-namespace="projectDetail"]) .nav-wrap a,
@@ -681,6 +689,10 @@ section {
 
 .u-display-inline-flex {
   display: inline-flex;
+}
+
+.u-display-flex {
+  display: flex;
 }
 
 .u-display-inline-grid {
@@ -1950,9 +1962,6 @@ section {
   font-family: var(--text-style-font-secondary);
 }
 
-.u-text-style-font-tertiary {
-  font-family: var(--text-style-font-tertiary);
-}
 .u-text-italic {
   font-style: italic !important;
 }
@@ -2772,32 +2781,56 @@ section {
 
 .nav-brand {
   display: inline-block;
-  will-change: transform, opacity;
+  will-change: opacity;
   white-space: nowrap;
   text-transform: none;
-  transition:
-    transform 0.35s ease,
-    color 0.35s ease;
+  transition: color 0.35s ease;
 }
 
+/* Layout (display / align / justify / position) lives on Lumos u- classes in
+   JSX. This rule only owns the responsive show/hide + chrome that utilities
+   don't cover. Hidden by default; mobile media query below shows + colors it. */
 .menu-toggle-btn {
-  display: none;
+  display: none !important;
   cursor: pointer;
-  position: relative;
   z-index: calc(var(--z-transition) + 2);
 }
 
-body.menu-open .nav-brand {
-  transform: scale(1.12);
+body.menu-open .nav-wrap .nav-brand {
   color: var(--swatch-light);
 }
 
-/* Mobile header MENU/CLOSE — pill matches `.button.button-secondary`; label wrapper for layout only. */
+/* Mobile header MENU/CLOSE — shared stacked-label treatment with a state-driven width. */
 
+/* Layout handled by Lumos u- classes; only width animation + line-height stay
+   here so the dynamic inline-style width tweens smoothly. */
 .menu-toggle-btn-wrapper {
-  display: inline-flex;
+  line-height: inherit;
+  transition: width 0.24s ease;
+}
+
+.toggle-reveal-label {
+  display: block;
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  line-height: inherit;
+}
+
+.toggle-reveal-label__track {
+  display: flex;
+  flex-direction: column;
   align-items: center;
   line-height: inherit;
+  will-change: transform;
+}
+
+.toggle-reveal-label__line {
+  display: block;
+  width: 100%;
+  line-height: inherit;
+  text-align: center;
+  white-space: nowrap;
 }
 
 a:focus-visible,
@@ -2814,6 +2847,10 @@ button:focus-visible {
 /* Desktop: no full-screen menu shell (toggle is hidden; nav links handle primary nav). */
 @media (min-width: 769px) {
   .menu-wrap.menu-wrap--fullscreen {
+    display: none !important;
+  }
+
+  .menu-toggle-btn {
     display: none !important;
   }
 }
@@ -2853,6 +2890,8 @@ button:focus-visible {
 .menu-fullscreen {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
   min-height: calc(100vh - var(--menu--safe-vertical-outset));
   min-height: calc(100dvh - var(--menu--safe-vertical-outset));
   width: 100%;
@@ -2880,18 +2919,21 @@ button:focus-visible {
 }
 
 .menu-fullscreen__nav {
-  margin-top: auto;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: center;
   gap: var(--spacing-space-2);
-  padding-bottom: max(var(--spacing-space-2), env(safe-area-inset-bottom));
+  width: 100%;
+  text-align: center;
+  padding-bottom: 0;
 }
 
 .menu-fullscreen__link {
   display: block;
   text-decoration: none;
   color: inherit;
+  text-transform: capitalize;
 }
 
 .menu-fullscreen__link:focus-visible {
@@ -2965,21 +3007,46 @@ body.overlay-scroll-lock {
     justify-content: space-between;
   }
 
+  .nav-brand {
+    font-family: var(--text-style-font-primary);
+    font-size: var(--typography-font-size-h2);
+    font-weight: var(--typography-font-primary-medium);
+    line-height: var(--typography-line-height-1);
+    letter-spacing: var(--typography-letter-spacing);
+  }
+
   /* Keep bar + MENU/CLOSE control above the fullscreen overlay so the toggle stays clickable. */
   body.menu-open .nav-wrap {
     z-index: calc(var(--z-transition) + 4);
   }
 
+  /* Mobile: re-enable display (utility class on the element provides the flex
+     box). Chrome-only props live here. */
   .menu-toggle-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    display: flex !important;
+    color: var(--swatch-dark);
+    padding-inline: 1.25rem;
+    transition:
+      width 0.24s ease,
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      color 0.2s ease;
+  }
+
+  .menu-toggle-btn,
+  .menu-toggle-btn * {
+    color: var(--swatch-dark);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .menu-wrap.menu-wrap--fullscreen {
     transition: opacity 0.12s linear;
+  }
+
+  .menu-toggle-btn,
+  .menu-toggle-btn-wrapper {
+    transition-duration: 0.05s;
   }
 }
 
@@ -3232,13 +3299,6 @@ img {
   object-fit: cover;
 }
 
-.work-page__title {
-  width: min(100%, 12ch);
-  margin-inline: auto;
-  overflow: hidden;
-  text-wrap: balance;
-  color: var(--swatch-light);
-}
 
 .work-page__title-line {
   display: block;
@@ -3360,6 +3420,7 @@ body.preloader-active .bottom-nav-wrap {
   font-size: var(--intro-preloader-tagline-size);
   letter-spacing: var(--typography-letter-spacing);
   line-height: 1;
+  text-transform: capitalize;
   color: var(--swatch-light);
   pointer-events: none;
   transition:
@@ -3382,7 +3443,7 @@ body.preloader-active .bottom-nav-wrap {
   font-size: var(--intro-preloader-tagline-size);
   line-height: 1;
   letter-spacing: var(--typography-letter-spacing);
-  text-transform: uppercase;
+  text-transform: capitalize;
   color: var(--swatch-light);
   opacity: 0;
   visibility: hidden;
@@ -3480,13 +3541,20 @@ body.preloader-active .bottom-nav-wrap {
 /* --- PROJECT DETAILS PAGE --- */
 
 .project-details-page {
-  position: relative;
-  padding-bottom: var(--spacing-section-space-large);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-section-space-large);
+}
+
+/* Top-level section spacing is owned by the page flex gap so every image /
+   article block sits an equal distance apart. */
+.project-details-page > section {
+  margin-top: 0;
 }
 
 .project-details-cover,
 .project-details-outro {
-  margin-top: var(--spacing-section-space-large);
+  margin-top: 0;
 }
 
 .project-details-story-stack {
@@ -3522,11 +3590,6 @@ body.preloader-active .bottom-nav-wrap {
 /* Grid items inside .project-details-hero-info — span widths set via
    `u-column-span-*` utilities in JSX. */
 
-.project-details-cover-frame {
-  position: relative;
-  min-height: var(--site--viewport-min-height-cover);
-  overflow: hidden;
-}
 
 .project-details-cover-frame :is(picture, img) {
   display: block;
@@ -3568,31 +3631,41 @@ body.preloader-active .bottom-nav-wrap {
 }
 
 @media (max-width: 768px) {
-  /* Text body collapses to full width. */
-  .project-details-content {
-    width: 100%;
+  /* Below 768px every block — text body included — matches the image column
+     width so the layout reads as a single consistent column. */
+  .project-details-content,
+  .project-details-hero-info,
+  .project-details-cover-frame,
+  .project-details-supporting-image {
+    width: var(--column-width-11);
   }
 
-  /* Hero info collapses from 4-col grid (12-track / 6+3+3 spans) to a single
-     stacked column so overview / services / facts read top-to-bottom. */
+  /* Overview spans the full row; services + facts sit side-by-side beneath it. */
   .project-details-hero-info {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "overview overview"
+      "services facts";
+    column-gap: var(--spacing-space-5);
   }
 
-  .project-details-hero-info > .project-details-overview,
-  .project-details-hero-info > .project-details-services,
-  .project-details-hero-info > .project-details-facts {
+  .project-details-hero-info > .project-details-overview {
+    grid-area: overview;
     grid-column: 1 / -1;
+  }
+
+  .project-details-hero-info > .project-details-services {
+    grid-area: services;
+    grid-column: 1 / 2;
+  }
+
+  .project-details-hero-info > .project-details-facts {
+    grid-area: facts;
+    grid-column: 2 / 3;
   }
 }
 
 @media (max-width: 640px) {
-  .project-details-hero-info,
-  .project-details-cover-frame,
-  .project-details-supporting-image {
-    width: 100%;
-  }
-
   .project-details-overview-copy {
     font-size: var(--typography-font-size-h2);
   }

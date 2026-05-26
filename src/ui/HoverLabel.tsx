@@ -7,10 +7,13 @@ import { MOTION_TOKENS } from "../lib/anim/tokens";
 /**
  * CodePen-style stacked duplicate line + per-glyph Y slide (web_taku / QWmXyLd).
  * Parent must be an `<a>` or `<button>`; GSAP binds to that interactive ancestor.
+ * When `active` is provided, the same stacked-line animation is driven by state
+ * instead of pointer hover, which is useful for toggle labels like MENU/CLOSE.
  */
-export default function RotateHoverLabel({ text }) {
+export default function RotateHoverLabel({ text, hoverText = text, active }) {
   const clipRef = useRef(null);
-  const chars = [...(text ?? "")];
+  const baseChars = [...(text ?? "")];
+  const hoverChars = [...(hoverText ?? text ?? "")];
 
   useLayoutEffect(() => {
     const clip = clipRef.current;
@@ -73,18 +76,28 @@ export default function RotateHoverLabel({ text }) {
     const stagger = { amount: MOTION_TOKENS.navHover.staggerAmount, from: "start" };
     const ease = MOTION_TOKENS.navHover.ease;
     const duration = MOTION_TOKENS.navHover.duration;
+    const isControlled = typeof active === "boolean";
+
+    gsap.set(allSpans, { yPercent: isControlled && active ? -100 : 0 });
+
+    const animateTo = (yPercent) =>
+      gsap.to(allSpans, { yPercent, duration, ease, stagger, overwrite: true });
 
     const onEnter = () => {
       triggerNavHaptic("hover");
-      gsap.to(allSpans, { yPercent: -100, duration, ease, stagger });
+      animateTo(-100);
     };
 
     const onLeave = () => {
-      gsap.to(allSpans, { yPercent: 0, duration, ease, stagger });
+      animateTo(0);
     };
 
-    interactive.addEventListener("mouseenter", onEnter);
-    interactive.addEventListener("mouseleave", onLeave);
+    if (!isControlled) {
+      interactive.addEventListener("mouseenter", onEnter);
+      interactive.addEventListener("mouseleave", onLeave);
+    } else {
+      animateTo(active ? -100 : 0);
+    }
 
     return () => {
       cancelAnimationFrame(raf);
@@ -95,17 +108,17 @@ export default function RotateHoverLabel({ text }) {
       clip.style.height = "";
       interactive.classList.remove("nav-link-hover");
     };
-  }, [text]);
+  }, [active, hoverText, text]);
 
   return (
     <span ref={clipRef} className="nav-link-hover__clip">
       <span className="nav-link-hover__track">
-        {chars.map((c, i) => (
+        {baseChars.map((c, i) => (
           <span key={`t0-${i}`}>{c === " " ? "\u00A0" : c}</span>
         ))}
       </span>
       <span className="nav-link-hover__track" aria-hidden="true">
-        {chars.map((c, i) => (
+        {hoverChars.map((c, i) => (
           <span key={`t1-${i}`}>{c === " " ? "\u00A0" : c}</span>
         ))}
       </span>
