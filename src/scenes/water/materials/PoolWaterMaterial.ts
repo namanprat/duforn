@@ -1,14 +1,10 @@
 // @ts-nocheck
 /**
- * Pool water material — ocean-webgpu look on the GLB pool quad.
+ * Pool water material — ocean-style look on the GLB pool quad.
  *
- * Uses `MeshBasicNodeMaterial` (unlit, transparent, depthWrite=false) so the
- * pool floor stays visible through the water. Vertex displacement + normals
- * are sampled directly from the shallow-water `h` buffer (no storage textures —
- * see docs/TSL_WEBGPU.md → "Storage Textures - DOESN'T WORK YET").
- *
- * On WebGL the fallback path uses a dedicated ShaderMaterial with the same
- * ocean-webgpu-style shading as the WebGPU TSL path.
+ * MeshBasicNodeMaterial (unlit, transparent, depthWrite=false) so the pool
+ * floor stays visible. Vertex displacement is omitted; the surface stays flat
+ * and ripples are normal-only, sampled from the wave-equation height buffer.
  */
 import * as THREE from "three";
 import { POOL_SIM_DEFAULTS, POOL_WATER_DEFAULTS } from "../config/poolWaterDefaults";
@@ -16,18 +12,17 @@ import { planarBoundsToUniform } from "../waterPlanarMapping";
 import { isGpuShallowWaterSim } from "../compute/createPoolWaterSim";
 import { createPoolWaterMaterialWebGl } from "./poolWaterMaterialWebGl";
 
-function sunDirectionFromAngles(elevationDeg, azimuthDeg, target = new THREE.Vector3()) {
+function sunDirectionFromAngles(elevationDeg, azimuthDeg) {
   const elevation = THREE.MathUtils.degToRad(elevationDeg);
   const azimuth = THREE.MathUtils.degToRad(azimuthDeg);
-  target.set(
+  return new THREE.Vector3(
     Math.cos(elevation) * Math.sin(azimuth),
     Math.sin(elevation),
     Math.cos(elevation) * Math.cos(azimuth),
-  );
-  return target.normalize();
+  ).normalize();
 }
 
-async function createWebGPU({ sim, bounds, envMap, waterParams, useUvMapping }) {
+async function createWebGPU({ sim, bounds, envMap }) {
   const { MeshBasicNodeMaterial } = await import("three/webgpu");
   const tsl = await import("three/tsl");
   const {
@@ -56,16 +51,15 @@ async function createWebGPU({ sim, bounds, envMap, waterParams, useUvMapping }) 
     smoothstep,
     exp,
     transformNormalToView,
-    uv,
-    sin,
-    cos,
   } = tsl;
 
-  const p = { ...POOL_WATER_DEFAULTS, ...waterParams };
-  const res = sim.getResolution();
+  const p = POOL_WATER_DEFAULTS;
+  const nw = sim.getResolutionW();
+  const nh = sim.getResolutionH();
   const hBuf = sim.getHeightBuffer();
 
-  const uRes = uniform(res);
+  const uResW = uniform(nw);
+  const uResH = uniform(nh);
   const uPlanar = uniform(planarBoundsToUniform(bounds));
   const uNormalScale = uniform(POOL_SIM_DEFAULTS.normalScale);
   const uMaxSlope = uniform(POOL_SIM_DEFAULTS.maxSlope);
@@ -102,49 +96,47 @@ async function createWebGPU({ sim, bounds, envMap, waterParams, useUvMapping }) 
   material.depthTest = true;
   material.side = THREE.FrontSide;
 
-  // -- Buffer sampling helpers --------------------------------------------
-  const clampPx = (px) => max(float(0), min(uRes.toFloat().sub(float(1)), px));
+  const clampW = (px) => max(float(0), min(uResW.toFloat().sub(float(1)), px));
+  const clampH = (py) => max(float(0), min(uResH.toFloat().sub(float(1)), py));
   const sampleH = (px, py) => {
-    const cx = clampPx(px);
-    const cy = clampPx(py);
-    const idx = int(cy.mul(uRes.toFloat()).add(cx));
+    const cx = clampW(px);
+    const cy = clampH(py);
+    const idx = int(cy.mul(uResW.toFloat()).add(cx));
     return hBuf.element(idx);
   };
 
-  const rippleUvFn = useUvMapping
-    ? Fn(() => clamp(uv(), vec2(0, 0), vec2(1, 1)))
-    : Fn(() => {
-        const u = positionWorld.x.sub(uPlanar.x).div(uPlanar.z);
-        const v = float(1).sub(positionWorld.z.sub(uPlanar.y).div(uPlanar.w));
-        return clamp(vec2(u, v), vec2(0, 0), vec2(1, 1));
-      });
+  const rippleUvFn = Fn(() => {
+    const u = positionWorld.x.sub(uPlanar.x).div(uPlanar.z);
+    const v = float(1).sub(positionWorld.z.sub(uPlanar.y).div(uPlanar.w));
+    return clamp(vec2(u, v), vec2(0, 0), vec2(1, 1));
+  });
 
   const sampleHBilinear = Fn(([uvIn]) => {
-    const maxCoord = uRes.toFloat().sub(float(1));
-    const coord = clamp(uvIn, vec2(0, 0), vec2(1, 1)).mul(maxCoord);
-    const x0 = floor(coord.x);
-    const y0 = floor(coord.y);
+    const maxW = uResW.toFloat().sub(float(1));
+    const maxH = uResH.toFloat().sub(float(1));
+    const cx = clamp(uvIn.x, float(0), float(1)).mul(maxW);
+    const cy = clamp(uvIn.y, float(0), float(1)).mul(maxH);
+    const x0 = floor(cx);
+    const y0 = floor(cy);
     const x1 = x0.add(float(1));
     const y1 = y0.add(float(1));
-    const tx = coord.x.sub(x0);
-    const ty = coord.y.sub(y0);
+    const tx = cx.sub(x0);
+    const ty = cy.sub(y0);
 
     const h00 = sampleH(x0, y0);
     const h10 = sampleH(x1, y0);
     const h01 = sampleH(x0, y1);
     const h11 = sampleH(x1, y1);
-    const hx0 = mix(h00, h10, tx);
-    const hx1 = mix(h01, h11, tx);
-    return mix(hx0, hx1, ty);
+    return mix(mix(h00, h10, tx), mix(h01, h11, tx), ty);
   });
 
   const sampleRippleNormal = Fn(([uvIn]) => {
-    // 4-tap central-difference normal — cheaper than the prior 8-tap Sobel.
-    const texel = float(1).div(max(uRes.toFloat().sub(float(1)), float(1)));
-    const hL = sampleHBilinear(uvIn.add(vec2(texel.negate(), float(0))));
-    const hR = sampleHBilinear(uvIn.add(vec2(texel, float(0))));
-    const hU = sampleHBilinear(uvIn.add(vec2(float(0), texel.negate())));
-    const hD = sampleHBilinear(uvIn.add(vec2(float(0), texel)));
+    const texelU = float(1).div(max(uResW.toFloat().sub(float(1)), float(1)));
+    const texelV = float(1).div(max(uResH.toFloat().sub(float(1)), float(1)));
+    const hL = sampleHBilinear(uvIn.add(vec2(texelU.negate(), float(0))));
+    const hR = sampleHBilinear(uvIn.add(vec2(texelU, float(0))));
+    const hU = sampleHBilinear(uvIn.add(vec2(float(0), texelV.negate())));
+    const hD = sampleHBilinear(uvIn.add(vec2(float(0), texelV)));
     const gradX = hL.sub(hR).mul(float(0.5));
     const gradZ = hU.sub(hD).mul(float(0.5));
     const nx = clamp(gradX.mul(uNormalScale), uMaxSlope.negate(), uMaxSlope);
@@ -152,22 +144,14 @@ async function createWebGPU({ sim, bounds, envMap, waterParams, useUvMapping }) 
     return normalize(vec3(nx, float(1), nz));
   });
 
-  // No vertex displacement — the pool quad stays flat to avoid DC drift of
-  // the wave-equation field lifting the whole mesh. Ripples are normal-only.
-
-  // -- Normal --------------------------------------------------------------
   material.normalNode = Fn(() => {
-    const uvIn = rippleUvFn();
-    const rippleN = sampleRippleNormal(uvIn);
+    const rippleN = sampleRippleNormal(rippleUvFn());
     const flatN = vec3(0, 1, 0);
-    const mixed = normalize(mix(flatN, rippleN, uRippleStrength));
-    return transformNormalToView(mixed);
+    return transformNormalToView(normalize(mix(flatN, rippleN, uRippleStrength)));
   })();
 
-  // -- Color ---------------------------------------------------------------
   material.colorNode = Fn(() => {
-    const uvIn = rippleUvFn();
-    const rippleN = sampleRippleNormal(uvIn);
+    const rippleN = sampleRippleNormal(rippleUvFn());
     const flatN = vec3(0, 1, 0);
     const fresnelN = normalize(mix(flatN, rippleN, fresnelNormalStrength));
 
@@ -183,10 +167,7 @@ async function createWebGPU({ sim, bounds, envMap, waterParams, useUvMapping }) 
     const viewAngle = max(abs(viewDir.y), float(0.15));
     const pathLength = waterDepth.div(viewAngle);
     const depthFactor = smoothstep(float(0), depthFalloff, pathLength);
-    let waterColor = mix(vec3(shallowColor), vec3(deepColor), depthFactor);
-
-    // Caustics are projected onto the Ground mesh (see applyGroundCaustics)
-    // rather than tinted into the water surface color.
+    const waterColor = mix(vec3(shallowColor), vec3(deepColor), depthFactor);
 
     const reflectDir = reflect(viewDir.negate(), fresnelN);
     const phi = atan(reflectDir.z, reflectDir.x);
@@ -198,7 +179,7 @@ async function createWebGPU({ sim, bounds, envMap, waterParams, useUvMapping }) 
 
     let finalColor = mix(waterColor, reflectionColor, fresnel);
 
-    // Beer's-law tint — red absorbed first, blue last (ocean-webgpu pattern).
+    // Beer's-law tint: red absorbed first, blue last.
     const extinction = vec3(
       float(0.4).mul(waterClarity),
       float(0.12).mul(waterClarity),
@@ -216,28 +197,23 @@ async function createWebGPU({ sim, bounds, envMap, waterParams, useUvMapping }) 
       finalColor.z.mul(transmittance.z),
     );
 
-    // Subsurface scattering — water glows when backlit (ocean-webgpu lines
-    // 316-322). Backlight derived from sun direction vs view direction.
     const backLight = max(dot(sunDir.negate(), viewDir), float(0));
     const subsurface = pow(backLight, subsurfacePower).mul(subsurfaceIntensity);
     finalColor = finalColor.add(vec3(subsurfaceColor).mul(subsurface));
 
-    // Tight sun specular (Blinn-Phong) — masked off where foam covers.
     const halfVec = normalize(viewDir.add(sunDir));
     const spec = pow(max(dot(fresnelN, halfVec), float(0)), specularShininess);
 
-    // Foam — narrow band on near-breaking crests. smoothstep prevents the
-    // white-out we hit earlier when ripples were tall.
     const horizontalTilt = abs(rippleN.x).add(abs(rippleN.z));
     const foam = smoothstep(foamThreshold, foamThreshold.add(float(0.15)), horizontalTilt).mul(
       foamAmount,
     );
     const foamMask = clamp(foam, float(0), float(1));
-    const specMask = float(1).sub(foamMask);
-    finalColor = finalColor.add(vec3(sunColor).mul(spec).mul(sunIntensity).mul(specMask));
+    finalColor = finalColor.add(
+      vec3(sunColor).mul(spec).mul(sunIntensity).mul(float(1).sub(foamMask)),
+    );
     finalColor = mix(finalColor, vec3(1, 1, 1), foamMask);
 
-    // Atmospheric fog for depth perception (ocean-webgpu lines 377-385).
     const distanceToCamera = cameraPosition.sub(positionWorld).length();
     const fogFactor = smoothstep(fogStartDistance, fogEndDistance, distanceToCamera).mul(
       fogIntensity,
@@ -249,56 +225,22 @@ async function createWebGPU({ sim, bounds, envMap, waterParams, useUvMapping }) 
 
   return {
     material,
-    setPlanarBounds(nextBounds) {
-      uPlanar.value.copy(planarBoundsToUniform(nextBounds));
+    setPlanarBounds(next) {
+      uPlanar.value.copy(planarBoundsToUniform(next));
     },
-    updateSun(elevation, azimuth) {
-      sunDir.value.copy(sunDirectionFromAngles(elevation, azimuth));
-    },
-    updateWaterParams(next) {
-      if (next.shallowWaterColor) shallowColor.value.set(next.shallowWaterColor);
-      if (next.deepWaterColor) deepColor.value.set(next.deepWaterColor);
-      if (next.depthFalloff != null) depthFalloff.value = next.depthFalloff;
-      if (next.waterDepth != null) waterDepth.value = next.waterDepth;
-      if (next.waterClarity != null) waterClarity.value = next.waterClarity;
-      if (next.fresnelPower != null) fresnelPower.value = next.fresnelPower;
-      if (next.fresnelNormalStrength != null)
-        fresnelNormalStrength.value = next.fresnelNormalStrength;
-      if (next.normalStrength != null) uRippleStrength.value = next.normalStrength;
-      if (next.opacity != null) opacityUniform.value = next.opacity;
-      if (next.sunSpecularIntensity != null) sunIntensity.value = next.sunSpecularIntensity;
-      if (next.specularShininess != null) specularShininess.value = next.specularShininess;
-      if (next.subsurfaceIntensity != null) subsurfaceIntensity.value = next.subsurfaceIntensity;
-      if (next.subsurfacePower != null) subsurfacePower.value = next.subsurfacePower;
-      if (next.subsurfaceColor) subsurfaceColor.value.set(next.subsurfaceColor);
-      if (next.refractionStrength != null) refractionStrength.value = next.refractionStrength;
-      if (next.fogStartDistance != null) fogStartDistance.value = next.fogStartDistance;
-      if (next.fogEndDistance != null) fogEndDistance.value = next.fogEndDistance;
-      if (next.fogIntensity != null) fogIntensity.value = next.fogIntensity;
-      if (next.fogColor) fogColor.value.set(next.fogColor);
-      if (next.foamAmount != null) foamAmount.value = next.foamAmount;
-      if (next.foamThreshold != null) foamThreshold.value = next.foamThreshold;
-    },
-    updateTime() {
-      /* no-op: surface material has no time-dependent term. Kept for API symmetry. */
-    },
+    updateTime() {},
     dispose() {
       material.dispose?.();
     },
   };
 }
 
-function createWebGL({ sim, bounds, envMap, waterParams, useUvMapping }) {
-  return createPoolWaterMaterialWebGl({ sim, bounds, envMap, waterParams, useUvMapping });
-}
-
-export async function createPoolWaterMaterial(_gl, { mesh, sim, bounds, envMap, waterParams }) {
+export async function createPoolWaterMaterial(_gl, { mesh, sim, bounds, envMap }) {
   const source = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
   if (!source) throw new Error("[createPoolWaterMaterial] mesh has no material");
-  const useUvMapping = Boolean(mesh.geometry?.getAttribute?.("uv"));
 
   if (isGpuShallowWaterSim(sim)) {
-    return createWebGPU({ sim, bounds, envMap, waterParams, useUvMapping });
+    return createWebGPU({ sim, bounds, envMap });
   }
-  return createWebGL({ sim, bounds, envMap, waterParams, useUvMapping });
+  return createPoolWaterMaterialWebGl({ sim, bounds, envMap });
 }

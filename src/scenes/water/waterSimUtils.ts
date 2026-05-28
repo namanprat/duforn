@@ -12,14 +12,11 @@ export function getPoolSimResolutionForTier(tier: RenderQualityTier): number {
 
 export function uvToSimGrid(
   uv: { x: number; y: number },
-  resolution: number,
+  nw: number,
+  nh: number = nw,
 ): { gx: number; gy: number } {
-  const maxIndex = Math.max(resolution - 1, 0);
-  const clampedU = Math.min(Math.max(uv.x, 0), 1);
-  const clampedV = Math.min(Math.max(uv.y, 0), 1);
-
   return {
-    gx: clampedU * maxIndex,
-    gy: clampedV * maxIndex,
+    gx: Math.min(Math.max(uv.x, 0), 1) * Math.max(nw - 1, 0),
+    gy: Math.min(Math.max(uv.y, 0), 1) * Math.max(nh - 1, 0),
   };
 }

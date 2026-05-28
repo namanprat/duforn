@@ -8,26 +8,28 @@
 import { useGLTF, useTexture } from "@react-three/drei";
 import { useLoader } from "@react-three/fiber";
 import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
-import { gltfLoaderOptions } from "../loader";
+import { extendGltfLoader, gltfLoaderOptions } from "../loader";
 import { trackPromise } from "../../lib/preload/gate";
-import { GLTF_URL_MAIN, GLTF_URL_MONITOR, GLTF_URL_PROJECT_BG, GLTF_URL_SCENE } from "../urls";
+import { GLTF_URL_MONITOR, GLTF_URL_PROJECT_BG, GLTF_URL_SCENE, GLTF_URL_WEBSITE } from "../urls";
 
-useGLTF.preload(GLTF_URL_SCENE, gltfLoaderOptions);
-useGLTF.preload(GLTF_URL_PROJECT_BG, gltfLoaderOptions);
-useGLTF.preload(GLTF_URL_MONITOR, gltfLoaderOptions);
-useGLTF.preload(GLTF_URL_MAIN, gltfLoaderOptions);
-
+// Essential: only the lightweight scene model + HDR + default texture gate first paint.
+useGLTF.preload(GLTF_URL_SCENE, gltfLoaderOptions, true, extendGltfLoader);
 useLoader.preload(HDRLoader, "/home.hdr");
 useTexture.preload("/default.jpg");
 
 const ESSENTIAL_ASSETS: { id: string; url: string; label: string; weight: number }[] = [
   { id: "gltf:scene", url: GLTF_URL_SCENE, label: "Scene model", weight: 2 },
-  { id: "gltf:project-bg", url: GLTF_URL_PROJECT_BG, label: "Project background", weight: 2 },
-  { id: "gltf:monitor", url: GLTF_URL_MONITOR, label: "Monitor model", weight: 2 },
-  { id: "gltf:main", url: GLTF_URL_MAIN, label: "Main model", weight: 2 },
   { id: "hdr:home", url: "/home.hdr", label: "Home HDR", weight: 1 },
   { id: "texture:default", url: "/default.jpg", label: "Default texture", weight: 1 },
 ];
+
+const ROOM_ASSETS: { id: string; url: string; label: string; weight: number }[] = [
+  { id: "gltf:website", url: GLTF_URL_WEBSITE, label: "Website model", weight: 4 },
+  { id: "gltf:monitor", url: GLTF_URL_MONITOR, label: "Monitor model", weight: 2 },
+  { id: "gltf:project-bg", url: GLTF_URL_PROJECT_BG, label: "Project background", weight: 2 },
+];
+
+let roomPreloadRequested = false;
 
 /**
  * Register one preloader-gate task per essential asset. Uses `fetch` so the gate
@@ -36,6 +38,33 @@ const ESSENTIAL_ASSETS: { id: string; url: string; label: string; weight: number
  */
 export function registerEssentialAssetTasks(): void {
   for (const asset of ESSENTIAL_ASSETS) {
+    trackPromise(
+      asset.id,
+      fetch(asset.url).then((response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to preload ${asset.url}: ${response.status}`);
+        }
+        return response.arrayBuffer();
+      }),
+      { label: asset.label, weight: asset.weight },
+    ).catch(() => {});
+  }
+}
+
+/**
+ * Heavy room-scoped assets — website / monitor / project-bg GLBs. Called from
+ * RoomCanvas mount so non-room landings (e.g. /projects/...) don't block on them.
+ * Idempotent: safe to call repeatedly.
+ */
+export function registerRoomAssetTasks(): void {
+  if (roomPreloadRequested) return;
+  roomPreloadRequested = true;
+
+  useGLTF.preload(GLTF_URL_WEBSITE, gltfLoaderOptions, true, extendGltfLoader);
+  useGLTF.preload(GLTF_URL_MONITOR, gltfLoaderOptions, true, extendGltfLoader);
+  useGLTF.preload(GLTF_URL_PROJECT_BG, gltfLoaderOptions, true, extendGltfLoader);
+
+  for (const asset of ROOM_ASSETS) {
     trackPromise(
       asset.id,
       fetch(asset.url).then((response) => {

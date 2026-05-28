@@ -1,13 +1,7 @@
 // @ts-nocheck
 /**
- * CPU wave-equation step — port of the 2D wave shader by Nikos Papadopoulos
- * (4rknova, 2019, CC BY-NC-SA 3.0). Single height field, two-frame history:
- *
- *   h_n = MODIFIER * ( -h_{n-2} + 0.5 * (hL + hR + hU + hD)_{n-1} )
- *         + STRENGTH * impulse
- *
- * Drives the ripple buffer that the pool material samples. Class name kept
- * (`ShallowWaterState`) so the WebGL fallback and unit tests stay wired.
+ * 2D wave-equation step (4rknova, 2019, CC BY-NC-SA 3.0):
+ *   h_n = MODIFIER * (-h_{n-2} + 0.5 * Σneighbors_{n-1}) + STRENGTH * impulse
  */
 
 import { POOL_SIM_DEFAULTS } from "../config/poolWaterDefaults";
@@ -15,18 +9,15 @@ import { POOL_SIM_DEFAULTS } from "../config/poolWaterDefaults";
 export type ShallowWaterParams = {
   nw: number;
   nh: number;
-  /** Wave propagation damping per step (MODIFIER in shader). */
   modifier: number;
-  /** Impulse amplitude (STRENGTH in shader). */
   impulseStrength: number;
-  /** Impulse falloff radius in cells. */
   impulseRadius: number;
 };
 
 export function createShallowWaterParams(
   nw: number,
   nh: number,
-  opts: Partial<ShallowWaterParams> & { K?: number; G?: number; H?: number; dt?: number } = {},
+  opts: Partial<ShallowWaterParams> = {},
 ): ShallowWaterParams {
   return {
     nw,
@@ -38,9 +29,7 @@ export function createShallowWaterParams(
 }
 
 export class ShallowWaterState {
-  /** Most recent (signed) height field. */
   readonly h: Float32Array;
-  /** One step ago. */
   readonly hPrev: Float32Array;
   private hNext: Float32Array;
 
@@ -58,7 +47,6 @@ export class ShallowWaterState {
     const i1 = Math.min(nw - 1, Math.ceil(gx + r));
     const j0 = Math.max(0, Math.floor(gy - r));
     const j1 = Math.min(nh - 1, Math.ceil(gy + r));
-    // smoothstep(radius, radius*0.16, dist) — matches shader's smoothstep(3, 0.5, len).
     const outer = impulseRadius;
     const inner = impulseRadius * 0.16;
     for (let j = j0; j <= j1; j++) {
@@ -78,8 +66,8 @@ export class ShallowWaterState {
     const h = this.h;
     const hPrev = this.hPrev;
     const hNext = this.hNext;
-    // Absorbing boundary — matches GPU sim. Waves fade as they approach the
-    // outer ~10 cells instead of reflecting (Neumann clamp).
+    // Absorbing boundary: fade height to zero over the outer ~10 cells so
+    // waves dissipate at the walls instead of reflecting back.
     const edgeBand = 10;
     for (let j = 0; j < nh; j++) {
       const jUp = Math.max(0, j - 1);
@@ -98,7 +86,6 @@ export class ShallowWaterState {
         hNext[idx] = modifier * (-hPrev[idx] + 0.5 * sum) * edgeAttenuation;
       }
     }
-    // rotate: prev <- curr, curr <- next
     this.hPrev.set(h);
     this.h.set(hNext);
   }
@@ -111,12 +98,5 @@ export class ShallowWaterState {
       if (a > m) m = a;
     }
     return m;
-  }
-
-  totalMass(): number {
-    const h = this.h;
-    let s = 0;
-    for (let k = 0; k < h.length; k++) s += h[k];
-    return s;
   }
 }

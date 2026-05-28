@@ -2,18 +2,21 @@ import { createSceneControlsStore } from "./scene";
 
 export const DEFAULT_WORK_SCENE_CONTROLS = {
   strip: {
-    x: 0,
-    y: -1.15,
-    z: -4.85,
+    // Translated by the work orbit-center delta from (0, 0.5, 0) → (-22, 75, -60)
+    // so the strip sits in front of the bath-scene WORK camera at the same
+    // relative offset it had before the model swap.
+    x: -22,
+    y: 73.5,
+    z: -64.85,
     rx: 0,
-    ry: -Math.PI / 2,
+    ry: 0,
     rz: 0,
-    scale: 0.85,
+    scale: 1.2,
     visibleItems: 7,
     gapSize: 0.035,
-    curveRadius: 11.65,
-    curveAmount: 1.5,
-    stripHeight: 3.7,
+    curveRadius: 10,
+    curveAmount: 2,
+    stripHeight: 4,
     stripYOffset: 0,
     roughness: 0.72,
     sheenR: 0.92,

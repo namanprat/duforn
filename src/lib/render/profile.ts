@@ -8,6 +8,7 @@ export type RenderQualityProfile = {
   homeParticles: number;
   shadowMapSize: number;
   projectBgRenderScale: number;
+  antialias: boolean;
 };
 
 function prefersReducedMotion(): boolean {
@@ -30,9 +31,10 @@ export function getRenderQualityProfile(): RenderQualityProfile {
       isMobile: true,
       isReducedMotion: true,
       dprCap: 1.25,
-      homeParticles: 88,
+      homeParticles: 60,
       shadowMapSize: 1024,
       projectBgRenderScale: 0.7,
+      antialias: false,
     };
   }
 
@@ -42,9 +44,10 @@ export function getRenderQualityProfile(): RenderQualityProfile {
       isMobile: true,
       isReducedMotion: false,
       dprCap: 1.5,
-      homeParticles: 120,
+      homeParticles: 80,
       shadowMapSize: 1024,
       projectBgRenderScale: 0.8,
+      antialias: false,
     };
   }
 
@@ -52,9 +55,10 @@ export function getRenderQualityProfile(): RenderQualityProfile {
     tier: "desktop",
     isMobile: false,
     isReducedMotion: false,
-    dprCap: 2,
-    homeParticles: 200,
-    shadowMapSize: 2048,
+    dprCap: 1.75,
+    homeParticles: 150,
+    shadowMapSize: 1536,
     projectBgRenderScale: 1,
+    antialias: true,
   };
 }

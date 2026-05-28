@@ -8,9 +8,9 @@ const CONTROL_SECTIONS = [
     key: "transform",
     title: "Transform",
     fields: [
-      { path: "strip.x", label: "X", min: -12, max: 12, step: 0.01 },
-      { path: "strip.y", label: "Y", min: -4, max: 4, step: 0.01 },
-      { path: "strip.z", label: "Z", min: -24, max: 8, step: 0.01 },
+      { path: "strip.x", label: "X", min: 30, max: 100, step: 0.01 },
+      { path: "strip.y", label: "Y", min: 30, max: 100, step: 0.01 },
+      { path: "strip.z", label: "Z", min: 30, max: 100, step: 0.01 },
       { path: "strip.scale", label: "Scale", min: 0.2, max: 1.4, step: 0.01 },
       { path: "strip.rx", label: "Rotation X", min: -Math.PI, max: Math.PI, step: 0.01 },
       { path: "strip.ry", label: "Rotation Y", min: -Math.PI, max: Math.PI, step: 0.01 },

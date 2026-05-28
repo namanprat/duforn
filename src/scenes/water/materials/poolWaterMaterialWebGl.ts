@@ -2,41 +2,24 @@
 import * as THREE from "three";
 import { POOL_SIM_DEFAULTS, POOL_WATER_DEFAULTS } from "../config/poolWaterDefaults";
 
-function sunDirectionFromAngles(elevationDeg, azimuthDeg, target = new THREE.Vector3()) {
+function sunDirectionFromAngles(elevationDeg, azimuthDeg) {
   const elevation = THREE.MathUtils.degToRad(elevationDeg);
   const azimuth = THREE.MathUtils.degToRad(azimuthDeg);
-  target.set(
+  return new THREE.Vector3(
     Math.cos(elevation) * Math.sin(azimuth),
     Math.sin(elevation),
     Math.cos(elevation) * Math.cos(azimuth),
-  );
-  return target.normalize();
+  ).normalize();
 }
 
-const VERT_UV = /* glsl */ `
-  varying vec3 vWorldPos;
-  varying vec3 vWorldNormal;
-  varying vec2 vRippleUv;
-
-  void main() {
-    vec4 worldPos = modelMatrix * vec4(position, 1.0);
-    vWorldPos = worldPos.xyz;
-    vWorldNormal = normalize(mat3(modelMatrix) * normal);
-    vRippleUv = clamp(uv, 0.0, 1.0);
-    gl_Position = projectionMatrix * viewMatrix * worldPos;
-  }
-`;
-
-const VERT_PLANAR = /* glsl */ `
+const VERT = /* glsl */ `
   uniform vec4 uPlanar;
   varying vec3 vWorldPos;
-  varying vec3 vWorldNormal;
   varying vec2 vRippleUv;
 
   void main() {
     vec4 worldPos = modelMatrix * vec4(position, 1.0);
     vWorldPos = worldPos.xyz;
-    vWorldNormal = normalize(mat3(modelMatrix) * normal);
     float u = (worldPos.x - uPlanar.x) / uPlanar.z;
     float v = 1.0 - (worldPos.z - uPlanar.y) / uPlanar.w;
     vRippleUv = clamp(vec2(u, v), 0.0, 1.0);
@@ -48,13 +31,12 @@ const FRAG = /* glsl */ `
   precision highp float;
 
   varying vec3 vWorldPos;
-  varying vec3 vWorldNormal;
   varying vec2 vRippleUv;
 
   uniform sampler2D uHeightMap;
   uniform sampler2D uEnvMap;
   uniform float uHasEnv;
-  uniform float uSimRes;
+  uniform vec2 uSimRes;
   uniform float uNormalScale;
   uniform float uMaxSlope;
   uniform float uRippleStrength;
@@ -84,18 +66,17 @@ const FRAG = /* glsl */ `
 
   float decodeH(float r) { return (r - 0.5) * 2.0; }
 
-  // Texture is configured with LinearFilter — hardware bilinear is free.
   float sampleHBilinear(vec2 uvIn) {
     return decodeH(texture2D(uHeightMap, clamp(uvIn, 0.0, 1.0)).r);
   }
 
   vec3 sampleRippleNormal(vec2 uvIn) {
-    // 4-tap central-difference normal — cheaper than the prior 8-tap Sobel.
-    float texel = 1.0 / max(uSimRes - 1.0, 1.0);
-    float hL = sampleHBilinear(uvIn + vec2(-texel, 0.0));
-    float hR = sampleHBilinear(uvIn + vec2( texel, 0.0));
-    float hU = sampleHBilinear(uvIn + vec2(0.0, -texel));
-    float hD = sampleHBilinear(uvIn + vec2(0.0,  texel));
+    float texelU = 1.0 / max(uSimRes.x - 1.0, 1.0);
+    float texelV = 1.0 / max(uSimRes.y - 1.0, 1.0);
+    float hL = sampleHBilinear(uvIn + vec2(-texelU, 0.0));
+    float hR = sampleHBilinear(uvIn + vec2( texelU, 0.0));
+    float hU = sampleHBilinear(uvIn + vec2(0.0, -texelV));
+    float hD = sampleHBilinear(uvIn + vec2(0.0,  texelV));
     float gradX = (hL - hR) * 0.5;
     float gradZ = (hU - hD) * 0.5;
     float nx = clamp(gradX * uNormalScale, -uMaxSlope, uMaxSlope);
@@ -112,7 +93,6 @@ const FRAG = /* glsl */ `
   void main() {
     vec3 rippleN = sampleRippleNormal(vRippleUv);
     vec3 flatN = vec3(0.0, 1.0, 0.0);
-    vec3 mixedN = normalize(mix(flatN, rippleN, uRippleStrength));
     vec3 fresnelN = normalize(mix(flatN, rippleN, uFresnelNormalStrength));
 
     vec3 viewDir = normalize(cameraPosition - vWorldPos);
@@ -124,9 +104,6 @@ const FRAG = /* glsl */ `
     float pathLength = uWaterDepth / viewAngle;
     float depthFactor = smoothstep(0.0, uDepthFalloff, pathLength);
     vec3 waterColor = mix(uShallowColor, uDeepColor, depthFactor);
-
-    // Caustics are projected onto the Ground mesh (see applyGroundCaustics) —
-    // no longer baked into the water surface tint.
 
     vec3 reflectDir = reflect(-viewDir, fresnelN);
     vec2 baseEnvUV = equirectUV(reflectDir);
@@ -151,8 +128,7 @@ const FRAG = /* glsl */ `
     float horizontalTilt = abs(rippleN.x) + abs(rippleN.z);
     float foam = smoothstep(uFoamThreshold, uFoamThreshold + 0.15, horizontalTilt) * uFoamAmount;
     float foamMask = clamp(foam, 0.0, 1.0);
-    float specMask = 1.0 - foamMask;
-    finalColor += uSunColor * spec * uSunIntensity * specMask;
+    finalColor += uSunColor * spec * uSunIntensity * (1.0 - foamMask);
     finalColor = mix(finalColor, vec3(1.0), foamMask);
 
     float distanceToCamera = length(cameraPosition - vWorldPos);
@@ -163,16 +139,11 @@ const FRAG = /* glsl */ `
   }
 `;
 
-export function createPoolWaterMaterialWebGl({ sim, bounds, envMap, waterParams, useUvMapping }) {
-  const p = { ...POOL_WATER_DEFAULTS, ...waterParams };
+export function createPoolWaterMaterialWebGl({ sim, bounds, envMap }) {
+  const p = POOL_WATER_DEFAULTS;
   const heightTex = sim.getHeightTexture();
-  const res = sim.getResolution();
-  const sunDir = sunDirectionFromAngles(35, 49);
-
   const dummyEnv = envMap ?? new THREE.DataTexture(new Uint8Array([125, 151, 168, 255]), 1, 1);
-  if (!envMap) {
-    dummyEnv.needsUpdate = true;
-  }
+  if (!envMap) dummyEnv.needsUpdate = true;
 
   const uniforms = {
     uHeightMap: { value: heightTex },
@@ -181,7 +152,7 @@ export function createPoolWaterMaterialWebGl({ sim, bounds, envMap, waterParams,
     uPlanar: {
       value: new THREE.Vector4(bounds.minX, bounds.minZ, bounds.width, bounds.depth),
     },
-    uSimRes: { value: res },
+    uSimRes: { value: new THREE.Vector2(sim.getResolutionW(), sim.getResolutionH()) },
     uNormalScale: { value: POOL_SIM_DEFAULTS.normalScale },
     uMaxSlope: { value: POOL_SIM_DEFAULTS.maxSlope },
     uRippleStrength: { value: p.normalStrength },
@@ -194,7 +165,7 @@ export function createPoolWaterMaterialWebGl({ sim, bounds, envMap, waterParams,
     uFresnelPower: { value: p.fresnelPower },
     uFresnelNormalStrength: { value: p.fresnelNormalStrength },
     uOpacity: { value: p.opacity },
-    uSunDir: { value: sunDir },
+    uSunDir: { value: sunDirectionFromAngles(35, 49) },
     uSunColor: { value: new THREE.Color(p.sunColor) },
     uSunIntensity: { value: p.sunSpecularIntensity },
     uSpecularShininess: { value: p.specularShininess },
@@ -212,7 +183,7 @@ export function createPoolWaterMaterialWebGl({ sim, bounds, envMap, waterParams,
 
   const material = new THREE.ShaderMaterial({
     uniforms,
-    vertexShader: useUvMapping ? VERT_UV : VERT_PLANAR,
+    vertexShader: VERT,
     fragmentShader: FRAG,
     transparent: true,
     depthWrite: false,
@@ -222,48 +193,10 @@ export function createPoolWaterMaterialWebGl({ sim, bounds, envMap, waterParams,
 
   return {
     material,
-    setPlanarBounds(nextBounds) {
-      uniforms.uPlanar.value.set(
-        nextBounds.minX,
-        nextBounds.minZ,
-        nextBounds.width,
-        nextBounds.depth,
-      );
+    setPlanarBounds(next) {
+      uniforms.uPlanar.value.set(next.minX, next.minZ, next.width, next.depth);
     },
-    updateSun(elevation, azimuth) {
-      sunDirectionFromAngles(elevation, azimuth, uniforms.uSunDir.value);
-    },
-    updateWaterParams(next) {
-      if (next.shallowWaterColor) uniforms.uShallowColor.value.set(next.shallowWaterColor);
-      if (next.deepWaterColor) uniforms.uDeepColor.value.set(next.deepWaterColor);
-      if (next.depthFalloff != null) uniforms.uDepthFalloff.value = next.depthFalloff;
-      if (next.waterDepth != null) uniforms.uWaterDepth.value = next.waterDepth;
-      if (next.waterClarity != null) uniforms.uWaterClarity.value = next.waterClarity;
-      if (next.fresnelPower != null) uniforms.uFresnelPower.value = next.fresnelPower;
-      if (next.fresnelNormalStrength != null)
-        uniforms.uFresnelNormalStrength.value = next.fresnelNormalStrength;
-      if (next.normalStrength != null) uniforms.uRippleStrength.value = next.normalStrength;
-      if (next.opacity != null) uniforms.uOpacity.value = next.opacity;
-      if (next.sunSpecularIntensity != null)
-        uniforms.uSunIntensity.value = next.sunSpecularIntensity;
-      if (next.specularShininess != null)
-        uniforms.uSpecularShininess.value = next.specularShininess;
-      if (next.subsurfaceIntensity != null)
-        uniforms.uSubsurfaceIntensity.value = next.subsurfaceIntensity;
-      if (next.subsurfacePower != null) uniforms.uSubsurfacePower.value = next.subsurfacePower;
-      if (next.subsurfaceColor) uniforms.uSubsurfaceColor.value.set(next.subsurfaceColor);
-      if (next.refractionStrength != null)
-        uniforms.uRefractionStrength.value = next.refractionStrength;
-      if (next.fogStartDistance != null) uniforms.uFogStartDistance.value = next.fogStartDistance;
-      if (next.fogEndDistance != null) uniforms.uFogEndDistance.value = next.fogEndDistance;
-      if (next.fogIntensity != null) uniforms.uFogIntensity.value = next.fogIntensity;
-      if (next.fogColor) uniforms.uFogColor.value.set(next.fogColor);
-      if (next.foamAmount != null) uniforms.uFoamAmount.value = next.foamAmount;
-      if (next.foamThreshold != null) uniforms.uFoamThreshold.value = next.foamThreshold;
-    },
-    updateTime() {
-      /* no-op: surface material has no time-dependent term. Kept for API symmetry. */
-    },
+    updateTime() {},
     dispose() {
       material.dispose();
       if (!envMap) dummyEnv.dispose();

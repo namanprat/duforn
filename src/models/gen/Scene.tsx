@@ -4,12 +4,12 @@
 */
 import React from "react";
 import { useGLTF } from "@react-three/drei";
-import { gltfLoaderOptions } from "../loader";
+import { extendGltfLoader, gltfLoaderOptions } from "../loader";
 import { GLTF_URL_SCENE } from "../urls";
 
 /* eslint-disable react/no-unknown-property */
 export default function SceneModel(props) {
-  const { nodes, materials } = useGLTF(GLTF_URL_SCENE, gltfLoaderOptions);
+  const { nodes, materials } = useGLTF(GLTF_URL_SCENE, gltfLoaderOptions, true, extendGltfLoader);
   return (
     <group {...props} dispose={null}>
       <group scale={0.01}>

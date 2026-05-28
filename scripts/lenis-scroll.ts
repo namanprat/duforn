@@ -13,7 +13,7 @@ export function initLenis() {
   if (lenis) return lenis;
 
   lenis = new Lenis({
-    lerp: 0.12,
+    lerp: 0.06,
     duration: 1.2,
     smoothWheel: true,
     touchMultiplier: 1,

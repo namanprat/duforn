@@ -10,16 +10,16 @@ import { createPoolWaterSim } from "./compute/createPoolWaterSim";
 import { createPoolWaterMaterial } from "./materials/PoolWaterMaterial";
 import { applyGroundCaustics } from "./materials/applyGroundCaustics";
 import { boxToPlanarBounds } from "./waterPlanarMapping";
-import { getWaterPlanarBounds, findGroundMesh } from "./findWaterMesh";
+import { findGroundMesh } from "./findWaterMesh";
 import { POOL_SIM_DEFAULTS, POOL_WATER_RENDER_ORDER } from "./config/poolWaterDefaults";
 import { getPoolSimResolutionForTier, uvToSimGrid } from "./waterSimUtils";
-import { tickTheatreRafDriver } from "../../lib/theatre/raf";
+
 function prefersReducedMotion() {
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-function buildStartupImpulseQueue(gridSize) {
+function buildStartupImpulseQueue(nw, nh) {
   const s = POOL_SIM_DEFAULTS.startupImpulseStrengthScale * 1.25;
   return [
     { uv: new THREE.Vector2(0.36, 0.42), strengthScale: s },
@@ -29,17 +29,30 @@ function buildStartupImpulseQueue(gridSize) {
     { uv: new THREE.Vector2(0.27, 0.68), strengthScale: s * 0.95 },
     { uv: new THREE.Vector2(0.82, 0.5), strengthScale: s * 0.88 },
   ].map(({ uv, strengthScale }) => ({
-    ...uvToSimGrid(uv, gridSize),
+    ...uvToSimGrid(uv, nw, nh),
     strengthScale,
   }));
 }
 
+/** Non-square sim grid sized so cells are physically square. */
+function simDimsFromBounds(bounds, baseGridSize) {
+  const sqrtAspect = Math.sqrt(bounds.width / bounds.depth);
+  return {
+    nw: Math.max(32, Math.round(baseGridSize * sqrtAspect)),
+    nh: Math.max(32, Math.round(baseGridSize / sqrtAspect)),
+  };
+}
+
+function meshPlanarBounds(mesh) {
+  mesh.updateWorldMatrix(true, false);
+  return boxToPlanarBounds(new THREE.Box3().setFromObject(mesh));
+}
+
 /**
- * Shallow-water ripples + ocean-style pool material on the main GLB water mesh.
+ * Shallow-water ripples + ocean-style pool material on the GLB water mesh.
  *
- * The host Canvas runs in frameloop="never" (Canvas, WebGPU compute
- * ordering). The animation loop here calls `advance(wallClockMs)` so R3F's
- * clock tracks real time — handheld drift / parallax in CameraRig stay smooth.
+ * The host Canvas runs in frameloop="never"; this loop calls `advance(t)` so
+ * R3F's clock tracks real time, keeping CameraRig's parallax/drift smooth.
  */
 export default function WaterRipples({ mesh }) {
   const { gl, camera, scene, advance } = useThree();
@@ -55,75 +68,55 @@ export default function WaterRipples({ mesh }) {
   const lastSpawnCellRef = useRef(new THREE.Vector2(-1, -1));
   const lastBreezeImpulseRef = useRef(0);
   const breezePhaseRef = useRef(Math.random());
-  const breezeStrengthRef = useRef(POOL_SIM_DEFAULTS.breezeStrength);
-  const breezeIntervalRef = useRef(POOL_SIM_DEFAULTS.breezeIntervalMs);
   const raycasterRef = useRef(new THREE.Raycaster());
   const ndcRef = useRef(new THREE.Vector2());
   const impulseQueueRef = useRef([]);
 
   const gridSize = getPoolSimResolutionForTier(qualityTier);
+  const nwRef = useRef(gridSize);
+  const nhRef = useRef(gridSize);
 
   const enqueueImpulse = (gx, gy, strengthScale = 1) => {
     impulseQueueRef.current.push({ gx, gy, strengthScale });
   };
 
-  // Coherent "breeze" — emits two small impulses along the wind direction (+U
-  // in water UV) with phase-staggered Y, advancing each tick so the wave
-  // equation propagates them as a traveling ruffle. Replaces the old random
-  // ambient drops.
+  // Coherent "breeze": three impulses staggered along +U with phase-staggered
+  // Y, propagated by the wave equation into a traveling ruffle.
   const enqueueBreezeImpulse = (now) => {
-    const strengthScale = breezeStrengthRef.current;
-    if (strengthScale <= 0) {
-      lastBreezeImpulseRef.current = now;
-      return;
-    }
     const inset = POOL_SIM_DEFAULTS.breezeYInset;
     const phase = breezePhaseRef.current;
-    // Three impulses staggered along the wind axis (+U) and across Y so the
-    // wave equation propagates a coherent traveling ruffle. Inset keeps them
-    // clear of the absorbing edge band.
     const wrap = (x) => ((x % 1) + 1) % 1;
     const uvs = [
-      new THREE.Vector2(
-        wrap(phase),
-        THREE.MathUtils.lerp(inset, 1 - inset, (Math.sin(phase * 11.7) + 1) / 2),
-      ),
-      new THREE.Vector2(
-        wrap(phase + 0.33),
-        THREE.MathUtils.lerp(inset, 1 - inset, (Math.cos(phase * 7.3) + 1) / 2),
-      ),
-      new THREE.Vector2(
+      [wrap(phase), THREE.MathUtils.lerp(inset, 1 - inset, (Math.sin(phase * 11.7) + 1) / 2)],
+      [wrap(phase + 0.33), THREE.MathUtils.lerp(inset, 1 - inset, (Math.cos(phase * 7.3) + 1) / 2)],
+      [
         wrap(phase + 0.66),
         THREE.MathUtils.lerp(inset, 1 - inset, (Math.sin(phase * 5.1 + 1.3) + 1) / 2),
-      ),
+      ],
     ];
-    for (const uv of uvs) {
-      const { gx, gy } = uvToSimGrid(uv, gridSize);
-      enqueueImpulse(gx, gy, strengthScale);
+    for (const [u, v] of uvs) {
+      const { gx, gy } = uvToSimGrid({ x: u, y: v }, nwRef.current, nhRef.current);
+      enqueueImpulse(gx, gy, POOL_SIM_DEFAULTS.breezeStrength);
     }
     breezePhaseRef.current = wrap(phase + POOL_SIM_DEFAULTS.breezeStep);
     lastBreezeImpulseRef.current = now;
   };
 
   const queueImpulseFromHit = (hit) => {
-    if (hit.uv) {
-      const { gx, gy } = uvToSimGrid(hit.uv, gridSize);
-      return { gx, gy };
-    }
-
+    // World-space bounds: the shader uses planar projection (not mesh UVs).
+    // Use nwRef/nhRef (actual non-square grid) — using base gridSize for an
+    // elongated pool would push gy past the valid range.
     const bounds = boundsRef.current ?? refreshBounds();
     if (!bounds) return null;
-
     return {
-      gx: ((hit.point.x - bounds.minX) / bounds.width) * (gridSize - 1),
-      gy: (1 - (hit.point.z - bounds.minZ) / bounds.depth) * (gridSize - 1),
+      gx: ((hit.point.x - bounds.minX) / bounds.width) * (nwRef.current - 1),
+      gy: (1 - (hit.point.z - bounds.minZ) / bounds.depth) * (nhRef.current - 1),
     };
   };
 
   const refreshBounds = () => {
     if (!mesh) return null;
-    const box = getWaterPlanarBounds(mesh);
-    const bounds = boxToPlanarBounds(box);
+    const bounds = meshPlanarBounds(mesh);
     boundsRef.current = bounds;
     materialApiRef.current?.setPlanarBounds?.(bounds);
     groundCausticsRef.current?.setPlanarBounds?.(bounds);
@@ -140,10 +133,13 @@ export default function WaterRipples({ mesh }) {
     lastBreezeImpulseRef.current = performance.now();
 
     const bounds = refreshBounds();
+    const { nw, nh } = simDimsFromBounds(bounds, gridSize);
+    nwRef.current = nw;
+    nhRef.current = nh;
 
     (async () => {
       try {
-        const sim = await createPoolWaterSim(gl, gridSize, gridSize);
+        const sim = await createPoolWaterSim(gl, nw, nh);
         if (cancelled) {
           sim.dispose?.();
           return;
@@ -151,12 +147,7 @@ export default function WaterRipples({ mesh }) {
         simRef.current = sim;
 
         const envMap = scene.environment ?? null;
-        const materialApi = await createPoolWaterMaterial(gl, {
-          mesh,
-          sim,
-          bounds,
-          envMap,
-        });
+        const materialApi = await createPoolWaterMaterial(gl, { mesh, sim, bounds, envMap });
         if (cancelled) {
           materialApi.dispose();
           sim.dispose?.();
@@ -165,7 +156,7 @@ export default function WaterRipples({ mesh }) {
 
         materialApiRef.current = materialApi;
         mesh.material = materialApi.material;
-        impulseQueueRef.current = buildStartupImpulseQueue(gridSize);
+        impulseQueueRef.current = buildStartupImpulseQueue(nw, nh);
 
         const groundMesh = findGroundMesh(scene, mesh);
         if (groundMesh) {
@@ -174,17 +165,14 @@ export default function WaterRipples({ mesh }) {
             sim,
             bounds,
             renderer: gl,
-            waterParams: undefined,
           });
-        } else {
-          console.warn("[WaterRipples] Ground mesh not found; caustics disabled");
         }
 
         logWebGPUOnce("pool-water-ready", "WaterRipples", "Pool shallow water ready", {
           meshName: mesh.name,
           bounds,
           rendererType: getRendererType(gl),
-          gridSize,
+          gridSize: `${nw}×${nh}`,
         });
       } catch (err) {
         console.error("[WaterRipples] failed to build pool water", err);
@@ -215,8 +203,7 @@ export default function WaterRipples({ mesh }) {
     const ndc = ndcRef.current;
 
     const spawnImpulse = (event) => {
-      if (!simRef.current) return;
-      if (prefersReducedMotion()) return;
+      if (!simRef.current || prefersReducedMotion()) return;
 
       const rect = canvas.getBoundingClientRect();
       ndc.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -233,12 +220,8 @@ export default function WaterRipples({ mesh }) {
       const last = lastSpawnCellRef.current;
       const dx = gridPoint.gx - last.x;
       const dy = gridPoint.gy - last.y;
-      if (
-        last.x >= 0 &&
-        dx * dx + dy * dy < POOL_SIM_DEFAULTS.minCellDistance * POOL_SIM_DEFAULTS.minCellDistance
-      ) {
-        return;
-      }
+      const minSq = POOL_SIM_DEFAULTS.minCellDistance * POOL_SIM_DEFAULTS.minCellDistance;
+      if (last.x >= 0 && dx * dx + dy * dy < minSq) return;
 
       lastSpawnTimeRef.current = now;
       lastSpawnCellRef.current.set(gridPoint.gx, gridPoint.gy);
@@ -258,7 +241,6 @@ export default function WaterRipples({ mesh }) {
 
   useEffect(() => {
     if (!gl || loadingPhase !== "ready") return undefined;
-    const renderer = gl;
 
     let running = true;
     let simBusy = false;
@@ -268,14 +250,15 @@ export default function WaterRipples({ mesh }) {
       const sim = simRef.current;
       if (!sim?.ready || simBusy) return;
 
-      const queue = impulseQueueRef.current;
       const reducedMotion = prefersReducedMotion();
-
-      // Breeze runs continuously (not gated on idle) so the surface always has a gentle ruffle.
-      if (!reducedMotion && now - lastBreezeImpulseRef.current > breezeIntervalRef.current) {
+      if (
+        !reducedMotion &&
+        now - lastBreezeImpulseRef.current > POOL_SIM_DEFAULTS.breezeIntervalMs
+      ) {
         enqueueBreezeImpulse(now);
       }
 
+      const queue = impulseQueueRef.current;
       if (queue.length > 0) {
         const next = queue.shift();
         sim.setImpulse(next.gx, next.gy, next.strengthScale);
@@ -290,28 +273,23 @@ export default function WaterRipples({ mesh }) {
         });
     };
 
-    // setAnimationLoop callback receives a DOMHighResTimeStamp (same monotonic
-    // as rAF). Feeding it to advance() keeps R3F's clock on wall time so
-    // CameraRig's parallax + drift stay smooth.
     const tick = (timestampMs) => {
       if (!running) return;
       if (useLoadingStore.getState().phase !== "ready") return;
 
       const t = typeof timestampMs === "number" ? timestampMs : performance.now();
-      // Keep Theatre camera timeline on the same clock as R3F advance/render.
-      tickTheatreRafDriver(t);
       advance(t);
       materialApiRef.current?.updateTime?.(t * 0.001);
       groundCausticsRef.current?.updateTime?.(t * 0.001);
-      renderer.render(scene, camera);
-      // Half-rate sim keeps ripples alive while freeing GPU for camera + render.
+      gl.render(scene, camera);
+      // Half-rate sim: ripples stay alive while freeing GPU for camera + render.
       if ((frameIndex++ & 1) === 0) maybeStepSim(t);
     };
 
-    renderer.setAnimationLoop(tick);
+    gl.setAnimationLoop(tick);
     return () => {
       running = false;
-      renderer.setAnimationLoop(null);
+      gl.setAnimationLoop(null);
     };
   }, [gl, scene, camera, advance, loadingPhase]);
 

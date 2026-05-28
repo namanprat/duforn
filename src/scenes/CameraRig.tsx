@@ -2,7 +2,7 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import React, { useEffect, useRef } from "react";
 import { useWebglStore } from "../store/webgl";
-import { cameraBasePoseRef } from "../lib/theatre/pose";
+import { cameraBasePoseRef } from "../lib/cam/pose";
 import { normalizeViewportPoint } from "../lib/viewport/stableViewport";
 import {
   PARALLAX_MOTION_CONFIG,
@@ -113,7 +113,7 @@ export default function CameraRig({
       lastFovRef.current = base.fov;
     }
 
-    // Apply lookAt with optional yaw/pitch offset for theatre-driven rotation.
+    // Apply lookAt with optional yaw/pitch offset for GSAP-tweened rotation.
     const lookYaw = ((base.lookAtYawDeg ?? 0) * Math.PI) / 180;
     const lookPitch = ((base.lookAtPitchDeg ?? 0) * Math.PI) / 180;
     const forwardX = cx - camX;

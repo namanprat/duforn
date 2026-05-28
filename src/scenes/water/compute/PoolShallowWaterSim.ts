@@ -3,15 +3,11 @@
  * WebGPU ripple sim — TSL port of the 2D wave-equation shader by
  * Nikos Papadopoulos (4rknova, 2019, CC BY-NC-SA 3.0).
  *
- *   h_n = MODIFIER * ( -h_{n-2} + 0.5 * Σneighbors_{n-1} ) + STRENGTH * impulse
+ *   h_n = MODIFIER * (-h_{n-2} + 0.5 * Σneighbors_{n-1}) + STRENGTH * impulse
  *
- * Three single-float buffers act as a ping-pong + scratch ring:
- *   hCurr   — D_{n-1}, sampled by the material
- *   hPrev   — D_{n-2}
- *   hScratch — D_n in progress
- *
- * Each step dispatches three kernels (compute new → copy curr to prev → copy
- * scratch to curr) — no cross-buffer aliasing, no read/write race.
+ * Buffers: hCurr (D_{n-1}, sampled by material), hPrev (D_{n-2}),
+ * hScratch (D_n in progress). Two compute dispatches per step: write new
+ * heights into scratch, then rotate (hPrev ← hCurr, hCurr ← hScratch).
  */
 import * as THREE from "three";
 import { POOL_SIM_DEFAULTS } from "../config/poolWaterDefaults";
@@ -28,8 +24,7 @@ export class PoolShallowWaterSim {
   #hScratch = null;
   #uniforms = null;
   #stepKernel = null;
-  #copyCurrToPrev = null;
-  #copyScratchToCurr = null;
+  #rotateKernel = null;
   #impulsePending = false;
   #impulseX = 0;
   #impulseY = 0;
@@ -50,8 +45,7 @@ export class PoolShallowWaterSim {
   }
 
   async init() {
-    const nw = this.nw;
-    const nh = this.nh;
+    const { nw, nh } = this;
     const opts = this.#simOpts;
     const cellCount = this.#cellCount;
 
@@ -73,13 +67,8 @@ export class PoolShallowWaterSim {
     const uImpulseStrengthScale = uniform(1);
 
     this.#uniforms = {
-      uNw,
-      uNh,
-      uModifier,
       uImpulse,
       uImpulseActive,
-      uImpulseRadius,
-      uImpulseStrength,
       uImpulseStrengthScale,
     };
 
@@ -91,15 +80,10 @@ export class PoolShallowWaterSim {
     const clampI = (i) => max(int(0), min(uNw.sub(int(1)), i));
     const clampJ = (j) => max(int(0), min(uNh.sub(int(1)), j));
 
-    const flatIJ = () => {
+    this.#stepKernel = Fn(() => {
       const idx = instanceIndex;
       const i = idx.mod(uNw);
       const j = idx.div(uNw);
-      return { idx, i, j };
-    };
-
-    this.#stepKernel = Fn(() => {
-      const { idx, i, j } = flatIJ();
       const iL = clampI(i.sub(int(1)));
       const iR = clampI(i.add(int(1)));
       const jU = clampJ(j.sub(int(1)));
@@ -114,10 +98,8 @@ export class PoolShallowWaterSim {
       const neighborAvg = sL.add(sR).add(sU).add(sD).mul(float(0.5));
       let d = neighborAvg.sub(s0).mul(uModifier);
 
-      // Absorbing boundary — fade height to zero over the outer ~10 cells so
-      // waves dissipate at the walls instead of reflecting back across the
-      // plane (the Neumann clamp used to cause ghost ripples on the opposite
-      // corner). smoothstep from 0 → edgeBand cells of damping.
+      // Absorbing boundary — fade height over the outer 10 cells instead of
+      // reflecting waves at the walls.
       const edgeBand = float(10);
       const distI = min(i.toFloat(), uNw.sub(int(1)).toFloat().sub(i.toFloat()));
       const distJ = min(j.toFloat(), uNh.sub(int(1)).toFloat().sub(j.toFloat()));
@@ -127,9 +109,6 @@ export class PoolShallowWaterSim {
         .add(float(0.7));
       d = d.mul(edgeAttenuation);
 
-      // Impulse — shader: STRENGTH * smoothstep(outer, inner, dist). Three-arg
-      // smoothstep(edge0, edge1, x) returns 0 when x<edge0, 1 when x>edge1, so
-      // we pass (inner, outer, dist) and subtract from 1 to invert.
       const dxi = i.toFloat().sub(uImpulse.x);
       const dyi = j.toFloat().sub(uImpulse.y);
       const dist = sqrt(dxi.mul(dxi).add(dyi.mul(dyi)));
@@ -142,33 +121,28 @@ export class PoolShallowWaterSim {
       hScratch.element(idx).assign(d);
     })().compute(cellCount);
 
-    this.#copyCurrToPrev = Fn(() => {
+    // Single rotation kernel — within one invocation hCurr is read into hPrev
+    // before hCurr is overwritten by hScratch, and only the same idx is
+    // touched on either buffer, so there is no cross-invocation race.
+    this.#rotateKernel = Fn(() => {
       const idx = instanceIndex;
-      hPrev.element(idx).assign(hCurr.element(idx));
-    })().compute(cellCount);
-
-    this.#copyScratchToCurr = Fn(() => {
-      const idx = instanceIndex;
+      const curr = hCurr.element(idx);
+      hPrev.element(idx).assign(curr);
       hCurr.element(idx).assign(hScratch.element(idx));
     })().compute(cellCount);
 
     this.ready = true;
   }
 
-  getResolution() {
+  getResolutionW() {
     return this.nw;
+  }
+  getResolutionH() {
+    return this.nh;
   }
 
   getHeightBuffer() {
     return this.hBuffer;
-  }
-
-  setSimParams(partial) {
-    const u = this.#uniforms;
-    if (!u) return;
-    if (partial.modifier != null) u.uModifier.value = partial.modifier;
-    if (partial.impulseRadius != null) u.uImpulseRadius.value = partial.impulseRadius;
-    if (partial.impulseStrength != null) u.uImpulseStrength.value = partial.impulseStrength;
   }
 
   setImpulse(gx, gy, strengthScale = 1) {
@@ -176,10 +150,6 @@ export class PoolShallowWaterSim {
     this.#impulseY = gy;
     this.#impulseStrengthScale = strengthScale;
     this.#impulsePending = true;
-  }
-
-  maxAbsH() {
-    return Number.POSITIVE_INFINITY;
   }
 
   async stepAsync({ substeps = POOL_SIM_DEFAULTS.substeps } = {}) {
@@ -197,18 +167,13 @@ export class PoolShallowWaterSim {
         u.uImpulseActive.value = 0;
         u.uImpulseStrengthScale.value = 1;
       }
-      // Queue all three kernels back-to-back without awaiting each one —
-      // awaiting per-kernel forces 3 GPU round-trips per frame which blows
-      // the rAF budget and makes CameraRig's lerp jitter. Awaiting only the
-      // last dispatch still serializes compute → render because the GPU
-      // command queue executes them in submit order.
+      // Awaiting only the last dispatch still serializes compute → render
+      // because the GPU command queue executes them in submit order.
       this.renderer.compute(this.#stepKernel);
-      this.renderer.compute(this.#copyCurrToPrev);
-      await this.renderer.computeAsync(this.#copyScratchToCurr);
+      await this.renderer.computeAsync(this.#rotateKernel);
     }
   }
 
-  /** Synchronous wrapper kept so the CPU fallback contract stays the same. */
   step(opts) {
     return this.stepAsync(opts);
   }

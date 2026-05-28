@@ -5,11 +5,12 @@ import { createRendererOpaque, getRendererType } from "../lib/render";
 import { logWebGPU } from "../lib/gpu/debug";
 import { useWebglStore } from "../store/webgl";
 import { getRenderQualityProfile } from "../lib/render/profile";
+import { registerLoaderRenderer } from "../models/loader";
 import ShaderWarmup from "./ShaderWarmup";
 import { NotFoundCanvasBranch, ProjectDetailCanvasBranch } from "./SceneBranches";
 import RoomCanvas from "./RoomCanvas";
 import Warmup from "./Warmup";
-import { isRoomNamespace } from "../lib/theatre/roomCam";
+import { isRoomNamespace } from "../lib/cam/roomPoses";
 
 function UnifiedScene({ activePage, shadowMapSize }) {
   switch (activePage) {
@@ -61,6 +62,7 @@ export default function Canvas({ activePage }) {
       onCreated={({ gl }) => {
         const rendererType = getRendererType(gl);
         setRendererType(rendererType);
+        registerLoaderRenderer(gl);
         logWebGPU("Canvas", "Canvas created", { rendererType });
       }}
       onPointerMissed={isProjectDetail ? () => {} : undefined}

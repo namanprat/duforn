@@ -10,9 +10,8 @@ export const projectDetailContent = {
       { label: "Client", value: "money.me" },
       { label: "Location", value: "Mumbai, India" },
     ],
-    cta: {
-      label: "Browse Screens",
-    },
+    // CTA label is "View Live Project" — hidden on this case study.
+    cta: null,
   },
   heroImage: {
     src: "/money-me/money-cover.webp",

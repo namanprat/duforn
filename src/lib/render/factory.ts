@@ -3,6 +3,7 @@ import { ACESFilmicToneMapping, SRGBColorSpace, WebGLRenderer } from "three";
 import { logWebGPU, logWebGPUOnce } from "../gpu/debug";
 import { getClampedPixelRatio } from "./pixelRatio";
 import { getStableViewportSize } from "../viewport/stableViewport";
+import { getRenderQualityProfile } from "./profile";
 
 let webgpuSupportPromise;
 const ENABLE_WEBGPU = true;
@@ -64,9 +65,10 @@ function configureRenderer(renderer, { alpha }) {
 }
 
 function createWebGLRenderer(defaultProps, { alpha }) {
+  const { antialias } = getRenderQualityProfile();
   const renderer = new WebGLRenderer({
     canvas: defaultProps.canvas,
-    antialias: true,
+    antialias,
     alpha,
     powerPreference: "high-performance",
     preserveDrawingBuffer: true,
@@ -93,9 +95,10 @@ async function createBestRenderer(defaultProps, { alpha = false } = {}) {
       }
 
       const { WebGPURenderer } = await import("three/webgpu");
+      const { antialias } = getRenderQualityProfile();
       const renderer = new WebGPURenderer({
         canvas: defaultProps.canvas,
-        antialias: true,
+        antialias,
         alpha,
         device,
       });

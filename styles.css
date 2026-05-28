@@ -140,6 +140,8 @@ html {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  text-rendering: optimizeLegibility;
+  text-wrap: pretty !important;
 }
 
 ::-webkit-scrollbar {
@@ -222,6 +224,7 @@ body :is(li, ul, ol, dl, dt, dd),
 #time,
 a,
 p {
+  text-align: justify;
   font-size: var(--typography-font-size-text-main);
   letter-spacing: var(--typography-letter-spacing);
   font-weight: 400;
@@ -869,6 +872,22 @@ section {
 
 [data-text-reveal-root] .text-reveal-line {
   transform-style: preserve-3d;
+}
+
+/* SplitText turns each visual line into its own block, which kills
+   `text-align: justify` (browser treats every line as a "last line"
+   and falls back to `text-align-last: auto`). Re-enable justify on
+   every line inside a paragraph, then opt the final line out so the
+   trailing partial line stays naturally ragged like normal print.
+   Scoped to project-detail body copy so homepage and contact stay
+   left-aligned the way they were. */
+.project-details-story-stack p .text-reveal-line {
+  text-align: justify;
+  text-align-last: justify;
+}
+
+.project-details-story-stack p > .text-reveal-line-mask:last-child .text-reveal-line {
+  text-align-last: auto;
 }
 
 /* Headings using TextRevealLines: room for line-mask motion (see TextRevealLines.tsx). */
@@ -3576,11 +3595,6 @@ body.preloader-active .bottom-nav-wrap {
 .project-details-supporting-image {
   width: var(--column-width-10);
   margin-inline: auto;
-}
-
-.project-details-kicker {
-  line-height: var(--typography-line-height-medium);
-  letter-spacing: var(--typography-letter-spacing-default);
 }
 
 .project-details-hero-info {

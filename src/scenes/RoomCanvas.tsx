@@ -1,12 +1,13 @@
 // @ts-nocheck
-import React from "react";
+import React, { useEffect } from "react";
 import { PerspectiveCamera } from "@react-three/drei";
 import Env from "./Env";
 import Exposure from "./Exposure";
-import TheatreCam from "./TheatreCam";
+import RoomCam from "./RoomCam";
 import CameraRig from "./CameraRig";
 import Main from "./Main";
 import { WorkClothStripScene } from "../work/ClothStrip";
+import { registerRoomAssetTasks } from "../models/gen/preloads";
 
 /**
  * Stable module-level literals so drei's <PerspectiveCamera> doesn't re-assert
@@ -17,10 +18,14 @@ const INITIAL_CAMERA_POSITION: readonly [number, number, number] = [0, 1, 5];
 const INITIAL_CAMERA_FOV = 65;
 
 /**
- * Persistent multi-room scene: one model, one camera, Theatre-driven room poses.
+ * Persistent multi-room scene: one model, one camera, GSAP-driven room poses.
  */
 export default function RoomCanvas({ shadowMapSize = 1536 }) {
   const shadowMapSizeClamped = Math.min(shadowMapSize, 1536);
+
+  useEffect(() => {
+    registerRoomAssetTasks();
+  }, []);
 
   return (
     <>
@@ -30,14 +35,14 @@ export default function RoomCanvas({ shadowMapSize = 1536 }) {
         fov={INITIAL_CAMERA_FOV}
       />
       <Env
-        hdrFiles="/home.hdr"
-        backgroundColor={0x000000}
+        hdrFiles="/main.hdr"
+        showHdriBackground
         fogColor={0x000000}
         fogDensity={0}
         showShadowCatcher={false}
       />
       <Exposure exposure={1} />
-      <TheatreCam />
+      <RoomCam />
       <CameraRig parallaxScale={0.3} parallaxLerp={0.03} handheldDriftScale={0} />
       <Main shadowMapSize={shadowMapSizeClamped} />
       <WorkClothStripScene />

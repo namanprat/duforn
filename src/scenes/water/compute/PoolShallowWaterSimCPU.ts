@@ -1,15 +1,9 @@
 // @ts-nocheck
 import * as THREE from "three";
 import { POOL_SIM_DEFAULTS } from "../config/poolWaterDefaults";
-import {
-  ShallowWaterState,
-  createShallowWaterParams,
-  type ShallowWaterParams,
-} from "./shallowWaterCPU";
+import { ShallowWaterState, createShallowWaterParams } from "./shallowWaterCPU";
 
-/**
- * WebGL fallback: CPU shallow water + height DataTexture for materials.
- */
+/** WebGL fallback: CPU shallow water + height DataTexture for materials. */
 export class PoolShallowWaterSimCPU {
   readonly nw: number;
   readonly nh: number;
@@ -24,8 +18,7 @@ export class PoolShallowWaterSimCPU {
   constructor(nw = POOL_SIM_DEFAULTS.gridSize, nh = nw, simOpts = {}) {
     this.nw = nw;
     this.nh = nh;
-    const params = createShallowWaterParams(nw, nh, simOpts);
-    this.state = new ShallowWaterState(params);
+    this.state = new ShallowWaterState(createShallowWaterParams(nw, nh, simOpts));
     this.heightTexture = new THREE.DataTexture(
       new Uint8Array(nw * nh * 4),
       nw,
@@ -39,16 +32,14 @@ export class PoolShallowWaterSimCPU {
     this.heightTexture.needsUpdate = true;
   }
 
-  getResolution() {
+  getResolutionW() {
     return this.nw;
   }
-
+  getResolutionH() {
+    return this.nh;
+  }
   getHeightTexture() {
     return this.heightTexture;
-  }
-
-  setSimParams(partial: Partial<ShallowWaterParams>) {
-    Object.assign(this.state.params, partial);
   }
 
   setImpulse(gx: number, gy: number, strengthScale = 1) {
@@ -72,10 +63,6 @@ export class PoolShallowWaterSimCPU {
     return this.step(opts);
   }
 
-  maxAbsH() {
-    return this.state.maxAbsH();
-  }
-
   private uploadHeightTexture() {
     const { nw, nh } = this;
     const data = this.heightTexture.image.data;
@@ -84,10 +71,7 @@ export class PoolShallowWaterSimCPU {
       for (let i = 0; i < nw; i++) {
         const k = (j * nw + i) * 4;
         const v = h[i + nw * j];
-        const encoded = Math.min(255, Math.max(0, Math.round((v * 0.5 + 0.5) * 255)));
-        data[k] = encoded;
-        data[k + 1] = 0;
-        data[k + 2] = 0;
+        data[k] = Math.min(255, Math.max(0, Math.round((v * 0.5 + 0.5) * 255)));
         data[k + 3] = 255;
       }
     }

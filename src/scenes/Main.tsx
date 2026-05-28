@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useLayoutEffect, useRef, useState } from "react";
-import MainModel from "../models/gen/Main";
+import WebsiteModel from "../models/gen/Website";
 import { applyModelMaterialTuning, normalizeModelBounds } from "./sceneUtils";
 import { findWaterMesh } from "./water/findWaterMesh";
 import WaterRipples from "./water/WaterRipples";
@@ -11,7 +11,8 @@ const MATERIAL_TUNE = {
   roughnessScale: 0.96,
   metalnessScale: 0.88,
   envReflection: 1.2,
-  clearcoat: 0.05,
+  // clearcoat dropped: 0.05 was visually negligible and added a per-pixel BRDF pass.
+  clearcoat: 0,
   clearcoatRoughness: 0.26,
 };
 
@@ -38,7 +39,7 @@ export default function Main({ shadowMapSize = 1536 }) {
         mesh.userData.isWater = true;
         setWaterMesh(mesh);
       } else {
-        console.warn("[Main] water mesh not found in main.glb");
+        console.warn("[Main] water mesh not found in model");
       }
 
       applyModelMaterialTuning(model, MATERIAL_TUNE);
@@ -80,7 +81,7 @@ export default function Main({ shadowMapSize = 1536 }) {
         target-position={[0, 0, 0]}
       />
       <group ref={modelRef}>
-        <MainModel />
+        <WebsiteModel />
       </group>
       {waterMesh && <WaterRipples mesh={waterMesh} />}
     </group>

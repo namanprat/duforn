@@ -4,24 +4,19 @@ import { POOL_SIM_DEFAULTS, POOL_WATER_DEFAULTS } from "../config/poolWaterDefau
 import { isWebGPURenderer } from "../../../lib/render/type";
 
 /**
- * Patch the Ground material to receive projected caustics from the water sim.
+ * Add a thin-band caustic pattern to the Ground material's outgoing light,
+ * masked to the water's planar XZ footprint.
  *
- * The water mesh is a flat quad above the Ground. We sample (or simulate) a
- * thin-band caustic pattern and add it additively to the Ground's outgoing
- * light — but only inside the water's planar XZ footprint.
- *
- * - WebGL path: standard MeshStandardMaterial → onBeforeCompile + GLSL,
- *   sampling the sim height texture to bend caustics with ripples.
- * - WebGPU path: WebGPURenderer auto-wraps standard materials with a node
- *   material at render time. We set `material.emissiveNode` (TSL) so the
- *   pattern adds to the lit color. The height-buffer-based ripple bend is
- *   omitted here (the buffer is a storage buffer, not a sampler texture);
- *   the procedural pattern still reads as proper floor caustics.
+ * WebGL: MeshStandardMaterial → onBeforeCompile + GLSL, sampling the sim
+ * height texture to bend caustics with ripples.
+ * WebGPU: WebGPURenderer auto-wraps standard materials; we set
+ * `material.emissiveNode` (TSL). Ripple bend is omitted (storage buffer can't
+ * be sampled as a texture); the procedural pattern still reads as caustics.
  */
-export function applyGroundCaustics({ mesh, sim, bounds, waterParams, renderer }) {
+export function applyGroundCaustics({ mesh, sim, bounds, renderer }) {
   if (!mesh?.material) return null;
 
-  const p = { ...POOL_WATER_DEFAULTS, ...waterParams };
+  const p = POOL_WATER_DEFAULTS;
   const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
   const previousState = materials.map((m) => ({
     material: m,
@@ -36,22 +31,15 @@ export function applyGroundCaustics({ mesh, sim, bounds, waterParams, renderer }
   return applyWebGL({ materials, previousState, sim, bounds, p });
 }
 
-// ----------------------------- WebGL path ----------------------------------
-
 function applyWebGL({ materials, previousState, sim, bounds, p }) {
   if (typeof sim?.getHeightTexture !== "function") {
-    // Sim doesn't expose a sampler — likely a renderer/sim mismatch. Bail
-    // loudly so it's visible in the console during development.
     console.warn("[applyGroundCaustics] WebGL sim missing getHeightTexture; skipping");
     return null;
   }
 
-  const heightTex = sim.getHeightTexture();
-  const res = sim.getResolution();
-
   const uniforms = {
-    uHeightMap: { value: heightTex },
-    uSimRes: { value: res },
+    uHeightMap: { value: sim.getHeightTexture() },
+    uSimRes: { value: new THREE.Vector2(sim.getResolutionW(), sim.getResolutionH()) },
     uPlanar: {
       value: new THREE.Vector4(bounds.minX, bounds.minZ, bounds.width, bounds.depth),
     },
@@ -89,7 +77,7 @@ function applyWebGL({ materials, previousState, sim, bounds, p }) {
         #include <common>
         varying vec3 vGroundWorldPos;
         uniform sampler2D uHeightMap;
-        uniform float uSimRes;
+        uniform vec2 uSimRes;
         uniform vec4 uPlanar;
         uniform float uTime;
         uniform float uCausticsScale;
@@ -100,18 +88,17 @@ function applyWebGL({ materials, previousState, sim, bounds, p }) {
         uniform float uMaxSlope;
 
         float groundDecodeH(float r) { return (r - 0.5) * 2.0; }
-
-        // Texture is configured with LinearFilter — hardware bilinear is free.
         float groundSampleH(vec2 uvIn) {
           return groundDecodeH(texture2D(uHeightMap, clamp(uvIn, 0.0, 1.0)).r);
         }
 
         vec3 groundRippleNormal(vec2 uvIn) {
-          float texel = 1.0 / max(uSimRes - 1.0, 1.0);
-          float hL = groundSampleH(uvIn + vec2(-texel, 0.0));
-          float hR = groundSampleH(uvIn + vec2( texel, 0.0));
-          float hU = groundSampleH(uvIn + vec2(0.0, -texel));
-          float hD = groundSampleH(uvIn + vec2(0.0,  texel));
+          float texelU = 1.0 / max(uSimRes.x - 1.0, 1.0);
+          float texelV = 1.0 / max(uSimRes.y - 1.0, 1.0);
+          float hL = groundSampleH(uvIn + vec2(-texelU, 0.0));
+          float hR = groundSampleH(uvIn + vec2( texelU, 0.0));
+          float hU = groundSampleH(uvIn + vec2(0.0, -texelV));
+          float hD = groundSampleH(uvIn + vec2(0.0,  texelV));
           float gradX = (hL - hR) * 0.5;
           float gradZ = (hU - hD) * 0.5;
           float nx = clamp(gradX * uNormalScale, -uMaxSlope, uMaxSlope);
@@ -119,9 +106,7 @@ function applyWebGL({ materials, previousState, sim, bounds, p }) {
           return normalize(vec3(nx, 1.0, nz));
         }
 
-        float groundThinBand(float x) {
-          return pow(1.0 - abs(sin(x)), 8.0);
-        }
+        float groundThinBand(float x) { return pow(1.0 - abs(sin(x)), 8.0); }
 
         float groundCausticsPattern(vec2 uv, float t) {
           vec2 p = uv * uCausticsScale;
@@ -146,9 +131,8 @@ function applyWebGL({ materials, previousState, sim, bounds, p }) {
             (vGroundWorldPos.x - uPlanar.x) / uPlanar.z,
             1.0 - (vGroundWorldPos.z - uPlanar.y) / uPlanar.w
           );
-          float inX = step(0.0, uvWater.x) * step(uvWater.x, 1.0);
-          float inY = step(0.0, uvWater.y) * step(uvWater.y, 1.0);
-          float inside = inX * inY;
+          float inside = step(0.0, uvWater.x) * step(uvWater.x, 1.0)
+                       * step(0.0, uvWater.y) * step(uvWater.y, 1.0);
           vec3 rippleN = groundRippleNormal(uvWater);
           vec2 causticsUv = uvWater + rippleN.xz * 0.15;
           float caustics = groundCausticsPattern(causticsUv, uTime);
@@ -164,24 +148,11 @@ function applyWebGL({ materials, previousState, sim, bounds, p }) {
   }
 
   return {
-    uniforms,
     updateTime(t) {
       uniforms.uTime.value = t;
     },
-    setPlanarBounds(nextBounds) {
-      uniforms.uPlanar.value.set(
-        nextBounds.minX,
-        nextBounds.minZ,
-        nextBounds.width,
-        nextBounds.depth,
-      );
-    },
-    updateCausticsParams(next) {
-      if (next.causticsIntensity != null)
-        uniforms.uCausticsIntensity.value = next.causticsIntensity;
-      if (next.causticsScale != null) uniforms.uCausticsScale.value = next.causticsScale;
-      if (next.causticsSpeed != null) uniforms.uCausticsSpeed.value = next.causticsSpeed;
-      if (next.causticsColor) uniforms.uCausticsColor.value.set(next.causticsColor);
+    setPlanarBounds(next) {
+      uniforms.uPlanar.value.set(next.minX, next.minZ, next.width, next.depth);
     },
     dispose() {
       for (const state of previousState) {
@@ -193,27 +164,14 @@ function applyWebGL({ materials, previousState, sim, bounds, p }) {
   };
 }
 
-// ----------------------------- WebGPU path ---------------------------------
-// Async because we need to lazy-load `three/tsl` to avoid pulling it into the
-// WebGL bundle.
-
 function applyWebGPU({ materials, previousState, bounds, p }) {
-  // State the WebGPU branch will populate after the async TSL import lands.
-  const state = {
-    timeUniform: null,
-    intensityUniform: null,
-    scaleUniform: null,
-    speedUniform: null,
-    colorUniform: null,
-    planarUniform: null,
-  };
+  const state = { timeUniform: null, planarUniform: null };
   let disposed = false;
 
   (async () => {
     const tsl = await import("three/tsl");
     if (disposed) return;
-    const { Fn, uniform, positionWorld, vec2, vec3, vec4, float, sin, cos, abs, pow, step, mix } =
-      tsl;
+    const { Fn, uniform, positionWorld, vec2, vec3, float, sin, cos, abs, pow, step } = tsl;
 
     const uTime = uniform(0);
     const uIntensity = uniform(p.causticsIntensity);
@@ -225,10 +183,6 @@ function applyWebGPU({ materials, previousState, bounds, p }) {
     );
 
     state.timeUniform = uTime;
-    state.intensityUniform = uIntensity;
-    state.scaleUniform = uScale;
-    state.speedUniform = uSpeed;
-    state.colorUniform = uColor;
     state.planarUniform = uPlanar;
 
     const thinBand = Fn(([x]) => pow(float(1).sub(abs(sin(x))), float(8)));
@@ -238,9 +192,10 @@ function applyWebGPU({ materials, previousState, bounds, p }) {
         positionWorld.x.sub(uPlanar.x).div(uPlanar.z),
         float(1).sub(positionWorld.z.sub(uPlanar.y).div(uPlanar.w)),
       );
-      const inX = step(float(0), uvWater.x).mul(step(uvWater.x, float(1)));
-      const inY = step(float(0), uvWater.y).mul(step(uvWater.y, float(1)));
-      const inside = inX.mul(inY);
+      const inside = step(float(0), uvWater.x)
+        .mul(step(uvWater.x, float(1)))
+        .mul(step(float(0), uvWater.y))
+        .mul(step(uvWater.y, float(1)));
 
       const pp = uvWater.mul(uScale);
       const tt = uTime.mul(uSpeed);
@@ -270,29 +225,13 @@ function applyWebGPU({ materials, previousState, bounds, p }) {
   });
 
   return {
-    uniforms: state,
     updateTime(t) {
       if (state.timeUniform) state.timeUniform.value = t;
     },
-    setPlanarBounds(nextBounds) {
+    setPlanarBounds(next) {
       if (state.planarUniform) {
-        state.planarUniform.value.set(
-          nextBounds.minX,
-          nextBounds.minZ,
-          nextBounds.width,
-          nextBounds.depth,
-        );
+        state.planarUniform.value.set(next.minX, next.minZ, next.width, next.depth);
       }
-    },
-    updateCausticsParams(next) {
-      if (state.intensityUniform && next.causticsIntensity != null)
-        state.intensityUniform.value = next.causticsIntensity;
-      if (state.scaleUniform && next.causticsScale != null)
-        state.scaleUniform.value = next.causticsScale;
-      if (state.speedUniform && next.causticsSpeed != null)
-        state.speedUniform.value = next.causticsSpeed;
-      if (state.colorUniform && next.causticsColor)
-        state.colorUniform.value.set(next.causticsColor);
     },
     dispose() {
       disposed = true;
