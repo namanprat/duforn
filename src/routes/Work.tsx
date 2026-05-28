@@ -47,7 +47,7 @@ export default function WorkPage() {
     <>
       <main id="main" data-page-container="true" data-page-namespace="work">
         <div className="u-section-spacer-large" />
-        <TextRevealLines animateOnScroll={false} waitForCamera layoutKey={title}>
+        <TextRevealLines key={title} animateOnScroll={false} waitForCamera>
           <h1
             className="u-container-full u-text-align-center u-text-style-h1 work-page__title u-color-light"
             data-work-strip-title
