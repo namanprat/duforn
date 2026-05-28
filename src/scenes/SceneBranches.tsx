@@ -45,7 +45,6 @@ export function MainCanvasBranch() {
         orbitRadius={5}
         parallaxScale={0.3}
         parallaxLerp={0.03}
-        handheldDriftScale={0}
       />
       <Main shadowMapSize={shadowMapSize} />
     </>

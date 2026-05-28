@@ -1,6 +1,7 @@
 import React from "react";
 import RotateHoverLabel from "../ui/HoverLabel";
 import TextRevealLines from "../text/Reveal";
+import CameraRevealGroup from "../text/CameraRevealGroup";
 import { shouldUseNavRotateHover } from "../../scripts/link-hover";
 
 const CONTACT_EMAIL = "naman@duforn.com";
@@ -13,7 +14,7 @@ export default function ContactPage() {
       <section className="contact u-color-light u-background-transparent u-min-height-screen u-flex-vertical-nowrap u-justify-content-center u-align-items-center">
         <div className="contact-content u-container-main u-height-auto u-width-full u-max-width-full">
           <div className="contact-grid__title u-overflow-hidden u-width-full">
-            <TextRevealLines animateOnScroll={false}>
+            <TextRevealLines animateOnScroll={false} waitForCamera>
               <h1
                 className="contact-page-title u-text-align-right u-text-style-h1 u-text-italic"
                 data-brand-handoff-title="contact"
@@ -22,7 +23,7 @@ export default function ContactPage() {
               </h1>
             </TextRevealLines>
           </div>
-          <TextRevealLines animateOnScroll={false} delay={0.06}>
+          <TextRevealLines animateOnScroll={false} waitForCamera delay={0.06}>
             <p className="contact-grid__intro contact-intro u-text-align-right u-width-full">
               AVAILABLE FOR FREELANCE PROJECTS,
               <br />
@@ -31,40 +32,42 @@ export default function ContactPage() {
           </TextRevealLines>
 
           <div className="contact-grid__actions u-flex-vertical-nowrap u-gap-3">
-            <div className="contact-grid__buttons u-flex-vertical-nowrap u-gap-2">
-              <a
-                className="button button-primary"
-                href="https://www.instagram.com/namanprat_"
-                target="_blank"
-                rel="noopener noreferrer"
-                data-rotate-hover={useRotateEmailHover ? "" : undefined}
-              >
-                {useRotateEmailHover ? <RotateHoverLabel text="INSTAGRAM" /> : "INSTAGRAM"}{" "}
-                <span aria-hidden="true">↗</span>
-              </a>
-              <a
-                className="button button-secondary"
-                href="https://cal.com/namanprat/discovery-call"
-                target="_blank"
-                rel="noopener noreferrer"
-                data-rotate-hover={useRotateEmailHover ? "" : undefined}
-              >
-                {useRotateEmailHover ? (
-                  <RotateHoverLabel text="DISCOVERY CALL" />
-                ) : (
-                  "DISCOVERY CALL"
-                )}{" "}
-                <span aria-hidden="true">↗</span>
-              </a>
-            </div>
-            <h2 className="contact-grid__email contact-email u-text-italic">
-              <a
-                href={`mailto:${CONTACT_EMAIL}`}
-                data-rotate-hover={useRotateEmailHover ? "" : undefined}
-              >
-                {useRotateEmailHover ? <RotateHoverLabel text={CONTACT_EMAIL} /> : CONTACT_EMAIL}
-              </a>
-            </h2>
+            <CameraRevealGroup delay={0.12}>
+              <div className="contact-grid__buttons u-flex-vertical-nowrap u-gap-2">
+                <a
+                  className="button button-primary"
+                  href="https://www.instagram.com/namanprat_"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-rotate-hover={useRotateEmailHover ? "" : undefined}
+                >
+                  {useRotateEmailHover ? <RotateHoverLabel text="INSTAGRAM" /> : "INSTAGRAM"}{" "}
+                  <span aria-hidden="true">↗</span>
+                </a>
+                <a
+                  className="button button-secondary"
+                  href="https://cal.com/namanprat/discovery-call"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-rotate-hover={useRotateEmailHover ? "" : undefined}
+                >
+                  {useRotateEmailHover ? (
+                    <RotateHoverLabel text="DISCOVERY CALL" />
+                  ) : (
+                    "DISCOVERY CALL"
+                  )}{" "}
+                  <span aria-hidden="true">↗</span>
+                </a>
+              </div>
+              <h2 className="contact-grid__email contact-email u-text-italic">
+                <a
+                  href={`mailto:${CONTACT_EMAIL}`}
+                  data-rotate-hover={useRotateEmailHover ? "" : undefined}
+                >
+                  {useRotateEmailHover ? <RotateHoverLabel text={CONTACT_EMAIL} /> : CONTACT_EMAIL}
+                </a>
+              </h2>
+            </CameraRevealGroup>
           </div>
         </div>
       </section>

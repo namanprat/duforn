@@ -43,7 +43,7 @@ export default function RoomCanvas({ shadowMapSize = 1536 }) {
       />
       <Exposure exposure={1} />
       <RoomCam />
-      <CameraRig parallaxScale={0.3} parallaxLerp={0.03} handheldDriftScale={0} />
+      <CameraRig parallaxScale={0.3} parallaxLerp={0.03} />
       <Main shadowMapSize={shadowMapSizeClamped} />
       <WorkClothStripScene />
     </>

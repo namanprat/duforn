@@ -36,10 +36,9 @@ async function bootstrap() {
   // preloader gate so the intro ring + Enter button reflect real readiness.
   registerFontsTask();
   registerEssentialAssetTasks();
-  trackPromise("textures:work-strip", startWorkTexturePreload(), {
-    label: "Work textures",
-    weight: 2,
-  }).catch(() => {});
+  // Work textures are non-essential — let them load in the background so the
+  // preloader ring reflects only first-paint readiness.
+  startWorkTexturePreload().catch(() => {});
   installBackgroundWarmup();
 
   createRoot(document.getElementById("root")!).render(

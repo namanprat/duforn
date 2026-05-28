@@ -5,18 +5,12 @@
  *
  * Regenerate JSX from GLBs via gltfjsx (see README in this folder).
  */
-import { useGLTF, useTexture } from "@react-three/drei";
-import { useLoader } from "@react-three/fiber";
-import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
-import { extendGltfLoader, gltfLoaderOptions } from "../loader";
 import { trackPromise } from "../../lib/preload/gate";
 import { GLTF_URL_MONITOR, GLTF_URL_PROJECT_BG, GLTF_URL_SCENE, GLTF_URL_WEBSITE } from "../urls";
 
-// Essential: only the lightweight scene model + HDR + default texture gate first paint.
-useGLTF.preload(GLTF_URL_SCENE, gltfLoaderOptions, true, extendGltfLoader);
-useLoader.preload(HDRLoader, "/home.hdr");
-useTexture.preload("/default.jpg");
-
+// Single source of preload truth: we fetch raw bytes here to warm the HTTP
+// cache + drive the preloader gate. When components later call useGLTF /
+// useTexture / useLoader, drei's loaders hit the warm cache.
 const ESSENTIAL_ASSETS: { id: string; url: string; label: string; weight: number }[] = [
   { id: "gltf:scene", url: GLTF_URL_SCENE, label: "Scene model", weight: 2 },
   { id: "hdr:home", url: "/home.hdr", label: "Home HDR", weight: 1 },
@@ -59,10 +53,6 @@ export function registerEssentialAssetTasks(): void {
 export function registerRoomAssetTasks(): void {
   if (roomPreloadRequested) return;
   roomPreloadRequested = true;
-
-  useGLTF.preload(GLTF_URL_WEBSITE, gltfLoaderOptions, true, extendGltfLoader);
-  useGLTF.preload(GLTF_URL_MONITOR, gltfLoaderOptions, true, extendGltfLoader);
-  useGLTF.preload(GLTF_URL_PROJECT_BG, gltfLoaderOptions, true, extendGltfLoader);
 
   for (const asset of ROOM_ASSETS) {
     trackPromise(

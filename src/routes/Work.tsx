@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { workItems } from "../../data/work-items";
 import { navigateTo } from "../lib/nav";
+import TextRevealLines from "../text/Reveal";
 import WorkSceneControls from "../debug/WorkScene";
 
 // Dev-only debug GUI for the live work strip controls.
@@ -46,18 +47,20 @@ export default function WorkPage() {
     <>
       <main id="main" data-page-container="true" data-page-namespace="work">
         <div className="u-section-spacer-large" />
-        <h1
-          className="u-container-full u-text-align-center u-text-style-h1 work-page__title u-color-light"
-          data-work-strip-title
-          role="link"
-          tabIndex={0}
-          data-href=""
-          onClick={handleTitleActivate}
-          onKeyDown={handleTitleKeyDown}
-        >
-          <span className="work-page__title-line">{firstLine}</span>
-          {secondLine ? <span className="work-page__title-line">{secondLine}</span> : null}
-        </h1>
+        <TextRevealLines animateOnScroll={false} waitForCamera layoutKey={title}>
+          <h1
+            className="u-container-full u-text-align-center u-text-style-h1 work-page__title u-color-light"
+            data-work-strip-title
+            role="link"
+            tabIndex={0}
+            data-href=""
+            onClick={handleTitleActivate}
+            onKeyDown={handleTitleKeyDown}
+          >
+            <span className="work-page__title-line">{firstLine}</span>
+            {secondLine ? <span className="work-page__title-line">{secondLine}</span> : null}
+          </h1>
+        </TextRevealLines>
       </main>
       {SHOW_WORK_SCENE_CONTROLS ? <WorkSceneControls /> : null}
     </>

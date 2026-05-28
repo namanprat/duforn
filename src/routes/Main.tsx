@@ -1,6 +1,7 @@
 import React, { useLayoutEffect, useRef, useState } from "react";
 import { navigateTo } from "../lib/nav";
 import TextRevealLines from "../text/Reveal";
+import CameraRevealGroup from "../text/CameraRevealGroup";
 import RotateHoverLabel from "../ui/HoverLabel";
 import { shouldUseNavRotateHover } from "../../scripts/link-hover";
 
@@ -44,7 +45,7 @@ export default function MainPage() {
           <div className="hero-stage__center">
             <div className="hero-stage__brand-stack">
               <div ref={brandClipRef} className="home-hero-brand-clip">
-                <TextRevealLines animateOnScroll={false} waitForPreloader>
+                <TextRevealLines animateOnScroll={false} waitForPreloader waitForCamera>
                   <h1
                     className="home-hero-brand u-text-style-display"
                     data-brand-handoff-title="main"
@@ -62,6 +63,7 @@ export default function MainPage() {
                     <TextRevealLines
                       animateOnScroll={false}
                       waitForPreloader
+                      waitForCamera
                       delay={0.08}
                       layoutKey={heroCopyWidthPx}
                     >
@@ -77,22 +79,24 @@ export default function MainPage() {
                     aria-hidden="true"
                   />
                 )}
-                <a
-                  className="button button-primary hero-stage__cta"
-                  href="/work"
-                  data-rotate-hover={useRotateButtonHover ? "" : undefined}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    navigateTo("/work");
-                  }}
-                >
-                  {useRotateButtonHover ? (
-                    <RotateHoverLabel text={HERO_CTA_LABEL} />
-                  ) : (
-                    <span className="hero-stage__cta-label">{HERO_CTA_LABEL}</span>
-                  )}
-                  <span aria-hidden="true">↗</span>
-                </a>
+                <CameraRevealGroup waitForCamera waitForPreloader delay={0.16}>
+                  <a
+                    className="button button-primary hero-stage__cta"
+                    href="/work"
+                    data-rotate-hover={useRotateButtonHover ? "" : undefined}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigateTo("/work");
+                    }}
+                  >
+                    {useRotateButtonHover ? (
+                      <RotateHoverLabel text={HERO_CTA_LABEL} />
+                    ) : (
+                      <span className="hero-stage__cta-label">{HERO_CTA_LABEL}</span>
+                    )}
+                    <span aria-hidden="true">↗</span>
+                  </a>
+                </CameraRevealGroup>
               </div>
             </div>
           </div>

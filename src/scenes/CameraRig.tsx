@@ -17,7 +17,6 @@ export default function CameraRig({
   parallaxScale = 1,
   parallaxAngleScale = 1,
   parallaxLerp,
-  handheldDriftScale = 1,
   locked = false,
 }) {
   const gyroEnabled = useWebglStore((state) => state.gyroEnabled);
@@ -100,12 +99,6 @@ export default function CameraRig({
     let camX = cx + Math.cos(totalAngle) * orbitRadius;
     let camZ = cz + Math.sin(totalAngle) * orbitRadius;
     let camY = cy + current.current.y + base.cameraHeight;
-
-    const dt = state.clock.elapsedTime;
-    const hd = handheldDriftScale;
-    camX += (Math.sin(dt * 0.7) * 0.015 + Math.sin(dt * 1.3) * 0.01) * hd;
-    camY += (Math.sin(dt * 0.5) * 0.015 + Math.cos(dt * 1.1) * 0.01) * hd;
-    camZ += Math.cos(dt * 0.6) * 0.01 * hd;
 
     if (lastFovRef.current !== base.fov) {
       camera.fov = base.fov;

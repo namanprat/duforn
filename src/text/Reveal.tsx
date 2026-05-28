@@ -6,18 +6,16 @@ import { SplitText } from "gsap/SplitText";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { registerMenuTextReveal, registerPageTextReveal } from "../lib/text";
 import { MOTION_TOKENS } from "../lib/anim/tokens";
+import {
+  prefersReducedMotion,
+  resolveMotionTokens,
+  waitForCamera as waitForCamera_fn,
+  waitForPreloader as waitForPreloader_fn,
+} from "./useRevealGate";
 
 gsap.registerPlugin(SplitText, ScrollTrigger);
 
 const LINE_CLASS = "text-reveal-line";
-
-function prefersReducedMotion() {
-  return (
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
-}
 
 function mergeRefs(...refs) {
   return (node) => {
@@ -37,6 +35,8 @@ export default function TextRevealLines({
   delay = 0,
   scope = "page",
   waitForPreloader = false,
+  /** Wait for the room camera to finish its arrival tween before revealing. */
+  waitForCamera = false,
   /** When layout changes (e.g. measured width), pass a new value so SplitText reverts and re-splits. */
   layoutKey = 0,
 }) {
@@ -49,16 +49,15 @@ export default function TextRevealLines({
       if (!root) return;
 
       const reduce = prefersReducedMotion();
-      const revealDuration = reduce ? 0.05 : MOTION_TOKENS.textReveal.revealDuration;
-      const revealStagger = reduce ? 0 : MOTION_TOKENS.textReveal.revealStagger;
-      const hideDuration = reduce ? 0.05 : MOTION_TOKENS.textReveal.hideDuration;
-      const hideStagger = reduce ? 0 : MOTION_TOKENS.textReveal.hideStagger;
+      const { revealDuration, revealStagger, hideDuration, hideStagger } =
+        resolveMotionTokens(reduce);
 
       const splitRefs = [];
       let lineEls = [];
       let scrollTriggerInstance = null;
       let intersectionObserver = null;
-      let preloaderListener = null;
+      let disposePreloader = null;
+      let disposeCamera = null;
 
       let elements = [];
       if (root.hasAttribute("data-copy-wrapper")) {
@@ -181,6 +180,8 @@ export default function TextRevealLines({
         }
       };
 
+      // Gate chain: when both waitForCamera and waitForPreloader are set, the
+      // camera gate clears first, then we hand off to the preloader gate.
       const armReveal = () => {
         if (scope === "menu") {
           return;
@@ -189,23 +190,19 @@ export default function TextRevealLines({
           runRevealScroll();
           return;
         }
+        const fire = () => runRevealImmediate(0);
+        if (waitForCamera && waitForPreloader) {
+          disposeCamera = waitForCamera_fn(root, () => {
+            disposePreloader = waitForPreloader_fn(fire);
+          });
+          return;
+        }
+        if (waitForCamera) {
+          disposeCamera = waitForCamera_fn(root, fire);
+          return;
+        }
         if (waitForPreloader) {
-          // `body.preloader-active` is toggled in SiteLayout's useEffect, which runs *after*
-          // this useGSAP layout pass — so we must not rely on that class. If the intro DOM is
-          // still mounted, wait for Enter (click/ink) via `duforn:preloader-dismissed`; otherwise
-          // reveal immediately (e.g. client nav back to home after preloader is gone).
-          const preloaderEl = document.querySelector(".intro-preloader");
-          if (!preloaderEl) {
-            runRevealImmediate(0);
-            return;
-          }
-          const onDismiss = () => {
-            window.removeEventListener("duforn:preloader-dismissed", onDismiss);
-            preloaderListener = null;
-            runRevealImmediate(0);
-          };
-          preloaderListener = onDismiss;
-          window.addEventListener("duforn:preloader-dismissed", onDismiss);
+          disposePreloader = waitForPreloader_fn(fire);
           return;
         }
         runRevealImmediate(0);
@@ -218,9 +215,13 @@ export default function TextRevealLines({
       const hide = () =>
         new Promise<void>((resolve) => {
           killScrollTrigger();
-          if (preloaderListener) {
-            window.removeEventListener("duforn:preloader-dismissed", preloaderListener);
-            preloaderListener = null;
+          if (disposePreloader) {
+            disposePreloader();
+            disposePreloader = null;
+          }
+          if (disposeCamera) {
+            disposeCamera();
+            disposeCamera = null;
           }
           gsap.killTweensOf(lineEls);
           if (!lineEls.length) {
@@ -271,9 +272,8 @@ export default function TextRevealLines({
       return () => {
         unregister();
         killScrollTrigger();
-        if (preloaderListener) {
-          window.removeEventListener("duforn:preloader-dismissed", preloaderListener);
-        }
+        if (disposePreloader) disposePreloader();
+        if (disposeCamera) disposeCamera();
         splitRefs.forEach((split) => {
           try {
             split?.revert();
@@ -286,7 +286,7 @@ export default function TextRevealLines({
     },
     {
       scope: containerRef,
-      dependencies: [animateOnScroll, delay, scope, waitForPreloader, layoutKey],
+      dependencies: [animateOnScroll, delay, scope, waitForPreloader, waitForCamera, layoutKey],
     },
   );
 
