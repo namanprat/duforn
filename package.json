@@ -15,7 +15,8 @@
     "lint": "vp lint src scripts",
     "check": "vp check src scripts",
     "prepare": "vp config",
-    "compress-assets": "tsx scripts/compress-assets.ts"
+    "compress-assets": "tsx scripts/compress-assets.ts",
+    "model:update": "node scripts/model-update.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
