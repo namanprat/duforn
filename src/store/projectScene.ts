@@ -1,6 +1,6 @@
 import { createSceneControlsStore } from "./scene";
 
-export const DEFAULT_PROJECT_DETAIL_SCENE_CONTROLS = {
+const DEFAULT_PROJECT_DETAIL_SCENE_CONTROLS = {
   renderer: {
     exposure: 1,
   },

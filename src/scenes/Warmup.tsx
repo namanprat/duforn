@@ -1,6 +1,7 @@
 // @ts-nocheck
 import React, { useCallback, useEffect, useState } from "react";
 import { useThree } from "@react-three/fiber";
+import { PRELOADER_DISMISSED_EVENT } from "../lib/preload/events";
 
 /**
  * After preloader dismissal, best-effort GPU compile for the shared room scene.
@@ -74,8 +75,8 @@ export default function Warmup({ activePage }: { activePage: string | undefined 
     if (shouldSkipWarmup()) return undefined;
 
     const onDismissed = () => setArmed(true);
-    window.addEventListener("duforn:preloader-dismissed", onDismissed, { once: true });
-    return () => window.removeEventListener("duforn:preloader-dismissed", onDismissed);
+    window.addEventListener(PRELOADER_DISMISSED_EVENT, onDismissed, { once: true });
+    return () => window.removeEventListener(PRELOADER_DISMISSED_EVENT, onDismissed);
   }, []);
 
   useEffect(() => {

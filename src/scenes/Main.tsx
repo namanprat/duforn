@@ -16,7 +16,7 @@ const MATERIAL_TUNE = {
   clearcoatRoughness: 0.26,
 };
 
-export default function Main({ shadowMapSize = 1536 }) {
+export default function Main() {
   const modelRef = useRef(null);
   const didInitializeRef = useRef(false);
   const [waterMesh, setWaterMesh] = useState(null);
@@ -61,14 +61,7 @@ export default function Main({ shadowMapSize = 1536 }) {
 
   return (
     <group scale={MODEL_SCALE}>
-      <directionalLight
-        position={[6, 8, 4]}
-        intensity={2.35}
-        castShadow
-        shadow-mapSize={[shadowMapSize, shadowMapSize]}
-        shadow-normalBias={0.02}
-        shadow-bias={-0.0001}
-      />
+      <directionalLight position={[6, 8, 4]} intensity={2.35} />
       <ambientLight intensity={0.22} />
       <directionalLight position={[-5, 4, 3]} intensity={0.6} color="#d9e4f5" />
       <directionalLight position={[0, 3, -10]} intensity={0.9} color="#ffe8d0" />

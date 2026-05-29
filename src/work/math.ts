@@ -1,13 +1,13 @@
 // @ts-nocheck
-export function positiveModulo(value, modulus) {
+function positiveModulo(value, modulus) {
   return ((value % modulus) + modulus) % modulus;
 }
 
-export function getWrappedItemIndex(slotIndex, itemCount) {
+function getWrappedItemIndex(slotIndex, itemCount) {
   return positiveModulo(slotIndex, itemCount);
 }
 
-export function getStripSlotMetrics(visibleItems, gapSize) {
+function getStripSlotMetrics(visibleItems, gapSize) {
   const slotWidth = 1;
   const slotPitch = slotWidth + gapSize;
   const trackWidth = visibleItems * slotPitch;

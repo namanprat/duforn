@@ -8,9 +8,7 @@ import { logWebGPUOnce } from "../../lib/gpu/debug";
 import { getRendererType } from "../../lib/render";
 import { createPoolWaterSim } from "./compute/createPoolWaterSim";
 import { createPoolWaterMaterial } from "./materials/PoolWaterMaterial";
-import { applyGroundCaustics } from "./materials/applyGroundCaustics";
 import { boxToPlanarBounds } from "./waterPlanarMapping";
-import { findGroundMesh } from "./findWaterMesh";
 import { POOL_SIM_DEFAULTS, POOL_WATER_RENDER_ORDER } from "./config/poolWaterDefaults";
 import { getPoolSimResolutionForTier, uvToSimGrid } from "./waterSimUtils";
 
@@ -61,13 +59,10 @@ export default function WaterRipples({ mesh }) {
 
   const simRef = useRef(null);
   const materialApiRef = useRef(null);
-  const groundCausticsRef = useRef(null);
   const boundsRef = useRef(null);
   const previousMaterialRef = useRef(null);
   const lastSpawnTimeRef = useRef(0);
   const lastSpawnCellRef = useRef(new THREE.Vector2(-1, -1));
-  const lastBreezeImpulseRef = useRef(0);
-  const breezePhaseRef = useRef(Math.random());
   const raycasterRef = useRef(new THREE.Raycaster());
   const ndcRef = useRef(new THREE.Vector2());
   const impulseQueueRef = useRef([]);
@@ -78,28 +73,6 @@ export default function WaterRipples({ mesh }) {
 
   const enqueueImpulse = (gx, gy, strengthScale = 1) => {
     impulseQueueRef.current.push({ gx, gy, strengthScale });
-  };
-
-  // Coherent "breeze": three impulses staggered along +U with phase-staggered
-  // Y, propagated by the wave equation into a traveling ruffle.
-  const enqueueBreezeImpulse = (now) => {
-    const inset = POOL_SIM_DEFAULTS.breezeYInset;
-    const phase = breezePhaseRef.current;
-    const wrap = (x) => ((x % 1) + 1) % 1;
-    const uvs = [
-      [wrap(phase), THREE.MathUtils.lerp(inset, 1 - inset, (Math.sin(phase * 11.7) + 1) / 2)],
-      [wrap(phase + 0.33), THREE.MathUtils.lerp(inset, 1 - inset, (Math.cos(phase * 7.3) + 1) / 2)],
-      [
-        wrap(phase + 0.66),
-        THREE.MathUtils.lerp(inset, 1 - inset, (Math.sin(phase * 5.1 + 1.3) + 1) / 2),
-      ],
-    ];
-    for (const [u, v] of uvs) {
-      const { gx, gy } = uvToSimGrid({ x: u, y: v }, nwRef.current, nhRef.current);
-      enqueueImpulse(gx, gy, POOL_SIM_DEFAULTS.breezeStrength);
-    }
-    breezePhaseRef.current = wrap(phase + POOL_SIM_DEFAULTS.breezeStep);
-    lastBreezeImpulseRef.current = now;
   };
 
   const queueImpulseFromHit = (hit) => {
@@ -119,7 +92,6 @@ export default function WaterRipples({ mesh }) {
     const bounds = meshPlanarBounds(mesh);
     boundsRef.current = bounds;
     materialApiRef.current?.setPlanarBounds?.(bounds);
-    groundCausticsRef.current?.setPlanarBounds?.(bounds);
     return bounds;
   };
 
@@ -130,7 +102,6 @@ export default function WaterRipples({ mesh }) {
     previousMaterialRef.current = mesh.material;
     mesh.frustumCulled = false;
     mesh.renderOrder = POOL_WATER_RENDER_ORDER;
-    lastBreezeImpulseRef.current = performance.now();
 
     const bounds = refreshBounds();
     const { nw, nh } = simDimsFromBounds(bounds, gridSize);
@@ -158,16 +129,6 @@ export default function WaterRipples({ mesh }) {
         mesh.material = materialApi.material;
         impulseQueueRef.current = buildStartupImpulseQueue(nw, nh);
 
-        const groundMesh = findGroundMesh(scene, mesh);
-        if (groundMesh) {
-          groundCausticsRef.current = applyGroundCaustics({
-            mesh: groundMesh,
-            sim,
-            bounds,
-            renderer: gl,
-          });
-        }
-
         logWebGPUOnce("pool-water-ready", "WaterRipples", "Pool shallow water ready", {
           meshName: mesh.name,
           bounds,
@@ -181,8 +142,6 @@ export default function WaterRipples({ mesh }) {
 
     return () => {
       cancelled = true;
-      groundCausticsRef.current?.dispose?.();
-      groundCausticsRef.current = null;
       materialApiRef.current?.dispose();
       materialApiRef.current = null;
       simRef.current?.dispose?.();
@@ -246,17 +205,9 @@ export default function WaterRipples({ mesh }) {
     let simBusy = false;
     let frameIndex = 0;
 
-    const maybeStepSim = (now) => {
+    const maybeStepSim = () => {
       const sim = simRef.current;
       if (!sim?.ready || simBusy) return;
-
-      const reducedMotion = prefersReducedMotion();
-      if (
-        !reducedMotion &&
-        now - lastBreezeImpulseRef.current > POOL_SIM_DEFAULTS.breezeIntervalMs
-      ) {
-        enqueueBreezeImpulse(now);
-      }
 
       const queue = impulseQueueRef.current;
       if (queue.length > 0) {
@@ -280,10 +231,9 @@ export default function WaterRipples({ mesh }) {
       const t = typeof timestampMs === "number" ? timestampMs : performance.now();
       advance(t);
       materialApiRef.current?.updateTime?.(t * 0.001);
-      groundCausticsRef.current?.updateTime?.(t * 0.001);
       gl.render(scene, camera);
       // Half-rate sim: ripples stay alive while freeing GPU for camera + render.
-      if ((frameIndex++ & 1) === 0) maybeStepSim(t);
+      if ((frameIndex++ & 1) === 0) maybeStepSim();
     };
 
     gl.setAnimationLoop(tick);

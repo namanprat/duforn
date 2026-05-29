@@ -2,7 +2,6 @@
 import React, { useEffect } from "react";
 import { PerspectiveCamera } from "@react-three/drei";
 import Env from "./Env";
-import Exposure from "./Exposure";
 import RoomCam from "./RoomCam";
 import CameraRig from "./CameraRig";
 import Main from "./Main";
@@ -20,9 +19,7 @@ const INITIAL_CAMERA_FOV = 65;
 /**
  * Persistent multi-room scene: one model, one camera, GSAP-driven room poses.
  */
-export default function RoomCanvas({ shadowMapSize = 1536 }) {
-  const shadowMapSizeClamped = Math.min(shadowMapSize, 1536);
-
+export default function RoomCanvas() {
   useEffect(() => {
     registerRoomAssetTasks();
   }, []);
@@ -41,10 +38,9 @@ export default function RoomCanvas({ shadowMapSize = 1536 }) {
         fogDensity={0}
         showShadowCatcher={false}
       />
-      <Exposure exposure={1} />
       <RoomCam />
       <CameraRig parallaxScale={0.3} parallaxLerp={0.03} />
-      <Main shadowMapSize={shadowMapSizeClamped} />
+      <Main />
       <WorkClothStripScene />
     </>
   );

@@ -12,15 +12,15 @@ Docs are local at `node_modules/vite-plus/docs` or online at [https://viteplus.d
 
 ## WebGPU-first rendering (site architecture)
 
-The **default** path for 3D is **`WebGPURenderer`** via `createWebGPURenderer.ts` / `UnifiedCanvas.tsx`, with **classic `WebGLRenderer` only as a fallback** when WebGPU is unavailable. AI and human contributors should treat **WebGPU + TSL as the primary target** and only add WebGL-only code when the active `gl` is actually `WebGLRenderer`.
+The **default** path for 3D is **`WebGPURenderer`** via `src/lib/render/factory.ts` / `src/scenes/Canvas.tsx`, with **classic `WebGLRenderer` only as a fallback** when WebGPU is unavailable. AI and human contributors should treat **WebGPU + TSL as the primary target** and only add WebGL-only code when the active `gl` is actually `WebGLRenderer`.
 
 ### Rules
 
-1. **Prefer `three/webgpu` + `three/tsl`** for new GPU features: node materials (`MeshBasicNodeMaterial`, etc.), `uniform()`, `Fn()`, `pass()`, and dynamic imports of `three/tsl` / `three/webgpu` in async builders—same style as `InkTransitionOverlay.tsx`, `WorkClothStrip.tsx`, `Particles.tsx`, and `ProjectBg.tsx`.
-2. **Full-screen or post-style effects on `WebGPURenderer`**: prefer an **in-scene clip-space quad** with TSL node materials (`MeshBasicNodeMaterial` + `vertexNode`/`fragmentNode`) — see **`InkTransitionOverlay.tsx`**. For multi-pass post stacks, use **`RenderPipeline`** from `three/webgpu` and **`pass(scene, camera)`** from `three/tsl`, then chain TSL display nodes (including addons under `three/addons/tsl/display/`). **Do not** use `EffectComposer` / `ShaderPass` from `three/examples/jsm/postprocessing/` on `WebGPURenderer`; those are for classic **`WebGLRenderer`** only.
-3. **WebGL fallback**: when branching on `isWebGLRenderer(gl)` from `createWebGPURenderer.ts`, use `pickGpuBranch` / `pickGpuBranchAsync` from `src/lib/rendering/gpuDualPath.ts` and provide matching GLSL (`ShaderMaterial`) paths — e.g. **`ProjectBg.tsx`**, **`InkTransitionOverlay.tsx`**, **`NotFoundScene.tsx`**, **`ProjectDetailBackground.tsx`**, **`ProjectDetailImagePlanes.tsx`**, and **`PoolWaterMaterial.ts`** WebGL branch.
-4. **Debugging**: use `logWebGPU` / `logWebGPUOnce` from `src/lib/webgpu/debugWebGPU.ts` for WebGPU build paths. The app applies `patchThreeTSL` at startup (`src/lib/webgpu/patchThreeTSL.ts`); do not assume raw three.js behavior without checking project patches.
-5. **Integration**: effects belong in the same R3F canvas as the scene (`UnifiedCanvas`); use `isWebGPURenderer` / `isWebGLRenderer` / `getRendererType` to pick the correct implementation.
+1. **Prefer `three/webgpu` + `three/tsl`** for new GPU features: node materials (`MeshBasicNodeMaterial`, etc.), `uniform()`, `Fn()`, `pass()`, and dynamic imports of `three/tsl` / `three/webgpu` in async builders—same style as `src/scenes/InkOverlay.tsx`, `src/work/ClothStrip.tsx`, and `src/projectDetail/Bg.tsx`.
+2. **Full-screen or post-style effects on `WebGPURenderer`**: prefer an **in-scene clip-space quad** with TSL node materials (`MeshBasicNodeMaterial` + `vertexNode`/`fragmentNode`) — see **`src/scenes/InkOverlay.tsx`**. For multi-pass post stacks, use **`RenderPipeline`** from `three/webgpu` and **`pass(scene, camera)`** from `three/tsl`, then chain TSL display nodes (including addons under `three/addons/tsl/display/`). **Do not** use `EffectComposer` / `ShaderPass` from `three/examples/jsm/postprocessing/` on `WebGPURenderer`; those are for classic **`WebGLRenderer`** only.
+3. **WebGL fallback**: when branching on `isWebGLRenderer(gl)` from `src/lib/render/type.ts`, use `pickGpuBranch` / `pickGpuBranchAsync` from `src/lib/render` (the barrel; defined in `src/lib/render/dual.ts`) and provide matching GLSL (`ShaderMaterial`) paths — e.g. **`src/projectDetail/Bg.tsx`**, **`src/scenes/InkOverlay.tsx`**, **`src/scenes/NotFound.tsx`**, **`src/projectDetail/Background.tsx`**, **`src/projectDetail/ImagePlanes.tsx`**, and the **`src/scenes/water/materials/PoolWaterMaterial.ts`** WebGL branch.
+4. **Debugging**: use `logWebGPU` / `logWebGPUOnce` from `src/lib/gpu/debug.ts` for WebGPU build paths. The app applies `patchThreeTSL` at startup (`src/lib/gpu/patch.ts`); do not assume raw three.js behavior without checking project patches.
+5. **Integration**: effects belong in the same R3F canvas as the scene (`src/scenes/Canvas.tsx`); use `isWebGPURenderer` / `isWebGLRenderer` / `getRendererType` to pick the correct implementation.
 
 If a feature is implemented WebGL-only while the unified canvas is on WebGPU, that is a **bug** unless explicitly scoped to the fallback path.
 
@@ -28,7 +28,7 @@ If a feature is implemented WebGL-only while the unified canvas is on WebGPU, th
 
 For node materials, compute shaders, storage buffers, and common TSL pitfalls, read **[docs/TSL_WEBGPU.md](docs/TSL_WEBGPU.md)**.
 
-**Main scene pool water** (`src/components/webgl/water/`): cursor ripples use a **wave-equation** compute sim (`PoolShallowWaterSim` / `PoolShallowWaterSimCPU`, 4rknova-style); surface look uses ocean-style fresnel/env on `PoolWaterMaterial` (WebGPU TSL + WebGL `ShaderMaterial` dual path). Do not use `EffectComposer` / gentlerain pressure sim for this feature.
+**Main scene pool water** (`src/scenes/water/`): cursor ripples use a **wave-equation** compute sim (`PoolShallowWaterSim` / `PoolShallowWaterSimCPU`, 4rknova-style); surface look uses ocean-style fresnel/env on `PoolWaterMaterial` (WebGPU TSL + WebGL `ShaderMaterial` dual path). Do not use `EffectComposer` / gentlerain pressure sim for this feature.
 
 # TSL & WebGPU Development Guide
 

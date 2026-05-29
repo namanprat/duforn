@@ -153,7 +153,7 @@ export default function MoneyMeStripCanvas() {
         dpr={[1, 2]}
         camera={{ zoom: 1, position: [0, 0, 10], near: 0.1, far: 1000 }}
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
-        gl={{ antialias: true, alpha: true }}
+        gl={{ alpha: true }}
       >
         <color attach="background" args={[BG_HEX]} />
         <Strips wrapperRef={wrapperRef} />

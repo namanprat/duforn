@@ -23,6 +23,7 @@ import { cleanupBrandHandoff, runBrandHandoff } from "./lib/anim/brandHandoff";
 import { canvasInk } from "./lib/ink/transition";
 import { CANVAS_INK_ROUTE_TIMING, shouldUseRouteInkBleed } from "./lib/ink/route";
 import { hideAllRegisteredPageText } from "./lib/text";
+import { PRELOADER_DISMISSED_EVENT } from "./lib/preload/events";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 const TITLES = {
@@ -167,9 +168,9 @@ export function AppShell() {
       window.__refreshLinkHover?.();
     };
 
-    window.addEventListener("duforn:preloader-dismissed", onPreloaderDismissed);
+    window.addEventListener(PRELOADER_DISMISSED_EVENT, onPreloaderDismissed);
     return () => {
-      window.removeEventListener("duforn:preloader-dismissed", onPreloaderDismissed);
+      window.removeEventListener(PRELOADER_DISMISSED_EVENT, onPreloaderDismissed);
     };
   }, []);
 

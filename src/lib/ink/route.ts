@@ -1,4 +1,4 @@
-export const INK_TIMING_SCALE = 1 as const;
+const INK_TIMING_SCALE = 1 as const;
 
 const BASE_ROUTE = {
   expandMs: 1800,

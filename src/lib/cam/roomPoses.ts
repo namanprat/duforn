@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { DEFAULT_CAMERA_BASE_POSE } from "./pose";
 
-export const ROOM_NAMESPACES = ["main", "contact", "work"] as const;
+const ROOM_NAMESPACES = ["main", "contact", "work"] as const;
 
 export type RoomNamespace = (typeof ROOM_NAMESPACES)[number];
 

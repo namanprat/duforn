@@ -6,11 +6,10 @@ import {
 } from "../src/lib/preload/gate";
 import { registerEssentialAssetTasks } from "../src/models/gen/preloads";
 
+// Essentials registered by registerEssentialAssetTasks(). Room-only assets
+// (gltf:website, gltf:monitor, gltf:project-bg) are registered separately by
+// registerRoomAssetTasks() and are intentionally not expected here.
 const EXPECTED_IDS = [
-  "gltf:scene",
-  "gltf:project-bg",
-  "gltf:monitor",
-  "gltf:main",
   "hdr:home",
   "texture:default",
 ];

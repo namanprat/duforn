@@ -14,8 +14,7 @@
  */
 import { MOTION_TOKENS } from "../lib/anim/tokens";
 import { CAMERA_ARRIVED_EVENT, getArrivedRoom } from "../lib/cam/arrival";
-
-export const PRELOADER_DISMISSED_EVENT = "duforn:preloader-dismissed";
+import { PRELOADER_DISMISSED_EVENT } from "../lib/preload/events";
 
 export function prefersReducedMotion(): boolean {
   return (

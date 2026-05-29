@@ -10,13 +10,14 @@ import { navigateTo } from "../lib/nav";
 import { pickGpuBranch } from "../lib/render";
 import { logWebGPUOnce } from "../lib/gpu/debug";
 import { useWorkSceneControlsStore } from "../store/workScene";
-import { DEFAULT_GAP_SIZE, DEFAULT_VISIBLE_ITEMS } from "./config";
+import {
+  COLS,
+  DEFAULT_GAP_SIZE,
+  DEFAULT_VISIBLE_ITEMS,
+  NUM_UNIQUE_FALLBACK as NUM_UNIQUE,
+  ROWS,
+} from "./config";
 import { getActiveStripItemIndex, resolveVisibleSlotAtUv } from "./math";
-
-const NUM_UNIQUE = 6;
-
-const COLS = 96;
-const ROWS = 48;
 
 // (hover removed)
 

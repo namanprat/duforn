@@ -29,6 +29,7 @@ import PreloaderOverlayLayer from "./Preloader";
 import { useWebglStore } from "../store/webgl";
 import { useLoadingStore } from "../store/loading";
 import { usePreloaderOverlayStore } from "../store/overlay";
+import { PRELOADER_DISMISSED_EVENT } from "../lib/preload/events";
 import { requestDeviceOrientationPermission } from "../../scripts/runtime/motion";
 import { triggerNavHaptic } from "../../scripts/haptic-feedback";
 import { shouldUseNavRotateHover } from "../../scripts/link-hover";
@@ -216,7 +217,7 @@ export default function SiteLayout({ children }) {
       setPreloaderFading(false);
       preloaderTimerRef.current = 0;
       window.dispatchEvent(
-        new CustomEvent("duforn:preloader-dismissed", {
+        new CustomEvent(PRELOADER_DISMISSED_EVENT, {
           detail: { pathname: window.location.pathname },
         }),
       );
@@ -345,7 +346,7 @@ export default function SiteLayout({ children }) {
             setPreloaderFading(false);
           });
           window.dispatchEvent(
-            new CustomEvent("duforn:preloader-dismissed", {
+            new CustomEvent(PRELOADER_DISMISSED_EVENT, {
               detail: { pathname: window.location.pathname },
             }),
           );
@@ -357,7 +358,7 @@ export default function SiteLayout({ children }) {
         setPreloaderFading(false);
       });
       window.dispatchEvent(
-        new CustomEvent("duforn:preloader-dismissed", {
+        new CustomEvent(PRELOADER_DISMISSED_EVENT, {
           detail: { pathname: window.location.pathname },
         }),
       );

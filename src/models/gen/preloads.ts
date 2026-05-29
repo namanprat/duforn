@@ -6,13 +6,12 @@
  * Regenerate JSX from GLBs via gltfjsx (see README in this folder).
  */
 import { trackPromise } from "../../lib/preload/gate";
-import { GLTF_URL_MONITOR, GLTF_URL_PROJECT_BG, GLTF_URL_SCENE, GLTF_URL_WEBSITE } from "../urls";
+import { GLTF_URL_MONITOR, GLTF_URL_PROJECT_BG, GLTF_URL_WEBSITE } from "../urls";
 
 // Single source of preload truth: we fetch raw bytes here to warm the HTTP
 // cache + drive the preloader gate. When components later call useGLTF /
 // useTexture / useLoader, drei's loaders hit the warm cache.
 const ESSENTIAL_ASSETS: { id: string; url: string; label: string; weight: number }[] = [
-  { id: "gltf:scene", url: GLTF_URL_SCENE, label: "Scene model", weight: 2 },
   { id: "hdr:home", url: "/home.hdr", label: "Home HDR", weight: 1 },
   { id: "texture:default", url: "/default.jpg", label: "Default texture", weight: 1 },
 ];

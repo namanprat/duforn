@@ -30,7 +30,7 @@ export type PreloaderGateSnapshot = {
   errors: { id: string; error: unknown }[];
 };
 
-export type PreloaderTaskHandle = {
+type PreloaderTaskHandle = {
   id: string;
   complete: () => void;
   fail: (error?: unknown) => void;
@@ -96,7 +96,7 @@ function emit() {
   }
 }
 
-export function registerTask({
+function registerTask({
   id,
   label,
   weight = 1,

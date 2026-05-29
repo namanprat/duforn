@@ -12,7 +12,7 @@ import RoomCanvas from "./RoomCanvas";
 import Warmup from "./Warmup";
 import { isRoomNamespace } from "../lib/cam/roomPoses";
 
-function UnifiedScene({ activePage, shadowMapSize }) {
+function UnifiedScene({ activePage }) {
   switch (activePage) {
     case "archive":
       return null;
@@ -23,9 +23,9 @@ function UnifiedScene({ activePage, shadowMapSize }) {
     case "main":
     case "work":
     case "contact":
-      return <RoomCanvas shadowMapSize={shadowMapSize} />;
+      return <RoomCanvas />;
     default:
-      return <RoomCanvas shadowMapSize={shadowMapSize} />;
+      return <RoomCanvas />;
   }
 }
 
@@ -56,7 +56,6 @@ export default function Canvas({ activePage }) {
       dpr={getCanvasDpr(dprCap)}
       pointerEvents={pointerEvents}
       gl={createRendererOpaque}
-      shadows
       frameloop={frameloop}
       wrapperProps={{ "data-active-canvas": "true" }}
       onCreated={({ gl }) => {
@@ -68,7 +67,7 @@ export default function Canvas({ activePage }) {
       onPointerMissed={isProjectDetail ? () => {} : undefined}
     >
       <Suspense fallback={null}>
-        <UnifiedScene activePage={activePage} shadowMapSize={quality.shadowMapSize} />
+        <UnifiedScene activePage={activePage} />
         <ShaderWarmup sceneKey={activePage} />
         <Warmup activePage={activePage} />
       </Suspense>

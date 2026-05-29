@@ -1,9 +1,8 @@
 // @ts-nocheck
-import { ACESFilmicToneMapping, SRGBColorSpace, WebGLRenderer } from "three";
+import { SRGBColorSpace, WebGLRenderer } from "three";
 import { logWebGPU, logWebGPUOnce } from "../gpu/debug";
 import { getClampedPixelRatio } from "./pixelRatio";
 import { getStableViewportSize } from "../viewport/stableViewport";
-import { getRenderQualityProfile } from "./profile";
 
 let webgpuSupportPromise;
 const ENABLE_WEBGPU = true;
@@ -49,15 +48,9 @@ async function createWebGPUDevice() {
 
 function configureRenderer(renderer, { alpha }) {
   renderer.outputColorSpace = SRGBColorSpace;
-  renderer.toneMapping = ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1;
   renderer.setPixelRatio(getClampedPixelRatio(2));
   const { width, height } = getStableViewportSize();
   renderer.setSize(width, height, false);
-
-  if ("shadowMap" in renderer && renderer.shadowMap) {
-    renderer.shadowMap.enabled = true;
-  }
 
   if ("setClearAlpha" in renderer) {
     renderer.setClearAlpha(alpha ? 0 : 1);
@@ -65,10 +58,8 @@ function configureRenderer(renderer, { alpha }) {
 }
 
 function createWebGLRenderer(defaultProps, { alpha }) {
-  const { antialias } = getRenderQualityProfile();
   const renderer = new WebGLRenderer({
     canvas: defaultProps.canvas,
-    antialias,
     alpha,
     powerPreference: "high-performance",
     preserveDrawingBuffer: true,
@@ -95,10 +86,8 @@ async function createBestRenderer(defaultProps, { alpha = false } = {}) {
       }
 
       const { WebGPURenderer } = await import("three/webgpu");
-      const { antialias } = getRenderQualityProfile();
       const renderer = new WebGPURenderer({
         canvas: defaultProps.canvas,
-        antialias,
         alpha,
         device,
       });

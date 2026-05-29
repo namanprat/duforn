@@ -12,10 +12,6 @@ export const POOL_SIM_DEFAULTS = {
   pointerThrottleMs: 44,
   minCellDistance: 0.8,
   startupImpulseStrengthScale: 0.24,
-  breezeStrength: 0.8,
-  breezeIntervalMs: 1400,
-  breezeStep: 0.07,
-  breezeYInset: 0.28,
 };
 
 export const POOL_WATER_DEFAULTS = {
@@ -42,10 +38,6 @@ export const POOL_WATER_DEFAULTS = {
   fogColor: "#b3d9ff",
   foamAmount: 0.05,
   foamThreshold: 0.6,
-  causticsIntensity: 0.9,
-  causticsScale: 9.0,
-  causticsSpeed: 0.25,
-  causticsColor: "#fff6df",
 };
 
 export const POOL_WATER_RENDER_ORDER = 10;

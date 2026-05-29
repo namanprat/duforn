@@ -8,8 +8,6 @@ import ProjectDetailImagePlanes from "./ImagePlanes";
 import { useProjectDetailController } from "./useController";
 import { useProjectDetailSceneControlsStore } from "../store/projectScene";
 import { PROJECT_DETAIL_REVEAL_SETTINGS } from "./sceneConfig";
-import Exposure from "../scenes/Exposure";
-
 function ProjectDetailCamera() {
   const { size } = useThree();
 
@@ -34,7 +32,6 @@ function ProjectDetailController() {
 }
 
 export default function ProjectDetailScene({ projectBgRenderScale = 1 }) {
-  const exposure = useProjectDetailSceneControlsStore((state) => state.controls.renderer.exposure);
   const projectBgFallbackControls = useProjectDetailSceneControlsStore(
     (state) => state.controls.projectBgFallback,
   );
@@ -43,7 +40,6 @@ export default function ProjectDetailScene({ projectBgRenderScale = 1 }) {
     <>
       <ProjectDetailCamera />
       <ProjectDetailController />
-      <Exposure exposure={exposure} />
       <ProjectDetailBackground controls={projectBgFallbackControls} />
       <Suspense fallback={null}>
         <ProjectBg renderScale={projectBgRenderScale} />

@@ -104,7 +104,10 @@ function tokenize(css) {
  *  "pure utility" rules — anything mixing tags / descendants / pseudos with a
  *  utility class stays untouched. */
 function isDeadUtilityRule(selectorList, used) {
-  const sels = selectorList.split(",").map((s) => s.trim()).filter(Boolean);
+  const sels = selectorList
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
   if (sels.length === 0) return false;
   for (const sel of sels) {
     // Must be a single class selector beginning with .u-
