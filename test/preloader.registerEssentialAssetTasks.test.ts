@@ -1,18 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import {
-  __resetPreloaderGate,
-  getSnapshot,
-  subscribe,
-} from "../src/lib/preload/gate";
+import { __resetPreloaderGate, getSnapshot, subscribe } from "../src/lib/preload/gate";
 import { registerEssentialAssetTasks } from "../src/models/gen/preloads";
 
 // Essentials registered by registerEssentialAssetTasks(). Room-only assets
 // (gltf:website, gltf:monitor, gltf:project-bg) are registered separately by
 // registerRoomAssetTasks() and are intentionally not expected here.
-const EXPECTED_IDS = [
-  "hdr:home",
-  "texture:default",
-];
+const EXPECTED_IDS = ["hdr:home", "texture:default"];
 
 describe("registerEssentialAssetTasks", () => {
   const originalFetch = globalThis.fetch;
@@ -63,12 +56,7 @@ describe("registerEssentialAssetTasks", () => {
       ).toBe(true);
     }
 
-    expect(requestedUrls).toEqual(
-      expect.arrayContaining([
-        "/home.hdr",
-        "/default.jpg",
-      ]),
-    );
+    expect(requestedUrls).toEqual(expect.arrayContaining(["/home.hdr", "/default.jpg"]));
 
     unsubscribe();
   });

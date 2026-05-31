@@ -1,9 +1,25 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite-plus";
 import react from "@vitejs/plugin-react";
+
+const root = path.dirname(fileURLToPath(import.meta.url));
 
 const config = {
   staged: { "{src,scripts}/**/*.{ts,tsx}": "vp check --fix" },
   plugins: [react()],
+  resolve: {
+    alias: [
+      {
+        find: /^three$/,
+        replacement: path.resolve(root, "src/lib/three/index.js"),
+      },
+      {
+        find: "three-real",
+        replacement: path.resolve(root, "node_modules/three/build/three.module.js"),
+      },
+    ],
+  },
   optimizeDeps: {
     include: ["three", "three/webgpu", "three/tsl"],
   },
