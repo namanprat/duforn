@@ -18,7 +18,6 @@ import {
   ROWS,
 } from "./config";
 import { getActiveStripItemIndex, resolveVisibleSlotAtUv } from "./math";
-import { createClothStripSim, type ClothStripSim } from "./sim/clothStripSim";
 
 // (hover removed)
 
@@ -92,6 +91,8 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
     pow,
     clamp,
     smoothstep,
+    sin,
+    cos,
     floor,
     fract,
     exp,
@@ -99,16 +100,23 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
     dFdx,
     dFdy,
     texture,
+    mx_noise_float,
   } = tsl;
   const tslCameraPosition = tsl.cameraPosition;
 
   const PI = Math.PI;
 
   const uniforms = {
+    uTime: uniform(0),
     uScrollOffset: uniform(0),
     uItemsOnStrip: uniform(stripConfig.itemsOnStrip),
     uNumUnique: uniform(stripConfig.numUnique),
     uGapSize: uniform(stripConfig.gapSize),
+    uWindStrength: uniform(12.0),
+    uGravityScale: uniform(2.0),
+    uWaveFrequency: uniform(8.0),
+    uWaveAmplitude: uniform(0.16),
+    uClothSolidity: uniform(15.0),
     uRoughness: uniform(0.7),
     uSheenColor: uniform(new THREE.Color(0.93, 0.92, 0.9)),
     uSubsurfaceColor: uniform(new THREE.Color(0.97, 0.9, 0.82)),
@@ -126,14 +134,51 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
   const vWorldPos = varying(vec3(0), "vWorldPos");
   const vLooseness = varying(float(0), "vLooseness");
 
-  // Vertex positions are driven on the CPU by the cloth sim (see
-  // createClothStripSim) and written straight into the geometry, so the shader
-  // only needs to pass the simulated position through and expose the fabric
-  // `looseness` ramp used by the fragment lighting.
   const vertexFn = Fn(() => {
-    const pos = positionLocal;
-    const looseness = smoothstep(float(0), float(0.25), uv().y);
+    const pos = positionLocal.toVar();
+    const uvCoord = uv();
+    const time = uniforms.uTime;
+    const v = uvCoord.y;
+    const u = uvCoord.x;
+    const revealMix = float(1);
+    const looseness = smoothstep(float(0), float(0.25), v);
     vLooseness.assign(looseness);
+    const area = float(stripConfig.arcSpan * stripConfig.stripHeight);
+    const mass = uniforms.uClothSolidity.mul(area).mul(0.02);
+    const windSpeed = uniforms.uWindStrength.div(max(mass, float(0.01)));
+    const t = time.mul(windSpeed);
+    const windNoise = mx_noise_float(vec3(u.mul(2.0), v.mul(2.0), time.mul(0.1)))
+      .mul(0.5)
+      .add(0.5);
+    const gravitySag = v.mul(v).mul(uniforms.uGravityScale).mul(0.08).mul(looseness);
+    const windPush = looseness
+      .mul(looseness)
+      .mul(uniforms.uWaveAmplitude)
+      .mul(0.5)
+      .mul(windNoise.mul(0.4).add(0.6));
+    const freq = uniforms.uWaveFrequency;
+    const wave1 = sin(u.mul(freq).sub(t.mul(3.0))).mul(looseness);
+    const wave2 = sin(v.mul(freq.mul(0.7)).sub(t.mul(2.0)))
+      .mul(looseness)
+      .mul(0.5);
+    const wave3 = sin(u.mul(freq.mul(2.0)).add(v.mul(freq)).sub(t.mul(4.0)))
+      .mul(looseness)
+      .mul(0.25);
+    const waveDisp = wave1.add(wave2).add(wave3).mul(uniforms.uWaveAmplitude).mul(revealMix);
+    const flutter = sin(u.mul(freq.mul(3.0)).sub(t.mul(5.0)))
+      .mul(cos(v.mul(freq.mul(2.0)).add(t.mul(1.5))))
+      .mul(looseness)
+      .mul(looseness)
+      .mul(uniforms.uWaveAmplitude)
+      .mul(0.15)
+      .mul(revealMix);
+
+    pos.y.subAssign(gravitySag.mul(revealMix));
+    pos.z.addAssign(waveDisp.add(flutter));
+    pos.z.addAssign(windPush.mul(revealMix));
+    const lateralSway = sin(time.mul(0.18)).mul(looseness).mul(0.04).mul(revealMix);
+    pos.x.addAssign(lateralSway);
+
     vWorldPos.assign(modelWorldMatrix.mul(vec4(pos, 1)).xyz);
     return pos;
   });
@@ -242,10 +287,14 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
     itemsOnStrip: stripConfig.itemsOnStrip,
   });
   const uniforms = {
+    uTime: { value: 0 },
     uScrollOffset: { value: 0 },
     uGapSize: { value: stripConfig.gapSize },
     uItemsOnStrip: { value: stripConfig.itemsOnStrip },
     uNumUnique: { value: stripConfig.numUnique },
+    uWaveAmplitude: { value: 0.08 },
+    uWaveFrequency: { value: 13.0 },
+    uWindStrength: { value: 5.5 },
     uOpacity: { value: 1.0 },
     uTex0: { value: textures[0] },
     uTex1: { value: textures[1] },
@@ -261,15 +310,31 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
     depthWrite: false,
     uniforms,
     vertexShader: `
-      // Positions are animated on the CPU by the cloth sim and written into the
-      // geometry; the shader just transforms them and exposes the looseness ramp.
+      uniform float uTime;
+      uniform float uWaveAmplitude;
+      uniform float uWaveFrequency;
+      uniform float uWindStrength;
+
       varying vec2 vUv;
       varying float vLooseness;
 
       void main() {
         vUv = uv;
-        vLooseness = smoothstep(0.0, 0.25, uv.y);
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        float revealMix = 1.0;
+        float looseness = smoothstep(0.0, 0.25, uv.y);
+        vLooseness = looseness;
+
+        vec3 pos = position;
+        float wind = uWindStrength * 0.01;
+        float wave1 = sin(uv.x * uWaveFrequency - uTime * (2.0 + wind)) * looseness;
+        float wave2 = sin((uv.x + uv.y) * (uWaveFrequency * 0.7) - uTime * 1.8) * looseness * 0.5;
+        float flutter = sin(uv.x * (uWaveFrequency * 2.5) - uTime * 4.0) * looseness * looseness * 0.18;
+
+        pos.y -= uv.y * uv.y * 0.16 * revealMix;
+        pos.z += ((wave1 + wave2) * uWaveAmplitude + flutter) * revealMix;
+        pos.x += sin(uTime * 0.18) * looseness * 0.04 * revealMix;
+
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
       }
     `,
     fragmentShader: `
@@ -283,6 +348,7 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
       uniform float uGapSize;
       uniform float uItemsOnStrip;
       uniform float uNumUnique;
+      uniform float uTime;
       uniform float uOpacity;
 
       varying vec2 vUv;
@@ -378,8 +444,6 @@ export function WorkClothStripScene() {
   const scrollRef = useRef({ target: 0, current: 0, velocity: 0 });
   const inputRef = useRef({ isDown: false, lastX: 0, startX: 0 });
   const currentTitleRef = useRef("");
-  const simRef = useRef<ClothStripSim | null>(null);
-  const prevTimeRef = useRef(0);
 
   useEffect(() => {
     const element = gl.domElement;
@@ -465,19 +529,6 @@ export function WorkClothStripScene() {
 
   useEffect(() => () => geometry.dispose(), [geometry]);
 
-  // Cloth sim drives the geometry's position attribute in place. Rebuilt
-  // whenever the rest geometry changes (arc sliders).
-  useEffect(() => {
-    const attr = geometry.attributes.position as THREE.BufferAttribute;
-    const live = attr.array as Float32Array;
-    const rest = Float32Array.from(live);
-    simRef.current = createClothStripSim(COLS, ROWS, rest, live);
-    prevTimeRef.current = 0;
-    return () => {
-      simRef.current = null;
-    };
-  }, [geometry]);
-
   const stripConfig = useMemo(
     () => ({
       itemsOnStrip: visibleItems,
@@ -540,10 +591,6 @@ export function WorkClothStripScene() {
      * is guaranteed monotonic.
      */
     const time = performance.now() * 0.001;
-    let dt = prevTimeRef.current ? time - prevTimeRef.current : 1 / 60;
-    prevTimeRef.current = time;
-    if (dt <= 0) dt = 1 / 60;
-
     const u = sys.uniforms;
     const s = scrollRef.current;
     const isDragging = inputRef.current.isDown;
@@ -558,34 +605,21 @@ export function WorkClothStripScene() {
         s.target = snapTarget;
       }
     }
+    u.uTime.value = time;
     u.uScrollOffset.value = s.current;
     u.uOpacity.value = 1;
 
-    // Fabric lighting controls (WebGPU node material only).
-    if ("uRoughness" in u) {
+    if ("uGravityScale" in u) {
+      u.uGravityScale.value = sc.gravityScale ?? 2;
+      u.uClothSolidity.value = Math.max(0.0001, (sc.constraintMix ?? 0.4) * 14.0);
       u.uRoughness.value = sc.roughness ?? 0.72;
       u.uSheenColor.value.setRGB(sc.sheenR ?? 0.92, sc.sheenG ?? 0.88, sc.sheenB ?? 0.82);
       u.uSubsurfaceStr.value = sc.subsurfaceStr ?? 1;
     }
 
-    // Advance the cloth sim and push the new vertex positions to the GPU.
-    const sim = simRef.current;
-    if (sim) {
-      sim.step(dt, {
-        gravity: (sc.gravityScale ?? 2) * 0.9,
-        windStrength: (sc.windStrength ?? 1.1) * 40.0,
-        windDir: [0.25, 0.15, 1.0],
-        gustFrequency: Math.max(0.5, (sc.flutterFrequency ?? 12) * 0.05),
-        windSpeed: 1.4,
-        damping: 0.982,
-        stiffness: 0.85,
-        anchorStiffness: Math.min(1, Math.max(0, (sc.constraintMix ?? 0.4) * 0.24 + 0.05)),
-        iterations: 5,
-        time,
-      });
-      const posAttr = geometry.attributes.position as THREE.BufferAttribute;
-      posAttr.needsUpdate = true;
-    }
+    u.uWindStrength.value = sc.windStrength ?? 1.1;
+    u.uWaveAmplitude.value = sc.flutterAmplitude ?? 0.08;
+    u.uWaveFrequency.value = sc.flutterFrequency ?? 20;
 
     const vi = Math.max(1, sc.visibleItems ?? DEFAULT_VISIBLE_ITEMS);
     const gs = sc.gapSize ?? DEFAULT_GAP_SIZE;

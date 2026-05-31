@@ -1,15 +1,15 @@
 // @ts-nocheck
-let tslPatched = false;
+let patched = false;
 import { logWebGPUOnce } from "./debug";
 
 export async function patchThreeTSL() {
-  if (tslPatched) return;
+  if (patched) return;
 
   const { TextureNode } = await import("three/webgpu");
   const originalGenerate = TextureNode.prototype.generate;
 
   if (TextureNode.prototype.__dufornPatchedGenerate) {
-    tslPatched = true;
+    patched = true;
     return;
   }
 
@@ -21,7 +21,7 @@ export async function patchThreeTSL() {
   };
 
   TextureNode.prototype.__dufornPatchedGenerate = true;
-  tslPatched = true;
+  patched = true;
   logWebGPUOnce("tsl-patch", "patch", "Applied TextureNode.generate null-output guard", {
     threeVersion: "0.183.2",
   });
