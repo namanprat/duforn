@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import Surface, { getCanvasDpr } from "./Surface";
 import { createRendererAlpha } from "../lib/render";
 import InkOverlay from "./InkOverlay";
+import SceneDoubleSideSync from "./SceneDoubleSideSync";
 
 /**
  * Dedicated canvas for transition ink overlays.
@@ -29,6 +30,7 @@ export default function OverlayCanvas() {
         className: `canvas-surface--overlay-transition fullscreen-overlay-cluster__canvas${isInkVisible ? " is-active" : ""}`,
       }}
     >
+      <SceneDoubleSideSync />
       <InkOverlay />
     </Surface>
   );

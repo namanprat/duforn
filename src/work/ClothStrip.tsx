@@ -273,7 +273,7 @@ async function createWebGPUClothSystem(gl, textures, stripConfig) {
     transparent: true,
     depthWrite: false,
     depthTest: true,
-    side: THREE.FrontSide,
+    side: THREE.DoubleSide,
   });
   mat.positionNode = vertexFn();
   mat.fragmentNode = fragmentFn();
@@ -306,7 +306,7 @@ function createWebGLClothSystem(_gl, textures, stripConfig) {
 
   const material = new THREE.ShaderMaterial({
     transparent: true,
-    side: THREE.FrontSide,
+    side: THREE.DoubleSide,
     depthWrite: false,
     uniforms,
     vertexShader: `

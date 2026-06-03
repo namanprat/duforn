@@ -102,7 +102,7 @@ async function createWebGPU({ sim, bounds, envMap }) {
   material.transparent = true;
   material.depthWrite = false;
   material.depthTest = true;
-  material.side = THREE.FrontSide;
+  material.side = THREE.DoubleSide;
 
   const clampW = (px) => max(float(0), min(uResW.toFloat().sub(float(1)), px));
   const clampH = (py) => max(float(0), min(uResH.toFloat().sub(float(1)), py));

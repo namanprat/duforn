@@ -247,7 +247,7 @@ export async function createWaterMaterials(opts: {
   surfaceAbove.positionNode = positionNode();
   surfaceAbove.colorNode = aboveColor();
 
-  const surfaceUnder = new MeshBasicNodeMaterial({ side: THREE.FrontSide });
+  const surfaceUnder = new MeshBasicNodeMaterial({ side: THREE.DoubleSide });
   surfaceUnder.positionNode = positionNode();
   surfaceUnder.colorNode = underColor();
 

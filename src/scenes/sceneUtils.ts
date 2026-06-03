@@ -1,5 +1,6 @@
 // @ts-nocheck
 import * as THREE from "three";
+import { disableBackfaceCullingOnMaterial } from "../lib/render/materialSide";
 
 export function normalizeModelBounds(model) {
   const box = new THREE.Box3().setFromObject(model);
@@ -35,6 +36,7 @@ function getFallbackPhysicalMaterial(sourceMaterial) {
     clearcoat: sourceMaterial?.clearcoat ?? 0,
     clearcoatRoughness: sourceMaterial?.clearcoatRoughness ?? 0,
     envMapIntensity: sourceMaterial?.envMapIntensity ?? 1,
+    side: THREE.DoubleSide,
   });
 }
 
@@ -53,6 +55,7 @@ export function applyModelMaterialTuning(model) {
       }
 
       tuneMaterialMaps(material);
+      disableBackfaceCullingOnMaterial(material);
       return material;
     };
 

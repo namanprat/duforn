@@ -28,7 +28,8 @@ const VERT = /* glsl */ `
   }
 `;
 
-const FRAG = /* glsl */ `
+const FRAG =
+  /* glsl */ `
   precision highp float;
 
   varying vec3 vWorldPos;
@@ -92,7 +93,9 @@ const FRAG = /* glsl */ `
     return normalize(vec3(nx, 1.0, nz));
   }
 
-  ${POOL_WATER_BREEZE_GLSL}
+  ` +
+  POOL_WATER_BREEZE_GLSL +
+  /* glsl */ `
 
   vec2 equirectUV(vec3 dir) {
     float phi = atan(dir.z, dir.x);
@@ -206,7 +209,7 @@ export function createPoolWaterMaterialWebGl({ sim, bounds, envMap }) {
     transparent: true,
     depthWrite: false,
     depthTest: true,
-    side: THREE.FrontSide,
+    side: THREE.DoubleSide,
   });
 
   return {
@@ -226,3 +229,5 @@ export function createPoolWaterMaterialWebGl({ sim, bounds, envMap }) {
     },
   };
 }
+
+export default createPoolWaterMaterialWebGl;

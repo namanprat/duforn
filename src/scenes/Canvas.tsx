@@ -13,6 +13,7 @@ import { useWebglStore } from "../store/webgl";
 import { registerLoaderRenderer } from "../models/loader";
 import ShaderWarmup from "./ShaderWarmup";
 import UnifiedCanvasFrameLoop from "./UnifiedCanvasFrameLoop";
+import SceneDoubleSideSync from "./SceneDoubleSideSync";
 import {
   AboutCanvasBranch,
   NotFoundCanvasBranch,
@@ -67,6 +68,7 @@ export default function Canvas({ activePage }) {
     >
       <Suspense fallback={null}>
         <UnifiedCanvasFrameLoop />
+        <SceneDoubleSideSync />
         <UnifiedScene activePage={activePage} />
         {activePage !== "test" ? <ShaderWarmup sceneKey={activePage} /> : null}
       </Suspense>
