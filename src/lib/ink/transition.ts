@@ -161,7 +161,7 @@ export const canvasInk = {
       if (prefersReducedMotion()) {
         onCovered?.();
         await nextFrame();
-        if (surface === "archive") {
+        if (surface === "about") {
           setVisible(0);
         } else {
           setProgress(0);
@@ -174,7 +174,7 @@ export const canvasInk = {
       if (holdMs && holdMs > 0) {
         await new Promise((resolve) => setTimeout(resolve, holdMs));
       }
-      if (surface === "archive") {
+      if (surface === "about") {
         await nextFrame();
         await tweenVisible(1, 0, collapseMs ?? CANVAS_INK_ROUTE_TIMING.collapseMs, "power2.inOut");
         setProgress(0);
@@ -190,7 +190,7 @@ export const canvasInk = {
       setProgress(1);
       onCovered?.();
       await nextFrame();
-      if (surface === "archive") {
+      if (surface === "about") {
         setVisible(0);
       } else {
         setProgress(0);
@@ -206,7 +206,7 @@ export const canvasInk = {
       await new Promise((resolve) => setTimeout(resolve, holdMs));
     }
 
-    if (surface === "archive") {
+    if (surface === "about") {
       await nextFrame();
       await tweenVisible(1, 0, collapseMs ?? CANVAS_INK_ROUTE_TIMING.collapseMs, "power2.inOut");
       setProgress(0);

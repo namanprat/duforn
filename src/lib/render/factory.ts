@@ -36,9 +36,14 @@ async function createWebGPUDevice() {
   });
   if (!adapter) return null;
 
+  const requiredFeatures = [];
+  if (adapter.features.has("float32-filterable")) {
+    requiredFeatures.push("float32-filterable");
+  }
+
   try {
     return await adapter.requestDevice({
-      requiredFeatures: [],
+      requiredFeatures,
       requiredLimits: {},
     });
   } catch {

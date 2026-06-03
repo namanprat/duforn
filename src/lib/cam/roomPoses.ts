@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { DEFAULT_CAMERA_BASE_POSE } from "./pose";
+import { DEFAULT_HOME_SCENE_CONTROLS } from "../../store/homeScene";
 
 const ROOM_NAMESPACES = ["main", "contact", "work"] as const;
 
@@ -17,15 +18,7 @@ export function isRoomNamespace(value: unknown): value is RoomNamespace {
 export const ROOM_POSES = Object.freeze({
   main: Object.freeze({
     ...DEFAULT_CAMERA_BASE_POSE,
-    orbitCenterX: 15,
-    orbitCenterY: 75,
-    orbitCenterZ: -30,
-    orbitRadius: 5,
-    cameraHeight: 1,
-    fov: 65,
-    orbitAngleDeg: -26,
-    lookAtYawDeg: 0,
-    lookAtPitchDeg: 0,
+    ...DEFAULT_HOME_SCENE_CONTROLS.camera,
   }),
   contact: Object.freeze({
     ...DEFAULT_CAMERA_BASE_POSE,

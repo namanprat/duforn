@@ -19,7 +19,6 @@ import {
   showAllRegisteredPageText,
 } from "../lib/text";
 import Canvas from "../scenes/Canvas";
-import ChromaticAberrationFilter from "../fx/Chromatic";
 import OverlayCanvas from "../scenes/OverlayCanvas";
 import RotateHoverLabel from "../ui/HoverLabel";
 import ToggleRevealLabel from "../ui/ToggleRevealLabel";
@@ -126,6 +125,32 @@ export default function SiteLayout({ children }) {
     document.body.classList.toggle("preloader-active", preloaderVisible);
     return () => document.body.classList.remove("preloader-active");
   }, [preloaderVisible]);
+
+  // The /test water demo is a standalone WebGPU scene that never loads the room
+  // essentials driving the intro ring, so its Enter button would stay disabled
+  // forever. Keep the preloader mounted briefly for the shared canvas to size +
+  // initialise, then auto-dismiss it (revealing the always-visible #background
+  // canvas) — mirroring the original webgl-water no-gate boot.
+  useEffect(() => {
+    if (!preloaderVisible) return undefined;
+    if (getRouteInkNamespace(location.pathname) !== "test") return undefined;
+    const raf = requestAnimationFrame(() => {
+      const timer = window.setTimeout(() => {
+        setPreloaderVisible(false);
+        setPreloaderFading(false);
+        window.dispatchEvent(
+          new CustomEvent(PRELOADER_DISMISSED_EVENT, {
+            detail: { pathname: window.location.pathname },
+          }),
+        );
+      }, 600);
+      preloaderTimerRef.current = timer;
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(preloaderTimerRef.current);
+    };
+  }, [preloaderVisible, location.pathname]);
 
   const maybeRestorePageTextAfterMenuClose = useCallback(() => {
     const openedOn = menuOpenedPathnameRef.current;
@@ -329,7 +354,7 @@ export default function SiteLayout({ children }) {
     }
 
     const path = normalizePath(window.location.pathname);
-    const surface = path === "/archive" ? "archive" : "home";
+    const surface = path === "/about" ? "about" : "home";
     const timing = CANVAS_INK_ROUTE_TIMING;
 
     try {
@@ -596,8 +621,8 @@ export default function SiteLayout({ children }) {
 
         <div className="bottom-nav-wrap u-position-fixed u-container-full u-mobile-hidden">
           <div className="bottom-nav-contain u-flex-horizontal-nowrap u-justify-content-between u-align-items-center u-gap-3 u-width-full">
-            <NavLink to="/archive" data-rotate-hover={useNavRotateHover ? "" : undefined}>
-              {useNavRotateHover ? <RotateHoverLabel text="Archive" /> : "Archive"}
+            <NavLink to="/about" data-rotate-hover={useNavRotateHover ? "" : undefined}>
+              {useNavRotateHover ? <RotateHoverLabel text="About" /> : "About"}
             </NavLink>
             <div id="time" aria-live="polite">
               12:34:56 IST
@@ -608,8 +633,9 @@ export default function SiteLayout({ children }) {
 
       <div className="page-canvas">
         <Canvas activePage={activePage} />
-        <ChromaticAberrationFilter offsetX={1.2} />
       </div>
+
+      <div className="grain" aria-hidden="true" />
 
       {children}
 

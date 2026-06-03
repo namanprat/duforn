@@ -38,6 +38,14 @@ export const POOL_WATER_DEFAULTS = {
   fogColor: "#b3d9ff",
   foamAmount: 0.05,
   foamThreshold: 0.6,
+  /** Pool-wide wind chop (shader-only, UV-space swell — not sim impulses). */
+  breezeStrength: 0.55,
+  breezeScale: 7.5,
+  breezeSpeed: 0.06,
+  breezeDirectionX: 1.0,
+  breezeDirectionZ: 0.25,
+  breezeMix: 0.28,
+  breezeMaxSlope: 0.12,
 };
 
 export const POOL_WATER_RENDER_ORDER = 10;

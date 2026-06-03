@@ -18,7 +18,7 @@ The **default** path for 3D is **`WebGPURenderer`** via `src/lib/render/factory.
 
 1. **Prefer `three/webgpu` + `three/tsl`** for new GPU features: node materials (`MeshBasicNodeMaterial`, etc.), `uniform()`, `Fn()`, `pass()`, and dynamic imports of `three/tsl` / `three/webgpu` in async builders—same style as `src/scenes/InkOverlay.tsx`, `src/work/ClothStrip.tsx`, and `src/projectDetail/Bg.tsx`.
 2. **Full-screen or post-style effects on `WebGPURenderer`**: prefer an **in-scene clip-space quad** with TSL node materials (`MeshBasicNodeMaterial` + `vertexNode`/`fragmentNode`) — see **`src/scenes/InkOverlay.tsx`**. For multi-pass post stacks, use **`RenderPipeline`** from `three/webgpu` and **`pass(scene, camera)`** from `three/tsl`, then chain TSL display nodes (including addons under `three/addons/tsl/display/`). **Do not** use `EffectComposer` / `ShaderPass` from `three/examples/jsm/postprocessing/` on `WebGPURenderer`; those are for classic **`WebGLRenderer`** only.
-3. **WebGL fallback**: when branching on `isWebGLRenderer(gl)` from `src/lib/render/type.ts`, use `pickGpuBranch` / `pickGpuBranchAsync` from `src/lib/render` (the barrel; defined in `src/lib/render/dual.ts`) and provide matching GLSL (`ShaderMaterial`) paths — e.g. **`src/projectDetail/Bg.tsx`**, **`src/scenes/InkOverlay.tsx`**, **`src/scenes/NotFound.tsx`**, **`src/projectDetail/Background.tsx`**, **`src/projectDetail/ImagePlanes.tsx`**, and the **`src/scenes/water/materials/PoolWaterMaterial.ts`** WebGL branch.
+3. **WebGL fallback**: when branching on `isWebGLRenderer(gl)` from `src/lib/render/type.ts`, use `pickGpuBranch` / `pickGpuBranchAsync` from `src/lib/render` (the barrel; defined in `src/lib/render/dual.ts`) and provide matching GLSL (`ShaderMaterial`) paths — e.g. **`src/projectDetail/Bg.tsx`**, **`src/scenes/InkOverlay.tsx`**, **`src/scenes/NotFound.tsx`**, **`src/projectDetail/Background.tsx`**, **`src/projectDetail/ImagePlanes.tsx`**.
 4. **Debugging**: use `logWebGPU` / `logWebGPUOnce` from `src/lib/gpu/debug.ts` for WebGPU build paths. The app applies `patchThreeTSL` at startup (`src/lib/gpu/patch.ts`); do not assume raw three.js behavior without checking project patches.
 5. **Integration**: effects belong in the same R3F canvas as the scene (`src/scenes/Canvas.tsx`); use `isWebGPURenderer` / `isWebGLRenderer` / `getRendererType` to pick the correct implementation.
 
@@ -28,7 +28,7 @@ If a feature is implemented WebGL-only while the unified canvas is on WebGPU, th
 
 For node materials, compute shaders, storage buffers, and common TSL pitfalls, read **[docs/TSL_WEBGPU.md](docs/TSL_WEBGPU.md)**.
 
-**Main scene pool water** (`src/scenes/water/`): cursor ripples use a **wave-equation** compute sim (`PoolShallowWaterSim` / `PoolShallowWaterSimCPU`, 4rknova-style); surface look uses ocean-style fresnel/env on `PoolWaterMaterial` (WebGPU TSL + WebGL `ShaderMaterial` dual path). Do not use `EffectComposer` / gentlerain pressure sim for this feature.
+**Pool water:** OG WebGPU heightfield + caustics live under `src/scenes/waterTest/og/` and run only on `/test`. The home scene has no custom water integration. Do not use `EffectComposer` / gentlerain pressure sim for pool water.
 
 # TSL & WebGPU Development Guide
 
@@ -65,7 +65,7 @@ const result = If(value.lessThan(threshold), () => {
 
 ```typescript
 // ✅ CORRECT - Use step function
-const result = step(threshold, value);  // Returns 0 if value < threshold, 1 otherwise
+const result = step(threshold, value); // Returns 0 if value < threshold, 1 otherwise
 ```
 
 **Math-based conditionals:**
@@ -121,7 +121,7 @@ Don't access properties on uniform nodes - pass them directly to conversion func
 const waterColor = vec3(
   this.waterColorUniform.r,
   this.waterColorUniform.g,
-  this.waterColorUniform.b
+  this.waterColorUniform.b,
 );
 ```
 
@@ -192,24 +192,24 @@ WGSL is **strongly typed**. f32 and u32 are incompatible.
 
 ```typescript
 // ❌ WRONG - floor() only works on floats
-const y = idx.div(resolution).floor();  // Error: floor(u32)
+const y = idx.div(resolution).floor(); // Error: floor(u32)
 ```
 
 ```typescript
 // ✅ CORRECT - Integer division already truncates
-const y = idx.div(resolution);  // No floor needed for integers
+const y = idx.div(resolution); // No floor needed for integers
 ```
 
 ```typescript
 // ❌ WRONG - sqrt() only works on floats
-const x = idx.mod(resolution);  // u32
-const kLength = sqrt(x.mul(x));  // Error: sqrt(u32)
+const x = idx.mod(resolution); // u32
+const kLength = sqrt(x.mul(x)); // Error: sqrt(u32)
 ```
 
 ```typescript
 // ✅ CORRECT - Convert to float first
-const x = idx.mod(resolution).toFloat();  // Convert u32 → f32
-const kLength = sqrt(x.mul(x));  // Works!
+const x = idx.mod(resolution).toFloat(); // Convert u32 → f32
+const kLength = sqrt(x.mul(x)); // Works!
 ```
 
 **Rule:** Always use `.toFloat()` when converting from `instanceIndex` or integer operations to floats.
@@ -217,13 +217,13 @@ const kLength = sqrt(x.mul(x));  // Works!
 **Common conversions:**
 
 ```typescript
-const idx = instanceIndex;  // u32
-const resolution = this.uniforms.resolution;  // u32
+const idx = instanceIndex; // u32
+const resolution = this.uniforms.resolution; // u32
 
 // Convert to float for math
 const x = idx.mod(resolution).toFloat();
 const y = idx.div(resolution).toFloat();
-const nx = x.sub(resolution.toFloat().div(2.0));  // Center around 0
+const nx = x.sub(resolution.toFloat().div(2.0)); // Center around 0
 ```
 
 ---
@@ -233,7 +233,7 @@ const nx = x.sub(resolution.toFloat().div(2.0));  // Center around 0
 ```typescript
 // Define compute function
 this.computeShader = Fn(() => {
-  const idx = instanceIndex;  // u32 - thread ID
+  const idx = instanceIndex; // u32 - thread ID
 
   // Convert to float for math operations
   const x = idx.mod(resolution);
@@ -246,7 +246,7 @@ this.computeShader = Fn(() => {
 
   // Write to output buffer
   this.outputBuffer.element(idx).assign(vec4(result, 0, 0, 1));
-})().compute(count);  // Dispatch 'count' threads
+})().compute(count); // Dispatch 'count' threads
 ```
 
 **Key points:**
@@ -263,10 +263,10 @@ this.computeShader = Fn(() => {
 ```typescript
 // Create buffer (CPU side)
 const count = width * height;
-this.buffer = instancedArray(count, 'vec4');
+this.buffer = instancedArray(count, "vec4");
 
 // Read from buffer (GPU side)
-const value = this.buffer.element(idx);  // idx is instanceIndex or computed
+const value = this.buffer.element(idx); // idx is instanceIndex or computed
 
 // Write to buffer (GPU side)
 this.buffer.element(idx).assign(vec4(x, y, z, w));
@@ -311,7 +311,7 @@ this.displacementBuffer.element(idx).assign(vec4(x, y, z, w));
 
 // In material shader: Read from buffer
 const customPosition = Fn(() => {
-  const uvCoord = uv();  // [0,1] x [0,1]
+  const uvCoord = uv(); // [0,1] x [0,1]
 
   // Convert UV to buffer index
   const resolution = float(this.getResolution());
@@ -353,8 +353,8 @@ const idx = int(y.mul(resolution).add(x));
 ### Three.js WebGPU
 
 ```typescript
-import * as THREE from 'three/webgpu';  // WebGPU renderer
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import * as THREE from "three/webgpu"; // WebGPU renderer
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 ```
 
 ### TSL Functions
@@ -362,27 +362,62 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 ```typescript
 import {
   // Uniforms & storage
-  uniform, storage, instancedArray, storageTexture,
+  uniform,
+  storage,
+  instancedArray,
+  storageTexture,
   // Types
-  vec2, vec3, vec4, float, int, uint,
+  vec2,
+  vec3,
+  vec4,
+  float,
+  int,
+  uint,
   // Function wrapper
   Fn,
   // Math
-  sin, cos, tan, atan, asin, acos,
-  sqrt, exp, pow, log2, abs,
-  floor, ceil, fract, mod,
+  sin,
+  cos,
+  tan,
+  atan,
+  asin,
+  acos,
+  sqrt,
+  exp,
+  pow,
+  log2,
+  abs,
+  floor,
+  ceil,
+  fract,
+  mod,
   // Vector ops
-  dot, cross, normalize, length, reflect, refract,
-  mix, clamp, step, smoothstep,
+  dot,
+  cross,
+  normalize,
+  length,
+  reflect,
+  refract,
+  mix,
+  clamp,
+  step,
+  smoothstep,
   // Shader inputs
-  uv, positionLocal, positionWorld, positionView,
-  normalLocal, normalWorld, normalView,
-  cameraPosition, cameraViewMatrix,
+  uv,
+  positionLocal,
+  positionWorld,
+  positionView,
+  normalLocal,
+  normalWorld,
+  normalView,
+  cameraPosition,
+  cameraViewMatrix,
   // Texture sampling
-  texture, textureBicubic,
+  texture,
+  textureBicubic,
   // Compute
-  instanceIndex
-} from 'three/tsl';
+  instanceIndex,
+} from "three/tsl";
 ```
 
 **DO NOT import from:** `'three/nodes'` ❌
@@ -454,7 +489,7 @@ this.colorNode = customColor();
 
 ```typescript
 // Load environment map
-const envMap = await textureLoader.loadAsync('/skybox.jpg');
+const envMap = await textureLoader.loadAsync("/skybox.jpg");
 envMap.mapping = THREE.EquirectangularReflectionMapping;
 envMap.colorSpace = THREE.SRGBColorSpace;
 
@@ -473,8 +508,8 @@ const customColor = Fn(() => {
   const phi = atan(reflectDir.z, reflectDir.x);
   const theta = asin(reflectDir.y);
   const envUV = vec2(
-    phi.mul(0.1591).add(0.5),   // 1/(2π) ≈ 0.1591
-    theta.mul(0.3183).add(0.5)  // 1/π ≈ 0.3183
+    phi.mul(0.1591).add(0.5), // 1/(2π) ≈ 0.1591
+    theta.mul(0.3183).add(0.5), // 1/π ≈ 0.3183
   );
 
   // Sample environment
@@ -516,7 +551,7 @@ npm install three@^0.181.1
 If(x.lessThan(0), () => float(0)).else(() => x);
 
 // ✅ Right
-x.max(0.0)  // Clamp to minimum 0
+x.max(0.0); // Clamp to minimum 0
 ```
 
 ---
@@ -532,9 +567,9 @@ x.max(0.0)  // Clamp to minimum 0
 const y = idx.div(resolution).floor();
 
 // ✅ Right
-const y = idx.div(resolution);  // Integer division truncates
+const y = idx.div(resolution); // Integer division truncates
 // OR
-const y = idx.div(resolution).toFloat();  // If you need float
+const y = idx.div(resolution).toFloat(); // If you need float
 ```
 
 ---
@@ -634,7 +669,7 @@ await renderer.computeAsync(computeShader);
 ```typescript
 // ✅ Good - Explicit types
 const count: number = width * height;
-const buffer: any = instancedArray(count, 'vec4');
+const buffer: any = instancedArray(count, "vec4");
 ```
 
 ### 2. Defensive Math
@@ -660,8 +695,10 @@ const normal = normalize(vec3(nx, 1.0, nz));
 ```typescript
 // TSL is readable but intent isn't always clear
 const fresnel = F0.add(
-  float(1.0).sub(F0).mul(pow(float(1.0).sub(cosTheta), power))
-);  // Schlick's approximation
+  float(1.0)
+    .sub(F0)
+    .mul(pow(float(1.0).sub(cosTheta), power)),
+); // Schlick's approximation
 // Explain the "why", not just the "what"
 ```
 

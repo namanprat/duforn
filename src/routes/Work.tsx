@@ -1,15 +1,16 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { workItems } from "../../data/work-items";
 import { navigateTo } from "../lib/nav";
 import TextRevealLines from "../text/Reveal";
-import WorkSceneControls from "../debug/WorkScene";
-
-// Dev-only debug GUI for the live work strip controls.
-const SHOW_WORK_SCENE_CONTROLS = import.meta.env.DEV;
 
 export default function WorkPage() {
   const initialTitle = workItems[0]?.title ?? "Work";
   const [title, setTitle] = useState<string>(initialTitle);
+  // First reveal (page load) animates; later title swaps from strip scroll do not.
+  const revealedRef = useRef(false);
+  useEffect(() => {
+    revealedRef.current = true;
+  }, []);
 
   useEffect(() => {
     const onTitle = (event: Event) => {
@@ -46,10 +47,15 @@ export default function WorkPage() {
   return (
     <>
       <main id="main" data-page-container="true" data-page-namespace="work">
-        <div className="u-section-spacer-large" />
-        <TextRevealLines key={title} animateOnScroll={false} waitForCamera>
+        <div className="u-section-spacer-medium" />
+        <TextRevealLines
+          key={title}
+          animateOnScroll={false}
+          animate={!revealedRef.current}
+          waitForCamera
+        >
           <h1
-            className="u-container-full u-text-align-center u-text-style-h1 work-page__title u-color-light"
+            className="u-container-full u-text-align-center u-text-style-display work-page__title u-color-light"
             data-work-strip-title
             role="link"
             tabIndex={0}
@@ -58,11 +64,11 @@ export default function WorkPage() {
             onKeyDown={handleTitleKeyDown}
           >
             <span className="work-page__title-line">{firstLine}</span>
+            {secondLine ? " " : null}
             {secondLine ? <span className="work-page__title-line">{secondLine}</span> : null}
           </h1>
         </TextRevealLines>
       </main>
-      {SHOW_WORK_SCENE_CONTROLS ? <WorkSceneControls /> : null}
     </>
   );
 }

@@ -39,69 +39,71 @@ export default function MainPage() {
   }, []);
 
   return (
-    <main id="main" data-page-container="true" data-page-namespace="main">
-      <section className="hero u-color-light u-background-transparent u-min-height-screen">
-        <div className="hero-stage__contain u-container-main u-height-full u-width-full u-max-width-full">
-          <div className="hero-stage__center">
-            <div className="hero-stage__brand-stack">
-              <div ref={brandClipRef} className="home-hero-brand-clip">
-                <TextRevealLines animateOnScroll={false} waitForPreloader waitForCamera>
-                  <h1
-                    className="home-hero-brand u-text-style-display"
-                    data-brand-handoff-title="main"
-                  >
-                    Duforn
-                  </h1>
-                </TextRevealLines>
-              </div>
-              <div className="u-flex-vertical-nowrap u-align-items-center u-gap-4">
-                {heroCopyWidthPx != null ? (
-                  <div
-                    className="hero-stage__copy-rail"
-                    style={{ width: heroCopyWidthPx, maxWidth: "100%" }}
-                  >
-                    <TextRevealLines
-                      animateOnScroll={false}
-                      waitForPreloader
-                      waitForCamera
-                      delay={0.08}
-                      layoutKey={heroCopyWidthPx}
+    <>
+      <main id="main" data-page-container="true" data-page-namespace="main">
+        <section className="hero u-color-light u-background-transparent u-min-height-screen">
+          <div className="hero-stage__contain u-container-main u-height-full u-width-full u-max-width-full">
+            <div className="hero-stage__center">
+              <div className="hero-stage__brand-stack">
+                <div ref={brandClipRef} className="home-hero-brand-clip">
+                  <TextRevealLines animateOnScroll={false} waitForPreloader waitForCamera>
+                    <h1
+                      className="home-hero-brand u-text-style-display"
+                      data-brand-handoff-title="main"
                     >
-                      <p className="u-text-align-center u-width-full">
-                        We are an art direction and web studio in Mumbai. Working with culture,
-                        curating digital experiences. Making work that moves people.
-                      </p>
-                    </TextRevealLines>
-                  </div>
-                ) : (
-                  <div
-                    className="hero-stage__copy-rail hero-stage__copy-rail--measuring"
-                    aria-hidden="true"
-                  />
-                )}
-                <CameraRevealGroup waitForCamera waitForPreloader delay={0.16}>
-                  <a
-                    className="button button-primary hero-stage__cta"
-                    href="/work"
-                    data-rotate-hover={useRotateButtonHover ? "" : undefined}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      navigateTo("/work");
-                    }}
-                  >
-                    {useRotateButtonHover ? (
-                      <RotateHoverLabel text={HERO_CTA_LABEL} />
-                    ) : (
-                      <span className="hero-stage__cta-label">{HERO_CTA_LABEL}</span>
-                    )}
-                    <span aria-hidden="true">↗</span>
-                  </a>
-                </CameraRevealGroup>
+                      Duforn
+                    </h1>
+                  </TextRevealLines>
+                </div>
+                <div className="u-flex-vertical-nowrap u-align-items-center u-gap-4">
+                  {heroCopyWidthPx != null ? (
+                    <div
+                      className="hero-stage__copy-rail"
+                      style={{ width: heroCopyWidthPx, maxWidth: "100%" }}
+                    >
+                      <TextRevealLines
+                        animateOnScroll={false}
+                        waitForPreloader
+                        waitForCamera
+                        delay={0.08}
+                        layoutKey={heroCopyWidthPx}
+                      >
+                        <p className="u-text-align-center u-width-full">
+                          We are an art direction and web studio in Mumbai. Working with culture,
+                          curating digital experiences. Making work that moves people.
+                        </p>
+                      </TextRevealLines>
+                    </div>
+                  ) : (
+                    <div
+                      className="hero-stage__copy-rail hero-stage__copy-rail--measuring"
+                      aria-hidden="true"
+                    />
+                  )}
+                  <CameraRevealGroup waitForCamera waitForPreloader delay={0.16}>
+                    <a
+                      className="button button-primary hero-stage__cta"
+                      href="/work"
+                      data-rotate-hover={useRotateButtonHover ? "" : undefined}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        navigateTo("/work");
+                      }}
+                    >
+                      {useRotateButtonHover ? (
+                        <RotateHoverLabel text={HERO_CTA_LABEL} />
+                      ) : (
+                        <span className="hero-stage__cta-label">{HERO_CTA_LABEL}</span>
+                      )}
+                      <span aria-hidden="true">↗</span>
+                    </a>
+                  </CameraRevealGroup>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
-    </main>
+        </section>
+      </main>
+    </>
   );
 }

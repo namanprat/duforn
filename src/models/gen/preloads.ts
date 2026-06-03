@@ -1,7 +1,8 @@
 // @ts-nocheck
 /**
- * Single manifest: all GLB URLs preloaded with the same Draco/options as useGLTF.
- * Import this module once from app bootstrap before the canvas renders.
+ * Single manifest: all GLB URLs warmed via fetch so drei's loader cache hits the
+ * warm HTTP cache when components later mount. The website model is a plain
+ * (uncompressed) GLB; monitor still ships meshopt-compressed.
  *
  * Regenerate JSX from GLBs via gltfjsx (see README in this folder).
  */

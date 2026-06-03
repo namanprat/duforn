@@ -1,23 +1,14 @@
 // @ts-nocheck
 import React, { useLayoutEffect, useRef, useState } from "react";
+import { useFrame } from "@react-three/fiber";
 import WebsiteModel from "../models/gen/Website";
 import { applyModelMaterialTuning, normalizeModelBounds } from "./sceneUtils";
 import { findWaterMesh } from "./water/findWaterMesh";
 import WaterRipples from "./water/WaterRipples";
-
-const MODEL_SCALE = 13;
-
-const MATERIAL_TUNE = {
-  roughnessScale: 0.96,
-  metalnessScale: 0.88,
-  envReflection: 1.2,
-  // clearcoat dropped: 0.05 was visually negligible and added a per-pixel BRDF pass.
-  clearcoat: 0,
-  clearcoatRoughness: 0.26,
-};
-
+import { useHomeSceneControlsStore } from "../store/homeScene";
 export default function Main() {
   const modelRef = useRef(null);
+  const outerRef = useRef(null);
   const didInitializeRef = useRef(false);
   const [waterMesh, setWaterMesh] = useState(null);
 
@@ -42,7 +33,7 @@ export default function Main() {
         console.warn("[Main] water mesh not found in model");
       }
 
-      applyModelMaterialTuning(model, MATERIAL_TUNE);
+      applyModelMaterialTuning(model);
 
       didInitializeRef.current = true;
       return true;
@@ -59,24 +50,25 @@ export default function Main() {
     return () => cancelAnimationFrame(raf);
   }, []);
 
+  useFrame(() => {
+    const model = useHomeSceneControlsStore.getState().controls.model;
+    const outer = outerRef.current;
+    const inner = modelRef.current;
+    if (!outer || !inner) return;
+
+    outer.scale.setScalar(model.scale);
+    inner.position.set(model.x, model.y, model.z);
+    inner.rotation.set(model.rx, model.ry, model.rz);
+  });
+
   return (
-    <group scale={MODEL_SCALE}>
-      <directionalLight position={[6, 8, 4]} intensity={2.35} />
-      <ambientLight intensity={0.22} />
-      <directionalLight position={[-5, 4, 3]} intensity={0.6} color="#d9e4f5" />
-      <directionalLight position={[0, 3, -10]} intensity={0.9} color="#ffe8d0" />
-      <spotLight
-        position={[3, 8, -2]}
-        intensity={0.45}
-        color="#e0e8ff"
-        angle={Math.PI / 5}
-        penumbra={0.85}
-        target-position={[0, 0, 0]}
-      />
-      <group ref={modelRef}>
-        <WebsiteModel />
+    <>
+      <group ref={outerRef}>
+        <group ref={modelRef}>
+          <WebsiteModel />
+        </group>
       </group>
       {waterMesh && <WaterRipples mesh={waterMesh} />}
-    </group>
+    </>
   );
 }

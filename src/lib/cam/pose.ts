@@ -21,3 +21,6 @@ export const DEFAULT_CAMERA_BASE_POSE = Object.freeze({
 export const cameraBasePoseRef = {
   current: { ...DEFAULT_CAMERA_BASE_POSE },
 };
+
+/** True while RoomCam GSAP is tweening between room poses. */
+export const cameraTransitionRef = { current: false };

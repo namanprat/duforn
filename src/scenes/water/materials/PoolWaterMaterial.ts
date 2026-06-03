@@ -11,6 +11,7 @@ import { POOL_SIM_DEFAULTS, POOL_WATER_DEFAULTS } from "../config/poolWaterDefau
 import { planarBoundsToUniform } from "../waterPlanarMapping";
 import { isGpuShallowWaterSim } from "../compute/createPoolWaterSim";
 import { createPoolWaterMaterialWebGl } from "./poolWaterMaterialWebGl";
+import { createPoolWaterBreezeTSL, getPoolWaterBreezeWindDir } from "./poolWaterBreeze";
 
 function sunDirectionFromAngles(elevationDeg, azimuthDeg) {
   const elevation = THREE.MathUtils.degToRad(elevationDeg);
@@ -87,6 +88,13 @@ async function createWebGPU({ sim, bounds, envMap }) {
   const fogColor = uniform(new THREE.Color(p.fogColor));
   const foamAmount = uniform(p.foamAmount);
   const foamThreshold = uniform(p.foamThreshold);
+  const uTime = uniform(0);
+  const uBreezeStrength = uniform(p.breezeStrength);
+  const uBreezeScale = uniform(p.breezeScale);
+  const uBreezeSpeed = uniform(p.breezeSpeed);
+  const uWindDir = uniform(getPoolWaterBreezeWindDir());
+  const uBreezeMix = uniform(p.breezeMix);
+  const uBreezeMaxSlope = uniform(p.breezeMaxSlope);
   const uHasEnv = uniform(envMap ? 1 : 0);
   const envTex = texture(envMap ?? new THREE.Texture());
 
@@ -144,16 +152,28 @@ async function createWebGPU({ sim, bounds, envMap }) {
     return normalize(vec3(nx, float(1), nz));
   });
 
+  const { mixSurfaceNormals } = createPoolWaterBreezeTSL(tsl, {
+    uTime,
+    uBreezeStrength,
+    uBreezeScale,
+    uBreezeSpeed,
+    uWindDir,
+    uBreezeMix,
+    uBreezeMaxSlope,
+  });
+
+  const uv = rippleUvFn();
+  const rippleN = sampleRippleNormal(uv);
+  const surfaceN = mixSurfaceNormals(rippleN, uv);
+
   material.normalNode = Fn(() => {
-    const rippleN = sampleRippleNormal(rippleUvFn());
     const flatN = vec3(0, 1, 0);
-    return transformNormalToView(normalize(mix(flatN, rippleN, uRippleStrength)));
+    return transformNormalToView(normalize(mix(flatN, surfaceN, uRippleStrength)));
   })();
 
   material.colorNode = Fn(() => {
-    const rippleN = sampleRippleNormal(rippleUvFn());
     const flatN = vec3(0, 1, 0);
-    const fresnelN = normalize(mix(flatN, rippleN, fresnelNormalStrength));
+    const fresnelN = normalize(mix(flatN, surfaceN, fresnelNormalStrength));
 
     const viewDir = normalize(cameraPosition.sub(positionWorld));
     const F0 = float(0.02);
@@ -173,7 +193,7 @@ async function createWebGPU({ sim, bounds, envMap }) {
     const phi = atan(reflectDir.z, reflectDir.x);
     const theta = asin(clamp(reflectDir.y, float(-1), float(1)));
     const baseEnvUV = vec2(phi.mul(0.1591).add(0.5), theta.mul(0.3183).add(0.5));
-    const refractedUV = baseEnvUV.add(vec2(rippleN.x, rippleN.z).mul(refractionStrength));
+    const refractedUV = baseEnvUV.add(vec2(surfaceN.x, surfaceN.z).mul(refractionStrength));
     const envSample = envTex.sample(refractedUV).xyz;
     const reflectionColor = mix(vec3(defaultReflColor), envSample, float(uHasEnv));
 
@@ -202,7 +222,7 @@ async function createWebGPU({ sim, bounds, envMap }) {
     finalColor = finalColor.add(vec3(subsurfaceColor).mul(subsurface));
 
     const halfVec = normalize(viewDir.add(sunDir));
-    const spec = pow(max(dot(fresnelN, halfVec), float(0)), specularShininess);
+    const spec = pow(max(dot(rippleN, halfVec), float(0)), specularShininess);
 
     const horizontalTilt = abs(rippleN.x).add(abs(rippleN.z));
     const foam = smoothstep(foamThreshold, foamThreshold.add(float(0.15)), horizontalTilt).mul(
@@ -228,7 +248,12 @@ async function createWebGPU({ sim, bounds, envMap }) {
     setPlanarBounds(next) {
       uPlanar.value.copy(planarBoundsToUniform(next));
     },
-    updateTime() {},
+    updateTime(t, { reducedMotion = false } = {}) {
+      uTime.value = t;
+      const off = reducedMotion ? 0 : 1;
+      uBreezeStrength.value = p.breezeStrength * off;
+      uBreezeMix.value = p.breezeMix * off;
+    },
     dispose() {
       material.dispose?.();
     },

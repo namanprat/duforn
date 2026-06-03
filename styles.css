@@ -235,7 +235,6 @@ p {
   text-transform: uppercase;
 }
 .link-main .nav-brand .menu-fullscreen__brand .nav-link-hover {
-
 }
 
 button,
@@ -431,7 +430,6 @@ button.button .nav-link-hover__clip {
   color: var(--swatch-light);
 }
 
-
 body.page-wrap:has([data-page-namespace="projectDetail"]) .nav-wrap a,
 body.page-wrap:has([data-page-namespace="projectDetail"]) .nav-wrap button,
 body.page-wrap:has([data-page-namespace="projectDetail"]) .bottom-nav-wrap a,
@@ -472,6 +470,22 @@ body.page-wrap:has([data-page-namespace="work"])
   pointer-events: auto;
 }
 
+/*
+ * Water test route: empty <main> is still a full-viewport layer above the fixed
+ * canvas — pass pointer events through so OrbitControls + sphere/water picks work.
+ */
+body.page-wrap:has([data-page-namespace="test"]) main[data-page-namespace="test"] {
+  pointer-events: none;
+}
+
+body.page-wrap:has([data-page-namespace="test"]) main[data-page-namespace="test"] * {
+  pointer-events: none;
+}
+
+body.page-wrap:has([data-page-namespace="test"]) .canvas-surface--interactive {
+  z-index: 0;
+}
+
 /* Dev-only debug GUI — make sure every descendant stays interactive even when
    sibling/ancestor rules disable pointer-events. */
 [data-work-scene-controls="true"],
@@ -509,6 +523,11 @@ section {
 
 .u-section-spacer-large {
   height: var(--spacing-section-space-large);
+  position: relative;
+}
+
+.u-section-spacer-medium {
+  height: var(--spacing-section-space-medium);
   position: relative;
 }
 
@@ -871,24 +890,6 @@ section {
     display: grid;
     --column-count-value: 12;
   }
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
 }
 
 @container (width < 35em) {
@@ -963,24 +964,6 @@ section {
     display: grid;
     --column-count-value: 12;
   }
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
 }
 
 @container (width < 20em) {
@@ -1055,24 +1038,6 @@ section {
     display: grid;
     --column-count-value: 12;
   }
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
 }
 
 /* --- MEDIA QUERIES --- */
@@ -1413,34 +1378,443 @@ body.overlay-scroll-lock {
   }
 }
 
-.archive-page {
+.about-page {
   position: relative;
   width: 100%;
   min-height: 100svh;
   min-height: 100dvh;
-  /* Opaque black hid the UnifiedCanvas (#background) so route enter/leave tweens looked inert. */
+  --about-base-100: #f7f5f0;
+  --about-base-200: #272a2a;
+  --about-base-300: #0b0b0b;
   background: transparent;
   pointer-events: none;
   padding-top: max(6rem, calc(env(safe-area-inset-top) + 4rem));
 }
 
-.archive-page__header {
+.about-page__hero {
+  position: relative;
+  width: 100%;
+  height: 100svh;
+  height: 100dvh;
+  overflow: hidden;
+  background-color: var(--about-base-200);
+  pointer-events: none;
+}
+
+.about-page__hero-header {
+  position: absolute;
+  top: 25%;
+  left: 0;
+  transform: translateY(-50%);
+  width: 100%;
+}
+
+@media (max-width: 1000px) {
+  .about-page__hero-header h1 {
+    font-size: clamp(2rem, 8vw, 3rem);
+  }
+}
+
+/* Intro — scroll-pinned word reveal (deadlock-studios AnimeText) */
+.about-page__intro {
+  position: relative;
+  width: 100%;
+  height: 100svh;
+  height: 100dvh;
+  padding: 2rem;
+  background-color: var(--about-base-300);
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.about-page__intro-inner {
+  width: min(55%, 100%);
+  margin-inline: auto;
+}
+
+.about-page__intro-paragraph {
+  text-align: center;
+  margin-bottom: var(--spacing-space-4);
+}
+
+.about-page__intro-word {
+  display: inline-block;
+  position: relative;
+  margin-right: 0.2rem;
+  margin-bottom: 0.2rem;
+  padding: 0.1rem 0.2rem;
+  border-radius: 0.5rem;
+  will-change: background-color, opacity;
+  opacity: 0;
+}
+
+.about-page__intro-word span {
+  position: relative;
+  opacity: 0;
+}
+
+/* Design Pillars accordion (deadlock-studios Accordion) */
+.about-page__accordion {
+  padding: 12rem 0;
+  background-color: var(--about-base-200);
+  pointer-events: auto;
+}
+
+.about-page__accordion-header {
+  padding: 0 2rem 2rem;
+}
+
+.about-page__accordion-header p {
+  margin-bottom: 1.5rem;
+}
+
+.about-page__accordion-header h2 {
+  max-width: 60rem;
+  margin-inline: auto;
+}
+
+.about-page__accordion-row {
+  display: flex;
+  gap: 0.5rem;
+  height: 60vh;
+  min-height: 500px;
+}
+
+.about-page__accordion-panel {
+  position: relative;
+  height: 100%;
+  flex: 16 0 0;
+  min-width: 0;
+  border-radius: 0.25rem;
+  overflow: hidden;
+  cursor: pointer;
+  will-change: flex-grow;
+}
+
+.about-page__accordion-panel-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.about-page__accordion-panel-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(11, 11, 11, 0.15) 0%, rgba(11, 11, 11, 0.55) 100%);
+  pointer-events: none;
+}
+
+.about-page__accordion-panel-content {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  pointer-events: none;
+}
+
+.about-page__accordion-panel-number {
+  width: 2.5rem;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background-color: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  border-radius: 5px;
+  margin-bottom: 1rem;
+  font-size: 0.75rem;
+}
+
+.about-page__accordion-panel-title {
+  font-size: 1.1rem;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.about-page__accordion-panel-desc-wrap {
+  position: absolute;
+  z-index: 1;
+  top: 58%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24rem;
+  text-align: center;
+  pointer-events: none;
+}
+
+.about-page__accordion-panel-desc {
+  font-size: 0.9rem;
+  line-height: 1.25;
+  text-transform: none;
+  will-change: opacity, transform;
+}
+
+.about-page__accordion--stacked {
+  padding: 10rem 0 12rem;
+}
+
+.about-page__accordion--stacked .about-page__accordion-header {
+  padding-bottom: 3rem;
+}
+
+.about-page__accordion--stacked .about-page__accordion-row {
+  flex-direction: column;
+  height: auto;
+  min-height: 0;
+  gap: 1.25rem;
+}
+
+.about-page__accordion--stacked .about-page__accordion-panel {
+  flex: none !important;
+  height: auto;
+  min-height: 0;
+  cursor: default;
+  display: flex;
+  flex-direction: column;
+}
+
+.about-page__accordion--stacked .about-page__accordion-panel-img {
+  position: relative;
+  inset: unset;
+  aspect-ratio: 16 / 9;
+  flex-shrink: 0;
+}
+
+.about-page__accordion--stacked .about-page__accordion-panel-overlay {
+  inset: unset;
+  top: 0;
+  left: 0;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+}
+
+.about-page__accordion--stacked .about-page__accordion-panel-content {
+  position: relative;
+  top: auto;
+  left: auto;
+  transform: none;
+  align-items: flex-start;
+  text-align: left;
+  padding: 2rem 1.75rem 0.75rem;
+}
+
+.about-page__accordion--stacked .about-page__accordion-panel-desc-wrap {
+  position: relative;
+  top: auto;
+  left: auto;
+  transform: none;
+  width: 100%;
+  text-align: left;
+  padding: 0 1.75rem 2.25rem;
+}
+
+.about-page__accordion--stacked .about-page__accordion-panel-title {
+  white-space: normal;
+}
+
+/* Behind the Lock — scroll-pinned arc cards (deadlock-studios Team) */
+.about-page__lock {
+  position: relative;
+  width: 100%;
+  height: 100svh;
+  height: 100dvh;
+  overflow: hidden;
+  background-color: var(--about-base-200);
+  pointer-events: auto;
+}
+
+.about-page__lock-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 2.25rem;
+  pointer-events: none;
+}
+
+.about-page__lock-header {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.about-page__lock-cards {
+  position: absolute;
+  top: 20%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 150vw;
+  height: 600px;
+  will-change: transform;
+  z-index: 2;
+}
+
+.about-page__lock-card {
+  position: absolute;
+  width: 400px;
+  height: 550px;
+  left: 50%;
+  top: 50%;
+  transform-origin: center center;
+  margin-left: -150px;
+  display: flex;
+  flex-direction: column;
+  will-change: transform;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  padding: 1rem;
+  z-index: 2;
+}
+
+.about-page__lock-card-img {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 0.25rem;
+}
+
+.about-page__lock-card-img img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: saturate(0.6) brightness(0.9);
+  transition: filter 0.4s ease;
+}
+
+.about-page__lock-card:hover .about-page__lock-card-img img {
+  filter: saturate(0.85) brightness(1);
+}
+
+.about-page__lock-card-body {
+  padding-top: 1.25rem;
+  padding-bottom: 0.5rem;
+}
+
+.about-page__lock-card-desc {
+  font-size: 0.875rem;
+  line-height: var(--typography-line-height-medium);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@media (max-width: 1000px) {
+  .about-page__intro-inner {
+    width: 90%;
+  }
+
+  .about-page__intro-paragraph {
+    font-size: 1.25rem;
+  }
+
+  .about-page__intro-word {
+    margin-right: 0.1rem;
+    margin-bottom: 0.15rem;
+  }
+
+  .about-page__lock-cards {
+    top: 27.5%;
+  }
+
+  .about-page__lock-card {
+    width: 260px;
+    height: 370px;
+    margin-left: -130px;
+  }
+}
+
+@media (max-width: 900px) {
+  .about-page__lock-header h2 {
+    font-size: clamp(2rem, 8vw, 3.5rem);
+  }
+}
+
+.about-page__closing {
+  position: relative;
+  width: 100%;
+  height: 100svh;
+  height: 100dvh;
+  overflow: hidden;
+  contain: layout style paint;
+  background-color: var(--about-base-300);
+  pointer-events: none;
+}
+
+.about-page__closing-content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2.5rem;
+  pointer-events: none;
+}
+
+.about-page__closing-heading {
+  width: min(65%, 1500px);
+}
+
+.about-page__closing-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  z-index: 4;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2.25rem;
+  pointer-events: none;
+}
+
+@media (max-width: 1000px) {
+  .about-page__closing-heading {
+    width: 90%;
+  }
+}
+
+.about-page__header {
   pointer-events: none;
   max-width: 28rem;
 }
 
-.archive-page__eyebrow {
+.about-page__eyebrow {
   color: color-mix(in srgb, var(--swatch-light) 55%, transparent);
   margin-bottom: var(--spacing-space-2);
   letter-spacing: var(--typography-letter-spacing-wide);
 }
 
-.archive-page__title {
+.about-page__title {
   color: var(--swatch-light);
   margin-bottom: var(--spacing-space-3);
 }
 
-.archive-page__note {
+.about-page__note {
   color: color-mix(in srgb, var(--swatch-light) 50%, transparent);
   line-height: var(--typography-line-height-medium);
   max-width: 22rem;
@@ -1663,7 +2037,7 @@ img {
 }
 
 .work-page__title-line {
-  display: block;
+  display: inline;
 }
 
 @media (max-width: 1000px) {
@@ -1675,6 +2049,10 @@ img {
 @media (max-width: 768px) {
   .work-page__title {
     font-size: calc(var(--typography-font-size-display) * 0.85);
+  }
+
+  .work-page__title-line {
+    display: block;
   }
 }
 
@@ -1701,7 +2079,7 @@ img {
   pointer-events: none;
 }
 
-/* Descendants default to pointer-events: auto and stay hit-targets unless overridden, which blocked menu/archive during ink after a transparent fade. */
+/* Descendants default to pointer-events: auto and stay hit-targets unless overridden, which blocked menu/about during ink after a transparent fade. */
 .preloader[data-state="fading"] * {
   pointer-events: none !important;
 }
@@ -1839,20 +2217,6 @@ body.preloader-active .bottom-nav-wrap {
   background: transparent;
 }
 
-/* Subtle chromatic fringing on the main R3F canvas only. Filter is rendered by
-   <ChromaticAberrationFilter /> (src/components/fx/ChromaticAberrationFilter.tsx).
-   Backend-agnostic — affects the browser compositor, not the GL/GPU render
-   path. Safe on both WebGL and WebGPU. HTML text/UI is untouched.
-
-   NOTE: deliberately NOT applied to the ink-bleed overlay canvas
-   (.fullscreen-overlay-cluster__canvas). Applying a CSS filter to that canvas
-   suppresses the alpha-blended ink visual during route transitions
-   (transparency-heavy content + feBlend screen wipes the visible signal). */
-#background.canvas-surface canvas {
-  filter: url(#duforn-chromatic-aberration);
-  will-change: filter;
-}
-
 .canvas-surface--overlay-transition {
   z-index: calc(var(--z-nav) - 1);
 }
@@ -1955,6 +2319,20 @@ body.preloader-active .bottom-nav-wrap {
 
 .project-details-supporting-image {
   margin-top: var(--spacing-section-space-medium);
+}
+
+.project-details-supporting-image:has([data-money-me-strips="true"]) {
+  margin-bottom: var(--spacing-section-space-medium);
+}
+
+[data-money-me-strips="true"] {
+  position: relative;
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  max-height: var(--site--viewport-min-height-supporting);
+  aspect-ratio: 16 / 9;
+  background: transparent;
 }
 
 .project-details-supporting-image-frame {
@@ -2131,5 +2509,73 @@ a[aria-current="page"] {
     --swatch-brand-800: #5a5a5a;
     --swatch-brand-900: #2d2d2d;
     --theme-background-skeleton: rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* --- Film grain overlay (CSS, replaces ViewportPostFX grain) --- */
+.grain {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Oversized layer so translate animation never exposes empty edges. */
+.grain::before {
+  content: "";
+  position: absolute;
+  top: -150%;
+  left: -150%;
+  width: 350%;
+  height: 350%;
+  opacity: 0.075;
+  background-image: url("/grain.webp");
+  background-repeat: repeat;
+  will-change: transform;
+  animation: grain 8s steps(10) infinite;
+}
+
+@keyframes grain {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  10% {
+    transform: translate(-5%, -10%);
+  }
+  20% {
+    transform: translate(-15%, 5%);
+  }
+  30% {
+    transform: translate(7%, -25%);
+  }
+  40% {
+    transform: translate(-5%, 25%);
+  }
+  50% {
+    transform: translate(-15%, 10%);
+  }
+  60% {
+    transform: translate(15%, 0%);
+  }
+  70% {
+    transform: translate(0%, 15%);
+  }
+  80% {
+    transform: translate(3%, 35%);
+  }
+  90% {
+    transform: translate(-10%, 10%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grain::before {
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    animation: none;
   }
 }

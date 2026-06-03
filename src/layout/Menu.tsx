@@ -59,7 +59,7 @@ export default function MenuOverlayLayer({
         <nav className="menu-fullscreen__nav" aria-label="Primary navigation">
           {menuLink("/work", "Work", 0)}
           {menuLink("/contact", "Contact", 0.06)}
-          {menuLink("/archive", "Archive", 0.12)}
+          {menuLink("/about", "About", 0.12)}
         </nav>
       </div>
     </div>

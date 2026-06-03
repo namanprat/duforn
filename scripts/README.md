@@ -2,27 +2,35 @@
 
 One-shot dev scripts. Not part of the build pipeline unless wired through `package.json`.
 
-## compress-assets.ts
+## model-update.mjs
 
-Recompresses the four GLB files in `public/` for production delivery.
+Simple gltfjsx pipeline for the website model. Run after replacing
+`public/duforn_website.glb` with a fresh Blender export.
 
 ```bash
-npm install              # installs @gltf-transform/*, meshoptimizer, sharp, tsx
-npm run compress-assets
+npm run model:update
 ```
 
-Outputs `<name>.compressed.glb` next to each source. To switch the app over:
+Steps:
 
-1. Inspect sizes (`ls -lh public/*.glb public/models/*.glb`).
-2. A/B test visual fidelity in dev.
-3. Edit `src/models/urls.ts` to point each `GLTF_URL_*` at the `.compressed.glb`
-   version (or rename the originals out of the way).
+1. Verify `public/duforn_website.glb` exists.
+2. Validate it with `gltfjsx` (parses + decodes; output discarded).
+3. Restore the canonical `src/models/gen/Website.tsx` wrapper — a plain
+   `useGLTF(GLTF_URL_WEBSITE)` `<primitive>` (no Draco / Meshopt / KTX2). The
+   host scene (`src/scenes/Main.tsx`) handles bounds normalization, material
+   tuning, and water-mesh discovery via traversal.
+4. Clean the Vite cache + `dist/`.
+5. Run a production build to catch breakage early.
 
-The script is idempotent and slow (texture re-encoding dominates). Re-run only
-when source assets change.
+The GLB ships uncompressed — there is no separate compression step. If you need
+per-node JSX, regenerate it manually:
+
+```bash
+npx gltfjsx@latest public/duforn_website.glb -o src/models/gen/Website.tsx
+```
 
 ### HDR downsampling
 
-`home.hdr` / `main.hdr` are RGBE-encoded; sharp can't decode them. To halve them
-from 2k → 1k, use Blender's image editor (Image → Save As → set resolution) or
-the `cmft` CLI. Replace `home.hdr` / `main.hdr` in place when done.
+`home.hdr` / `main.hdr` are RGBE-encoded. To halve them from 2k → 1k, use
+Blender's image editor (Image → Save As → set resolution) or the `cmft` CLI.
+Replace `home.hdr` / `main.hdr` in place when done.

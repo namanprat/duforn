@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { projectDetailContent } from "../../projectDetail/content";
+import { STRIP_PATHS } from "../../projectDetail/moneyMeStrips/config";
 import { PRELOADER_DISMISSED_EVENT } from "./events";
 
 /**
@@ -54,6 +55,7 @@ function collectProjectDetailImageUrls() {
     }
   };
   visit(projectDetailContent);
+  STRIP_PATHS.forEach((url) => urls.add(url));
   return [...urls];
 }
 

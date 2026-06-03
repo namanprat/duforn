@@ -9,7 +9,6 @@ const mockSetGyroEnabled = vi.fn();
 const mockSetPreloaderOverlayVisible = vi.fn();
 
 vi.mock("../src/scenes/Canvas", () => ({ default: () => null }));
-vi.mock("../src/fx/Chromatic", () => ({ default: () => null }));
 vi.mock("../src/scenes/OverlayCanvas", () => ({ default: () => null }));
 vi.mock("../src/layout/Menu", () => ({ default: () => null }));
 vi.mock("../src/layout/Portal", () => ({

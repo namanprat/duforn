@@ -1,20 +1,13 @@
 // @ts-nocheck
 import React, { useEffect } from "react";
-import { PerspectiveCamera } from "@react-three/drei";
 import Env from "./Env";
-import RoomCam from "./RoomCam";
-import CameraRig from "./CameraRig";
+import RoomCameraRig from "./RoomCameraRig";
 import Main from "./Main";
+import HomeSceneCameraSync from "./HomeSceneCameraSync";
 import { WorkClothStripScene } from "../work/ClothStrip";
 import { registerRoomAssetTasks } from "../models/gen/preloads";
-
-/**
- * Stable module-level literals so drei's <PerspectiveCamera> doesn't re-assert
- * position/fov on every parent render, fighting CameraRig and causing visible
- * 1-frame snaps ("violent shake" on the work cloth strip).
- */
-const INITIAL_CAMERA_POSITION: readonly [number, number, number] = [0, 1, 5];
-const INITIAL_CAMERA_FOV = 65;
+import { HomeSceneSpotLight } from "./HomeSceneSpotLight";
+import HomeSceneSpotLightGui from "./HomeSceneSpotLightGui";
 
 /**
  * Persistent multi-room scene: one model, one camera, GSAP-driven room poses.
@@ -26,11 +19,7 @@ export default function RoomCanvas() {
 
   return (
     <>
-      <PerspectiveCamera
-        makeDefault
-        position={INITIAL_CAMERA_POSITION as unknown as [number, number, number]}
-        fov={INITIAL_CAMERA_FOV}
-      />
+      <RoomCameraRig />
       <Env
         hdrFiles="/main.hdr"
         showHdriBackground
@@ -38,8 +27,9 @@ export default function RoomCanvas() {
         fogDensity={0}
         showShadowCatcher={false}
       />
-      <RoomCam />
-      <CameraRig parallaxScale={0.3} parallaxLerp={0.03} />
+      <HomeSceneCameraSync />
+      <HomeSceneSpotLight />
+      {import.meta.env.DEV ? <HomeSceneSpotLightGui /> : null}
       <Main />
       <WorkClothStripScene />
     </>

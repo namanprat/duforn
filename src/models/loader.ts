@@ -23,7 +23,7 @@ function ensureKtx2(renderer: THREE.WebGLRenderer | null): KTX2Loader {
 }
 
 /**
- * Bridge for the active R3F renderer. WaterRipples/Canvas set this on createRendererOpaque;
+ * Bridge for the active R3F renderer. Canvas set this on createRendererOpaque;
  * the KTX2 loader needs it to detect the supported transcoded texture format
  * (ASTC/ETC/BC7/...). Without it, KTX2 still loads but always falls back to RGBA.
  */

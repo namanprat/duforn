@@ -2,7 +2,7 @@
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { useWebglStore } from "../store/webgl";
-import { cameraBasePoseRef, DEFAULT_CAMERA_BASE_POSE } from "../lib/cam/pose";
+import { cameraBasePoseRef, cameraTransitionRef, DEFAULT_CAMERA_BASE_POSE } from "../lib/cam/pose";
 import {
   ROOM_POSES,
   ROOM_TRANSITION_SECONDS,
@@ -10,8 +10,19 @@ import {
   prefersReducedMotion,
 } from "../lib/cam/roomPoses";
 import { setArrivedRoom } from "../lib/cam/arrival";
+import { getMainCameraPose } from "../store/homeScene";
 
 const POSE_KEYS = Object.keys(DEFAULT_CAMERA_BASE_POSE);
+
+// Main-room pose as baseline so CameraRig isn't at origin before RoomCam mounts.
+Object.assign(cameraBasePoseRef.current, ROOM_POSES.main);
+
+function getTargetPose(room) {
+  if (room === "main") {
+    return { ...DEFAULT_CAMERA_BASE_POSE, ...getMainCameraPose() };
+  }
+  return ROOM_POSES[room];
+}
 
 function snapTo(target) {
   for (const key of POSE_KEYS) {
@@ -43,11 +54,12 @@ export default function RoomCam() {
 
     const next = activePage;
     const prev = prevRoomRef.current;
-    const targetPose = ROOM_POSES[next];
+    const targetPose = getTargetPose(next);
 
     if (tweenRef.current) {
       tweenRef.current.kill();
       tweenRef.current = null;
+      cameraTransitionRef.current = false;
     }
     if (arrivalCallRef.current) {
       arrivalCallRef.current.kill();
@@ -61,14 +73,16 @@ export default function RoomCam() {
     // Route really changed → arrival signal is stale until we land again.
     setArrivedRoom(null);
 
-    // First mount, or reduced motion: snap without tween.
+    // First mount or reduced motion: snap without tween.
     if (prev == null || prefersReducedMotion()) {
+      cameraTransitionRef.current = false;
       snapTo(targetPose);
       prevRoomRef.current = next;
       setArrivedRoom(next);
       return;
     }
 
+    cameraTransitionRef.current = true;
     tweenRef.current = gsap.to(cameraBasePoseRef.current, {
       orbitCenterX: targetPose.orbitCenterX,
       orbitCenterY: targetPose.orbitCenterY,
@@ -84,6 +98,7 @@ export default function RoomCam() {
       overwrite: true,
       onComplete: () => {
         tweenRef.current = null;
+        cameraTransitionRef.current = false;
         // Backup arrival in case the lead-in delayedCall was killed/missed.
         if (arrivalCallRef.current) {
           arrivalCallRef.current.kill();
@@ -109,6 +124,7 @@ export default function RoomCam() {
       tweenRef.current = null;
       arrivalCallRef.current?.kill();
       arrivalCallRef.current = null;
+      cameraTransitionRef.current = false;
       prevRoomRef.current = null;
     };
   }, []);

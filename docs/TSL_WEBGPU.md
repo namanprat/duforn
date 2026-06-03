@@ -12,7 +12,7 @@ This guide was imported from the [`ocean-webgpu`](../ocean-webgpu/) reference pr
 
 - **Canvas:** React Three Fiber via [`UnifiedCanvas`](../src/components/webgl/UnifiedCanvas.tsx) and [`createWebGPURenderer`](../src/lib/rendering/createWebGPURenderer.ts). Branch with `isWebGPURenderer` / `pickGpuBranchAsync` from [`gpuDualPath.ts`](../src/lib/rendering/gpuDualPath.ts).
 - **Pool ripples (main scene):** [`PoolShallowWaterSim`](../src/components/webgl/water/compute/PoolShallowWaterSim.ts) implements the staggered-grid shallow water equations from [`ShallowWater-main`](../ShallowWater-main/) using **`instancedArray` + `Fn().compute()`** (not storage textures). Materials read the `h` buffer directly — see the Storage Textures workaround section below. Neighbor sampling uses `min`/`max` index clamping, **not** `If(...)` (TSL has no control flow).
-- **Pool look:** [`PoolWaterMaterial`](../src/components/webgl/water/materials/PoolWaterMaterial.ts) ports ocean-webgpu fresnel/env patterns onto the GLB pool quad as a **`MeshBasicNodeMaterial`** (unlit, transparent, `depthWrite=false`) so the pool floor stays visible through the water. Vertex displacement and normals are sampled directly from the `h` buffer via UV→index lookup.
+- **Pool water:** OG WebGPU sim + caustics are in `src/scenes/waterTest/og/` (see `/test` only). The legacy TSL `PoolWaterMaterial` path was removed.
 - **Patches:** [`patchThreeTSL`](../src/lib/webgpu/patchThreeTSL.ts) runs at startup; use `logWebGPU` / `logWebGPUOnce` when debugging GPU paths.
 
 See also [`AGENTS.md`](../AGENTS.md) → _WebGPU-first rendering_.

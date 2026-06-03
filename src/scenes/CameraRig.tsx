@@ -120,7 +120,7 @@ export default function CameraRig({
     camera.position.set(camX, camY, camZ);
     camera.lookAt(lookTargetX, lookTargetY, lookTargetZ);
     camera.rotation.z += current.current.tilt;
-  });
+  }, -1);
 
   return null;
 }

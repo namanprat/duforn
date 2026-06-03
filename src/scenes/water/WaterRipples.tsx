@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { useThree } from "@react-three/fiber";
+import { useThree, useFrame } from "@react-three/fiber";
 import { useWebglStore } from "../../store/webgl";
 import { useLoadingStore } from "../../store/loading";
 import { logWebGPUOnce } from "../../lib/gpu/debug";
@@ -53,9 +53,8 @@ function meshPlanarBounds(mesh) {
  * R3F's clock tracks real time, keeping CameraRig's parallax/drift smooth.
  */
 export default function WaterRipples({ mesh }) {
-  const { gl, camera, scene, advance } = useThree();
+  const { gl, camera, scene } = useThree();
   const qualityTier = useWebglStore((s) => s.qualityProfile?.tier ?? "desktop");
-  const loadingPhase = useLoadingStore((s) => s.phase);
 
   const simRef = useRef(null);
   const materialApiRef = useRef(null);
@@ -66,6 +65,8 @@ export default function WaterRipples({ mesh }) {
   const raycasterRef = useRef(new THREE.Raycaster());
   const ndcRef = useRef(new THREE.Vector2());
   const impulseQueueRef = useRef([]);
+  const simBusyRef = useRef(false);
+  const matrixSnapshotRef = useRef(null);
 
   const gridSize = getPoolSimResolutionForTier(qualityTier);
   const nwRef = useRef(gridSize);
@@ -92,7 +93,25 @@ export default function WaterRipples({ mesh }) {
     const bounds = meshPlanarBounds(mesh);
     boundsRef.current = bounds;
     materialApiRef.current?.setPlanarBounds?.(bounds);
+    matrixSnapshotRef.current = mesh.matrixWorld.elements.slice();
     return bounds;
+  };
+
+  const maybeRefreshBounds = () => {
+    if (!mesh) return;
+    mesh.updateWorldMatrix(true, false);
+    const elements = mesh.matrixWorld.elements;
+    const prev = matrixSnapshotRef.current;
+    if (!prev) {
+      refreshBounds();
+      return;
+    }
+    for (let i = 0; i < 16; i++) {
+      if (prev[i] !== elements[i]) {
+        refreshBounds();
+        return;
+      }
+    }
   };
 
   useEffect(() => {
@@ -164,6 +183,10 @@ export default function WaterRipples({ mesh }) {
     const spawnImpulse = (event) => {
       if (!simRef.current || prefersReducedMotion()) return;
 
+      // Model scale/position are applied in Main's useFrame after mount; bounds
+      // must match the mesh's current world matrix or grid coords miss the pool.
+      refreshBounds();
+
       const rect = canvas.getBoundingClientRect();
       ndc.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       ndc.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -198,50 +221,37 @@ export default function WaterRipples({ mesh }) {
     return () => window.removeEventListener("resize", onResize);
   }, [mesh]);
 
-  useEffect(() => {
-    if (!gl || loadingPhase !== "ready") return undefined;
+  // The unified canvas (`frameloop="never"`) owns the single
+  // `advance` + `gl.render` loop (see UnifiedCanvasFrameLoop). This component
+  // only advances the water sim + material clock per frame; rendering is the
+  // unified loop's job. useFrame runs when the unified loop calls `advance(t)`.
+  const maybeStepSim = () => {
+    const sim = simRef.current;
+    if (!sim?.ready || simBusyRef.current) return;
 
-    let running = true;
-    let simBusy = false;
-    let frameIndex = 0;
+    const queue = impulseQueueRef.current;
+    if (queue.length > 0) {
+      const next = queue.shift();
+      sim.setImpulse(next.gx, next.gy, next.strengthScale);
+    }
 
-    const maybeStepSim = () => {
-      const sim = simRef.current;
-      if (!sim?.ready || simBusy) return;
+    simBusyRef.current = true;
+    sim
+      .stepAsync({ substeps: POOL_SIM_DEFAULTS.substeps })
+      .catch((err) => console.error("[WaterRipples] sim step failed", err))
+      .finally(() => {
+        simBusyRef.current = false;
+      });
+  };
 
-      const queue = impulseQueueRef.current;
-      if (queue.length > 0) {
-        const next = queue.shift();
-        sim.setImpulse(next.gx, next.gy, next.strengthScale);
-      }
-
-      simBusy = true;
-      sim
-        .stepAsync({ substeps: POOL_SIM_DEFAULTS.substeps })
-        .catch((err) => console.error("[WaterRipples] sim step failed", err))
-        .finally(() => {
-          simBusy = false;
-        });
-    };
-
-    const tick = (timestampMs) => {
-      if (!running) return;
-      if (useLoadingStore.getState().phase !== "ready") return;
-
-      const t = typeof timestampMs === "number" ? timestampMs : performance.now();
-      advance(t);
-      materialApiRef.current?.updateTime?.(t * 0.001);
-      gl.render(scene, camera);
-      // Half-rate sim: ripples stay alive while freeing GPU for camera + render.
-      if ((frameIndex++ & 1) === 0) maybeStepSim();
-    };
-
-    gl.setAnimationLoop(tick);
-    return () => {
-      running = false;
-      gl.setAnimationLoop(null);
-    };
-  }, [gl, scene, camera, advance, loadingPhase]);
+  useFrame(() => {
+    if (useLoadingStore.getState().phase !== "ready") return;
+    maybeRefreshBounds();
+    materialApiRef.current?.updateTime?.(performance.now() * 0.001, {
+      reducedMotion: prefersReducedMotion(),
+    });
+    maybeStepSim();
+  });
 
   return null;
 }

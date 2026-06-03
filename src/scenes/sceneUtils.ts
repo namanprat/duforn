@@ -21,7 +21,7 @@ function tuneMaterialMaps(material) {
   material.needsUpdate = true;
 }
 
-function getFallbackPhysicalMaterial(sourceMaterial, overrides = {}) {
+function getFallbackPhysicalMaterial(sourceMaterial) {
   return new THREE.MeshPhysicalMaterial({
     name: sourceMaterial?.name || "",
     color: sourceMaterial?.color?.clone ? sourceMaterial.color.clone() : new THREE.Color(0xffffff),
@@ -32,77 +32,27 @@ function getFallbackPhysicalMaterial(sourceMaterial, overrides = {}) {
     aoMap: sourceMaterial?.aoMap || null,
     roughness: sourceMaterial?.roughness ?? 0.65,
     metalness: sourceMaterial?.metalness ?? 0.2,
-    clearcoat: 0.12,
-    clearcoatRoughness: 0.16,
-    envMapIntensity: 1.35,
-    ...overrides,
+    clearcoat: sourceMaterial?.clearcoat ?? 0,
+    clearcoatRoughness: sourceMaterial?.clearcoatRoughness ?? 0,
+    envMapIntensity: sourceMaterial?.envMapIntensity ?? 1,
   });
 }
 
-export function applyModelMaterialTuning(
-  model,
-  {
-    roughnessScale = 1,
-    metalnessScale = 1,
-    envReflection = 1,
-    clearcoat = 0,
-    clearcoatRoughness = 0.3,
-    cloneStandardMaterials = true,
-    fallbackMaterialOverrides,
-    materialFactory,
-  } = {},
-) {
+/** Fix map color spaces and upgrade non-PBR materials without retuning values. */
+export function applyModelMaterialTuning(model) {
   model.traverse((child) => {
     if (!child.isMesh) return;
-    if (child.userData?.isWater) return;
 
     const apply = (sourceMaterial) => {
       if (!sourceMaterial) return sourceMaterial;
 
-      if (materialFactory) {
-        return materialFactory(sourceMaterial, child);
-      }
-
       let material = sourceMaterial;
 
       if (!material.isMeshStandardMaterial && !material.isMeshPhysicalMaterial) {
-        material = getFallbackPhysicalMaterial(sourceMaterial, fallbackMaterialOverrides);
-      } else if (cloneStandardMaterials) {
-        material = material.clone();
+        material = getFallbackPhysicalMaterial(sourceMaterial);
       }
 
       tuneMaterialMaps(material);
-      if (material.userData.baseRoughness === undefined) {
-        material.userData.baseRoughness = material.roughness ?? 0.8;
-      }
-      if (material.userData.baseMetalness === undefined) {
-        material.userData.baseMetalness = material.metalness ?? 0.0;
-      }
-      if (material.userData.baseEnvMapIntensity === undefined) {
-        material.userData.baseEnvMapIntensity = material.envMapIntensity ?? 1;
-      }
-
-      material.roughness = THREE.MathUtils.clamp(
-        material.userData.baseRoughness * roughnessScale,
-        0.03,
-        1,
-      );
-      material.metalness = THREE.MathUtils.clamp(
-        material.userData.baseMetalness * metalnessScale,
-        0,
-        1,
-      );
-      material.envMapIntensity = THREE.MathUtils.clamp(
-        material.userData.baseEnvMapIntensity * envReflection,
-        0.2,
-        5,
-      );
-
-      if (clearcoat > 0 && material.isMeshPhysicalMaterial) {
-        material.clearcoat = clearcoat;
-        material.clearcoatRoughness = clearcoatRoughness;
-      }
-
       return material;
     };
 

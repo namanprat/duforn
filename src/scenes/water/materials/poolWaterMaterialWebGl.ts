@@ -1,6 +1,7 @@
 // @ts-nocheck
 import * as THREE from "three";
 import { POOL_SIM_DEFAULTS, POOL_WATER_DEFAULTS } from "../config/poolWaterDefaults";
+import { POOL_WATER_BREEZE_GLSL, getPoolWaterBreezeWindDir } from "./poolWaterBreeze";
 
 function sunDirectionFromAngles(elevationDeg, azimuthDeg) {
   const elevation = THREE.MathUtils.degToRad(elevationDeg);
@@ -63,6 +64,13 @@ const FRAG = /* glsl */ `
   uniform vec3 uFogColor;
   uniform float uFoamAmount;
   uniform float uFoamThreshold;
+  uniform float uTime;
+  uniform float uBreezeStrength;
+  uniform float uBreezeScale;
+  uniform float uBreezeSpeed;
+  uniform vec2 uWindDir;
+  uniform float uBreezeMix;
+  uniform float uBreezeMaxSlope;
 
   float decodeH(float r) { return (r - 0.5) * 2.0; }
 
@@ -84,6 +92,8 @@ const FRAG = /* glsl */ `
     return normalize(vec3(nx, 1.0, nz));
   }
 
+  ${POOL_WATER_BREEZE_GLSL}
+
   vec2 equirectUV(vec3 dir) {
     float phi = atan(dir.z, dir.x);
     float theta = asin(clamp(dir.y, -1.0, 1.0));
@@ -92,8 +102,9 @@ const FRAG = /* glsl */ `
 
   void main() {
     vec3 rippleN = sampleRippleNormal(vRippleUv);
+    vec3 surfaceN = mixSurfaceNormal(rippleN, vRippleUv);
     vec3 flatN = vec3(0.0, 1.0, 0.0);
-    vec3 fresnelN = normalize(mix(flatN, rippleN, uFresnelNormalStrength));
+    vec3 fresnelN = normalize(mix(flatN, surfaceN, uFresnelNormalStrength));
 
     vec3 viewDir = normalize(cameraPosition - vWorldPos);
     float F0 = 0.02;
@@ -107,7 +118,7 @@ const FRAG = /* glsl */ `
 
     vec3 reflectDir = reflect(-viewDir, fresnelN);
     vec2 baseEnvUV = equirectUV(reflectDir);
-    vec2 refractedUV = baseEnvUV + rippleN.xz * uRefractionStrength;
+    vec2 refractedUV = baseEnvUV + surfaceN.xz * uRefractionStrength;
     vec3 envSample = texture2D(uEnvMap, refractedUV).rgb;
     vec3 reflectionColor = mix(uDefaultReflection, envSample, uHasEnv);
 
@@ -123,7 +134,7 @@ const FRAG = /* glsl */ `
     finalColor += uSubsurfaceColor * subsurface;
 
     vec3 halfVec = normalize(viewDir + uSunDir);
-    float spec = pow(max(dot(fresnelN, halfVec), 0.0), uSpecularShininess);
+    float spec = pow(max(dot(rippleN, halfVec), 0.0), uSpecularShininess);
 
     float horizontalTilt = abs(rippleN.x) + abs(rippleN.z);
     float foam = smoothstep(uFoamThreshold, uFoamThreshold + 0.15, horizontalTilt) * uFoamAmount;
@@ -179,6 +190,13 @@ export function createPoolWaterMaterialWebGl({ sim, bounds, envMap }) {
     uFogColor: { value: new THREE.Color(p.fogColor) },
     uFoamAmount: { value: p.foamAmount },
     uFoamThreshold: { value: p.foamThreshold },
+    uTime: { value: 0 },
+    uBreezeStrength: { value: p.breezeStrength },
+    uBreezeScale: { value: p.breezeScale },
+    uBreezeSpeed: { value: p.breezeSpeed },
+    uWindDir: { value: getPoolWaterBreezeWindDir() },
+    uBreezeMix: { value: p.breezeMix },
+    uBreezeMaxSlope: { value: p.breezeMaxSlope },
   };
 
   const material = new THREE.ShaderMaterial({
@@ -196,7 +214,12 @@ export function createPoolWaterMaterialWebGl({ sim, bounds, envMap }) {
     setPlanarBounds(next) {
       uniforms.uPlanar.value.set(next.minX, next.minZ, next.width, next.depth);
     },
-    updateTime() {},
+    updateTime(t, { reducedMotion = false } = {}) {
+      uniforms.uTime.value = t;
+      const off = reducedMotion ? 0 : 1;
+      uniforms.uBreezeStrength.value = p.breezeStrength * off;
+      uniforms.uBreezeMix.value = p.breezeMix * off;
+    },
     dispose() {
       material.dispose();
       if (!envMap) dummyEnv.dispose();

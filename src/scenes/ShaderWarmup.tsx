@@ -17,7 +17,7 @@ export default function ShaderWarmup({ sceneKey = "default" }) {
   useEffect(() => {
     let cancelled = false;
     const store = useLoadingStore.getState();
-    // Flip phase to 'compiling' so other consumers (e.g. WaterRipples'
+    // Flip phase to 'compiling' so other consumers (e.g. UnifiedCanvasFrameLoop'
     // animation loop) can pause their renders while WebGPU's command encoder
     // is in use by compileAsync. Avoids "RenderPassEncoder already ended".
     useLoadingStore.setState({ phase: "compiling" });

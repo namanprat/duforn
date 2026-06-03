@@ -585,7 +585,7 @@ export function WorkClothStripScene() {
     }
     /**
      * Use wall-clock seconds directly. With Canvas in `frameloop="never"`
-     * and Theatre + WaterRipples each driving advance/render, R3F's clock can
+     * and Theatre + room frame loop each driving advance/render, R3F's clock can
      * be advanced with non-monotonic deltas — feeding that into the cloth's
      * sin-wave displacement made the strip shake violently. `performance.now()`
      * is guaranteed monotonic.

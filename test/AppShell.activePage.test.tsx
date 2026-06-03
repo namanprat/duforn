@@ -18,7 +18,7 @@ vi.mock("../src/layout/Site", () => ({
 vi.mock("../src/routes/Main", () => ({ default: () => null }));
 vi.mock("../src/routes/Work", () => ({ default: () => null }));
 vi.mock("../src/routes/Contact", () => ({ default: () => null }));
-vi.mock("../src/routes/Archive", () => ({ default: () => null }));
+vi.mock("../src/routes/About", () => ({ default: () => null }));
 vi.mock("../src/routes/Project", () => ({ default: () => null }));
 vi.mock("../src/routes/NotFound", () => ({ default: () => null }));
 
@@ -79,7 +79,7 @@ async function renderAppShellAt(pathname) {
       <Route index element={<div>Main</div>} />
       <Route path="work" element={<div>Work</div>} />
       <Route path="contact" element={<div>Contact</div>} />
-      <Route path="archive" element={<div>Archive</div>} />
+      <Route path="about" element={<div>About</div>} />
     </Route>,
   );
 

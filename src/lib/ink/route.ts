@@ -26,13 +26,14 @@ const PATH_TO_NAMESPACE: Record<string, string> = {
   "/": "main",
   "/work": "work",
   "/contact": "contact",
-  "/archive": "archive",
+  "/about": "about",
   "/money-me": "projectDetail",
   "/404": "notFound",
+  "/test": "test",
 };
 
-/** Namespaces where route navigation may use the full-screen ink bleed (archive + 404). */
-const ROUTE_INK_BLEED_NAMESPACES = new Set(["archive", "notFound"]);
+/** Namespaces where route navigation may use the full-screen ink bleed (about + 404). */
+const ROUTE_INK_BLEED_NAMESPACES = new Set(["about", "notFound"]);
 
 export function normalizePath(path: string | null | undefined): string {
   if (!path) return "/";
@@ -46,7 +47,7 @@ export function getRouteInkNamespace(path: string | null | undefined): string {
 }
 
 /**
- * Route ink (NavigationBridge) only for archive and 404-ish views.
+ * Route ink (NavigationBridge) only for about and 404-ish views.
  * Preloader, menu, and project flows use their own call sites.
  */
 export function shouldUseRouteInkBleed(fromPath: string, toPath: string): boolean {

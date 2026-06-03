@@ -5,6 +5,7 @@ import { useThree } from "@react-three/fiber";
 import ProjectBg from "./Bg";
 import ProjectDetailBackground from "./Background";
 import ProjectDetailImagePlanes from "./ImagePlanes";
+import MoneyMeStrips from "./MoneyMeStrips";
 import { useProjectDetailController } from "./useController";
 import { useProjectDetailSceneControlsStore } from "../store/projectScene";
 import { PROJECT_DETAIL_REVEAL_SETTINGS } from "./sceneConfig";
@@ -31,7 +32,7 @@ function ProjectDetailController() {
   return null;
 }
 
-export default function ProjectDetailScene({ projectBgRenderScale = 1 }) {
+export default function ProjectDetailScene() {
   const projectBgFallbackControls = useProjectDetailSceneControlsStore(
     (state) => state.controls.projectBgFallback,
   );
@@ -42,9 +43,10 @@ export default function ProjectDetailScene({ projectBgRenderScale = 1 }) {
       <ProjectDetailController />
       <ProjectDetailBackground controls={projectBgFallbackControls} />
       <Suspense fallback={null}>
-        <ProjectBg renderScale={projectBgRenderScale} />
+        <ProjectBg />
       </Suspense>
       <ProjectDetailImagePlanes revealControls={PROJECT_DETAIL_REVEAL_SETTINGS} />
+      <MoneyMeStrips />
     </>
   );
 }

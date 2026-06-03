@@ -48,11 +48,11 @@
   --typography-font-size-h2: clamp(2.5rem, 2.1667rem + 1.6667vw, 4rem);
   --typography-font-size-h1: clamp(3rem, 2.5556rem + 2.2222vw, 5rem);
   /* +20% then +10% vs base clamp */
-  --typography-font-size-display: calc(clamp(6rem, 5.1111rem + 4.4444vw, 10rem) * 1.32);
+  --typography-font-size-display: calc(clamp(5rem, 5.5rem + 4.45vw, 12rem));
 
   /* Spacing */
   --spacing-section-space-small: clamp(3rem, 2.5556rem + 2.2222vw, 5rem);
-  --spacing-section-space-medium: clamp(4rem, 3.3333rem + 3.3333vw, 7rem);
+  --spacing-section-space-medium: clamp(3.6rem, 3.1111rem + 2.2222vw, 6rem);
   --spacing-section-space-large: clamp(5.5rem, 4.5rem + 5vw, 10rem);
   --spacing-section-space-page-top: clamp(10rem, 9.1111rem + 4.4444vw, 14rem);
   --spacing-space-1: clamp(

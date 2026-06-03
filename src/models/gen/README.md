@@ -10,6 +10,6 @@ npx gltfjsx@latest public/duforn_website.glb -o src/models/gen/Website.tsx
 
 After regenerating, slim the output to the `Website.tsx` pattern
 (`<primitive object={scene} />` + shadow traversal) so the host scene's
-`findWaterMesh` / `applyModelMaterialTuning` can traverse the tree cleanly.
+`applyModelMaterialTuning` can traverse the tree cleanly.
 
 Keep [`preloads.ts`](./preloads.ts) URL list in sync with new assets.

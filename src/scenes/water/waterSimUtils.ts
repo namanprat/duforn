@@ -1,4 +1,6 @@
-import type { RenderQualityTier } from "../../lib/render/profile";
+// Local copy of the render quality tiers (the old lib/render/profile module was
+// removed in the unified-canvas refactor; this util only needs the literal set).
+type RenderQualityTier = "desktop" | "mobile" | "mobileReduced";
 
 const POOL_SIM_RESOLUTION_BY_TIER: Record<RenderQualityTier, number> = {
   desktop: 192,

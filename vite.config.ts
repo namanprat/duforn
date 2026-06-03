@@ -1,9 +1,16 @@
 import { defineConfig } from "vite-plus";
 import react from "@vitejs/plugin-react";
+import glsl from "vite-plugin-glsl";
 
 const config = {
   staged: { "{src,scripts}/**/*.{ts,tsx}": "vp check --fix" },
-  plugins: [react()],
+  plugins: [
+    react(),
+    glsl({
+      include: ["**/src/scenes/waterTest/og/**/*.wgsl"],
+      warnDuplicatedImports: true,
+    }),
+  ],
   optimizeDeps: {
     include: ["three", "three/webgpu", "three/tsl"],
   },
@@ -41,6 +48,7 @@ const config = {
     globals: true,
     environment: "happy-dom",
     setupFiles: ["./test/setup.ts"],
+    exclude: ["**/node_modules/**", "**/webgpu-water-main/**"],
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "lcov"],

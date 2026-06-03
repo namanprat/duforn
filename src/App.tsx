@@ -6,9 +6,10 @@ import SiteLayout from "./layout/Site";
 import MainPage from "./routes/Main";
 import WorkPage from "./routes/Work";
 import ContactPage from "./routes/Contact";
-import ArchivePage from "./routes/Archive";
+import AboutPage from "./routes/About";
 import ProjectDetailPage from "./routes/Project";
 import NotFoundPage from "./routes/NotFound";
+import TestPage from "./routes/Test";
 import { useWebglStore } from "./store/webgl";
 import { initLinkHover, destroyLinkHover } from "../scripts/link-hover";
 import { initButtonHoverScale, destroyButtonHoverScale } from "../scripts/button-hover-scale";
@@ -30,18 +31,20 @@ const TITLES = {
   "/": "Duforn",
   "/work": "Duforn | Work",
   "/contact": "Duforn | Contact",
-  "/archive": "Duforn | Archive",
+  "/about": "Duforn | About",
   "/money-me": "Duforn | money.me Project Details",
   "/404": "Duforn | 404",
+  "/test": "Duforn | Water Test",
 };
 
 const PATH_TO_NAMESPACE = {
   "/": "main",
   "/work": "work",
   "/contact": "contact",
-  "/archive": "archive",
+  "/about": "about",
   "/money-me": "projectDetail",
   "/404": "notFound",
+  "/test": "test",
 };
 
 function normalizePath(pathname) {
@@ -55,7 +58,10 @@ function getNamespace(pathname) {
 
 function applyBodyRouteClasses(namespace) {
   document.body.classList.add("page-wrap");
-  document.body.classList.toggle("page-wrap--scrollable", namespace === "projectDetail");
+  document.body.classList.toggle(
+    "page-wrap--scrollable",
+    namespace === "projectDetail" || namespace === "about",
+  );
 }
 
 function useClock() {
@@ -120,7 +126,7 @@ function NavigationBridge() {
         await hideAllRegisteredPageText();
 
         if (useRouteInk) {
-          // Ink bleed only for archive / 404; other routes use canvas leave tween.
+          // Ink bleed only for about / 404; other routes use canvas leave tween.
           await canvasInk.enter({
             origin: { x: 0.5, y: 0.5 },
             expandMs: CANVAS_INK_ROUTE_TIMING.expandMs,
@@ -165,6 +171,7 @@ export function AppShell() {
 
   useEffect(() => {
     const onPreloaderDismissed = () => {
+      ScrollTrigger.refresh();
       window.__refreshLinkHover?.();
     };
 
@@ -219,18 +226,16 @@ export function AppShell() {
     document.body.dataset.routePathname = currentPath;
     applyBodyRouteClasses(namespace);
 
-    if (namespace === "projectDetail") initLenis();
+    if (namespace === "projectDetail" || namespace === "about") initLenis();
     else destroyLenis();
 
     let stopEnterTween = () => {};
     let cancelled = false;
+    let preloaderEnterHandler = null;
     const isActiveRun = () => !cancelled && normalizePath(window.location.pathname) === currentPath;
 
-    const runEnterSequence = async () => {
-      await runBrandHandoff({ fromNamespace: previousNamespace, toNamespace: namespace });
+    const finishRouteEnter = () => {
       if (!isActiveRun()) return;
-
-      if (document.body.classList.contains("preloader-active")) return;
 
       stopEnterTween = runRouteEnterTransition({
         canvasElement: shouldAnimateCanvas
@@ -242,10 +247,31 @@ export function AppShell() {
       window.__refreshLinkHover?.();
     };
 
+    const runEnterSequence = async () => {
+      await runBrandHandoff({ fromNamespace: previousNamespace, toNamespace: namespace });
+      if (!isActiveRun()) return;
+
+      if (document.body.classList.contains("preloader-active")) {
+        preloaderEnterHandler = () => {
+          window.removeEventListener(PRELOADER_DISMISSED_EVENT, preloaderEnterHandler);
+          preloaderEnterHandler = null;
+          finishRouteEnter();
+        };
+        window.addEventListener(PRELOADER_DISMISSED_EVENT, preloaderEnterHandler);
+        return;
+      }
+
+      finishRouteEnter();
+    };
+
     runEnterSequence();
 
     return () => {
       cancelled = true;
+      if (preloaderEnterHandler) {
+        window.removeEventListener(PRELOADER_DISMISSED_EVENT, preloaderEnterHandler);
+        preloaderEnterHandler = null;
+      }
       stopEnterTween();
       destroyLenis();
       cleanupBrandHandoff();
@@ -267,9 +293,10 @@ export default function App() {
         <Route path="/" element={<MainPage />} />
         <Route path="/work" element={<WorkPage />} />
         <Route path="/contact" element={<ContactPage />} />
-        <Route path="/archive" element={<ArchivePage />} />
+        <Route path="/about" element={<AboutPage />} />
         <Route path="/money-me" element={<ProjectDetailPage />} />
         <Route path="/404" element={<NotFoundPage />} />
+        <Route path="/test" element={<TestPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

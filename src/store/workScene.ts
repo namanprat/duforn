@@ -5,16 +5,16 @@ export const DEFAULT_WORK_SCENE_CONTROLS = {
     // Translated by the work orbit-center delta from (0, 0.5, 0) → (-22, 75, -60)
     // so the strip sits in front of the bath-scene WORK camera at the same
     // relative offset it had before the model swap.
-    x: -22,
-    y: 73.5,
-    z: -64.85,
+    x: -21.5,
+    y: 74.5,
+    z: -64.5,
     rx: 0,
     ry: 0,
     rz: 0,
     scale: 1.2,
     visibleItems: 7,
-    gapSize: 0.035,
-    curveRadius: 10,
+    gapSize: 0.04,
+    curveRadius: 11,
     curveAmount: 2,
     stripHeight: 4,
     stripYOffset: 0,

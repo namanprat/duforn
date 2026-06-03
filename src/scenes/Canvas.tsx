@@ -1,25 +1,36 @@
 // @ts-nocheck
-import React, { Suspense, useEffect } from "react";
+/**
+ * Unified site 3D: one `#background` WebGPURenderer (WebGL fallback), one R3F tree.
+ * Route content swaps via SceneBranches; no per-page nested `<Canvas>`.
+ * GPU materials use pickGpuBranchAsync; DOM-linked meshes sync via getBoundingClientRect.
+ * Ink transitions stay on OverlayCanvas (alpha layer above content).
+ */
+import React, { Suspense } from "react";
 import Surface, { getCanvasDpr } from "./Surface";
 import { createRendererOpaque, getRendererType } from "../lib/render";
 import { logWebGPU } from "../lib/gpu/debug";
 import { useWebglStore } from "../store/webgl";
-import { getRenderQualityProfile } from "../lib/render/profile";
 import { registerLoaderRenderer } from "../models/loader";
 import ShaderWarmup from "./ShaderWarmup";
-import { NotFoundCanvasBranch, ProjectDetailCanvasBranch } from "./SceneBranches";
+import UnifiedCanvasFrameLoop from "./UnifiedCanvasFrameLoop";
+import {
+  AboutCanvasBranch,
+  NotFoundCanvasBranch,
+  ProjectDetailCanvasBranch,
+  TestCanvasBranch,
+} from "./SceneBranches";
 import RoomCanvas from "./RoomCanvas";
-import Warmup from "./Warmup";
-import { isRoomNamespace } from "../lib/cam/roomPoses";
 
 function UnifiedScene({ activePage }) {
   switch (activePage) {
-    case "archive":
-      return null;
+    case "about":
+      return <AboutCanvasBranch />;
     case "projectDetail":
       return <ProjectDetailCanvasBranch />;
     case "notFound":
       return <NotFoundCanvasBranch />;
+    case "test":
+      return <TestCanvasBranch />;
     case "main":
     case "work":
     case "contact":
@@ -33,30 +44,18 @@ function UnifiedScene({ activePage }) {
  * Single persistent R3F canvas for all routes. Room pages share one scene branch.
  */
 export default function Canvas({ activePage }) {
-  const isRoomPage = isRoomNamespace(activePage);
-  const pointerEvents = activePage === "work" || activePage === "main" ? "auto" : "none";
+  const pointerEvents =
+    activePage === "work" || activePage === "main" || activePage === "test" ? "auto" : "none";
   const isProjectDetail = activePage === "projectDetail";
   const setRendererType = useWebglStore((s) => s.setRendererType);
-  const setQualityProfile = useWebglStore((s) => s.setQualityProfile);
-  const quality = useWebglStore((s) => s.qualityProfile);
-
-  useEffect(() => {
-    const runtimeQuality = getRenderQualityProfile();
-    if (runtimeQuality.tier !== quality.tier) {
-      setQualityProfile(runtimeQuality);
-    }
-  }, [quality.tier, setQualityProfile]);
-
-  const frameloop = isRoomPage ? "never" : "always";
-  const dprCap = isRoomPage ? Math.min(quality.dprCap, 1.5) : quality.dprCap;
 
   return (
     <Surface
       id="background"
-      dpr={getCanvasDpr(dprCap)}
+      dpr={getCanvasDpr(2)}
       pointerEvents={pointerEvents}
       gl={createRendererOpaque}
-      frameloop={frameloop}
+      frameloop="never"
       wrapperProps={{ "data-active-canvas": "true" }}
       onCreated={({ gl }) => {
         const rendererType = getRendererType(gl);
@@ -67,9 +66,9 @@ export default function Canvas({ activePage }) {
       onPointerMissed={isProjectDetail ? () => {} : undefined}
     >
       <Suspense fallback={null}>
+        <UnifiedCanvasFrameLoop />
         <UnifiedScene activePage={activePage} />
-        <ShaderWarmup sceneKey={activePage} />
-        <Warmup activePage={activePage} />
+        {activePage !== "test" ? <ShaderWarmup sceneKey={activePage} /> : null}
       </Suspense>
     </Surface>
   );

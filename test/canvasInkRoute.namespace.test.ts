@@ -6,7 +6,7 @@ describe("getRouteInkNamespace", () => {
     expect(getRouteInkNamespace("/")).toBe("main");
   });
 
-  it("no longer recognises /test", () => {
-    expect(getRouteInkNamespace("/test")).toBe("notFound");
+  it("maps /test to the water test namespace", () => {
+    expect(getRouteInkNamespace("/test")).toBe("test");
   });
 });

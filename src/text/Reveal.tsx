@@ -32,6 +32,8 @@ function mergeRefs(...refs) {
 export default function TextRevealLines({
   children,
   animateOnScroll = true,
+  /** When false, lines appear instantly with no reveal tween (still registers hide/show). */
+  animate = true,
   delay = 0,
   scope = "page",
   waitForPreloader = false,
@@ -186,6 +188,12 @@ export default function TextRevealLines({
         if (scope === "menu") {
           return;
         }
+        if (!animate) {
+          killScrollTrigger();
+          gsap.killTweensOf(lineEls);
+          gsap.set(lineEls, { y: "0%" });
+          return;
+        }
         if (animateOnScroll && scope === "page") {
           runRevealScroll();
           return;
@@ -286,7 +294,15 @@ export default function TextRevealLines({
     },
     {
       scope: containerRef,
-      dependencies: [animateOnScroll, delay, scope, waitForPreloader, waitForCamera, layoutKey],
+      dependencies: [
+        animateOnScroll,
+        animate,
+        delay,
+        scope,
+        waitForPreloader,
+        waitForCamera,
+        layoutKey,
+      ],
     },
   );
 
