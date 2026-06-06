@@ -9,7 +9,7 @@ import App from "./App";
 import { patchThreeTSL } from "./lib/gpu/patch";
 import { startWorkTexturePreload } from "../scripts/work-preload";
 import { trackPromise } from "./lib/preload/gate";
-import { registerEssentialAssetTasks } from "./models/gen/preloads";
+import { registerEssentialAssetTasks, registerRoomAssetTasks } from "./models/gen/preloads";
 import { installBackgroundWarmup } from "./lib/preload/warmup";
 import "../styles.css";
 
@@ -36,6 +36,7 @@ async function bootstrap() {
   // preloader gate so the intro ring + Enter button reflect real readiness.
   registerFontsTask();
   registerEssentialAssetTasks();
+  registerRoomAssetTasks();
   // Work textures are non-essential — let them load in the background so the
   // preloader ring reflects only first-paint readiness.
   startWorkTexturePreload().catch(() => {});

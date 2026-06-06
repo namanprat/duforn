@@ -33,7 +33,9 @@ vi.mock("../src/store/loading", () => ({
     selector({
       progress: 1,
       essentialsReady: true,
+      phase: "ready",
     }),
+  waitForLoadingPhaseReady: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock("../src/store/overlay", () => ({

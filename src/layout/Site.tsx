@@ -26,7 +26,7 @@ import MenuOverlayLayer from "./Menu";
 import OverlayPortal from "./Portal";
 import PreloaderOverlayLayer from "./Preloader";
 import { useWebglStore } from "../store/webgl";
-import { useLoadingStore } from "../store/loading";
+import { useLoadingStore, waitForLoadingPhaseReady } from "../store/loading";
 import { usePreloaderOverlayStore } from "../store/overlay";
 import { PRELOADER_DISMISSED_EVENT } from "../lib/preload/events";
 import { requestDeviceOrientationPermission } from "../../scripts/runtime/motion";
@@ -83,6 +83,7 @@ export default function SiteLayout({ children }) {
   const setGyroEnabled = useWebglStore((s) => s.setGyroEnabled);
   const progress = useLoadingStore((s) => s.progress);
   const essentialsReady = useLoadingStore((s) => s.essentialsReady);
+  const loadingPhase = useLoadingStore((s) => s.phase);
   const setPreloaderOverlayVisible = usePreloaderOverlayStore((s) => s.setVisible);
   const [preloaderFading, setPreloaderFading] = useState(false);
   const [preloaderVisible, setPreloaderVisible] = useState(() =>
@@ -126,16 +127,23 @@ export default function SiteLayout({ children }) {
     return () => document.body.classList.remove("preloader-active");
   }, [preloaderVisible]);
 
-  // The /test water demo is a standalone WebGPU scene that never loads the room
-  // essentials driving the intro ring, so its Enter button would stay disabled
-  // forever. Keep the preloader mounted briefly for the shared canvas to size +
-  // initialise, then auto-dismiss it (revealing the always-visible #background
-  // canvas) — mirroring the original webgl-water no-gate boot.
+  // /test and /viewer skip the Enter gate — wait for shader warmup + prerender
+  // before revealing the canvas so prod builds don't flash black.
   useEffect(() => {
     if (!preloaderVisible) return undefined;
-    if (getRouteInkNamespace(location.pathname) !== "test") return undefined;
-    const raf = requestAnimationFrame(() => {
-      const timer = window.setTimeout(() => {
+    if (
+      getRouteInkNamespace(location.pathname) !== "test" &&
+      getRouteInkNamespace(location.pathname) !== "viewer"
+    ) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    void waitForLoadingPhaseReady().then(() => {
+      if (cancelled) return;
+      preloaderTimerRef.current = window.setTimeout(() => {
+        if (cancelled) return;
         setPreloaderVisible(false);
         setPreloaderFading(false);
         window.dispatchEvent(
@@ -143,11 +151,11 @@ export default function SiteLayout({ children }) {
             detail: { pathname: window.location.pathname },
           }),
         );
-      }, 600);
-      preloaderTimerRef.current = timer;
+      }, 100);
     });
+
     return () => {
-      cancelAnimationFrame(raf);
+      cancelled = true;
       window.clearTimeout(preloaderTimerRef.current);
     };
   }, [preloaderVisible, location.pathname]);
@@ -235,6 +243,7 @@ export default function SiteLayout({ children }) {
 
   const dismissPreloader = useCallback(() => {
     if (!preloaderVisible || preloaderFading) return;
+    if (useLoadingStore.getState().phase !== "ready") return;
 
     setPreloaderFading(true);
     preloaderTimerRef.current = window.setTimeout(() => {
@@ -255,7 +264,7 @@ export default function SiteLayout({ children }) {
    * - `track` stays fully visible (dashoffset 0) as a static reference ring.
    * - `progress` (highlighted ring) is tweened to `circumference * (1 - progress)`
    *   whenever the gate snapshot changes.
-   * - When `essentialsReady && progress >= 1`, after the catch-up tween settles
+   * - When `essentialsReady && progress >= 1 && phase === 'ready'`, after the catch-up tween settles
    *   we flip `introRingComplete = true` so the Enter button activates.
    * - Reduced-motion + non-WebGPU paths skip the tween entirely.
    */
@@ -303,7 +312,7 @@ export default function SiteLayout({ children }) {
 
     const pathLength = trackEl.getTotalLength();
     const target = pathLength * (1 - Math.max(0, Math.min(1, progress)));
-    const isReady = essentialsReady && progress >= 0.999;
+    const isReady = essentialsReady && progress >= 0.999 && loadingPhase === "ready";
 
     if (prefersReducedMotion) {
       gsap.set(progressEl, { strokeDashoffset: target });
@@ -326,7 +335,7 @@ export default function SiteLayout({ children }) {
     return () => {
       tween.kill();
     };
-  }, [preloaderVisible, progress, essentialsReady]);
+  }, [preloaderVisible, progress, essentialsReady, loadingPhase]);
 
   const requestExperiencePermissions = useCallback(async () => {
     let gyroAllowed = false;
@@ -344,6 +353,7 @@ export default function SiteLayout({ children }) {
 
   const handleIntroEnter = useCallback(async () => {
     if (!introRingComplete || permissionsPending) return;
+    if (useLoadingStore.getState().phase !== "ready") return;
     setPermissionsPending(true);
     await requestExperiencePermissions();
     setPermissionsPending(false);
@@ -363,7 +373,7 @@ export default function SiteLayout({ children }) {
         skipExpand: true,
         origin: resolveCanvasInkOrigin(introHitRef.current),
         expandMs: timing.expandMs,
-        holdMs: timing.holdMs,
+        holdMs: 0,
         collapseMs: timing.collapseMs,
         onCovered: () => {
           flushSync(() => {
@@ -556,6 +566,7 @@ export default function SiteLayout({ children }) {
             strokeProgressRef={strokeProgressRef}
             introHitRef={introHitRef}
             essentialsReady={essentialsReady}
+            loadingPhase={loadingPhase}
             introRingComplete={introRingComplete}
             permissionsPending={permissionsPending}
             onEnter={handleIntroEnter}

@@ -93,7 +93,7 @@ export function HomeSceneSpotLight() {
     light.castShadow = s.castShadow;
   });
 
-  if (activePage !== "main") return null;
+  if (activePage !== "main" && activePage !== "viewer") return null;
 
   const inspectorFov = THREE.MathUtils.radToDeg(spotlight.angle);
 

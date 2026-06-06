@@ -10,6 +10,7 @@ import AboutPage from "./routes/About";
 import ProjectDetailPage from "./routes/Project";
 import NotFoundPage from "./routes/NotFound";
 import TestPage from "./routes/Test";
+import ViewerPage from "./routes/Viewer";
 import { useWebglStore } from "./store/webgl";
 import { initLinkHover, destroyLinkHover } from "../scripts/link-hover";
 import { initButtonHoverScale, destroyButtonHoverScale } from "../scripts/button-hover-scale";
@@ -35,6 +36,7 @@ const TITLES = {
   "/money-me": "Duforn | money.me Project Details",
   "/404": "Duforn | 404",
   "/test": "Duforn | Water Test",
+  "/viewer": "Duforn | Viewer",
 };
 
 const PATH_TO_NAMESPACE = {
@@ -45,6 +47,7 @@ const PATH_TO_NAMESPACE = {
   "/money-me": "projectDetail",
   "/404": "notFound",
   "/test": "test",
+  "/viewer": "viewer",
 };
 
 function normalizePath(pathname) {
@@ -297,6 +300,7 @@ export default function App() {
         <Route path="/money-me" element={<ProjectDetailPage />} />
         <Route path="/404" element={<NotFoundPage />} />
         <Route path="/test" element={<TestPage />} />
+        <Route path="/viewer" element={<ViewerPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

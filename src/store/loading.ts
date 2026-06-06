@@ -21,6 +21,28 @@ export const useLoadingStore = create((set) => ({
   setEssentialsReady: (value) => set({ essentialsReady: value }),
 }));
 
+/** Resolves once shader warmup finishes, or after `timeoutMs` as a deadlock fallback. */
+export function waitForLoadingPhaseReady(timeoutMs = 15000): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+  if (useLoadingStore.getState().phase === "ready") return Promise.resolve();
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      unsubscribe();
+      resolve();
+    };
+
+    const timeoutId = window.setTimeout(finish, timeoutMs);
+    const unsubscribe = useLoadingStore.subscribe((state) => {
+      if (state.phase === "ready") finish();
+    });
+  });
+}
+
 if (typeof window !== "undefined") {
   // Wire gate snapshots into the store so React subscribers can read them
   // through the same hook.

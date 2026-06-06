@@ -30,6 +30,7 @@ const PATH_TO_NAMESPACE: Record<string, string> = {
   "/money-me": "projectDetail",
   "/404": "notFound",
   "/test": "test",
+  "/viewer": "viewer",
 };
 
 /** Namespaces where route navigation may use the full-screen ink bleed (about + 404). */

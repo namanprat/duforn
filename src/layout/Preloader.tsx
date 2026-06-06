@@ -1,5 +1,7 @@
 import type { RefObject } from "react";
 
+type LoadingPhase = "assets" | "compiling" | "ready";
+
 type PreloaderOverlayLayerProps = {
   visible: boolean;
   fading: boolean;
@@ -8,10 +10,27 @@ type PreloaderOverlayLayerProps = {
   strokeProgressRef: RefObject<SVGCircleElement | null>;
   introHitRef: RefObject<HTMLButtonElement | null>;
   essentialsReady: boolean;
+  loadingPhase: LoadingPhase;
   introRingComplete: boolean;
   permissionsPending: boolean;
   onEnter: () => void;
 };
+
+function getEnterAriaLabel({
+  essentialsReady,
+  loadingPhase,
+  introRingComplete,
+  permissionsPending,
+}: Pick<
+  PreloaderOverlayLayerProps,
+  "essentialsReady" | "loadingPhase" | "introRingComplete" | "permissionsPending"
+>) {
+  if (!essentialsReady) return "Loading essential assets";
+  if (loadingPhase !== "ready") return "Compiling shaders";
+  if (!introRingComplete) return "Finishing intro animation";
+  if (permissionsPending) return "Requesting device permissions";
+  return "Enter site";
+}
 
 export default function PreloaderOverlayLayer({
   visible,
@@ -21,11 +40,19 @@ export default function PreloaderOverlayLayer({
   strokeProgressRef,
   introHitRef,
   essentialsReady,
+  loadingPhase,
   introRingComplete,
   permissionsPending,
   onEnter,
 }: PreloaderOverlayLayerProps) {
   if (!visible) return null;
+
+  const enterAriaLabel = getEnterAriaLabel({
+    essentialsReady,
+    loadingPhase,
+    introRingComplete,
+    permissionsPending,
+  });
 
   return (
     <section
@@ -41,21 +68,13 @@ export default function PreloaderOverlayLayer({
           className="intro-preloader-center-hit"
           onClick={onEnter}
           disabled={!introRingComplete || permissionsPending}
-          aria-label={
-            !essentialsReady
-              ? "Loading essential assets"
-              : !introRingComplete
-                ? "Finishing intro animation"
-                : permissionsPending
-                  ? "Requesting device permissions"
-                  : "Enter site"
-          }
+          aria-label={enterAriaLabel}
           aria-busy={!introRingComplete}
         >
           <span
             className={`intro-preloader-action-tagline${introRingComplete ? " intro-preloader-action-tagline--hidden" : ""}`}
           >
-            {essentialsReady ? "Duforn" : "Loading"}
+            {!essentialsReady ? "Loading" : loadingPhase !== "ready" ? "Compiling" : "Duforn"}
           </span>
           <span
             className={`intro-preloader-enter-label${introRingComplete ? " intro-preloader-enter-label--active" : ""}`}

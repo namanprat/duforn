@@ -21,6 +21,7 @@ import {
   TestCanvasBranch,
 } from "./SceneBranches";
 import RoomCanvas from "./RoomCanvas";
+import ViewerCanvas from "./ViewerCanvas";
 
 function UnifiedScene({ activePage }) {
   switch (activePage) {
@@ -36,6 +37,8 @@ function UnifiedScene({ activePage }) {
     case "work":
     case "contact":
       return <RoomCanvas />;
+    case "viewer":
+      return <ViewerCanvas />;
     default:
       return <RoomCanvas />;
   }
@@ -46,7 +49,12 @@ function UnifiedScene({ activePage }) {
  */
 export default function Canvas({ activePage }) {
   const pointerEvents =
-    activePage === "work" || activePage === "main" || activePage === "test" ? "auto" : "none";
+    activePage === "work" ||
+    activePage === "main" ||
+    activePage === "test" ||
+    activePage === "viewer"
+      ? "auto"
+      : "none";
   const isProjectDetail = activePage === "projectDetail";
   const setRendererType = useWebglStore((s) => s.setRendererType);
 
