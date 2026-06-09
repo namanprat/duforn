@@ -2,9 +2,9 @@ import { createSceneControlsStore } from "./scene";
 
 export const DEFAULT_HOME_SCENE_CONTROLS = {
   model: {
-    x: 0,
-    y: -4.8,
-    z: 0,
+    x: -6.4,
+    y: 2.31,
+    z: -3.0,
     rx: 0,
     ry: 0,
     rz: 0,
@@ -36,6 +36,22 @@ export const DEFAULT_HOME_SCENE_CONTROLS = {
     decay: 2,
     castShadow: false,
     showInspectorCamera: false,
+  },
+  wallHover: {
+    enabled: true,
+    showDebugBlob: true,
+    debugBlobSize: 0.5,
+    logHits: false,
+    useDecalGlow: false,
+    debugAlwaysOn: false,
+    innerRadius: 0.2,
+    hoverRadius: 4,
+    glowIntensity: 0.85,
+    glowColor: "#f2ebd8",
+    strengthLerp: 9,
+    noiseScale: 1.8,
+    noiseSpeed: 0.35,
+    pulseRate: 1.2,
   },
 };
 

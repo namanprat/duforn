@@ -3,7 +3,7 @@ import React from "react";
 import TextRevealLines from "../text/Reveal";
 import RotateHoverLabel from "../ui/HoverLabel";
 import { shouldUseNavRotateHover } from "../../scripts/link-hover";
-import { MoneyMeStripsPlaceholder } from "./MoneyMeStrips";
+import MoneyMeStripCanvas from "./MoneyMeStripCanvas";
 
 /**
  * Project detail layout. Each major block uses a `project-details-*`
@@ -164,7 +164,7 @@ function ProjectDetailsSupportingImage({ item, wide = false }) {
       <div className="u-container-main">
         <div className="project-details-supporting-image-frame" data-film-plane-trigger="true">
           {item.kind === "money-me-strips" ? (
-            <MoneyMeStripsPlaceholder />
+            <MoneyMeStripCanvas />
           ) : (
             <ProjectDetailsImage item={item} />
           )}

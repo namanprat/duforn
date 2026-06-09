@@ -10,9 +10,15 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 const publicDir = path.join(root, "public", "money-me");
-const outWidth = 540;
-const gap = 48;
+const configPath = path.join(root, "src/projectDetail/moneyMeStrips/config.ts");
 const screenWidth = 460;
+const outWidth = screenWidth;
+
+async function readStackGapPx() {
+  const configSrc = await readFile(configPath, "utf8");
+  const match = configSrc.match(/STRIP_STACK_GAP_PX\s*=\s*(\d+)/);
+  return match ? Number(match[1]) : 8;
+}
 
 /** Each strip: ordered screen filenames stacked top-to-bottom. */
 const STRIP_SOURCES = [
@@ -32,7 +38,7 @@ async function loadSharp() {
   }
 }
 
-async function stackStrip(sharp, sources) {
+async function stackStrip(sharp, sources, gap) {
   const resized = [];
   for (const file of sources) {
     const input = path.join(publicDir, file);
@@ -69,11 +75,12 @@ async function stackStrip(sharp, sources) {
 
 async function main() {
   const sharp = await loadSharp();
+  const gap = await readStackGapPx();
   await mkdir(publicDir, { recursive: true });
 
   for (let i = 0; i < STRIP_SOURCES.length; i++) {
     const outPath = path.join(publicDir, `strip-0${i + 1}.png`);
-    const pipeline = await stackStrip(sharp, STRIP_SOURCES[i]);
+    const pipeline = await stackStrip(sharp, STRIP_SOURCES[i], gap);
     await pipeline.toFile(outPath);
     const meta = await sharp(outPath).metadata();
     console.log(`Wrote ${outPath} (${meta.width}×${meta.height})`);

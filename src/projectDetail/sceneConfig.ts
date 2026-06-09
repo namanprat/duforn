@@ -5,6 +5,8 @@ export const PROJECT_DETAIL_REVEAL_SETTINGS = {
   noiseScale: 10.0,
   noiseStrength: 0.15,
   greyLevel: 0.55,
+  // Number of discrete steps the sweep advances in (lower = choppier).
+  steps: 14,
 };
 
 export const PROJECT_DETAIL_BG_CAMERA_Z = 15;

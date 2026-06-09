@@ -22,9 +22,11 @@ export const ROOM_POSES = Object.freeze({
   }),
   contact: Object.freeze({
     ...DEFAULT_CAMERA_BASE_POSE,
-    orbitCenterX: -100,
-    orbitCenterY: 79,
-    orbitCenterZ: -32,
+    // Orbit center shifted by the model delta (-6.4, +7.11, -3.0) so framing
+    // is preserved after the model move from (0, -4.8, 0) → (-6.4, 2.31, -3.0).
+    orbitCenterX: -106.4,
+    orbitCenterY: 86.11,
+    orbitCenterZ: -35.0,
     orbitRadius: 6,
     cameraHeight: 1,
     fov: 60,
@@ -34,9 +36,11 @@ export const ROOM_POSES = Object.freeze({
   }),
   work: Object.freeze({
     ...DEFAULT_CAMERA_BASE_POSE,
-    orbitCenterX: -22,
-    orbitCenterY: 75,
-    orbitCenterZ: -60,
+    // Orbit center shifted by the model delta (-6.4, +7.11, -3.0) so framing
+    // is preserved after the model move from (0, -4.8, 0) → (-6.4, 2.31, -3.0).
+    orbitCenterX: -28.4,
+    orbitCenterY: 82.11,
+    orbitCenterZ: -63.0,
     orbitRadius: 6,
     cameraHeight: 1,
     fov: 65,

@@ -2,12 +2,13 @@ import { createSceneControlsStore } from "./scene";
 
 export const DEFAULT_WORK_SCENE_CONTROLS = {
   strip: {
-    // Translated by the work orbit-center delta from (0, 0.5, 0) → (-22, 75, -60)
-    // so the strip sits in front of the bath-scene WORK camera at the same
-    // relative offset it had before the model swap.
-    x: -21.5,
-    y: 74.5,
-    z: -64.5,
+    // Sits in front of the WORK camera, keeping its (0.5, -0.5, 3.5) offset from
+    // the work orbit center. Shifted by the model delta (-6.4, +7.11, -3.0) when
+    // the model moved (0, -4.8, 0) → (-6.4, 2.31, -3.0); work orbit center is now
+    // (-28.4, 82.11, -63.0).
+    x: -27.9,
+    y: 81.61,
+    z: -67.5,
     rx: 0,
     ry: 0,
     rz: 0,

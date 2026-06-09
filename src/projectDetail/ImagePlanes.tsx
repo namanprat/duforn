@@ -132,7 +132,7 @@ function ProjectDetailImagePlane({ imgElement, revealControls }) {
         tweenRef.current = gsap.to(revealTarget, {
           value: 1,
           duration: controlsRef.current.duration,
-          ease: "power2.out",
+          ease: `steps(${controlsRef.current.steps})`,
           onComplete: () => {
             imgElement.style.opacity = "";
             imgElement.style.visibility = "";

@@ -5,7 +5,6 @@ import { useThree } from "@react-three/fiber";
 import ProjectBg from "./Bg";
 import ProjectDetailBackground from "./Background";
 import ProjectDetailImagePlanes from "./ImagePlanes";
-import MoneyMeStrips from "./MoneyMeStrips";
 import { useProjectDetailController } from "./useController";
 import { useProjectDetailSceneControlsStore } from "../store/projectScene";
 import { PROJECT_DETAIL_REVEAL_SETTINGS } from "./sceneConfig";
@@ -46,7 +45,6 @@ export default function ProjectDetailScene() {
         <ProjectBg />
       </Suspense>
       <ProjectDetailImagePlanes revealControls={PROJECT_DETAIL_REVEAL_SETTINGS} />
-      <MoneyMeStrips />
     </>
   );
 }

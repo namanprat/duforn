@@ -8,6 +8,8 @@ import { WorkClothStripScene } from "../work/ClothStrip";
 import { registerRoomAssetTasks } from "../models/gen/preloads";
 import { HomeSceneSpotLight } from "./HomeSceneSpotLight";
 import HomeSceneSpotLightGui from "./HomeSceneSpotLightGui";
+import MainSceneGui from "./MainSceneGui";
+import WallHoverGui from "./wallHover/WallHoverGui";
 
 /**
  * Persistent multi-room scene: one model, one camera, GSAP-driven room poses.
@@ -29,7 +31,13 @@ export default function RoomCanvas() {
       />
       <HomeSceneCameraSync />
       <HomeSceneSpotLight />
-      {import.meta.env.DEV ? <HomeSceneSpotLightGui /> : null}
+      {import.meta.env.DEV ? (
+        <>
+          <MainSceneGui />
+          <HomeSceneSpotLightGui />
+          <WallHoverGui />
+        </>
+      ) : null}
       <Main />
       <WorkClothStripScene />
     </>

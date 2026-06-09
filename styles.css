@@ -638,20 +638,11 @@ section {
   transform-style: preserve-3d;
 }
 
-/* SplitText turns each visual line into its own block, which kills
-   `text-align: justify` (browser treats every line as a "last line"
-   and falls back to `text-align-last: auto`). Re-enable justify on
-   every line inside a paragraph, then opt the final line out so the
-   trailing partial line stays naturally ragged like normal print.
-   Scoped to project-detail body copy so homepage and contact stay
-   left-aligned the way they were. */
-.project-details-story-stack p .text-reveal-line {
-  text-align: justify;
-  text-align-last: justify;
-}
-
-.project-details-story-stack p > .text-reveal-line-mask:last-child .text-reveal-line {
-  text-align-last: auto;
+/* Project-detail body copy reads left-aligned (ragged right edge).
+   Overrides the global `p { text-align: justify }`; SplitText copies this
+   alignment onto each generated `.text-reveal-line` at split time. */
+.project-details-story-stack p {
+  text-align: left;
 }
 
 /* Headings using TextRevealLines: room for line-mask motion (see TextRevealLines.tsx). */
@@ -2321,18 +2312,17 @@ body.preloader-active .bottom-nav-wrap {
   margin-top: var(--spacing-section-space-medium);
 }
 
-.project-details-supporting-image:has([data-money-me-strips="true"]) {
+.project-details-supporting-image:has([data-money-me-strip="true"]) {
   margin-bottom: var(--spacing-section-space-medium);
 }
 
-[data-money-me-strips="true"] {
+[data-money-me-strip="true"] {
   position: relative;
   display: block;
   width: 100%;
   overflow: hidden;
   max-height: var(--site--viewport-min-height-supporting);
   aspect-ratio: 16 / 9;
-  background: transparent;
 }
 
 .project-details-supporting-image-frame {
@@ -2371,7 +2361,7 @@ body.preloader-active .bottom-nav-wrap {
   .project-details-hero-info,
   .project-details-cover-frame,
   .project-details-supporting-image {
-    width: var(--column-width-11);
+    width: 100%;
   }
 
   /* Overview spans the full row; services + facts sit side-by-side beneath it. */

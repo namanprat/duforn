@@ -5,12 +5,14 @@ import WebsiteModel from "../models/gen/Website";
 import { applyModelMaterialTuning, normalizeModelBounds } from "./sceneUtils";
 import { findWaterMesh } from "./water/findWaterMesh";
 import WaterRipples from "./water/WaterRipples";
+import WallHoverEffect from "./wallHover/WallHoverEffect";
 import { useHomeSceneControlsStore } from "../store/homeScene";
 export default function Main() {
   const modelRef = useRef(null);
   const outerRef = useRef(null);
   const didInitializeRef = useRef(false);
   const [waterMesh, setWaterMesh] = useState(null);
+  const [modelReady, setModelReady] = useState(false);
 
   useLayoutEffect(() => {
     const tryInit = () => {
@@ -36,6 +38,7 @@ export default function Main() {
       applyModelMaterialTuning(model);
 
       didInitializeRef.current = true;
+      setModelReady(true);
       return true;
     };
 
@@ -69,6 +72,7 @@ export default function Main() {
         </group>
       </group>
       {waterMesh && <WaterRipples mesh={waterMesh} />}
+      {modelReady ? <WallHoverEffect modelRef={modelRef} /> : null}
     </>
   );
 }
