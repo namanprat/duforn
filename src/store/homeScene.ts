@@ -9,9 +9,9 @@ export const DEFAULT_HOME_SCENE_CONTROLS = {
     skybox: true,
   },
   model: {
-    x: -6.4,
-    y: 2.31,
-    z: -3.0,
+    x: 5.13,
+    y: 4.2,
+    z: -2.9,
     rx: 0,
     ry: 0,
     rz: 0,
