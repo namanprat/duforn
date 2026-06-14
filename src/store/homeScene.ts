@@ -1,6 +1,13 @@
 import { createSceneControlsStore } from "./scene";
+import {
+  POOL_CAUSTICS_DEFAULTS,
+  POOL_WATER_DEFAULTS,
+} from "../scenes/water/config/poolWaterDefaults";
 
 export const DEFAULT_HOME_SCENE_CONTROLS = {
+  env: {
+    skybox: true,
+  },
   model: {
     x: -6.4,
     y: 2.31,
@@ -37,21 +44,22 @@ export const DEFAULT_HOME_SCENE_CONTROLS = {
     castShadow: false,
     showInspectorCamera: false,
   },
-  wallHover: {
-    enabled: true,
-    showDebugBlob: true,
-    debugBlobSize: 0.5,
-    logHits: false,
-    useDecalGlow: false,
-    debugAlwaysOn: false,
-    innerRadius: 0.2,
-    hoverRadius: 4,
-    glowIntensity: 0.85,
-    glowColor: "#f2ebd8",
-    strengthLerp: 9,
-    noiseScale: 1.8,
-    noiseSpeed: 0.35,
-    pulseRate: 1.2,
+  caustics: {
+    enabled: POOL_CAUSTICS_DEFAULTS.enabled,
+    strength: POOL_CAUSTICS_DEFAULTS.strength,
+    depth: POOL_CAUSTICS_DEFAULTS.depth,
+    normalScale: POOL_CAUSTICS_DEFAULTS.normalScale,
+    maxIntensity: POOL_CAUSTICS_DEFAULTS.maxIntensity,
+    gain: POOL_CAUSTICS_DEFAULTS.gain,
+  },
+  water: {
+    exposure: POOL_WATER_DEFAULTS.exposure,
+    tintR: POOL_WATER_DEFAULTS.aboveWaterTint[0],
+    tintG: POOL_WATER_DEFAULTS.aboveWaterTint[1],
+    tintB: POOL_WATER_DEFAULTS.aboveWaterTint[2],
+    fresnelBase: POOL_WATER_DEFAULTS.fresnelBase,
+    refractionOffset: POOL_WATER_DEFAULTS.refractionOffset,
+    waterClarity: POOL_WATER_DEFAULTS.waterClarity,
   },
 };
 

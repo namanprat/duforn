@@ -1,16 +1,9 @@
 import { defineConfig } from "vite-plus";
 import react from "@vitejs/plugin-react";
-import glsl from "vite-plugin-glsl";
 
 const config = {
   staged: { "{src,scripts}/**/*.{ts,tsx}": "vp check --fix" },
-  plugins: [
-    react(),
-    glsl({
-      include: ["**/src/scenes/waterTest/og/**/*.wgsl"],
-      warnDuplicatedImports: true,
-    }),
-  ],
+  plugins: [react()],
   optimizeDeps: {
     include: ["three", "three/webgpu", "three/tsl"],
   },
@@ -43,20 +36,6 @@ const config = {
       "**/*.webp",
     ],
     copyPublicDir: true,
-  },
-  test: {
-    globals: true,
-    environment: "happy-dom",
-    setupFiles: ["./test/setup.ts"],
-    exclude: ["**/node_modules/**", "**/webgpu-water-main/**"],
-    coverage: {
-      provider: "v8",
-      reporter: ["text", "html", "lcov"],
-      include: ["scripts/**/*.ts", "src/**/*.tsx", "src/**/*.ts"],
-      exclude: ["scripts/shaders*.js", "scripts/CRT*.js", "scripts/data.js"],
-    },
-    testTimeout: 10000,
-    mockReset: true,
   },
 };
 

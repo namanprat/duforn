@@ -6,11 +6,8 @@ import SiteLayout from "./layout/Site";
 import MainPage from "./routes/Main";
 import WorkPage from "./routes/Work";
 import ContactPage from "./routes/Contact";
-import AboutPage from "./routes/About";
 import ProjectDetailPage from "./routes/Project";
 import NotFoundPage from "./routes/NotFound";
-import TestPage from "./routes/Test";
-import ViewerPage from "./routes/Viewer";
 import { useWebglStore } from "./store/webgl";
 import { initLinkHover, destroyLinkHover } from "../scripts/link-hover";
 import { initButtonHoverScale, destroyButtonHoverScale } from "../scripts/button-hover-scale";
@@ -22,8 +19,7 @@ import {
   runRouteLeaveTransition,
 } from "./lib/anim/route";
 import { cleanupBrandHandoff, runBrandHandoff } from "./lib/anim/brandHandoff";
-import { canvasInk } from "./lib/ink/transition";
-import { CANVAS_INK_ROUTE_TIMING, shouldUseRouteInkBleed } from "./lib/ink/route";
+import { getRouteNamespace, normalizePath } from "./lib/route";
 import { hideAllRegisteredPageText } from "./lib/text";
 import { PRELOADER_DISMISSED_EVENT } from "./lib/preload/events";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -32,60 +28,13 @@ const TITLES = {
   "/": "Duforn",
   "/work": "Duforn | Work",
   "/contact": "Duforn | Contact",
-  "/about": "Duforn | About",
   "/money-me": "Duforn | money.me Project Details",
   "/404": "Duforn | 404",
-  "/test": "Duforn | Water Test",
-  "/viewer": "Duforn | Viewer",
 };
-
-const PATH_TO_NAMESPACE = {
-  "/": "main",
-  "/work": "work",
-  "/contact": "contact",
-  "/about": "about",
-  "/money-me": "projectDetail",
-  "/404": "notFound",
-  "/test": "test",
-  "/viewer": "viewer",
-};
-
-function normalizePath(pathname) {
-  const cleaned = pathname.replace(/\/+$/, "");
-  return cleaned === "" ? "/" : cleaned;
-}
-
-function getNamespace(pathname) {
-  return PATH_TO_NAMESPACE[normalizePath(pathname)] || "notFound";
-}
 
 function applyBodyRouteClasses(namespace) {
   document.body.classList.add("page-wrap");
-  document.body.classList.toggle(
-    "page-wrap--scrollable",
-    namespace === "projectDetail" || namespace === "about",
-  );
-}
-
-function useClock() {
-  useEffect(() => {
-    const formatter = new Intl.DateTimeFormat("en-GB", {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-      timeZone: "Asia/Kolkata",
-    });
-
-    const tick = () => {
-      const node = document.getElementById("time");
-      if (node) node.textContent = `${formatter.format(new Date())} IST`;
-    };
-
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, []);
+  document.body.classList.toggle("page-wrap--scrollable", namespace === "projectDetail");
 }
 
 function NavigationBridge() {
@@ -116,33 +65,16 @@ function NavigationBridge() {
       transitionRef.current.inFlight = true;
       transitionRef.current.targetPath = nextPath;
 
-      const currentNamespace = getNamespace(currentPath);
-      const nextNamespace = getNamespace(nextPath);
+      const currentNamespace = getRouteNamespace(currentPath);
+      const nextNamespace = getRouteNamespace(nextPath);
       const canvasElement = shouldAnimateCanvasBetweenNamespaces(currentNamespace, nextNamespace)
         ? document.querySelector('[data-active-canvas="true"]')
         : null;
 
-      const inkReady = canvasInk.isReady?.() ?? false;
-      const useRouteInk = inkReady && shouldUseRouteInkBleed(currentPath, nextPath);
-
       try {
         await hideAllRegisteredPageText();
-
-        if (useRouteInk) {
-          // Ink bleed only for about / 404; other routes use canvas leave tween.
-          await canvasInk.enter({
-            origin: { x: 0.5, y: 0.5 },
-            expandMs: CANVAS_INK_ROUTE_TIMING.expandMs,
-            holdMs: CANVAS_INK_ROUTE_TIMING.holdMs,
-            collapseMs: CANVAS_INK_ROUTE_TIMING.collapseMs,
-            onCovered: () => {
-              navigate(nextPath);
-            },
-          });
-        } else {
-          await runRouteLeaveTransition({ canvasElement });
-          navigate(nextPath);
-        }
+        await runRouteLeaveTransition({ canvasElement });
+        navigate(nextPath);
       } finally {
         const completed = currentPathRef.current === nextPath;
         if (completed || transitionRef.current.targetPath === nextPath) {
@@ -164,9 +96,7 @@ export function AppShell() {
   const setActivePage = useWebglStore((s) => s.setActivePage);
   const currentPath = normalizePath(location.pathname);
   const previousPathRef = useRef(currentPath);
-  const namespace = getNamespace(currentPath);
-
-  useClock();
+  const namespace = getRouteNamespace(currentPath);
 
   useLayoutEffect(() => {
     setActivePage(namespace);
@@ -222,14 +152,14 @@ export function AppShell() {
   useEffect(() => {
     document.title = TITLES[currentPath] || "Duforn | 404";
     const previousPath = previousPathRef.current;
-    const previousNamespace = getNamespace(previousPath);
+    const previousNamespace = getRouteNamespace(previousPath);
     const shouldAnimateCanvas = shouldAnimateCanvasBetweenNamespaces(previousNamespace, namespace);
 
     previousPathRef.current = currentPath;
     document.body.dataset.routePathname = currentPath;
     applyBodyRouteClasses(namespace);
 
-    if (namespace === "projectDetail" || namespace === "about") initLenis();
+    if (namespace === "projectDetail") initLenis();
     else destroyLenis();
 
     let stopEnterTween = () => {};
@@ -296,11 +226,8 @@ export default function App() {
         <Route path="/" element={<MainPage />} />
         <Route path="/work" element={<WorkPage />} />
         <Route path="/contact" element={<ContactPage />} />
-        <Route path="/about" element={<AboutPage />} />
         <Route path="/money-me" element={<ProjectDetailPage />} />
         <Route path="/404" element={<NotFoundPage />} />
-        <Route path="/test" element={<TestPage />} />
-        <Route path="/viewer" element={<ViewerPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

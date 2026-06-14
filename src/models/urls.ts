@@ -6,4 +6,3 @@
 export const GLTF_URL_PROJECT_BG = "/models/project-bg.glb";
 export const GLTF_URL_MONITOR = "/monitor.compressed.glb";
 export const GLTF_URL_WEBSITE = "/duforn_website.glb";
-export const GLTF_URL_TEST = "/test.glb";

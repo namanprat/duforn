@@ -5,7 +5,6 @@ const WEBGL_VERT = /* glsl */ `
   uniform sampler2D uTrailMap;
   varying vec2 vUv;
   varying vec2 vUvScreen;
-  varying vec3 vWorldPos;
 
   void main() {
     vUv = uv;
@@ -17,8 +16,6 @@ const WEBGL_VERT = /* glsl */ `
     float extrude = texture2D(uTrailMap, uvS).r;
     vec3 pos = position;
     pos.z *= mix(0.03, 1.0, extrude);
-    vec4 worldPos = modelMatrix * vec4(pos, 1.0);
-    vWorldPos = worldPos.xyz;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
   }
 `;
@@ -27,11 +24,9 @@ const WEBGL_FRAG = /* glsl */ `
   uniform sampler2D uBaseMap;
   uniform sampler2D uEmissiveMap;
   uniform sampler2D uTrailMap;
-  uniform vec3 uMouseWorld;
 
   varying vec2 vUv;
   varying vec2 vUvScreen;
-  varying vec3 vWorldPos;
 
   vec3 sRGBTransferOETF(vec3 color) {
     vec3 a = pow(color, vec3(0.41666)) * 1.055 - 0.055;
@@ -52,22 +47,18 @@ const WEBGL_FRAG = /* glsl */ `
     f = mix(f, tt1.g, smoothstep(0.6, 0.8, extrude));
     f = mix(f, tt1.r, smoothstep(0.8, 1.0, extrude));
 
-    float distMouse = distance(vWorldPos, uMouseWorld);
-    float cursorLift = (1.0 - smoothstep(0.15, 3.0, distMouse)) * 0.06;
-
-    gl_FragColor = vec4(vec3(f) + cursorLift, 1.0);
+    gl_FragColor = vec4(vec3(f), 1.0);
   }
 `;
 
 /**
- * WebGPU NodeMaterial — Archive (1) style: trail extrusion + emissive/map ramp + cursor lift.
+ * WebGPU NodeMaterial — immersive-g style: trail extrusion + emissive/map ramp.
  */
 export async function buildProjectBgMaterialsWebGpu(clonedScene, trailTexture) {
   const tsl = await import("three/tsl");
   const { NodeMaterial } = await import("three/webgpu");
   const {
     Fn,
-    float,
     vec2,
     vec3,
     vec4,
@@ -77,22 +68,10 @@ export async function buildProjectBgMaterialsWebGpu(clonedScene, trailTexture) {
     uv,
     screenUV,
     positionLocal,
-    positionWorld,
     cameraProjectionMatrix,
     modelViewMatrix,
     varying,
-    distance,
-    uniform,
   } = tsl;
-
-  const uMouseWorld = uniform(new THREE.Vector3(0, 0, 0));
-
-  const sRGBTransferOETF = Fn(([color]) => {
-    const a = color.pow(0.41666).mul(1.055).sub(0.055);
-    const b = color.mul(12.92);
-    const factor = color.lessThanEqual(0.0031308);
-    return mix(a, b, factor);
-  });
 
   const materials = [];
 
@@ -118,8 +97,8 @@ export async function buildProjectBgMaterialsWebGpu(clonedScene, trailTexture) {
     })();
 
     material.colorNode = Fn(() => {
-      const tt1 = sRGBTransferOETF(texture(baseMap, uv()));
-      const tt2 = sRGBTransferOETF(texture(emissiveMap, uv()));
+      const tt1 = texture(baseMap, uv());
+      const tt2 = texture(emissiveMap, uv());
       const extrude = texture(trailTexture, screenUV).r;
 
       let final_ = tt2.b;
@@ -129,33 +108,26 @@ export async function buildProjectBgMaterialsWebGpu(clonedScene, trailTexture) {
       final_ = mix(final_, tt1.g, smoothstep(0.6, 0.8, extrude));
       final_ = mix(final_, tt1.r, smoothstep(0.8, 1, extrude));
 
-      const distMouse = distance(positionWorld, uMouseWorld);
-      const cursorLift = float(1)
-        .sub(smoothstep(float(0.15), float(3.0), distMouse))
-        .mul(float(0.06));
-
-      return vec4(vec3(final_).add(vec3(cursorLift)), 1);
+      return vec4(vec3(final_), 1);
     })();
 
     child.material = material;
     materials.push(material);
   });
 
-  return { materials, uMouseWorld };
+  return { materials };
 }
 
 /**
  * WebGL ShaderMaterial — same shading as {@link buildProjectBgMaterialsWebGpu}.
  */
 export function buildProjectBgMaterialsWebGl(clonedScene, trailTexture) {
-  const uMouseWorld = { value: new THREE.Vector3(0, 0, 0) };
   /** @type THREE.Texture */
   const trailTex = trailTexture;
   trailTex.needsUpdate = true;
 
   const uniforms = {
     uTrailMap: { value: trailTex },
-    uMouseWorld,
   };
 
   const materials = [];
@@ -172,7 +144,6 @@ export function buildProjectBgMaterialsWebGl(clonedScene, trailTexture) {
         uTrailMap: uniforms.uTrailMap,
         uBaseMap: { value: baseMap },
         uEmissiveMap: { value: emissiveMap },
-        uMouseWorld: uniforms.uMouseWorld,
       },
       vertexShader: WEBGL_VERT,
       fragmentShader: WEBGL_FRAG,
@@ -182,5 +153,5 @@ export function buildProjectBgMaterialsWebGl(clonedScene, trailTexture) {
     materials.push(mat);
   });
 
-  return { materials, uMouseWorld };
+  return { materials };
 }

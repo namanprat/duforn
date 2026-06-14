@@ -3,7 +3,6 @@
  * Unified site 3D: one `#background` WebGPURenderer (WebGL fallback), one R3F tree.
  * Route content swaps via SceneBranches; no per-page nested `<Canvas>`.
  * GPU materials use pickGpuBranchAsync; DOM-linked meshes sync via getBoundingClientRect.
- * Ink transitions stay on OverlayCanvas (alpha layer above content).
  */
 import React, { Suspense } from "react";
 import Surface, { getCanvasDpr } from "./Surface";
@@ -14,31 +13,27 @@ import { registerLoaderRenderer } from "../models/loader";
 import ShaderWarmup from "./ShaderWarmup";
 import UnifiedCanvasFrameLoop from "./UnifiedCanvasFrameLoop";
 import SceneDoubleSideSync from "./SceneDoubleSideSync";
-import {
-  AboutCanvasBranch,
-  NotFoundCanvasBranch,
-  ProjectDetailCanvasBranch,
-  TestCanvasBranch,
-} from "./SceneBranches";
+import { NotFoundCanvasBranch, ProjectDetailCanvasBranch } from "./SceneBranches";
 import RoomCanvas from "./RoomCanvas";
-import ViewerCanvas from "./ViewerCanvas";
+
+/** Room routes share one scene branch — one warmup key avoids compileAsync overlap. */
+function warmupSceneKey(activePage) {
+  if (activePage === "main" || activePage === "work" || activePage === "contact") {
+    return "room";
+  }
+  return activePage;
+}
 
 function UnifiedScene({ activePage }) {
   switch (activePage) {
-    case "about":
-      return <AboutCanvasBranch />;
     case "projectDetail":
       return <ProjectDetailCanvasBranch />;
     case "notFound":
       return <NotFoundCanvasBranch />;
-    case "test":
-      return <TestCanvasBranch />;
     case "main":
     case "work":
     case "contact":
       return <RoomCanvas />;
-    case "viewer":
-      return <ViewerCanvas />;
     default:
       return <RoomCanvas />;
   }
@@ -48,13 +43,7 @@ function UnifiedScene({ activePage }) {
  * Single persistent R3F canvas for all routes. Room pages share one scene branch.
  */
 export default function Canvas({ activePage }) {
-  const pointerEvents =
-    activePage === "work" ||
-    activePage === "main" ||
-    activePage === "test" ||
-    activePage === "viewer"
-      ? "auto"
-      : "none";
+  const pointerEvents = activePage === "work" || activePage === "main" ? "auto" : "none";
   const isProjectDetail = activePage === "projectDetail";
   const setRendererType = useWebglStore((s) => s.setRendererType);
 
@@ -78,7 +67,7 @@ export default function Canvas({ activePage }) {
         <UnifiedCanvasFrameLoop />
         <SceneDoubleSideSync />
         <UnifiedScene activePage={activePage} />
-        {activePage !== "test" ? <ShaderWarmup sceneKey={activePage} /> : null}
+        <ShaderWarmup sceneKey={warmupSceneKey(activePage)} />
       </Suspense>
     </Surface>
   );

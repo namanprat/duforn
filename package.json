@@ -1,5 +1,5 @@
 {
-  "name": "duforn-site-vp",
+  "name": "duforn-final",
   "version": "1.0.0",
   "private": true,
   "description": "Duforn portfolio (standalone Vite+ app)",
@@ -9,9 +9,6 @@
     "host": "vp dev --host --configLoader runner",
     "build": "vp build --configLoader runner",
     "preview": "vp preview --configLoader runner",
-    "test": "vp test run",
-    "test:ui": "vp test --ui",
-    "test:coverage": "vp test run --coverage",
     "lint": "vp lint src scripts",
     "check": "vp check src scripts",
     "prepare": "vp config",
@@ -27,34 +24,27 @@
     "lenis": "^1.1.13",
     "leva": "^0.10.1",
     "lil-gui": "^0.21.0",
+    "postprocessing": "^6.39.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.9.5",
     "three": "^0.183.0",
-    "web-haptics": "^0.0.6",
     "wgpu-matrix": "^3.4.2",
     "zustand": "^5.0.11"
   },
   "devDependencies": {
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
-    "@vitest/coverage-v8": "4.1.5",
-    "@vitest/ui": "4.1.5",
     "@webgpu/types": "^0.1.70",
-    "happy-dom": "^20.6.1",
     "patch-package": "^8.0.1",
-    "playwright": "^1.50.0",
     "sharp": "^0.34.5",
     "tsx": "^4.19.2",
     "typescript": "^5.9.3",
     "vite": "npm:@voidzero-dev/vite-plus-core@0.1.20",
-    "vite-plugin-glsl": "^1.6.0",
-    "vite-plus": "0.1.20",
-    "vitest": "npm:@voidzero-dev/vite-plus-test@0.1.20"
+    "vite-plus": "0.1.20"
   },
   "overrides": {
-    "vite": "npm:@voidzero-dev/vite-plus-core@0.1.20",
-    "vitest": "npm:@voidzero-dev/vite-plus-test@0.1.20"
+    "vite": "npm:@voidzero-dev/vite-plus-core@0.1.20"
   },
   "packageManager": "npm@11.12.0",
   "staged": {

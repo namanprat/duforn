@@ -1,28 +1,26 @@
-// @ts-nocheck
 import Lenis from "lenis";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 gsap.registerPlugin(ScrollTrigger);
 
-let lenis = null;
-let tickerCallback = null;
-let lenisScrollTriggerSync = null;
+let lenis: Lenis | null = null;
+let lenisScrollTriggerSync: (() => void) | null = null;
 
-export function initLenis() {
+/**
+ * Lenis is NOT driven by gsap.ticker. The unified canvas frame loop
+ * (UnifiedCanvasFrameLoop) calls `getLenis()?.raf(time)` right before the
+ * WebGL render so DOM scroll, ScrollTrigger progress, and
+ * getBoundingClientRect() reads stay consistent within a single frame.
+ */
+export function initLenis(): Lenis {
   if (lenis) return lenis;
 
+  // Default Lenis settings — only the prevent hook for nested scroll containers.
   lenis = new Lenis({
-    lerp: 0.06,
-    duration: 1.2,
-    smoothWheel: true,
-    touchMultiplier: 1,
-    wheelMultiplier: 0.8,
-    // Allow nested scroll containers (debug panels, etc.) to scroll normally.
     prevent: (node) => {
       if (!node) return false;
-      if (node.closest?.("[data-lenis-prevent='true']")) return true;
-      return false;
+      return Boolean(node.closest?.("[data-lenis-prevent='true']"));
     },
   });
 
@@ -31,23 +29,13 @@ export function initLenis() {
   };
   lenis.on("scroll", lenisScrollTriggerSync);
 
-  tickerCallback = (time) => {
-    lenis.raf(time * 1000);
-  };
-
-  gsap.ticker.add(tickerCallback);
   gsap.ticker.lagSmoothing(500, 33);
 
   return lenis;
 }
 
-export function destroyLenis() {
+export function destroyLenis(): void {
   if (!lenis) return;
-
-  if (tickerCallback) {
-    gsap.ticker.remove(tickerCallback);
-    tickerCallback = null;
-  }
 
   if (lenisScrollTriggerSync) {
     lenis.off("scroll", lenisScrollTriggerSync);
@@ -58,6 +46,6 @@ export function destroyLenis() {
   lenis = null;
 }
 
-export function getLenis() {
+export function getLenis(): Lenis | null {
   return lenis;
 }

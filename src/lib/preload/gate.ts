@@ -179,16 +179,3 @@ export function subscribe(listener: (snapshot: PreloaderGateSnapshot) => void) {
     listeners.delete(listener);
   };
 }
-
-/** Test-only: reset the gate. Not used in production code paths. */
-export function __resetPreloaderGate() {
-  tasks.clear();
-  lastSnapshot = {
-    progress: 0,
-    essentialsReady: true,
-    pendingCount: 0,
-    totalCount: 0,
-    errors: [],
-  };
-  emit();
-}

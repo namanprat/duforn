@@ -7,8 +7,6 @@ import React from "react";
 import { PerspectiveCamera } from "@react-three/drei";
 import NotFound from "./NotFound";
 import ProjectDetailScene from "../projectDetail/Scene";
-import AboutScene from "./about/AboutScene";
-import WaterPoolScene from "./water/WaterPoolScene";
 
 export function ProjectDetailCanvasBranch() {
   return (
@@ -23,23 +21,6 @@ export function NotFoundCanvasBranch() {
     <>
       <PerspectiveCamera makeDefault position={[0, 0, 1.35]} fov={34} />
       <NotFound />
-    </>
-  );
-}
-
-export function AboutCanvasBranch() {
-  return (
-    <>
-      <AboutScene />
-    </>
-  );
-}
-
-export function TestCanvasBranch() {
-  return (
-    <>
-      <PerspectiveCamera makeDefault position={[3, 2.5, 4]} fov={45} near={0.01} far={100} />
-      <WaterPoolScene />
     </>
   );
 }

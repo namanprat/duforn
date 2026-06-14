@@ -1,85 +1,25 @@
 // @ts-nocheck
 import React, { useRef, useEffect, useState, useCallback } from "react";
-import { flushSync } from "react-dom";
 import { useLocation } from "react-router-dom";
 import gsap from "gsap";
-import { navigateTo } from "../lib/nav";
-import { canvasInk } from "../lib/ink/transition";
-import { resolveCanvasInkOrigin } from "../lib/ink/origin";
-import {
-  CANVAS_INK_MENU_TIMING,
-  CANVAS_INK_ROUTE_TIMING,
-  getRouteInkNamespace,
-  normalizePath,
-} from "../lib/ink/route";
-import {
-  hideAllRegisteredMenuText,
-  hideAllRegisteredPageText,
-  showAllRegisteredMenuText,
-  showAllRegisteredPageText,
-} from "../lib/text";
-import Canvas from "../scenes/Canvas";
-import OverlayCanvas from "../scenes/OverlayCanvas";
-import RotateHoverLabel from "../ui/HoverLabel";
-import ToggleRevealLabel from "../ui/ToggleRevealLabel";
-import MenuOverlayLayer from "./Menu";
+import { getRouteNamespace } from "../lib/route";
 import OverlayPortal from "./Portal";
+import IslandNav from "./IslandNav";
 import PreloaderOverlayLayer from "./Preloader";
 import { useWebglStore } from "../store/webgl";
-import { useLoadingStore, waitForLoadingPhaseReady } from "../store/loading";
+import { useLoadingStore } from "../store/loading";
 import { usePreloaderOverlayStore } from "../store/overlay";
 import { PRELOADER_DISMISSED_EVENT } from "../lib/preload/events";
 import { requestDeviceOrientationPermission } from "../../scripts/runtime/motion";
-import { triggerNavHaptic } from "../../scripts/haptic-feedback";
-import { shouldUseNavRotateHover } from "../../scripts/link-hover";
-
-function NavLink({ to, className, children, ...props }) {
-  const location = useLocation();
-  const { onClick: onClickProp, ...restProps } = props;
-
-  const handleClick = (e) => {
-    onClickProp?.(e);
-    if (e.defaultPrevented) return;
-
-    // Allow default behavior for modifier keys (open in new tab, etc.)
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
-      return;
-    }
-
-    e.preventDefault();
-
-    // Only navigate if the path is actually changing.
-    // All leave animation + canvas transition is handled by the NavigationBridge.
-    if (location.pathname !== to) {
-      navigateTo(to);
-    }
-  };
-
-  const isActive = location.pathname === to;
-
-  return (
-    <a
-      href={to}
-      className={className}
-      onClick={handleClick}
-      aria-current={isActive ? "page" : undefined}
-      {...restProps}
-    >
-      {children}
-    </a>
-  );
-}
+import Canvas from "../scenes/Canvas";
 
 function shouldShowIntroPreloader(pathname) {
-  // The detail route is the only vertical page; skip the intro lock there so a
-  // deep link does not boot into a fixed-body state that blocks scrolling.
-  return getRouteInkNamespace(pathname) !== "projectDetail";
+  return getRouteNamespace(pathname) !== "projectDetail";
 }
 
 export default function SiteLayout({ children }) {
   const location = useLocation();
   const activePage = useWebglStore((s) => s.activePage);
-  const rendererType = useWebglStore((s) => s.rendererType);
   const setGyroEnabled = useWebglStore((s) => s.setGyroEnabled);
   const progress = useLoadingStore((s) => s.progress);
   const essentialsReady = useLoadingStore((s) => s.essentialsReady);
@@ -91,155 +31,22 @@ export default function SiteLayout({ children }) {
   );
   const [introRingComplete, setIntroRingComplete] = useState(false);
   const [permissionsPending, setPermissionsPending] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  /** When false while open, menu-wrap is transparent so the Canvas ink overlay reads as the backdrop. */
-  const [menuSurfaceSolid, setMenuSurfaceSolid] = useState(true);
   const preloaderTimerRef = useRef(0);
   const introTimelineRef = useRef(null);
   const preloaderRef = useRef(null);
   const strokeTrackRef = useRef(null);
   const strokeProgressRef = useRef(null);
-  const menuRef = useRef(null);
-  const menuToggleRef = useRef(null);
   const introHitRef = useRef(null);
-  const previouslyFocusedElementRef = useRef(null);
-  const previousIsMenuOpenRef = useRef(false);
-  const closeMenuRef = useRef(() => {});
-  const previousPathnameForMenuRef = useRef(null);
-  /** Used to avoid forcing page text `show()` after a menu link navigation (new route owns reveal). */
-  const menuOpenedPathnameRef = useRef(null);
-  const useNavRotateHover = shouldUseNavRotateHover();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     setPreloaderOverlayVisible(preloaderVisible);
   }, [preloaderVisible, setPreloaderOverlayVisible]);
 
   useEffect(() => {
-    const onClose = () => {
-      void closeMenuRef.current();
-    };
-    window.addEventListener("duforn:nav-close-menu", onClose);
-    return () => window.removeEventListener("duforn:nav-close-menu", onClose);
-  }, []);
-
-  useEffect(() => {
     document.body.classList.toggle("preloader-active", preloaderVisible);
     return () => document.body.classList.remove("preloader-active");
   }, [preloaderVisible]);
-
-  // /test and /viewer skip the Enter gate — wait for shader warmup + prerender
-  // before revealing the canvas so prod builds don't flash black.
-  useEffect(() => {
-    if (!preloaderVisible) return undefined;
-    if (
-      getRouteInkNamespace(location.pathname) !== "test" &&
-      getRouteInkNamespace(location.pathname) !== "viewer"
-    ) {
-      return undefined;
-    }
-
-    let cancelled = false;
-
-    void waitForLoadingPhaseReady().then(() => {
-      if (cancelled) return;
-      preloaderTimerRef.current = window.setTimeout(() => {
-        if (cancelled) return;
-        setPreloaderVisible(false);
-        setPreloaderFading(false);
-        window.dispatchEvent(
-          new CustomEvent(PRELOADER_DISMISSED_EVENT, {
-            detail: { pathname: window.location.pathname },
-          }),
-        );
-      }, 100);
-    });
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(preloaderTimerRef.current);
-    };
-  }, [preloaderVisible, location.pathname]);
-
-  const maybeRestorePageTextAfterMenuClose = useCallback(() => {
-    const openedOn = menuOpenedPathnameRef.current;
-    menuOpenedPathnameRef.current = null;
-    if (openedOn === normalizePath(location.pathname)) {
-      void showAllRegisteredPageText();
-    }
-  }, [location.pathname]);
-
-  const closeMenu = useCallback(async () => {
-    if (!isMenuOpen) {
-      setMenuSurfaceSolid(true);
-      return;
-    }
-    await hideAllRegisteredMenuText();
-    if (canvasInk.isReady?.()) {
-      void canvasInk.enter({
-        skipExpand: true,
-        origin: resolveCanvasInkOrigin(menuToggleRef.current),
-        expandMs: CANVAS_INK_MENU_TIMING.expandMs,
-        holdMs: 0,
-        collapseMs: CANVAS_INK_MENU_TIMING.collapseMs,
-        onCovered: () => {
-          flushSync(() => {
-            setMenuSurfaceSolid(true);
-            setIsMenuOpen(false);
-          });
-          maybeRestorePageTextAfterMenuClose();
-        },
-      });
-    } else {
-      setMenuSurfaceSolid(true);
-      setIsMenuOpen(false);
-      maybeRestorePageTextAfterMenuClose();
-    }
-  }, [isMenuOpen, maybeRestorePageTextAfterMenuClose, rendererType]);
-
-  closeMenuRef.current = closeMenu;
-
-  const openMenu = useCallback(async () => {
-    if (typeof window !== "undefined" && window.matchMedia("(min-width: 769px)").matches) {
-      return;
-    }
-    await hideAllRegisteredPageText();
-    previouslyFocusedElementRef.current = document.activeElement;
-    if (canvasInk.isReady?.()) {
-      try {
-        await canvasInk.cover({
-          origin: resolveCanvasInkOrigin(menuToggleRef.current),
-          expandMs: CANVAS_INK_MENU_TIMING.expandMs,
-        });
-        flushSync(() => {
-          setMenuSurfaceSolid(false);
-          setIsMenuOpen(true);
-          menuOpenedPathnameRef.current = normalizePath(location.pathname);
-        });
-      } catch {
-        flushSync(() => {
-          setMenuSurfaceSolid(true);
-          setIsMenuOpen(true);
-          menuOpenedPathnameRef.current = normalizePath(location.pathname);
-        });
-      }
-    } else {
-      flushSync(() => {
-        setMenuSurfaceSolid(true);
-        setIsMenuOpen(true);
-        menuOpenedPathnameRef.current = normalizePath(location.pathname);
-      });
-    }
-    await showAllRegisteredMenuText();
-  }, [location.pathname, rendererType]);
-
-  const toggleMenu = useCallback(() => {
-    triggerNavHaptic("click");
-    if (isMenuOpen) {
-      closeMenu();
-      return;
-    }
-    openMenu();
-  }, [closeMenu, isMenuOpen, openMenu]);
 
   const dismissPreloader = useCallback(() => {
     if (!preloaderVisible || preloaderFading) return;
@@ -258,16 +65,6 @@ export default function SiteLayout({ children }) {
     }, 600);
   }, [preloaderFading, preloaderVisible]);
 
-  /**
-   * Drive the preloader ring from real preloader-gate progress.
-   *
-   * - `track` stays fully visible (dashoffset 0) as a static reference ring.
-   * - `progress` (highlighted ring) is tweened to `circumference * (1 - progress)`
-   *   whenever the gate snapshot changes.
-   * - When `essentialsReady && progress >= 1 && phase === 'ready'`, after the catch-up tween settles
-   *   we flip `introRingComplete = true` so the Enter button activates.
-   * - Reduced-motion + non-WebGPU paths skip the tween entirely.
-   */
   useEffect(() => {
     if (!preloaderVisible) return undefined;
     if (!preloaderRef.current || !strokeTrackRef.current || !strokeProgressRef.current)
@@ -294,11 +91,6 @@ export default function SiteLayout({ children }) {
     };
   }, [preloaderVisible]);
 
-  /**
-   * Reactive ring binding — re-runs whenever the preloader-gate snapshot changes.
-   * Also flips `introRingComplete` once essentials are ready and the catch-up
-   * tween reaches the full circle.
-   */
   useEffect(() => {
     if (!preloaderVisible) return undefined;
     const progressEl = strokeProgressRef.current;
@@ -357,54 +149,8 @@ export default function SiteLayout({ children }) {
     setPermissionsPending(true);
     await requestExperiencePermissions();
     setPermissionsPending(false);
-
-    if (rendererType !== "webgpu") {
-      dismissPreloader();
-      return;
-    }
-
-    const path = normalizePath(window.location.pathname);
-    const surface = path === "/about" ? "about" : "home";
-    const timing = CANVAS_INK_ROUTE_TIMING;
-
-    try {
-      await canvasInk.enter({
-        surface,
-        skipExpand: true,
-        origin: resolveCanvasInkOrigin(introHitRef.current),
-        expandMs: timing.expandMs,
-        holdMs: 0,
-        collapseMs: timing.collapseMs,
-        onCovered: () => {
-          flushSync(() => {
-            setPreloaderVisible(false);
-            setPreloaderFading(false);
-          });
-          window.dispatchEvent(
-            new CustomEvent(PRELOADER_DISMISSED_EVENT, {
-              detail: { pathname: window.location.pathname },
-            }),
-          );
-        },
-      });
-    } catch {
-      flushSync(() => {
-        setPreloaderVisible(false);
-        setPreloaderFading(false);
-      });
-      window.dispatchEvent(
-        new CustomEvent(PRELOADER_DISMISSED_EVENT, {
-          detail: { pathname: window.location.pathname },
-        }),
-      );
-    }
-  }, [
-    dismissPreloader,
-    introRingComplete,
-    permissionsPending,
-    rendererType,
-    requestExperiencePermissions,
-  ]);
+    dismissPreloader();
+  }, [dismissPreloader, introRingComplete, permissionsPending, requestExperiencePermissions]);
 
   const introEnterDisabled = !introRingComplete || permissionsPending;
 
@@ -432,20 +178,7 @@ export default function SiteLayout({ children }) {
   }, []);
 
   useEffect(() => {
-    const prev = previousPathnameForMenuRef.current;
-    previousPathnameForMenuRef.current = location.pathname;
-    if (prev !== null && prev !== location.pathname) {
-      closeMenuRef.current();
-    }
-  }, [location.pathname]);
-
-  useEffect(() => {
-    document.body.classList.toggle("menu-open", isMenuOpen);
-    return () => document.body.classList.remove("menu-open");
-  }, [isMenuOpen]);
-
-  useEffect(() => {
-    const shouldLockScroll = isMenuOpen || preloaderVisible || preloaderFading;
+    const shouldLockScroll = preloaderVisible || preloaderFading || menuOpen;
     if (!shouldLockScroll) return undefined;
 
     const scrollY = window.scrollY;
@@ -467,87 +200,7 @@ export default function SiteLayout({ children }) {
       document.body.style.width = "";
       window.scrollTo(0, scrollY);
     };
-  }, [isMenuOpen, preloaderFading, preloaderVisible]);
-
-  /** Fullscreen menu is mobile-only; clear state if viewport crosses to desktop so scroll/overlay never stick. */
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
-    const mq = window.matchMedia("(max-width: 768px)");
-    const onChange = () => {
-      if (!mq.matches) {
-        closeMenuRef.current();
-      }
-    };
-    onChange();
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
-
-  useEffect(() => {
-    const wasOpen = previousIsMenuOpenRef.current;
-    previousIsMenuOpenRef.current = isMenuOpen;
-
-    if (!isMenuOpen) {
-      if (!wasOpen) return;
-      const lastFocused = previouslyFocusedElementRef.current;
-      if (lastFocused && typeof lastFocused.focus === "function") {
-        window.setTimeout(() => lastFocused.focus(), 0);
-      } else {
-        menuToggleRef.current?.focus?.();
-      }
-      return;
-    }
-
-    const menuElement = menuRef.current;
-    if (!menuElement) return;
-
-    const getFocusable = () =>
-      Array.from(
-        menuElement.querySelectorAll(
-          'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"]), input, select, textarea',
-        ),
-      );
-
-    const focusableElements = getFocusable();
-    const first = focusableElements[0];
-    first?.focus?.();
-
-    const onKeyDown = (event) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        closeMenu();
-        return;
-      }
-
-      if (event.key !== "Tab") return;
-      const nodes = getFocusable();
-      if (!nodes.length) return;
-
-      const firstNode = nodes[0];
-      const lastNode = nodes[nodes.length - 1];
-      const activeElement = document.activeElement;
-
-      if (event.shiftKey && activeElement === firstNode) {
-        event.preventDefault();
-        lastNode.focus();
-      } else if (!event.shiftKey && activeElement === lastNode) {
-        event.preventDefault();
-        firstNode.focus();
-      }
-    };
-
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [closeMenu, isMenuOpen]);
-
-  const handleMenuBackdropClick = useCallback(
-    (event) => {
-      if (event.target === event.currentTarget) {
-        closeMenu();
-      }
-    },
-    [closeMenu],
-  );
+  }, [menuOpen, preloaderFading, preloaderVisible]);
 
   return (
     <>
@@ -556,8 +209,7 @@ export default function SiteLayout({ children }) {
       </a>
 
       <OverlayPortal>
-        <div className="fullscreen-overlay-cluster" aria-hidden={!preloaderVisible && !isMenuOpen}>
-          <OverlayCanvas />
+        <div className="fullscreen-overlay-cluster" aria-hidden={!preloaderVisible}>
           <PreloaderOverlayLayer
             visible={preloaderVisible}
             fading={preloaderFading}
@@ -571,76 +223,10 @@ export default function SiteLayout({ children }) {
             permissionsPending={permissionsPending}
             onEnter={handleIntroEnter}
           />
-          <MenuOverlayLayer
-            isMenuOpen={isMenuOpen}
-            menuRef={menuRef}
-            surfaceSolid={menuSurfaceSolid}
-            rotateHoverLabels={useNavRotateHover}
-            onCloseMenu={closeMenu}
-            onBackdropClick={handleMenuBackdropClick}
-            renderNavLink={(props) => <NavLink {...props} />}
-          />
         </div>
       </OverlayPortal>
 
-      <header>
-        <nav className="nav-wrap u-position-fixed">
-          <div className="nav-contain u-container-full">
-            <NavLink
-              className="u-mobile-hidden"
-              to="/contact"
-              data-rotate-hover={useNavRotateHover ? "" : undefined}
-            >
-              {useNavRotateHover ? <RotateHoverLabel text="Contact" /> : "Contact"}
-            </NavLink>
-            <NavLink
-              to="/"
-              className="link-main nav-brand menu-fullscreen__brand"
-              data-rotate-hover={useNavRotateHover ? "" : undefined}
-            >
-              {useNavRotateHover ? <RotateHoverLabel text="Duforn" /> : "Duforn"}
-            </NavLink>
-            <NavLink
-              className="u-mobile-hidden"
-              to="/work"
-              data-rotate-hover={useNavRotateHover ? "" : undefined}
-            >
-              {useNavRotateHover ? <RotateHoverLabel text="Work" /> : "Work"}
-            </NavLink>
-            <button
-              ref={menuToggleRef}
-              className="menu-toggle-btn button button-primary u-display-flex u-align-items-center u-justify-content-center u-position-relative"
-              type="button"
-              data-state={isMenuOpen ? "open" : "closed"}
-              style={{ width: isMenuOpen ? "calc(5ch + 2.5rem)" : "calc(4ch + 2.5rem)" }}
-              aria-label={isMenuOpen ? "Close menu" : "Open menu"}
-              aria-haspopup="dialog"
-              aria-controls="site-menu"
-              aria-expanded={isMenuOpen}
-              onClick={toggleMenu}
-            >
-              <span
-                className="menu-toggle-btn-wrapper u-display-inline-flex u-align-items-center u-justify-content-center u-position-relative u-overflow-hidden"
-                style={{ width: isMenuOpen ? "5ch" : "4ch" }}
-                aria-hidden="true"
-              >
-                <ToggleRevealLabel text="MENU" alternateText="CLOSE" active={isMenuOpen} />
-              </span>
-            </button>
-          </div>
-        </nav>
-
-        <div className="bottom-nav-wrap u-position-fixed u-container-full u-mobile-hidden">
-          <div className="bottom-nav-contain u-flex-horizontal-nowrap u-justify-content-between u-align-items-center u-gap-3 u-width-full">
-            <NavLink to="/about" data-rotate-hover={useNavRotateHover ? "" : undefined}>
-              {useNavRotateHover ? <RotateHoverLabel text="About" /> : "About"}
-            </NavLink>
-            <div id="time" aria-live="polite">
-              12:34:56 IST
-            </div>
-          </div>
-        </div>
-      </header>
+      <IslandNav onMenuOpenChange={setMenuOpen} />
 
       <div className="page-canvas">
         <Canvas activePage={activePage} />

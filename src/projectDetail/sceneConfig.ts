@@ -9,4 +9,11 @@ export const PROJECT_DETAIL_REVEAL_SETTINGS = {
   steps: 14,
 };
 
+export const PROJECT_DETAIL_COVER_SCALE_SETTINGS = {
+  from: 1.1,
+  to: 1,
+  scrollStart: "top bottom",
+  scrollEnd: "top 30%",
+};
+
 export const PROJECT_DETAIL_BG_CAMERA_Z = 15;

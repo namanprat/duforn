@@ -15,6 +15,19 @@ export default function MainSceneGui() {
   const setControl = useHomeSceneControlsStore((s) => s.setControl);
   const resetControls = useHomeSceneControlsStore((s) => s.resetControls);
   const model = useHomeSceneControlsStore((s) => s.controls.model);
+  const env = useHomeSceneControlsStore((s) => s.controls.env);
+
+  useControls(
+    "Scene",
+    {
+      skybox: {
+        value: env?.skybox ?? true,
+        onChange: (v) => setControl("env.skybox", v),
+      },
+    },
+    { collapsed: true },
+    { render: () => activePage === "main" },
+  );
 
   useControls(
     "Main GLB",

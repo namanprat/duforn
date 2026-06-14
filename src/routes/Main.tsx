@@ -4,8 +4,10 @@ import TextRevealLines from "../text/Reveal";
 import CameraRevealGroup from "../text/CameraRevealGroup";
 import RotateHoverLabel from "../ui/HoverLabel";
 import { shouldUseNavRotateHover } from "../../scripts/link-hover";
+import { STUDIO_INTRO_COPY } from "../content/studio";
 
 const HERO_CTA_LABEL = "VIEW WORK";
+const HERO_CONTACT_LABEL = "CONTACT";
 
 export default function MainPage() {
   const brandClipRef = useRef<HTMLDivElement | null>(null);
@@ -68,10 +70,7 @@ export default function MainPage() {
                         delay={0.08}
                         layoutKey={heroCopyWidthPx}
                       >
-                        <p className="u-text-align-center u-width-full">
-                          We are an art direction and web studio in Mumbai. Working with culture,
-                          curating digital experiences. Making work that moves people.
-                        </p>
+                        <p className="u-text-align-center u-width-full">{STUDIO_INTRO_COPY}</p>
                       </TextRevealLines>
                     </div>
                   ) : (
@@ -81,22 +80,40 @@ export default function MainPage() {
                     />
                   )}
                   <CameraRevealGroup waitForCamera waitForPreloader delay={0.16}>
-                    <a
-                      className="button button-primary hero-stage__cta"
-                      href="/work"
-                      data-rotate-hover={useRotateButtonHover ? "" : undefined}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        navigateTo("/work");
-                      }}
-                    >
-                      {useRotateButtonHover ? (
-                        <RotateHoverLabel text={HERO_CTA_LABEL} />
-                      ) : (
-                        <span className="hero-stage__cta-label">{HERO_CTA_LABEL}</span>
-                      )}
-                      <span aria-hidden="true">↗</span>
-                    </a>
+                    <div className="hero-stage__actions">
+                      <a
+                        className="button button-primary hero-stage__cta"
+                        href="/work"
+                        data-rotate-hover={useRotateButtonHover ? "" : undefined}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          navigateTo("/work");
+                        }}
+                      >
+                        {useRotateButtonHover ? (
+                          <RotateHoverLabel text={HERO_CTA_LABEL} />
+                        ) : (
+                          <span className="hero-stage__cta-label">{HERO_CTA_LABEL}</span>
+                        )}
+                        <span aria-hidden="true">↗</span>
+                      </a>
+                      <a
+                        className="button button-secondary hero-stage__cta"
+                        href="/contact"
+                        data-rotate-hover={useRotateButtonHover ? "" : undefined}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          navigateTo("/contact");
+                        }}
+                      >
+                        {useRotateButtonHover ? (
+                          <RotateHoverLabel text={HERO_CONTACT_LABEL} />
+                        ) : (
+                          <span className="hero-stage__cta-label">{HERO_CONTACT_LABEL}</span>
+                        )}
+                        <span aria-hidden="true">↗</span>
+                      </a>
+                    </div>
                   </CameraRevealGroup>
                 </div>
               </div>

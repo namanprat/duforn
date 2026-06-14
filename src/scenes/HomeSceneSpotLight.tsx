@@ -6,18 +6,6 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useWebglStore } from "../store/webgl";
 import { useHomeSceneControlsStore } from "../store/homeScene";
 
-/** Initial inspector values (also in `DEFAULT_HOME_SCENE_CONTROLS.spotlight`). */
-export const HOME_SCENE_INSPECTOR_LIGHT = {
-  position: [-3.914, 0, -27.092] as const,
-  intensity: 18.87,
-  color: "#ffffff",
-  distance: 0,
-  angle: 1.571,
-  penumbra: 0,
-  decay: 2,
-  castShadow: false,
-};
-
 function InspectorPointCamera({ position, lookAt, fov, visible }) {
   const camRef = useRef(null);
   const lookAtVec = useRef(new THREE.Vector3());
@@ -93,7 +81,7 @@ export function HomeSceneSpotLight() {
     light.castShadow = s.castShadow;
   });
 
-  if (activePage !== "main" && activePage !== "viewer") return null;
+  if (activePage !== "main") return null;
 
   const inspectorFov = THREE.MathUtils.radToDeg(spotlight.angle);
 

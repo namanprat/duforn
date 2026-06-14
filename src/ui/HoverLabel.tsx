@@ -1,7 +1,6 @@
 // @ts-nocheck
 import { useLayoutEffect, useRef } from "react";
 import gsap from "gsap";
-import { triggerNavHaptic } from "../../scripts/haptic-feedback";
 import { MOTION_TOKENS } from "../lib/anim/tokens";
 
 /**
@@ -84,7 +83,6 @@ export default function RotateHoverLabel({ text, hoverText = text, active }) {
       gsap.to(allSpans, { yPercent, duration, ease, stagger, overwrite: true });
 
     const onEnter = () => {
-      triggerNavHaptic("hover");
       animateTo(-100);
     };
 

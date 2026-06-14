@@ -202,14 +202,6 @@
   --hero--stage-center-padding-top-mobile: clamp(6rem, 18vh, 8rem);
   --hero--stage-center-padding-bottom-mobile: clamp(5rem, 12vh, 8rem);
   --hero--brand-stack-gap: var(--spacing-space-3);
-  --menu--fullscreen-padding: max(var(--site--margin), env(safe-area-inset-top))
-    max(var(--site--margin), env(safe-area-inset-right))
-    max(var(--spacing-space-4), env(safe-area-inset-bottom))
-    max(var(--site--margin), env(safe-area-inset-left));
-  --menu--safe-vertical-outset: max(
-    2rem,
-    calc(env(safe-area-inset-top) + env(safe-area-inset-bottom))
-  );
 }
 
 @media (max-width: 768px) {

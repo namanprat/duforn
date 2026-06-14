@@ -119,7 +119,7 @@ export default function HomeSceneSpotLightGui() {
       }),
     },
     { collapsed: false },
-    { render: () => activePage === "main" || activePage === "viewer" },
+    { render: () => activePage === "main" },
   );
 
   return null;

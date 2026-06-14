@@ -29,6 +29,25 @@ async function canUseWebGPU() {
   return webgpuSupportPromise;
 }
 
+/** Default WebGPU device caps; home.hdr is 10000×5000 (~400 MB staging upload). */
+const DEFAULT_MAX_TEXTURE_2D = 8192;
+const DEFAULT_MAX_BUFFER_SIZE = 268435456;
+
+function buildRequiredDeviceLimits(adapter) {
+  const requiredLimits = {};
+  const adapterLimits = adapter.limits;
+
+  // Large HDR env maps (e.g. /home.hdr) need raised texture + staging buffer limits.
+  if (adapterLimits.maxTextureDimension2D > DEFAULT_MAX_TEXTURE_2D) {
+    requiredLimits.maxTextureDimension2D = adapterLimits.maxTextureDimension2D;
+  }
+  if (adapterLimits.maxBufferSize > DEFAULT_MAX_BUFFER_SIZE) {
+    requiredLimits.maxBufferSize = adapterLimits.maxBufferSize;
+  }
+
+  return requiredLimits;
+}
+
 async function createWebGPUDevice() {
   if (typeof navigator === "undefined" || !navigator.gpu) return null;
   const adapter = await navigator.gpu.requestAdapter({
@@ -41,13 +60,26 @@ async function createWebGPUDevice() {
     requiredFeatures.push("float32-filterable");
   }
 
+  const requiredLimits = buildRequiredDeviceLimits(adapter);
+
   try {
     return await adapter.requestDevice({
       requiredFeatures,
-      requiredLimits: {},
+      requiredLimits,
     });
-  } catch {
-    return null;
+  } catch (error) {
+    logWebGPU("renderer", "WebGPU device request with raised limits failed", {
+      requiredLimits,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    try {
+      return await adapter.requestDevice({
+        requiredFeatures,
+        requiredLimits: {},
+      });
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -118,10 +150,6 @@ async function createBestRenderer(defaultProps, { alpha = false } = {}) {
     reason: "WebGPU unavailable or initialization failed",
   });
   return createWebGLRenderer(defaultProps, { alpha });
-}
-
-export function createRendererAlpha(defaultProps) {
-  return createBestRenderer(defaultProps, { alpha: true });
 }
 
 export function createRendererOpaque(defaultProps) {

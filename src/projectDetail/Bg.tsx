@@ -1,5 +1,4 @@
-// @ts-nocheck
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useProjectBgModel } from "../models/gen/useProjectBg";
@@ -10,64 +9,61 @@ import { pickGpuBranchAsync } from "../lib/render";
 import { getClampedPixelRatio } from "../lib/render/pixelRatio";
 import { ProjectBgTrailCanvas } from "./bgTrail";
 import { buildProjectBgMaterialsWebGl, buildProjectBgMaterialsWebGpu } from "./bgMaterials";
+import { useLoadingStore } from "../store/loading";
 
-export default function ProjectBg({ renderScale = 1 }) {
-  const { gl, size } = useThree();
+const ORBIT_SPEED = 0.32;
+const ORBIT_RADIUS = 0.42;
+const POINTER_IDLE_MS = 1200;
+// Soft out-of-focus background: render the offscreen pass cheap.
+const BG_RENDER_SCALE = 0.75;
+const BG_MAX_DPR = 1.5;
+
+interface ProjectBgProps {
+  onReady?: (ready: boolean) => void;
+}
+
+function getBgRenderDpr(gl: { getPixelRatio: () => number }): number {
+  return Math.min(gl.getPixelRatio(), getClampedPixelRatio(BG_MAX_DPR));
+}
+
+export default function ProjectBg({ onReady }: ProjectBgProps) {
+  const { gl } = useThree();
   const controls = useProjectDetailSceneControlsStore((state) => state.controls);
   const { pointerRef, step } = usePointerField();
   const { scene: gltfScene } = useProjectBgModel();
-  const [isCoarsePointer, setIsCoarsePointer] = useState(false);
 
   const trailSize = controls.trail.size;
-  const trailRef = useRef(null);
-  const trailTextureRef = useRef(null);
+  const trailRef = useRef<ProjectBgTrailCanvas | null>(null);
+  const trailTextureRef = useRef<THREE.CanvasTexture | null>(null);
 
-  const virtualSceneRef = useRef(null);
-  const virtualCameraRef = useRef(null);
-  const clonedSceneRef = useRef(null);
-  const renderTargetRef = useRef(null);
-  const quadMaterialRef = useRef(null);
-  const meshRef = useRef(null);
+  const virtualSceneRef = useRef<THREE.Scene | null>(null);
+  const virtualCameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const clonedSceneRef = useRef<THREE.Object3D | null>(null);
+  const renderTargetRef = useRef<THREE.RenderTarget | null>(null);
+  const quadMaterialRef = useRef<THREE.MeshBasicMaterial | null>(null);
+  const meshRef = useRef<THREE.Mesh | null>(null);
   const [ready, setReady] = useState(false);
-  const materialsRef = useRef([]);
-  const uMouseWorldRef = useRef(null);
-  const raycasterRef = useRef(new THREE.Raycaster());
-  const pointerNdcRef = useRef(new THREE.Vector2());
-  const mouseHitRef = useRef(new THREE.Vector3());
-  const mousePlaneRef = useRef(new THREE.Plane(new THREE.Vector3(0, 0, 1), 0));
+  const materialsRef = useRef<THREE.Material[]>([]);
   const prevSizeRef = useRef({ width: 0, height: 0 });
-  const scrollTargetRef = useRef(0);
   const scrollCurrentRef = useRef(0);
-  const mobileOrbitPointerRef = useRef(new THREE.Vector2(0, 0));
+  const orbitPointerRef = useRef(new THREE.Vector2(0, 0));
+  const pointerActiveRef = useRef(false);
+  const lastPointerMoveRef = useRef(0);
+  const onReadyRef = useRef(onReady);
+  onReadyRef.current = onReady;
 
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
-
-    const mediaQuery = window.matchMedia("(pointer: coarse)");
-    const sync = () => setIsCoarsePointer(mediaQuery.matches);
-    sync();
-    mediaQuery.addEventListener("change", sync);
-    return () => mediaQuery.removeEventListener("change", sync);
-  }, []);
-
+  // Build once per model/renderer — resizes are handled in useFrame, and
+  // control tweaks are applied by the sync effect below without a rebuild.
   useEffect(() => {
     let cancelled = false;
 
+    const projectBg = useProjectDetailSceneControlsStore.getState().controls.projectBg;
     const virtualScene = new THREE.Scene();
-    const virtualCamera = new THREE.PerspectiveCamera(
-      controls.projectBg.cameraFov,
-      size.width / size.height,
-      0.1,
-      100,
-    );
-    virtualCamera.position.set(0, 0, PROJECT_DETAIL_BG_CAMERA_Z + controls.projectBg.cameraZOffset);
+    const virtualCamera = new THREE.PerspectiveCamera(projectBg.cameraFov, 1, 0.1, 100);
+    virtualCamera.position.set(0, 0, PROJECT_DETAIL_BG_CAMERA_Z + projectBg.cameraZOffset);
     virtualCamera.lookAt(0, 0, 0);
 
-    const dpr = Math.min(gl.getPixelRatio(), getClampedPixelRatio(2));
-    const rt = new THREE.RenderTarget(
-      Math.max(1, Math.floor(size.width * dpr * renderScale)),
-      Math.max(1, Math.floor(size.height * dpr * renderScale)),
-    );
+    const rt = new THREE.RenderTarget(1, 1);
 
     const trail = new ProjectBgTrailCanvas(trailSize, trailSize);
     trailRef.current = trail;
@@ -76,33 +72,26 @@ export default function ProjectBg({ renderScale = 1 }) {
     trailTextureRef.current = trailTex;
 
     const cloned = gltfScene.clone(true);
-    cloned.position.set(controls.projectBg.x, controls.projectBg.y, controls.projectBg.z);
-    cloned.scale.setScalar(controls.projectBg.scale);
-    cloned.rotation.z = THREE.MathUtils.degToRad(controls.projectBg.rotationZ);
 
     async function init() {
-      uMouseWorldRef.current = null;
-      let mats = [];
-
       const built = await pickGpuBranchAsync(gl, {
         webgpu: () => buildProjectBgMaterialsWebGpu(cloned, trailTex),
         webgl: () => buildProjectBgMaterialsWebGl(cloned, trailTex),
       });
       if (cancelled) {
-        built.materials.forEach((m) => m.dispose());
+        built.materials.forEach((m: THREE.Material) => m.dispose());
         return;
       }
-      mats = built.materials;
-      uMouseWorldRef.current = built.uMouseWorld;
 
       virtualScene.add(cloned);
       clonedSceneRef.current = cloned;
       virtualSceneRef.current = virtualScene;
       virtualCameraRef.current = virtualCamera;
       renderTargetRef.current = rt;
-      materialsRef.current = mats;
-      prevSizeRef.current = { width: size.width, height: size.height };
+      materialsRef.current = built.materials;
+      prevSizeRef.current = { width: 0, height: 0 };
       setReady(true);
+      onReadyRef.current?.(true);
     }
 
     void init();
@@ -110,10 +99,11 @@ export default function ProjectBg({ renderScale = 1 }) {
     return () => {
       cancelled = true;
       setReady(false);
+      onReadyRef.current?.(false);
       rt.dispose();
       materialsRef.current.forEach((m) => m.dispose());
       materialsRef.current = [];
-      trailTextureRef.current?.dispose?.();
+      trailTextureRef.current?.dispose();
       trailTextureRef.current = null;
       trailRef.current = null;
       clonedSceneRef.current = null;
@@ -121,33 +111,9 @@ export default function ProjectBg({ renderScale = 1 }) {
       virtualCameraRef.current = null;
       renderTargetRef.current = null;
     };
-  }, [
-    gltfScene,
-    gl,
-    size.height,
-    size.width,
-    trailSize,
-    controls.projectBg.cameraFov,
-    controls.projectBg.cameraZOffset,
-    controls.projectBg.rotationZ,
-    controls.projectBg.scale,
-    controls.projectBg.x,
-    controls.projectBg.y,
-    controls.projectBg.z,
-    renderScale,
-  ]);
+  }, [gltfScene, gl, trailSize]);
 
-  useEffect(() => {
-    const updateScrollTarget = () => {
-      const viewportHeight = Math.max(window.innerHeight, 1);
-      scrollTargetRef.current = window.scrollY / viewportHeight;
-    };
-
-    updateScrollTarget();
-    window.addEventListener("scroll", updateScrollTarget, { passive: true });
-    return () => window.removeEventListener("scroll", updateScrollTarget);
-  }, []);
-
+  // Apply control values to the live objects (cheap mutations, no rebuild).
   useEffect(() => {
     const cloned = clonedSceneRef.current;
     const camera = virtualCameraRef.current;
@@ -158,26 +124,31 @@ export default function ProjectBg({ renderScale = 1 }) {
     cloned.rotation.z = THREE.MathUtils.degToRad(controls.projectBg.rotationZ);
     camera.fov = controls.projectBg.cameraFov;
     camera.position.set(0, 0, PROJECT_DETAIL_BG_CAMERA_Z + controls.projectBg.cameraZOffset);
-    camera.aspect = size.width / size.height;
-    camera.lookAt(0, 0, 0);
     camera.updateProjectionMatrix();
   }, [
+    ready,
     controls.projectBg.cameraFov,
     controls.projectBg.cameraZOffset,
     controls.projectBg.coverScale,
     controls.projectBg.rotationZ,
     controls.projectBg.scale,
-    controls.projectBg.scrollDrift,
-    controls.projectBg.scrollLag,
     controls.projectBg.x,
     controls.projectBg.y,
     controls.projectBg.z,
-    size.height,
-    size.width,
   ]);
+
+  useEffect(() => {
+    const onPointerMove = () => {
+      pointerActiveRef.current = true;
+      lastPointerMoveRef.current = performance.now();
+    };
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+    return () => window.removeEventListener("pointermove", onPointerMove);
+  }, []);
 
   useFrame((state, delta) => {
     if (!ready) return;
+    if (useLoadingStore.getState().phase !== "ready") return;
 
     const virtualScene = virtualSceneRef.current;
     const virtualCamera = virtualCameraRef.current;
@@ -185,22 +156,24 @@ export default function ProjectBg({ renderScale = 1 }) {
     if (!virtualScene || !virtualCamera || !renderTarget) return;
 
     const dt = Math.min(delta, 0.05);
-    const mobileOrbitSpeed = 0.32;
-    const mobileOrbitRadius = 0.42;
+    step(dt, controls.projectBgFallback.pointerLerp);
+
     const t = state.clock.elapsedTime;
-    if (isCoarsePointer) {
-      mobileOrbitPointerRef.current.set(
-        Math.cos(t * mobileOrbitSpeed) * mobileOrbitRadius,
-        Math.sin(t * mobileOrbitSpeed) * mobileOrbitRadius,
-      );
-    } else {
-      step(dt, controls.projectBgFallback.pointerLerp);
-    }
-    const activePointer = isCoarsePointer ? mobileOrbitPointerRef.current : pointerRef.current;
+    orbitPointerRef.current.set(
+      Math.cos(t * ORBIT_SPEED) * ORBIT_RADIUS,
+      Math.sin(t * ORBIT_SPEED) * ORBIT_RADIUS,
+    );
+
+    const pointerIdle =
+      !pointerActiveRef.current || performance.now() - lastPointerMoveRef.current > POINTER_IDLE_MS;
+    const activePointer = pointerIdle ? orbitPointerRef.current : pointerRef.current;
+
+    // Lenis already updated this frame (unified loop), so scrollY is current.
+    const scrollTarget = window.scrollY / Math.max(window.innerHeight, 1);
     const scrollLerp = 1 - Math.exp(-controls.projectBg.scrollLag * dt);
     scrollCurrentRef.current = THREE.MathUtils.lerp(
       scrollCurrentRef.current,
-      scrollTargetRef.current,
+      scrollTarget,
       scrollLerp,
     );
 
@@ -209,17 +182,8 @@ export default function ProjectBg({ renderScale = 1 }) {
     if (trail && trailMap) {
       const px = (activePointer.x + 1) * 0.5 * trailSize;
       const py = (activePointer.y + 1) * 0.5 * trailSize;
-      trail.update({ x: px, y: py });
-      trailMap.needsUpdate = true;
-    }
-
-    const mouseU = uMouseWorldRef.current;
-    const vCam = virtualCameraRef.current;
-    if (mouseU && vCam) {
-      pointerNdcRef.current.copy(activePointer);
-      raycasterRef.current.setFromCamera(pointerNdcRef.current, vCam);
-      if (raycasterRef.current.ray.intersectPlane(mousePlaneRef.current, mouseHitRef.current)) {
-        mouseU.value?.copy?.(mouseHitRef.current);
+      if (trail.update({ x: px, y: py })) {
+        trailMap.needsUpdate = true;
       }
     }
 
@@ -233,10 +197,10 @@ export default function ProjectBg({ renderScale = 1 }) {
 
     const { width, height } = state.size;
     if (width !== prevSizeRef.current.width || height !== prevSizeRef.current.height) {
-      const dpr = Math.min(gl.getPixelRatio(), getClampedPixelRatio(2));
+      const dpr = getBgRenderDpr(gl);
       renderTarget.setSize(
-        Math.max(1, Math.floor(width * dpr * renderScale)),
-        Math.max(1, Math.floor(height * dpr * renderScale)),
+        Math.max(1, Math.floor(width * dpr * BG_RENDER_SCALE)),
+        Math.max(1, Math.floor(height * dpr * BG_RENDER_SCALE)),
       );
       virtualCamera.aspect = width / height;
       virtualCamera.updateProjectionMatrix();
@@ -249,12 +213,11 @@ export default function ProjectBg({ renderScale = 1 }) {
     gl.render(virtualScene, virtualCamera);
     gl.setRenderTarget(prevTarget);
 
-    if (quadMaterialRef.current) {
-      quadMaterialRef.current.map = renderTarget.texture;
-      if (quadMaterialRef.current.opacity !== 1) {
-        quadMaterialRef.current.opacity = 1;
-      }
-      quadMaterialRef.current.needsUpdate = true;
+    const quadMaterial = quadMaterialRef.current;
+    if (quadMaterial && quadMaterial.map !== renderTarget.texture) {
+      quadMaterial.map = renderTarget.texture;
+      quadMaterial.opacity = 1;
+      quadMaterial.needsUpdate = true;
     }
 
     if (meshRef.current) {

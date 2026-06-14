@@ -1,10 +1,10 @@
 // @ts-nocheck
 /**
- * Pool water material — ocean-style look on the GLB pool quad.
+ * Pool water material — webgl-water (Evan Wallace) look on the GLB pool quad.
  *
- * MeshBasicNodeMaterial (unlit, transparent, depthWrite=false) so the pool
- * floor stays visible. Vertex displacement is omitted; the surface stays flat
- * and ripples are normal-only, sampled from the wave-equation height buffer.
+ * WebGPU path: the surface samples the viewport backdrop (the already-rendered
+ * pool basin) with a ripple-refracted screen UV, tints it with the webgl-water
+ * above-water color, and Fresnel-mixes it with scene IBL (same HDR as the GLB).
  */
 import * as THREE from "three";
 import { POOL_SIM_DEFAULTS, POOL_WATER_DEFAULTS } from "../config/poolWaterDefaults";
@@ -13,14 +13,10 @@ import { isGpuShallowWaterSim } from "../compute/createPoolWaterSim";
 import { createPoolWaterMaterialWebGl } from "./poolWaterMaterialWebGl";
 import { createPoolWaterBreezeTSL, getPoolWaterBreezeWindDir } from "./poolWaterBreeze";
 
-function sunDirectionFromAngles(elevationDeg, azimuthDeg) {
-  const elevation = THREE.MathUtils.degToRad(elevationDeg);
-  const azimuth = THREE.MathUtils.degToRad(azimuthDeg);
-  return new THREE.Vector3(
-    Math.cos(elevation) * Math.sin(azimuth),
-    Math.sin(elevation),
-    Math.cos(elevation) * Math.cos(azimuth),
-  ).normalize();
+function createDummyEnvTexture() {
+  const tex = new THREE.DataTexture(new Uint8Array([125, 151, 168, 255]), 1, 1);
+  tex.needsUpdate = true;
+  return tex;
 }
 
 async function createWebGPU({ sim, bounds, envMap }) {
@@ -34,9 +30,11 @@ async function createWebGPU({ sim, bounds, envMap }) {
     vec3,
     vec4,
     uniform,
-    texture,
+    uniformTexture,
     positionWorld,
     cameraPosition,
+    screenUV,
+    viewportOpaqueMipTexture,
     dot,
     normalize,
     reflect,
@@ -49,7 +47,6 @@ async function createWebGPU({ sim, bounds, envMap }) {
     floor,
     atan,
     asin,
-    smoothstep,
     exp,
     transformNormalToView,
   } = tsl;
@@ -65,29 +62,16 @@ async function createWebGPU({ sim, bounds, envMap }) {
   const uNormalScale = uniform(POOL_SIM_DEFAULTS.normalScale);
   const uMaxSlope = uniform(POOL_SIM_DEFAULTS.maxSlope);
   const uRippleStrength = uniform(p.normalStrength);
-  const shallowColor = uniform(new THREE.Color(p.shallowWaterColor));
-  const deepColor = uniform(new THREE.Color(p.deepWaterColor));
+  const uAboveTint = uniform(new THREE.Vector3(...p.aboveWaterTint));
   const defaultReflColor = uniform(new THREE.Color(p.defaultReflection));
-  const depthFalloff = uniform(p.depthFalloff);
   const waterDepth = uniform(p.waterDepth);
   const waterClarity = uniform(p.waterClarity);
+  const uFresnelBase = uniform(p.fresnelBase);
   const fresnelPower = uniform(p.fresnelPower);
   const fresnelNormalStrength = uniform(p.fresnelNormalStrength);
-  const opacityUniform = uniform(p.opacity);
-  const sunDir = uniform(sunDirectionFromAngles(35, 49));
-  const sunColor = uniform(new THREE.Color(p.sunColor));
-  const sunIntensity = uniform(p.sunSpecularIntensity);
-  const specularShininess = uniform(p.specularShininess);
-  const subsurfaceIntensity = uniform(p.subsurfaceIntensity);
-  const subsurfacePower = uniform(p.subsurfacePower);
-  const subsurfaceColor = uniform(new THREE.Color(p.subsurfaceColor));
-  const refractionStrength = uniform(p.refractionStrength);
-  const fogStartDistance = uniform(p.fogStartDistance);
-  const fogEndDistance = uniform(p.fogEndDistance);
-  const fogIntensity = uniform(p.fogIntensity);
-  const fogColor = uniform(new THREE.Color(p.fogColor));
-  const foamAmount = uniform(p.foamAmount);
-  const foamThreshold = uniform(p.foamThreshold);
+  const uRefractionOffset = uniform(p.refractionOffset);
+  const envRefractionStrength = uniform(p.envRefractionStrength);
+  const uExposure = uniform(p.exposure);
   const uTime = uniform(0);
   const uBreezeStrength = uniform(p.breezeStrength);
   const uBreezeScale = uniform(p.breezeScale);
@@ -96,7 +80,11 @@ async function createWebGPU({ sim, bounds, envMap }) {
   const uBreezeMix = uniform(p.breezeMix);
   const uBreezeMaxSlope = uniform(p.breezeMaxSlope);
   const uHasEnv = uniform(envMap ? 1 : 0);
-  const envTex = texture(envMap ?? new THREE.Texture());
+  const uEnvReflection = uniform(1);
+
+  let currentEnvMap = envMap ?? null;
+  const dummyEnv = createDummyEnvTexture();
+  const envTex = uniformTexture(currentEnvMap ?? dummyEnv);
 
   const material = new MeshBasicNodeMaterial();
   material.transparent = true;
@@ -176,77 +164,51 @@ async function createWebGPU({ sim, bounds, envMap }) {
     const fresnelN = normalize(mix(flatN, surfaceN, fresnelNormalStrength));
 
     const viewDir = normalize(cameraPosition.sub(positionWorld));
-    const F0 = float(0.02);
     const cosTheta = max(dot(viewDir, fresnelN), float(0));
-    const fresnel = F0.add(
-      float(1)
-        .sub(F0)
-        .mul(pow(float(1).sub(cosTheta), fresnelPower)),
+    const fresnel = mix(uFresnelBase, float(1), pow(float(1).sub(cosTheta), fresnelPower));
+
+    const refrUV = clamp(
+      screenUV.add(vec2(surfaceN.x, surfaceN.z).mul(uRefractionOffset)),
+      vec2(0.001, 0.001),
+      vec2(0.999, 0.999),
     );
+    const backdrop = viewportOpaqueMipTexture(refrUV).rgb;
 
     const viewAngle = max(abs(viewDir.y), float(0.15));
     const pathLength = waterDepth.div(viewAngle);
-    const depthFactor = smoothstep(float(0), depthFalloff, pathLength);
-    const waterColor = mix(vec3(shallowColor), vec3(deepColor), depthFactor);
+    const absorptionDepth = pathLength.mul(0.05);
+    const extinction = vec3(0.4, 0.12, 0.04).mul(waterClarity);
+    const transmittance = exp(extinction.negate().mul(absorptionDepth));
+    const refractedColor = backdrop.mul(vec3(uAboveTint)).mul(transmittance);
 
     const reflectDir = reflect(viewDir.negate(), fresnelN);
     const phi = atan(reflectDir.z, reflectDir.x);
     const theta = asin(clamp(reflectDir.y, float(-1), float(1)));
     const baseEnvUV = vec2(phi.mul(0.1591).add(0.5), theta.mul(0.3183).add(0.5));
-    const refractedUV = baseEnvUV.add(vec2(surfaceN.x, surfaceN.z).mul(refractionStrength));
-    const envSample = envTex.sample(refractedUV).xyz;
-    const reflectionColor = mix(vec3(defaultReflColor), envSample, float(uHasEnv));
+    const envUV = baseEnvUV.add(vec2(surfaceN.x, surfaceN.z).mul(envRefractionStrength));
+    const envSample = envTex.sample(envUV).xyz;
+    const envOn = float(uHasEnv).mul(uEnvReflection);
+    const reflectionColor = mix(vec3(defaultReflColor), envSample, envOn);
 
-    let finalColor = mix(waterColor, reflectionColor, fresnel);
+    const finalColor = mix(refractedColor, reflectionColor, fresnel);
 
-    // Beer's-law tint: red absorbed first, blue last.
-    const extinction = vec3(
-      float(0.4).mul(waterClarity),
-      float(0.12).mul(waterClarity),
-      float(0.04).mul(waterClarity),
-    );
-    const absorptionDepth = pathLength.mul(0.05);
-    const transmittance = vec3(
-      exp(extinction.x.negate().mul(absorptionDepth)),
-      exp(extinction.y.negate().mul(absorptionDepth)),
-      exp(extinction.z.negate().mul(absorptionDepth)),
-    );
-    finalColor = vec3(
-      finalColor.x.mul(transmittance.x),
-      finalColor.y.mul(transmittance.y),
-      finalColor.z.mul(transmittance.z),
-    );
-
-    const backLight = max(dot(sunDir.negate(), viewDir), float(0));
-    const subsurface = pow(backLight, subsurfacePower).mul(subsurfaceIntensity);
-    finalColor = finalColor.add(vec3(subsurfaceColor).mul(subsurface));
-
-    const halfVec = normalize(viewDir.add(sunDir));
-    const spec = pow(max(dot(rippleN, halfVec), float(0)), specularShininess);
-
-    const horizontalTilt = abs(rippleN.x).add(abs(rippleN.z));
-    const foam = smoothstep(foamThreshold, foamThreshold.add(float(0.15)), horizontalTilt).mul(
-      foamAmount,
-    );
-    const foamMask = clamp(foam, float(0), float(1));
-    finalColor = finalColor.add(
-      vec3(sunColor).mul(spec).mul(sunIntensity).mul(float(1).sub(foamMask)),
-    );
-    finalColor = mix(finalColor, vec3(1, 1, 1), foamMask);
-
-    const distanceToCamera = cameraPosition.sub(positionWorld).length();
-    const fogFactor = smoothstep(fogStartDistance, fogEndDistance, distanceToCamera).mul(
-      fogIntensity,
-    );
-    finalColor = mix(finalColor, vec3(fogColor), fogFactor);
-
-    return vec4(clamp(finalColor, float(0), float(1)), opacityUniform);
+    return vec4(clamp(finalColor.mul(uExposure), float(0), float(4)), float(1));
   })();
+
+  const syncHasEnv = () => {
+    uHasEnv.value = currentEnvMap ? 1 : 0;
+  };
 
   return {
     material,
     setPlanarBounds(next) {
       uPlanar.value.copy(planarBoundsToUniform(next));
+    },
+    setEnvironment(tex) {
+      if (!tex || tex === currentEnvMap) return;
+      currentEnvMap = tex;
+      envTex.value = tex;
+      syncHasEnv();
     },
     updateTime(t, { reducedMotion = false } = {}) {
       uTime.value = t;
@@ -254,8 +216,21 @@ async function createWebGPU({ sim, bounds, envMap }) {
       uBreezeStrength.value = p.breezeStrength * off;
       uBreezeMix.value = p.breezeMix * off;
     },
+    setParams(next = {}) {
+      if (next.tintR !== undefined) uAboveTint.value.x = next.tintR;
+      if (next.tintG !== undefined) uAboveTint.value.y = next.tintG;
+      if (next.tintB !== undefined) uAboveTint.value.z = next.tintB;
+      if (next.fresnelBase !== undefined) uFresnelBase.value = next.fresnelBase;
+      if (next.refractionOffset !== undefined) uRefractionOffset.value = next.refractionOffset;
+      if (next.waterClarity !== undefined) waterClarity.value = next.waterClarity;
+      if (next.exposure !== undefined) uExposure.value = next.exposure;
+      if (next.envReflection !== undefined) {
+        uEnvReflection.value = next.envReflection ? 1 : 0;
+      }
+    },
     dispose() {
       material.dispose?.();
+      if (!envMap) dummyEnv.dispose();
     },
   };
 }

@@ -1,9 +1,6 @@
 import { createSceneControlsStore } from "./scene";
 
 const DEFAULT_PROJECT_DETAIL_SCENE_CONTROLS = {
-  renderer: {
-    exposure: 1,
-  },
   projectBgFallback: {
     pointerLerp: 7,
     swirlStrength: 0.11,
@@ -32,22 +29,7 @@ const DEFAULT_PROJECT_DETAIL_SCENE_CONTROLS = {
     scrollLag: 2.2,
   },
   trail: {
-    /** `immersive` matches `immersive/src/trail.js`; `brush` is the older comet/smudge stamp. */
-    variant: "immersive",
-    size: 1024,
-    fadeAlpha: 0.025,
-    blurPx: 4,
-    radiusFactor: 0.12,
-    gradientScale: 2.5,
-    smudgeStrength: 0.22,
-    smudgeBlurPx: 0.5,
-    roughness: 0.05,
-    stampAlpha: 1,
-  },
-  hover: {
-    lightStrength: 0.28,
-    shadowStrength: 0.18,
-    shadowSoftness: 0.7,
+    size: 256,
   },
 };
 

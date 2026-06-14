@@ -2,8 +2,6 @@
 import * as THREE from "three";
 
 const WATER_MATERIAL_NAME = "Water";
-const GROUND_MATERIAL_NAME = "Ground";
-const GROUND_GROUP_NAME = "Ground";
 const WATER_KEYWORDS = ["water", "pool"];
 
 function isWaterKeyword(s: string | undefined): boolean {
@@ -15,12 +13,6 @@ function isWaterKeyword(s: string | undefined): boolean {
 function getMeshWorldBounds(mesh: THREE.Mesh): THREE.Box3 {
   mesh.updateWorldMatrix(true, false);
   return new THREE.Box3().setFromObject(mesh);
-}
-
-function getXZOverlapArea(a: THREE.Box3, b: THREE.Box3): number {
-  const overlapX = Math.max(0, Math.min(a.max.x, b.max.x) - Math.max(a.min.x, b.min.x));
-  const overlapZ = Math.max(0, Math.min(a.max.z, b.max.z) - Math.max(a.min.z, b.min.z));
-  return overlapX * overlapZ;
 }
 
 /**
@@ -76,55 +68,4 @@ export function findWaterMesh(root: THREE.Object3D | null): THREE.Mesh | null {
     return topMesh;
   }
   return result;
-}
-
-/**
- * Find the pool ground mesh: best-scoring mesh sitting below the water by
- * XZ-overlap, with material/name fallbacks.
- */
-export function findGroundMesh(
-  root: THREE.Object3D | null,
-  waterMesh: THREE.Mesh | null = null,
-): THREE.Mesh | null {
-  if (!root) return null;
-
-  const waterBounds = waterMesh ? getMeshWorldBounds(waterMesh) : null;
-
-  let bestOverlapMatch: THREE.Mesh | null = null;
-  let bestOverlapScore = -Infinity;
-  let byMaterial: THREE.Mesh | null = null;
-  let byParent: THREE.Mesh | null = null;
-  let byName: THREE.Mesh | null = null;
-
-  root.traverse((o) => {
-    if (!o.isMesh || o === waterMesh) return;
-
-    const materials = Array.isArray(o.material) ? o.material : [o.material];
-    const hasGroundMaterial = materials.some((m) => m?.name === GROUND_MATERIAL_NAME);
-    const hasGroundName = o.name === GROUND_GROUP_NAME;
-
-    if (waterBounds) {
-      const candidateBounds = getMeshWorldBounds(o);
-      const overlapArea = getXZOverlapArea(candidateBounds, waterBounds);
-      const belowWater =
-        candidateBounds.max.y <= waterBounds.min.y + 0.05 ||
-        candidateBounds.getCenter(new THREE.Vector3()).y <
-          waterBounds.getCenter(new THREE.Vector3()).y;
-
-      if (overlapArea > 0 && belowWater) {
-        const verticalGap = Math.max(0, waterBounds.min.y - candidateBounds.max.y);
-        const score = overlapArea - verticalGap * 0.01;
-        if (score > bestOverlapScore) {
-          bestOverlapScore = score;
-          bestOverlapMatch = o;
-        }
-      }
-    }
-
-    if (hasGroundMaterial && !byMaterial) byMaterial = o;
-    if (o.parent?.name === GROUND_GROUP_NAME && !byParent) byParent = o;
-    if (hasGroundName && !byName) byName = o;
-  });
-
-  return bestOverlapMatch ?? byMaterial ?? byName ?? byParent;
 }

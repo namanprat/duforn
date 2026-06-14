@@ -1,6 +1,27 @@
-// Local copy of the render quality tiers (the old lib/render/profile module was
-// removed in the unified-canvas refactor; this util only needs the literal set).
-type RenderQualityTier = "desktop" | "mobile" | "mobileReduced";
+export type RenderQualityTier = "desktop" | "mobile" | "mobileReduced";
+
+function isCoarsePointer() {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(pointer: coarse)").matches
+  );
+}
+
+export function prefersReducedMotion() {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+/** Pick pool sim / caustics resolution from viewport + motion preferences. */
+export function getRenderQualityTier(): RenderQualityTier {
+  if (prefersReducedMotion()) return "mobileReduced";
+  if (isCoarsePointer()) return "mobile";
+  return "desktop";
+}
 
 const POOL_SIM_RESOLUTION_BY_TIER: Record<RenderQualityTier, number> = {
   desktop: 192,
@@ -10,6 +31,16 @@ const POOL_SIM_RESOLUTION_BY_TIER: Record<RenderQualityTier, number> = {
 
 export function getPoolSimResolutionForTier(tier: RenderQualityTier): number {
   return POOL_SIM_RESOLUTION_BY_TIER[tier] ?? POOL_SIM_RESOLUTION_BY_TIER.desktop;
+}
+
+const POOL_CAUSTICS_RT_BY_TIER: Record<RenderQualityTier, number> = {
+  desktop: 512,
+  mobile: 256,
+  mobileReduced: 128,
+};
+
+export function getPoolCausticsSizeForTier(tier: RenderQualityTier): number {
+  return POOL_CAUSTICS_RT_BY_TIER[tier] ?? POOL_CAUSTICS_RT_BY_TIER.desktop;
 }
 
 export function uvToSimGrid(

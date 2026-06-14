@@ -1,17 +1,11 @@
 // @ts-nocheck
+/**
+ * WebGL fallback for the pool water — tinted-transparency approximation of the
+ * webgl-water look. Fresnel-mixes refracted pool floor with scene IBL reflection.
+ */
 import * as THREE from "three";
 import { POOL_SIM_DEFAULTS, POOL_WATER_DEFAULTS } from "../config/poolWaterDefaults";
 import { POOL_WATER_BREEZE_GLSL, getPoolWaterBreezeWindDir } from "./poolWaterBreeze";
-
-function sunDirectionFromAngles(elevationDeg, azimuthDeg) {
-  const elevation = THREE.MathUtils.degToRad(elevationDeg);
-  const azimuth = THREE.MathUtils.degToRad(azimuthDeg);
-  return new THREE.Vector3(
-    Math.cos(elevation) * Math.sin(azimuth),
-    Math.sin(elevation),
-    Math.cos(elevation) * Math.cos(azimuth),
-  ).normalize();
-}
 
 const VERT = /* glsl */ `
   uniform vec4 uPlanar;
@@ -38,33 +32,21 @@ const FRAG =
   uniform sampler2D uHeightMap;
   uniform sampler2D uEnvMap;
   uniform float uHasEnv;
+  uniform float uEnvReflection;
   uniform vec2 uSimRes;
   uniform float uNormalScale;
   uniform float uMaxSlope;
   uniform float uRippleStrength;
-  uniform vec3 uShallowColor;
-  uniform vec3 uDeepColor;
+  uniform vec3 uAboveTint;
   uniform vec3 uDefaultReflection;
-  uniform float uDepthFalloff;
   uniform float uWaterDepth;
   uniform float uWaterClarity;
+  uniform float uFresnelBase;
   uniform float uFresnelPower;
   uniform float uFresnelNormalStrength;
   uniform float uOpacity;
-  uniform vec3 uSunDir;
-  uniform vec3 uSunColor;
-  uniform float uSunIntensity;
-  uniform float uSpecularShininess;
-  uniform float uSubsurfaceIntensity;
-  uniform float uSubsurfacePower;
-  uniform vec3 uSubsurfaceColor;
-  uniform float uRefractionStrength;
-  uniform float uFogStartDistance;
-  uniform float uFogEndDistance;
-  uniform float uFogIntensity;
-  uniform vec3 uFogColor;
-  uniform float uFoamAmount;
-  uniform float uFoamThreshold;
+  uniform float uExposure;
+  uniform float uEnvRefraction;
   uniform float uTime;
   uniform float uBreezeStrength;
   uniform float uBreezeScale;
@@ -110,59 +92,46 @@ const FRAG =
     vec3 fresnelN = normalize(mix(flatN, surfaceN, uFresnelNormalStrength));
 
     vec3 viewDir = normalize(cameraPosition - vWorldPos);
-    float F0 = 0.02;
     float cosTheta = max(dot(viewDir, fresnelN), 0.0);
-    float fresnel = F0 + (1.0 - F0) * pow(1.0 - cosTheta, uFresnelPower);
+    float fresnel = mix(uFresnelBase, 1.0, pow(1.0 - cosTheta, uFresnelPower));
 
     float viewAngle = max(abs(viewDir.y), 0.15);
     float pathLength = uWaterDepth / viewAngle;
-    float depthFactor = smoothstep(0.0, uDepthFalloff, pathLength);
-    vec3 waterColor = mix(uShallowColor, uDeepColor, depthFactor);
+    vec3 extinction = vec3(0.4, 0.12, 0.04) * uWaterClarity;
+    vec3 transmittance = exp(-extinction * pathLength * 0.05);
+    vec3 refractedColor = uAboveTint * transmittance;
 
     vec3 reflectDir = reflect(-viewDir, fresnelN);
     vec2 baseEnvUV = equirectUV(reflectDir);
-    vec2 refractedUV = baseEnvUV + surfaceN.xz * uRefractionStrength;
-    vec3 envSample = texture2D(uEnvMap, refractedUV).rgb;
-    vec3 reflectionColor = mix(uDefaultReflection, envSample, uHasEnv);
+    vec2 envUV = baseEnvUV + surfaceN.xz * uEnvRefraction;
+    vec3 envSample = texture2D(uEnvMap, envUV).rgb;
+    float envOn = uHasEnv * uEnvReflection;
+    vec3 reflectionColor = mix(uDefaultReflection, envSample, envOn);
 
-    vec3 finalColor = mix(waterColor, reflectionColor, fresnel);
+    vec3 finalColor = mix(refractedColor, reflectionColor, fresnel);
 
-    vec3 extinction = vec3(0.4, 0.12, 0.04) * uWaterClarity;
-    float absorptionDepth = pathLength * 0.05;
-    vec3 transmittance = exp(-extinction * absorptionDepth);
-    finalColor *= transmittance;
-
-    float backLight = max(dot(-uSunDir, viewDir), 0.0);
-    float subsurface = pow(backLight, uSubsurfacePower) * uSubsurfaceIntensity;
-    finalColor += uSubsurfaceColor * subsurface;
-
-    vec3 halfVec = normalize(viewDir + uSunDir);
-    float spec = pow(max(dot(rippleN, halfVec), 0.0), uSpecularShininess);
-
-    float horizontalTilt = abs(rippleN.x) + abs(rippleN.z);
-    float foam = smoothstep(uFoamThreshold, uFoamThreshold + 0.15, horizontalTilt) * uFoamAmount;
-    float foamMask = clamp(foam, 0.0, 1.0);
-    finalColor += uSunColor * spec * uSunIntensity * (1.0 - foamMask);
-    finalColor = mix(finalColor, vec3(1.0), foamMask);
-
-    float distanceToCamera = length(cameraPosition - vWorldPos);
-    float fogFactor = smoothstep(uFogStartDistance, uFogEndDistance, distanceToCamera) * uFogIntensity;
-    finalColor = mix(finalColor, uFogColor, fogFactor);
-
-    gl_FragColor = vec4(clamp(finalColor, 0.0, 1.0), uOpacity);
+    float alpha = clamp(mix(uOpacity, 1.0, fresnel), 0.0, 1.0);
+    gl_FragColor = vec4(clamp(finalColor * uExposure, 0.0, 1.0), alpha);
   }
 `;
+
+function createDummyEnvTexture() {
+  const tex = new THREE.DataTexture(new Uint8Array([125, 151, 168, 255]), 1, 1);
+  tex.needsUpdate = true;
+  return tex;
+}
 
 export function createPoolWaterMaterialWebGl({ sim, bounds, envMap }) {
   const p = POOL_WATER_DEFAULTS;
   const heightTex = sim.getHeightTexture();
-  const dummyEnv = envMap ?? new THREE.DataTexture(new Uint8Array([125, 151, 168, 255]), 1, 1);
-  if (!envMap) dummyEnv.needsUpdate = true;
+  const dummyEnv = createDummyEnvTexture();
+  let currentEnvMap = envMap ?? null;
 
   const uniforms = {
     uHeightMap: { value: heightTex },
-    uEnvMap: { value: envMap ?? dummyEnv },
-    uHasEnv: { value: envMap ? 1 : 0 },
+    uEnvMap: { value: currentEnvMap ?? dummyEnv },
+    uHasEnv: { value: currentEnvMap ? 1 : 0 },
+    uEnvReflection: { value: 1 },
     uPlanar: {
       value: new THREE.Vector4(bounds.minX, bounds.minZ, bounds.width, bounds.depth),
     },
@@ -170,29 +139,16 @@ export function createPoolWaterMaterialWebGl({ sim, bounds, envMap }) {
     uNormalScale: { value: POOL_SIM_DEFAULTS.normalScale },
     uMaxSlope: { value: POOL_SIM_DEFAULTS.maxSlope },
     uRippleStrength: { value: p.normalStrength },
-    uShallowColor: { value: new THREE.Color(p.shallowWaterColor) },
-    uDeepColor: { value: new THREE.Color(p.deepWaterColor) },
+    uAboveTint: { value: new THREE.Vector3(...p.aboveWaterTint) },
     uDefaultReflection: { value: new THREE.Color(p.defaultReflection) },
-    uDepthFalloff: { value: p.depthFalloff },
     uWaterDepth: { value: p.waterDepth },
     uWaterClarity: { value: p.waterClarity },
+    uFresnelBase: { value: p.fresnelBase },
     uFresnelPower: { value: p.fresnelPower },
     uFresnelNormalStrength: { value: p.fresnelNormalStrength },
     uOpacity: { value: p.opacity },
-    uSunDir: { value: sunDirectionFromAngles(35, 49) },
-    uSunColor: { value: new THREE.Color(p.sunColor) },
-    uSunIntensity: { value: p.sunSpecularIntensity },
-    uSpecularShininess: { value: p.specularShininess },
-    uSubsurfaceIntensity: { value: p.subsurfaceIntensity },
-    uSubsurfacePower: { value: p.subsurfacePower },
-    uSubsurfaceColor: { value: new THREE.Color(p.subsurfaceColor) },
-    uRefractionStrength: { value: p.refractionStrength },
-    uFogStartDistance: { value: p.fogStartDistance },
-    uFogEndDistance: { value: p.fogEndDistance },
-    uFogIntensity: { value: p.fogIntensity },
-    uFogColor: { value: new THREE.Color(p.fogColor) },
-    uFoamAmount: { value: p.foamAmount },
-    uFoamThreshold: { value: p.foamThreshold },
+    uExposure: { value: p.exposure },
+    uEnvRefraction: { value: p.envRefractionStrength },
     uTime: { value: 0 },
     uBreezeStrength: { value: p.breezeStrength },
     uBreezeScale: { value: p.breezeScale },
@@ -217,11 +173,29 @@ export function createPoolWaterMaterialWebGl({ sim, bounds, envMap }) {
     setPlanarBounds(next) {
       uniforms.uPlanar.value.set(next.minX, next.minZ, next.width, next.depth);
     },
+    setEnvironment(tex) {
+      if (!tex || tex === currentEnvMap) return;
+      currentEnvMap = tex;
+      uniforms.uEnvMap.value = tex;
+      uniforms.uHasEnv.value = 1;
+    },
     updateTime(t, { reducedMotion = false } = {}) {
       uniforms.uTime.value = t;
       const off = reducedMotion ? 0 : 1;
       uniforms.uBreezeStrength.value = p.breezeStrength * off;
       uniforms.uBreezeMix.value = p.breezeMix * off;
+    },
+    setParams(next = {}) {
+      if (next.tintR !== undefined) uniforms.uAboveTint.value.x = next.tintR;
+      if (next.tintG !== undefined) uniforms.uAboveTint.value.y = next.tintG;
+      if (next.tintB !== undefined) uniforms.uAboveTint.value.z = next.tintB;
+      if (next.fresnelBase !== undefined) uniforms.uFresnelBase.value = next.fresnelBase;
+      if (next.waterClarity !== undefined) uniforms.uWaterClarity.value = next.waterClarity;
+      if (next.exposure !== undefined) uniforms.uExposure.value = next.exposure;
+      if (next.opacity !== undefined) uniforms.uOpacity.value = next.opacity;
+      if (next.envReflection !== undefined) {
+        uniforms.uEnvReflection.value = next.envReflection ? 1 : 0;
+      }
     },
     dispose() {
       material.dispose();

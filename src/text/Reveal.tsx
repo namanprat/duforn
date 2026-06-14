@@ -4,7 +4,7 @@ import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import { SplitText } from "gsap/SplitText";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { registerMenuTextReveal, registerPageTextReveal } from "../lib/text";
+import { registerPageTextReveal } from "../lib/text";
 import { MOTION_TOKENS } from "../lib/anim/tokens";
 import {
   prefersReducedMotion,
@@ -86,11 +86,7 @@ export default function TextRevealLines({
         }
       });
 
-      if (scope === "menu") {
-        gsap.set(lineEls, { y: "100%" });
-      } else {
-        gsap.set(lineEls, { y: reduce ? "0%" : "100%" });
-      }
+      gsap.set(lineEls, { y: reduce ? "0%" : "100%" });
 
       const killScrollTrigger = () => {
         if (scrollTriggerInstance) {
@@ -185,9 +181,6 @@ export default function TextRevealLines({
       // Gate chain: when both waitForCamera and waitForPreloader are set, the
       // camera gate clears first, then we hand off to the preloader gate.
       const armReveal = () => {
-        if (scope === "menu") {
-          return;
-        }
         if (!animate) {
           killScrollTrigger();
           gsap.killTweensOf(lineEls);
@@ -216,9 +209,7 @@ export default function TextRevealLines({
         runRevealImmediate(0);
       };
 
-      if (scope !== "menu") {
-        armReveal();
-      }
+      armReveal();
 
       const hide = () =>
         new Promise<void>((resolve) => {
@@ -274,8 +265,7 @@ export default function TextRevealLines({
         });
 
       const control = { hide, show };
-      const unregister =
-        scope === "menu" ? registerMenuTextReveal(control) : registerPageTextReveal(control);
+      const unregister = registerPageTextReveal(control);
 
       return () => {
         unregister();

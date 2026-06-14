@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useThree } from "@react-three/fiber";
 import { useLoadingStore } from "../store/loading";
 
@@ -11,17 +11,17 @@ const PRERENDER_FRAME_COUNT = 3;
  * scene branch swap).
  *
  * Place inside <Suspense> so async assets are present before compile.
- * Supports WebGL (synchronous compile) and WebGPU (async compileAsync).
+ * WebGL: synchronous compile + prerender. WebGPU: advance-only warmup (no
+ * compileAsync — it races other encoders and triggers "already ended" errors).
  */
 export default function ShaderWarmup({ sceneKey = "default" }) {
   const { gl, scene, camera, advance } = useThree();
+  const generationRef = useRef(0);
 
   useEffect(() => {
+    const generation = ++generationRef.current;
     let cancelled = false;
     const store = useLoadingStore.getState();
-    // Flip phase to 'compiling' so other consumers (e.g. UnifiedCanvasFrameLoop'
-    // animation loop) can pause their renders while WebGPU's command encoder
-    // is in use by compileAsync. Avoids "RenderPassEncoder already ended".
     useLoadingStore.setState({ phase: "compiling" });
 
     const prerenderFrames = () => {
@@ -32,17 +32,28 @@ export default function ShaderWarmup({ sceneKey = "default" }) {
       }
     };
 
+    const warmupAdvanceOnly = () => {
+      const t0 = performance.now();
+      for (let i = 0; i < PRERENDER_FRAME_COUNT; i += 1) {
+        advance(t0 + i * (1000 / 60));
+      }
+    };
+
     const finish = () => {
-      if (cancelled) return;
-      prerenderFrames();
+      if (cancelled || generationRef.current !== generation) return;
+      if (gl.__rendererType === "webgpu") {
+        warmupAdvanceOnly();
+      } else {
+        prerenderFrames();
+      }
       store.markReady();
     };
 
     const raf = requestAnimationFrame(() => {
-      if (cancelled) return;
+      if (cancelled || generationRef.current !== generation) return;
 
-      if (gl.__rendererType === "webgpu" && typeof gl.compileAsync === "function") {
-        gl.compileAsync(scene, camera).then(finish).catch(finish);
+      if (gl.__rendererType === "webgpu") {
+        finish();
       } else if (typeof gl.compile === "function") {
         gl.compile(scene, camera);
         finish();

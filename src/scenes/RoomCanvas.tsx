@@ -3,18 +3,20 @@ import React, { useEffect } from "react";
 import Env from "./Env";
 import RoomCameraRig from "./RoomCameraRig";
 import Main from "./Main";
-import HomeSceneCameraSync from "./HomeSceneCameraSync";
 import { WorkClothStripScene } from "../work/ClothStrip";
 import { registerRoomAssetTasks } from "../models/gen/preloads";
 import { HomeSceneSpotLight } from "./HomeSceneSpotLight";
 import HomeSceneSpotLightGui from "./HomeSceneSpotLightGui";
 import MainSceneGui from "./MainSceneGui";
-import WallHoverGui from "./wallHover/WallHoverGui";
+import CausticsGui from "./water/CausticsGui";
+import { useHomeSceneControlsStore } from "../store/homeScene";
 
 /**
  * Persistent multi-room scene: one model, one camera, GSAP-driven room poses.
  */
 export default function RoomCanvas() {
+  const skybox = useHomeSceneControlsStore((s) => s.controls.env?.skybox ?? true);
+
   useEffect(() => {
     registerRoomAssetTasks();
   }, []);
@@ -23,19 +25,18 @@ export default function RoomCanvas() {
     <>
       <RoomCameraRig />
       <Env
-        hdrFiles="/main.hdr"
-        showHdriBackground
+        hdrFiles="/home.hdr"
+        showHdriBackground={skybox}
         fogColor={0x000000}
         fogDensity={0}
         showShadowCatcher={false}
       />
-      <HomeSceneCameraSync />
       <HomeSceneSpotLight />
       {import.meta.env.DEV ? (
         <>
           <MainSceneGui />
           <HomeSceneSpotLightGui />
-          <WallHoverGui />
+          <CausticsGui />
         </>
       ) : null}
       <Main />
