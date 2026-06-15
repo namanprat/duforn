@@ -2,13 +2,11 @@ import { createSceneControlsStore } from "./scene";
 
 export const DEFAULT_WORK_SCENE_CONTROLS = {
   strip: {
-    // Sits in front of the WORK camera, keeping its (0.5, -0.5, 3.5) offset from
-    // the work orbit center. Shifted by the model delta (-6.4, +7.11, -3.0) when
-    // the model moved (0, -4.8, 0) → (-6.4, 2.31, -3.0); work orbit center is now
-    // (-28.4, 82.11, -63.0).
-    x: -27.9,
-    y: 70.1,
-    z: -67.5,
+    // Sits in front of the WORK camera, maintaining (0.5, -0.5, 3.5) offset from
+    // the work orbit center (-22, 72.5, -60) for the new model position (0, 0, 0).
+    x: -21.5,
+    y: 72,
+    z: -56.5,
     rx: 0,
     ry: 0,
     rz: 0,

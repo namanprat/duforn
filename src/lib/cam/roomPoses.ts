@@ -22,12 +22,12 @@ export const ROOM_POSES = Object.freeze({
   }),
   contact: Object.freeze({
     ...DEFAULT_CAMERA_BASE_POSE,
-    // Orbit center shifted by the model delta (-6.4, +7.11, -3.0) so framing
-    // is preserved after the model move from (0, -4.8, 0) → (-6.4, 2.31, -3.0).
-    orbitCenterX: -106.4,
-    orbitCenterY: 75,
-    orbitCenterZ: -35.0,
-    orbitRadius: 6,
+    // Adjusted for new model position (0, 0, 0) with updated home camera setup.
+    // Shows entry/contact area of the building.
+    orbitCenterX: -100,
+    orbitCenterY: 72.5,
+    orbitCenterZ: -32,
+    orbitRadius: 8,
     cameraHeight: 1,
     fov: 60,
     orbitAngleDeg: 0,
@@ -36,12 +36,12 @@ export const ROOM_POSES = Object.freeze({
   }),
   work: Object.freeze({
     ...DEFAULT_CAMERA_BASE_POSE,
-    // Orbit center shifted by the model delta (-6.4, +7.11, -3.0) so framing
-    // is preserved after the model move from (0, -4.8, 0) → (-6.4, 2.31, -3.0).
-    orbitCenterX: -28.4,
-    orbitCenterY: 75,
-    orbitCenterZ: -63.0,
-    orbitRadius: 6,
+    // Adjusted for new model position (0, 0, 0) with updated home camera setup.
+    // Shows work/exhibition area of the building from side angle.
+    orbitCenterX: -22,
+    orbitCenterY: 72.5,
+    orbitCenterZ: -60,
+    orbitRadius: 8,
     cameraHeight: 1,
     fov: 65,
     orbitAngleDeg: 90,
