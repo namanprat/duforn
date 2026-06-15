@@ -372,6 +372,14 @@ body.menu-open .island-nav-backdrop {
   pointer-events: none;
 }
 
+.island-nav__divider {
+  height: 1px;
+  background: color-mix(in srgb, var(--swatch-light) 18%, transparent);
+  transform-origin: left center;
+  transform: scaleX(0);
+  will-change: transform;
+}
+
 .island-nav__links-block {
   display: flex;
   flex-direction: column;

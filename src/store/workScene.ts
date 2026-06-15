@@ -1,14 +1,37 @@
 import { createSceneControlsStore } from "./scene";
 
+/** Strip sits between the orbit center and camera along the orbit azimuth. */
+function stripPoseFromOrbit(
+  cx: number,
+  cy: number,
+  cz: number,
+  orbitAngleDeg: number,
+) {
+  const rad = (orbitAngleDeg * Math.PI) / 180;
+  const towardCamera = 3.5;
+  return {
+    x: cx + Math.cos(rad) * towardCamera + 0.5,
+    y: cy - 0.5,
+    z: cz + Math.sin(rad) * towardCamera,
+    ry: ((orbitAngleDeg - 90) * Math.PI) / 180,
+  };
+}
+
+const WORK_ORBIT = { cx: 5, cy: 17.5, cz: 0, orbitAngleDeg: -26 };
+const WORK_STRIP_POSE = stripPoseFromOrbit(
+  WORK_ORBIT.cx,
+  WORK_ORBIT.cy,
+  WORK_ORBIT.cz,
+  WORK_ORBIT.orbitAngleDeg,
+);
+
 export const DEFAULT_WORK_SCENE_CONTROLS = {
   strip: {
-    // Sits in front of the WORK camera, maintaining (0.5, -0.5, 3.5) offset from
-    // the work orbit center (-22, 72.5, -60) for the new model position (0, 0, 0).
-    x: -21.5,
-    y: 72,
-    z: -56.5,
+    x: WORK_STRIP_POSE.x,
+    y: WORK_STRIP_POSE.y,
+    z: WORK_STRIP_POSE.z,
     rx: 0,
-    ry: 0,
+    ry: WORK_STRIP_POSE.ry,
     rz: 0,
     scale: 1.2,
     visibleItems: 7,

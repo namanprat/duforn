@@ -10,7 +10,6 @@ import { useWebglStore } from "../store/webgl";
 import { useLoadingStore } from "../store/loading";
 import { usePreloaderOverlayStore } from "../store/overlay";
 import { PRELOADER_DISMISSED_EVENT } from "../lib/preload/events";
-import { requestDeviceOrientationPermission } from "../../scripts/runtime/motion";
 import Canvas from "../scenes/Canvas";
 
 function shouldShowIntroPreloader(pathname) {
@@ -20,7 +19,6 @@ function shouldShowIntroPreloader(pathname) {
 export default function SiteLayout({ children }) {
   const location = useLocation();
   const activePage = useWebglStore((s) => s.activePage);
-  const setGyroEnabled = useWebglStore((s) => s.setGyroEnabled);
   const progress = useLoadingStore((s) => s.progress);
   const essentialsReady = useLoadingStore((s) => s.essentialsReady);
   const loadingPhase = useLoadingStore((s) => s.phase);
@@ -30,7 +28,6 @@ export default function SiteLayout({ children }) {
     shouldShowIntroPreloader(location.pathname),
   );
   const [introRingComplete, setIntroRingComplete] = useState(false);
-  const [permissionsPending, setPermissionsPending] = useState(false);
   const preloaderTimerRef = useRef(0);
   const introTimelineRef = useRef(null);
   const preloaderRef = useRef(null);
@@ -129,30 +126,13 @@ export default function SiteLayout({ children }) {
     };
   }, [preloaderVisible, progress, essentialsReady, loadingPhase]);
 
-  const requestExperiencePermissions = useCallback(async () => {
-    let gyroAllowed = false;
-    let localError = "";
-    try {
-      gyroAllowed = await requestDeviceOrientationPermission();
-    } catch {
-      localError = "Motion permission was blocked; continuing without gyro controls.";
-      gyroAllowed = false;
-    }
-    setGyroEnabled(gyroAllowed);
-
-    return { gyroAllowed, localError };
-  }, [setGyroEnabled]);
-
-  const handleIntroEnter = useCallback(async () => {
-    if (!introRingComplete || permissionsPending) return;
+  const handleIntroEnter = useCallback(() => {
+    if (!introRingComplete) return;
     if (useLoadingStore.getState().phase !== "ready") return;
-    setPermissionsPending(true);
-    await requestExperiencePermissions();
-    setPermissionsPending(false);
     dismissPreloader();
-  }, [dismissPreloader, introRingComplete, permissionsPending, requestExperiencePermissions]);
+  }, [dismissPreloader, introRingComplete]);
 
-  const introEnterDisabled = !introRingComplete || permissionsPending;
+  const introEnterDisabled = !introRingComplete;
 
   useEffect(() => {
     if (!preloaderVisible || introEnterDisabled) return;
@@ -220,7 +200,6 @@ export default function SiteLayout({ children }) {
             essentialsReady={essentialsReady}
             loadingPhase={loadingPhase}
             introRingComplete={introRingComplete}
-            permissionsPending={permissionsPending}
             onEnter={handleIntroEnter}
           />
         </div>

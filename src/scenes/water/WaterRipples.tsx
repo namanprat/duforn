@@ -332,9 +332,11 @@ export default function WaterRipples({ mesh, modelRef }) {
 
     const controls = useHomeSceneControlsStore.getState().controls;
     if (controls.water) {
+      const hdrOn = controls.water.hdrReflection ?? false;
+      const skyboxOn = controls.env?.skybox ?? true;
       materialApiRef.current?.setParams?.({
         ...controls.water,
-        envReflection: controls.env?.skybox ?? true,
+        envReflection: hdrOn && skyboxOn,
       });
     }
 

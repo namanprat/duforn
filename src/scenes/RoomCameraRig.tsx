@@ -13,7 +13,7 @@ const INITIAL_CAMERA_POSITION: readonly [number, number, number] = [0, 1, 5];
 const INITIAL_CAMERA_FOV = 65;
 
 /**
- * Shared default camera + RoomCam pose driver + pointer/gyro parallax rig.
+ * Shared default camera + RoomCam pose driver + pointer parallax rig.
  * Used by the home room scene on the unified canvas.
  */
 export default function RoomCameraRig() {

@@ -1,26 +1,23 @@
 import { createSceneControlsStore } from "./scene";
-import {
-  POOL_CAUSTICS_DEFAULTS,
-  POOL_WATER_DEFAULTS,
-} from "../scenes/water/config/poolWaterDefaults";
+import { POOL_CAUSTICS_DEFAULTS } from "../scenes/water/config/poolWaterDefaults";
 
 export const DEFAULT_HOME_SCENE_CONTROLS = {
   env: {
     skybox: true,
   },
   model: {
-    x: 5.13,
-    y: 4.2,
-    z: -2.9,
+    x: 0,
+    y: 0,
+    z: 0,
     rx: 0,
     ry: 0,
     rz: 0,
     scale: 13,
   },
   camera: {
-    orbitCenterX: 15,
-    orbitCenterY: 75,
-    orbitCenterZ: -30,
+    orbitCenterX: 65,
+    orbitCenterY: 17.5,
+    orbitCenterZ: 10.5,
     orbitRadius: 5,
     cameraHeight: 1,
     fov: 65,
@@ -53,13 +50,14 @@ export const DEFAULT_HOME_SCENE_CONTROLS = {
     gain: POOL_CAUSTICS_DEFAULTS.gain,
   },
   water: {
-    exposure: POOL_WATER_DEFAULTS.exposure,
-    tintR: POOL_WATER_DEFAULTS.aboveWaterTint[0],
-    tintG: POOL_WATER_DEFAULTS.aboveWaterTint[1],
-    tintB: POOL_WATER_DEFAULTS.aboveWaterTint[2],
-    fresnelBase: POOL_WATER_DEFAULTS.fresnelBase,
-    refractionOffset: POOL_WATER_DEFAULTS.refractionOffset,
-    waterClarity: POOL_WATER_DEFAULTS.waterClarity,
+    hdrReflection: false,
+    exposure: 1,
+    tintR: 0.25,
+    tintG: 1,
+    tintB: 1.25,
+    fresnelBase: 0,
+    refractionOffset: 0.1,
+    waterClarity: 0,
   },
 };
 

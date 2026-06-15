@@ -1,9 +1,15 @@
 // @ts-nocheck
 import * as THREE from "three";
 
-const WATER_MATERIAL_NAME = "Water";
+const WATER_EXACT_NAME = "Water";
 const WATER_KEYWORDS = ["water", "pool"];
 
+/** Strong signal: the actual liquid surface (mesh "Water", material "Water liquid"). */
+function isWaterWord(s: string | undefined): boolean {
+  return !!s && s.toLowerCase().includes("water");
+}
+
+/** Weak signal: also matches the pool *shell* ("Swimming Pool Tile Procedural"). */
 function isWaterKeyword(s: string | undefined): boolean {
   if (!s) return false;
   const lower = s.toLowerCase();
@@ -16,19 +22,26 @@ function getMeshWorldBounds(mesh: THREE.Mesh): THREE.Box3 {
 }
 
 /**
- * Find the pool water mesh. Priority:
- *   1. material name === "Water"
- *   2. material name contains "water" / "pool"
- *   3. mesh name contains "water" / "pool"
- *   4. parent group name contains "water" / "pool"
- *   5. positional fallback: topmost near-horizontal mesh
+ * Find the pool water mesh. "water" outranks "pool" so the rippling surface lands on the
+ * liquid (mesh "Water" / material "Water liquid"), never the pool shell ("Swimming Pool
+ * Tile Procedural"). Priority:
+ *   1. mesh name === "Water" (exact)
+ *   2. material name === "Water" (exact)
+ *   3. material name contains "water"  (e.g. "Water liquid")
+ *   4. mesh name contains "water"
+ *   5. material name contains "pool"   (pool shell / tiles)
+ *   6. mesh / parent name contains "water" / "pool"
+ *   7. positional fallback: topmost near-horizontal mesh
  */
 export function findWaterMesh(root: THREE.Object3D | null): THREE.Mesh | null {
   if (!root) return null;
 
+  let byExactMeshName: THREE.Mesh | null = null;
   let byExactMaterial: THREE.Mesh | null = null;
-  let byFuzzyMaterial: THREE.Mesh | null = null;
-  let byMeshName: THREE.Mesh | null = null;
+  let byWaterMaterial: THREE.Mesh | null = null;
+  let byWaterMeshName: THREE.Mesh | null = null;
+  let byPoolMaterial: THREE.Mesh | null = null;
+  let byKeywordName: THREE.Mesh | null = null;
   let byParentName: THREE.Mesh | null = null;
   let topMesh: THREE.Mesh | null = null;
   let topY = -Infinity;
@@ -37,12 +50,16 @@ export function findWaterMesh(root: THREE.Object3D | null): THREE.Mesh | null {
     if (!o.isMesh) return;
     const materials = Array.isArray(o.material) ? o.material : [o.material];
 
-    if (!byExactMaterial && materials.some((m) => m?.name === WATER_MATERIAL_NAME)) {
+    if (!byExactMeshName && o.name === WATER_EXACT_NAME) byExactMeshName = o;
+    if (!byExactMaterial && materials.some((m) => m?.name === WATER_EXACT_NAME)) {
       byExactMaterial = o;
-      return;
     }
-    if (!byFuzzyMaterial && materials.some((m) => isWaterKeyword(m?.name))) byFuzzyMaterial = o;
-    if (!byMeshName && isWaterKeyword(o.name)) byMeshName = o;
+    if (!byWaterMaterial && materials.some((m) => isWaterWord(m?.name))) byWaterMaterial = o;
+    if (!byWaterMeshName && isWaterWord(o.name)) byWaterMeshName = o;
+    if (!byPoolMaterial && materials.some((m) => isWaterKeyword(m?.name))) byPoolMaterial = o;
+    if (!byKeywordName && (isWaterKeyword(o.name) || isWaterKeyword(o.parent?.name))) {
+      byKeywordName = o;
+    }
     if (!byParentName && isWaterKeyword(o.parent?.name)) byParentName = o;
 
     const bounds = getMeshWorldBounds(o);
@@ -59,7 +76,14 @@ export function findWaterMesh(root: THREE.Object3D | null): THREE.Mesh | null {
     }
   });
 
-  const result = byExactMaterial ?? byFuzzyMaterial ?? byMeshName ?? byParentName;
+  const result =
+    byExactMeshName ??
+    byExactMaterial ??
+    byWaterMaterial ??
+    byWaterMeshName ??
+    byPoolMaterial ??
+    byKeywordName ??
+    byParentName;
   if (!result && topMesh) {
     console.warn(
       "[findWaterMesh] no water material/name found — using positional fallback:",

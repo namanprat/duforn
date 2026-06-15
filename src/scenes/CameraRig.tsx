@@ -1,17 +1,13 @@
 // @ts-nocheck
 import { useFrame, useThree } from "@react-three/fiber";
 import React, { useEffect, useRef } from "react";
-import { useWebglStore } from "../store/webgl";
 import { cameraBasePoseRef } from "../lib/cam/pose";
 import { normalizeViewportPoint } from "../lib/viewport/stableViewport";
-import {
-  PARALLAX_MOTION_CONFIG,
-  mapDeviceOrientationToParallax,
-} from "../../scripts/runtime/motion";
+import { PARALLAX_MOTION_CONFIG } from "../../scripts/runtime/motion";
 
 /**
  * Orbital parallax camera for the shared room scene.
- * Theatre drives the base orbit pose; pointer / gyro add a smooth wobble on top.
+ * Theatre drives the base orbit pose; pointer adds a smooth wobble on top.
  */
 export default function CameraRig({
   parallaxScale = 1,
@@ -19,13 +15,10 @@ export default function CameraRig({
   parallaxLerp,
   locked = false,
 }) {
-  const gyroEnabled = useWebglStore((state) => state.gyroEnabled);
   const { camera } = useThree();
 
   const current = useRef({ angle: 0, y: 0, tilt: 0 });
   const pointerTarget = useRef({ angle: 0, y: 0, tilt: 0 });
-  const gyroTarget = useRef({ angle: 0, y: 0, tilt: 0 });
-  const gyroHasValue = useRef(false);
   const smoothedDeltaRef = useRef(1 / 60);
   const lastFovRef = useRef(null);
 
@@ -47,33 +40,11 @@ export default function CameraRig({
     return () => window.removeEventListener("pointermove", onPointerMove);
   }, [parallaxScale, parallaxAngleScale]);
 
-  useEffect(() => {
-    if (!gyroEnabled) {
-      gyroHasValue.current = false;
-      return;
-    }
-
-    const onDeviceOrientation = (event) => {
-      const mapped = mapDeviceOrientationToParallax(event);
-      if (!mapped) return;
-      const ps = parallaxScale;
-      const pa = parallaxAngleScale;
-      gyroTarget.current.angle = mapped.x * PARALLAX_MOTION_CONFIG.angleRange * ps * pa;
-      gyroTarget.current.y = mapped.y * PARALLAX_MOTION_CONFIG.yRange * 1.1 * ps;
-      gyroTarget.current.tilt = mapped.x * PARALLAX_MOTION_CONFIG.tiltRange * ps * pa;
-      gyroHasValue.current = true;
-    };
-
-    window.addEventListener("deviceorientation", onDeviceOrientation, { passive: true });
-    return () => window.removeEventListener("deviceorientation", onDeviceOrientation);
-  }, [gyroEnabled, parallaxScale, parallaxAngleScale]);
-
   useFrame((state, delta) => {
     if (locked) return;
 
     const base = cameraBasePoseRef.current;
-    const activeTarget =
-      gyroEnabled && gyroHasValue.current ? gyroTarget.current : pointerTarget.current;
+    const activeTarget = pointerTarget.current;
 
     const rawDelta = Math.min(Math.max(delta, 1 / 120), 0.1);
     const smoothedDelta = smoothedDeltaRef.current + (rawDelta - smoothedDeltaRef.current) * 0.22;

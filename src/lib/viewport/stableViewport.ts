@@ -18,9 +18,10 @@ function readViewportDimensions() {
     return { width: 0, height: 0 };
   }
 
-  const visualViewport = window.visualViewport;
-  const width = Math.round(visualViewport?.width ?? window.innerWidth);
-  const height = Math.round(visualViewport?.height ?? window.innerHeight);
+  // Layout viewport (innerWidth/innerHeight), not visualViewport — browser zoom
+  // shrinks the visual viewport but the canvas is sized with 100vw / svh CSS.
+  const width = Math.round(window.innerWidth);
+  const height = Math.round(window.innerHeight);
 
   return {
     width: Math.max(width, 1),

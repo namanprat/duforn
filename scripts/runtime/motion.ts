@@ -7,66 +7,6 @@ export const PARALLAX_MOTION_CONFIG = Object.freeze({
   orbitRadius: 5,
 });
 
-export function hasDeviceOrientationApi() {
-  return typeof window !== "undefined" && typeof window.DeviceOrientationEvent !== "undefined";
-}
-
-export function canRequestDeviceOrientationPermission() {
-  return (
-    hasDeviceOrientationApi() &&
-    typeof window.DeviceOrientationEvent.requestPermission === "function"
-  );
-}
-
-function canRequestDeviceMotionPermission() {
-  return (
-    typeof window !== "undefined" &&
-    typeof window.DeviceMotionEvent !== "undefined" &&
-    typeof window.DeviceMotionEvent.requestPermission === "function"
-  );
-}
-
-function requestPermissionFrom(eventCtor) {
-  if (!eventCtor || typeof eventCtor.requestPermission !== "function") return null;
-  // Call requestPermission() synchronously to keep iOS user-activation context.
-  try {
-    const promise = eventCtor.requestPermission();
-    return Promise.resolve(promise)
-      .then((state) => state === "granted")
-      .catch(() => false);
-  } catch {
-    return Promise.resolve(false);
-  }
-}
-
-export async function requestDeviceOrientationPermission() {
-  if (!hasDeviceOrientationApi()) return false;
-  if (!canRequestDeviceOrientationPermission() && !canRequestDeviceMotionPermission()) {
-    return true;
-  }
-
-  // Kick off both prompts synchronously within the same user gesture, then await.
-  const orientationPromise = requestPermissionFrom(window.DeviceOrientationEvent);
-  const motionPromise = requestPermissionFrom(window.DeviceMotionEvent);
-  const [orientationPermission, motionPermission] = await Promise.all([
-    orientationPromise,
-    motionPromise,
-  ]);
-
-  // If either API explicitly grants, treat gyro as enabled.
-  if (orientationPermission === true || motionPermission === true) return true;
-
-  // If at least one API exists and explicitly denies (or throws), deny.
-  if (orientationPermission === false || motionPermission === false) return false;
-
-  // No definitive response; default to enabled for browsers that gate silently.
-  return true;
-}
-
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
-}
-
 function isCoarsePointerDevice() {
   return (
     typeof window !== "undefined" &&
@@ -108,32 +48,4 @@ export function getScreenOrientationAngle() {
   }
 
   return angle;
-}
-
-export function remapOrientationToScreenSpace(
-  beta,
-  gamma,
-  orientationAngle = getScreenOrientationAngle(),
-) {
-  const angleRad = (orientationAngle * Math.PI) / 180;
-  const sin = Math.sin(angleRad);
-  const cos = Math.cos(angleRad);
-
-  return {
-    beta: beta * cos - gamma * sin,
-    gamma: gamma * cos + beta * sin,
-  };
-}
-
-export function mapDeviceOrientationToParallax(
-  event,
-  orientationAngle = getScreenOrientationAngle(),
-) {
-  if (!event || event.gamma === null || event.beta === null) return null;
-
-  const { beta, gamma } = remapOrientationToScreenSpace(event.beta, event.gamma, orientationAngle);
-
-  const x = clamp(gamma / 45, -1, 1);
-  const y = clamp((beta - 45) / 45, -1, 1);
-  return { x, y };
 }

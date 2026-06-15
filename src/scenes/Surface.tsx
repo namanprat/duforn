@@ -33,7 +33,8 @@ export default function Surface({
       id={id}
       className={surfaceClassName}
       style={{
-        width: stableViewport.width,
+        // Height only — width stays on CSS `100vw` so browser zoom cannot shrink
+        // the canvas below the layout viewport (visualViewport.width < 100vw).
         height: stableViewport.height,
         ...wrapperStyle,
       }}

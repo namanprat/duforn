@@ -8,6 +8,7 @@ import { getPreloadedTextures } from "../../scripts/work-preload";
 import { workItems } from "../../data/work-items";
 import { navigateTo } from "../lib/nav";
 import { pickGpuBranch } from "../lib/render";
+import { useWebglStore } from "../store/webgl";
 import { useWorkSceneControlsStore } from "../store/workScene";
 import {
   COLS,
@@ -211,6 +212,8 @@ function createWebGLStripMaterial(textures, stripConfig) {
 
 export function WorkClothStripScene() {
   const { gl } = useThree();
+  const activePage = useWebglStore((s) => s.activePage);
+  const onWorkPage = activePage === "work";
   const systemRef = useRef(null);
   const groupRef = useRef<THREE.Group>(null);
   const stripControls = useWorkSceneControlsStore((state) => state.controls.strip);
@@ -398,7 +401,7 @@ export function WorkClothStripScene() {
     }
 
     sys.uniforms.uScrollOffset.value = s.current;
-    sys.uniforms.uOpacity.value = 1;
+    sys.uniforms.uOpacity.value = onWorkPage ? 1 : 0;
 
     const vi = Math.max(1, sc.visibleItems ?? DEFAULT_VISIBLE_ITEMS);
     const gs = sc.gapSize ?? DEFAULT_GAP_SIZE;
@@ -412,7 +415,7 @@ export function WorkClothStripScene() {
     }
   });
 
-  if (!activeTextures || !stripMaterial) return null;
+  if (!onWorkPage || !activeTextures || !stripMaterial) return null;
 
   const handleStripClick = (e) => {
     if (inputRef.current.dragDist > 8) return;

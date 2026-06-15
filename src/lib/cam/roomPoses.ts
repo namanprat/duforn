@@ -24,10 +24,10 @@ export const ROOM_POSES = Object.freeze({
     ...DEFAULT_CAMERA_BASE_POSE,
     // Adjusted for new model position (0, 0, 0) with updated home camera setup.
     // Shows entry/contact area of the building.
-    orbitCenterX: -100,
-    orbitCenterY: 72.5,
-    orbitCenterZ: -32,
-    orbitRadius: 8,
+    orbitCenterX: -60,
+    orbitCenterY: 17.5,
+    orbitCenterZ: 10.5,
+    orbitRadius: 5,
     cameraHeight: 1,
     fov: 60,
     orbitAngleDeg: 0,
@@ -36,15 +36,14 @@ export const ROOM_POSES = Object.freeze({
   }),
   work: Object.freeze({
     ...DEFAULT_CAMERA_BASE_POSE,
-    // Adjusted for new model position (0, 0, 0) with updated home camera setup.
-    // Shows work/exhibition area of the building from side angle.
-    orbitCenterX: -22,
-    orbitCenterY: 72.5,
-    orbitCenterZ: -60,
-    orbitRadius: 8,
+    // Pool-level work view — same height/radius as main, shifted orbit center.
+    orbitCenterX: 5,
+    orbitCenterY: 17.5,
+    orbitCenterZ: 0,
+    orbitRadius: 5,
     cameraHeight: 1,
     fov: 65,
-    orbitAngleDeg: 90,
+    orbitAngleDeg: -26,
     lookAtYawDeg: 0,
     lookAtPitchDeg: 0,
   }),

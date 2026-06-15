@@ -12,7 +12,6 @@ type PreloaderOverlayLayerProps = {
   essentialsReady: boolean;
   loadingPhase: LoadingPhase;
   introRingComplete: boolean;
-  permissionsPending: boolean;
   onEnter: () => void;
 };
 
@@ -20,15 +19,10 @@ function getEnterAriaLabel({
   essentialsReady,
   loadingPhase,
   introRingComplete,
-  permissionsPending,
-}: Pick<
-  PreloaderOverlayLayerProps,
-  "essentialsReady" | "loadingPhase" | "introRingComplete" | "permissionsPending"
->) {
+}: Pick<PreloaderOverlayLayerProps, "essentialsReady" | "loadingPhase" | "introRingComplete">) {
   if (!essentialsReady) return "Loading essential assets";
   if (loadingPhase !== "ready") return "Compiling shaders";
   if (!introRingComplete) return "Finishing intro animation";
-  if (permissionsPending) return "Requesting device permissions";
   return "Enter site";
 }
 
@@ -42,7 +36,6 @@ export default function PreloaderOverlayLayer({
   essentialsReady,
   loadingPhase,
   introRingComplete,
-  permissionsPending,
   onEnter,
 }: PreloaderOverlayLayerProps) {
   if (!visible) return null;
@@ -51,7 +44,6 @@ export default function PreloaderOverlayLayer({
     essentialsReady,
     loadingPhase,
     introRingComplete,
-    permissionsPending,
   });
 
   return (
@@ -67,7 +59,7 @@ export default function PreloaderOverlayLayer({
           type="button"
           className="intro-preloader-center-hit"
           onClick={onEnter}
-          disabled={!introRingComplete || permissionsPending}
+          disabled={!introRingComplete}
           aria-label={enterAriaLabel}
           aria-busy={!introRingComplete}
         >

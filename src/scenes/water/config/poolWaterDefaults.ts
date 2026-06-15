@@ -17,21 +17,21 @@ export const POOL_SIM_DEFAULTS = {
 /** webgl-water (Evan Wallace) surface recipe, adapted to the GLB pool. */
 export const POOL_WATER_DEFAULTS = {
   /** Final-color multiplier on the water surface (tames the washed-out look). */
-  exposure: 0.65,
+  exposure: 1,
   /** Above-water tint multiplied into the refracted pool floor (webgl-water). */
   aboveWaterTint: [0.25, 1.0, 1.25],
   /** Fresnel: mix(fresnelBase, 1, pow(1 - cos, fresnelPower)) — webgl-water pow 3. */
-  fresnelBase: 0.35,
+  fresnelBase: 0,
   fresnelPower: 3.0,
   fresnelNormalStrength: 0.3,
   normalStrength: 0.6,
   /** Screen-UV offset scale for the backdrop refraction (WebGPU path). */
-  refractionOffset: 0.08,
+  refractionOffset: 0.1,
   /** Env-reflection UV wobble from the rippled surface normal. */
   envRefractionStrength: 0.08,
   /** Beer's-law absorption on the refracted color. */
   waterDepth: 0.8,
-  waterClarity: 0.18,
+  waterClarity: 0,
   defaultReflection: "#7d97a8",
   /** WebGL fallback only — alpha of the tinted-transparency surface. */
   opacity: 0.5,

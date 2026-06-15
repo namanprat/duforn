@@ -43,7 +43,8 @@ function getFallbackPhysicalMaterial(sourceMaterial) {
 /** Fix map color spaces and upgrade non-PBR materials without retuning values. */
 export function applyModelMaterialTuning(model) {
   model.traverse((child) => {
-    if (!child.isMesh) return;
+    // Skip the water mesh — WaterRipples owns its material (PoolWaterMaterial).
+    if (!child.isMesh || child.userData?.isWater) return;
 
     const apply = (sourceMaterial) => {
       if (!sourceMaterial) return sourceMaterial;

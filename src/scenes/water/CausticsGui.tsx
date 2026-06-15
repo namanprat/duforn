@@ -18,6 +18,11 @@ export default function CausticsGui() {
   useControls(
     "Pool Water",
     {
+      hdrReflection: {
+        label: "HDR reflection",
+        value: water.hdrReflection ?? false,
+        onChange: (v) => setControl("water.hdrReflection", v),
+      },
       exposure: {
         value: water.exposure,
         min: 0,

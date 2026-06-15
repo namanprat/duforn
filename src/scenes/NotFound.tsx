@@ -9,12 +9,8 @@ import {
   buildNotFoundScreenMaterialWebGl,
   buildNotFoundScreenMaterialWebGpu,
 } from "../lib/notFound";
-import { useWebglStore } from "../store/webgl";
 import { normalizeViewportPoint } from "../lib/viewport/stableViewport";
-import {
-  PARALLAX_MOTION_CONFIG,
-  mapDeviceOrientationToParallax,
-} from "../../scripts/runtime/motion";
+import { PARALLAX_MOTION_CONFIG } from "../../scripts/runtime/motion";
 
 function createScreenGeometry(width, height, radius) {
   const shape = new THREE.Shape();
@@ -50,8 +46,6 @@ export default function NotFound() {
   const [screenReady, setScreenReady] = useState(false);
   const camera = useThree((state) => state.camera);
   const { gl, size } = useThree();
-  const gyroEnabled = useWebglStore((state) => state.gyroEnabled);
-  const orientationRef = useRef({ x: 0, y: 0, hasValue: false });
   const pointerRef = useRef({ x: 0, y: 0 });
   const reducedMotionRef = useRef(false);
   const { scene } = useMonitorModel();
@@ -127,24 +121,6 @@ export default function NotFound() {
   }, []);
 
   useEffect(() => {
-    if (!gyroEnabled) {
-      orientationRef.current.hasValue = false;
-      return;
-    }
-
-    const onDeviceOrientation = (event) => {
-      const mapped = mapDeviceOrientationToParallax(event);
-      if (!mapped) return;
-      orientationRef.current.x = mapped.x;
-      orientationRef.current.y = mapped.y;
-      orientationRef.current.hasValue = true;
-    };
-
-    window.addEventListener("deviceorientation", onDeviceOrientation, { passive: true });
-    return () => window.removeEventListener("deviceorientation", onDeviceOrientation);
-  }, [gyroEnabled]);
-
-  useEffect(() => {
     return () => {
       screenGeometry.dispose();
     };
@@ -181,14 +157,8 @@ export default function NotFound() {
     if (!groupRef.current) return;
     const prefersReducedMotion = reducedMotionRef.current;
     const amplitudeScale = prefersReducedMotion ? 0.08 : 1;
-    const inputX =
-      gyroEnabled && orientationRef.current.hasValue
-        ? orientationRef.current.x
-        : pointerRef.current.x;
-    const inputY =
-      gyroEnabled && orientationRef.current.hasValue
-        ? orientationRef.current.y
-        : pointerRef.current.y;
+    const inputX = pointerRef.current.x;
+    const inputY = pointerRef.current.y;
     const targetX = inputY * PARALLAX_MOTION_CONFIG.yRange * 0.35 * amplitudeScale;
     const targetY = inputX * PARALLAX_MOTION_CONFIG.angleRange * 0.9 * amplitudeScale;
     const motionLerp = prefersReducedMotion ? 3 : 5;
