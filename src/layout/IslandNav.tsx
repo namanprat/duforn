@@ -2,13 +2,14 @@
 import React, { useRef, useState, useEffect, useCallback, useLayoutEffect } from "react";
 import { useLocation } from "react-router-dom";
 import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
 import { SplitText } from "gsap/SplitText";
 import { navigateTo } from "../lib/nav";
 import RotateHoverLabel from "../ui/HoverLabel";
 import { STUDIO_ABOUT_PARAGRAPHS, STUDIO_CLIENTS } from "../content/studio";
 import { MOTION_TOKENS } from "../lib/anim/tokens";
 
-gsap.registerPlugin(SplitText);
+gsap.registerPlugin(useGSAP, SplitText);
 
 const MENU_LINKS = [
   { to: "/work", label: "Work" },
@@ -20,6 +21,12 @@ const ABOUT_TEXT_SELECTOR =
 
 const PANEL_ID = "site-menu";
 const ABOUT_DETAIL_ID = "island-about-detail";
+
+// 3D link animation config — refined for cleaner, more dynamic feel
+const LINK_PERSPECTIVE = 900;
+const LINK_ENTER = { y: 32, autoAlpha: 0, rotationX: -20, transformPerspective: LINK_PERSPECTIVE };
+const LINK_EXIT_UP = { y: -20, autoAlpha: 0, rotationX: 14, transformPerspective: LINK_PERSPECTIVE };
+const LINK_REST = { y: 0, autoAlpha: 1, rotationX: 0 };
 
 function prefersReducedMotion() {
   return (
@@ -72,6 +79,7 @@ export default function IslandNav({ onMenuOpenChange }) {
   const headerRef = useRef(null);
   const panelRef = useRef(null);
   const linksBlockRef = useRef(null);
+  const dividerRef = useRef(null);
   const aboutDetailRef = useRef(null);
   const linkRefs = useRef([]);
   const aboutToggleRef = useRef(null);
@@ -91,8 +99,6 @@ export default function IslandNav({ onMenuOpenChange }) {
     const collapsedHeight = header.offsetHeight;
     if (!open || !panel) return collapsedHeight;
 
-    // Measure the panel with the about detail and links block forced to their
-    // target states so the result includes margins, padding, and border.
     const openClass = "island-nav__about-detail--open";
     const wasOpen = aboutDetail?.classList.contains(openClass) ?? false;
     const needsToggle = Boolean(aboutDetail) && aboutExpanded !== wasOpen;
@@ -204,6 +210,7 @@ export default function IslandNav({ onMenuOpenChange }) {
   useLayoutEffect(() => {
     const root = rootRef.current;
     const aboutDetail = aboutDetailRef.current;
+    const divider = dividerRef.current;
     if (!root) return undefined;
 
     timelineRef.current?.kill();
@@ -220,8 +227,6 @@ export default function IslandNav({ onMenuOpenChange }) {
     syncIslandClasses(root, isOpen, aboutOpen);
 
     if (aboutDetail) {
-      // While animating about closed, the open class stays on until the line
-      // hide finishes (the timeline removes it); otherwise sync immediately.
       if (!aboutClosing) {
         aboutDetail.classList.toggle("island-nav__about-detail--open", aboutOpen);
       }
@@ -234,8 +239,9 @@ export default function IslandNav({ onMenuOpenChange }) {
         gsap.set(linksBlock, isOpen && aboutOpen ? { display: "none" } : { clearProps: "display" });
       }
       if (!aboutOpen) revertAboutSplits();
-      gsap.set(targets, { y: 0, opacity: isOpen ? 1 : 0 });
-      if (aboutDetail) gsap.set(aboutDetail, { opacity: isOpen && aboutOpen ? 1 : 0, y: 0 });
+      gsap.set(targets, { y: 0, autoAlpha: isOpen ? 1 : 0 });
+      if (aboutDetail) gsap.set(aboutDetail, { autoAlpha: isOpen && aboutOpen ? 1 : 0, y: 0 });
+      if (divider) gsap.set(divider, { scaleX: isOpen ? 1 : 0 });
       setPanelInteractive(isOpen);
       prevStateRef.current = { isOpen, aboutOpen };
       return undefined;
@@ -244,11 +250,11 @@ export default function IslandNav({ onMenuOpenChange }) {
     const applyCollapsed = () => {
       const collapsedHeight = measureIslandHeight({ open: false, aboutExpanded: false });
       root.style.height = `${collapsedHeight}px`;
-      gsap.set(root, { scaleY: 1 });
-      gsap.set(targets, { y: 12, opacity: 0 });
+      gsap.set(targets, { ...LINK_ENTER });
       if (linksBlock) gsap.set(linksBlock, { clearProps: "display" });
       revertAboutSplits();
-      if (aboutDetail) gsap.set(aboutDetail, { opacity: 0, y: 8 });
+      if (aboutDetail) gsap.set(aboutDetail, { autoAlpha: 0, y: 8, filter: "blur(0px)" });
+      if (divider) gsap.set(divider, { scaleX: 0, transformOrigin: "left center" });
       setPanelInteractive(false);
       syncIslandClasses(root, false, false);
     };
@@ -257,8 +263,8 @@ export default function IslandNav({ onMenuOpenChange }) {
       if (hasOpenedRef.current) {
         const collapsedHeight = measureIslandHeight({ open: false, aboutExpanded: false });
         syncIslandClasses(root, false, false);
+
         const tl = gsap.timeline({
-          defaults: { ease: "power3.inOut" },
           onComplete: () => {
             setPanelInteractive(false);
             timelineRef.current = null;
@@ -267,25 +273,27 @@ export default function IslandNav({ onMenuOpenChange }) {
           },
         });
 
+        // About detail out (if was open) — fast fade
         if (aboutDetail && prev.aboutOpen) {
-          tl.to(aboutDetail, { opacity: 0, y: 8, duration: 0.2, ease: tokens.hideEase }, 0);
+          tl.to(aboutDetail, { autoAlpha: 0, y: -12, filter: "blur(4px)", duration: 0.16, ease: "power2.in" }, 0);
         }
-        tl.to(
-          targets,
-          {
-            y: 8,
-            opacity: 0,
-            duration: tokens.hideDuration * 0.45,
-            stagger: tokens.hideStagger,
-            ease: tokens.hideEase,
-          },
-          0,
-        );
-        tl.to(
-          root,
-          { height: collapsedHeight, scaleY: 0.98, duration: 0.42 },
-          targets.length ? 0.08 : 0,
-        );
+
+        // Links exit — snappy, from end
+        tl.to(targets, {
+          ...LINK_EXIT_UP,
+          duration: 0.24,
+          stagger: { amount: 0.08, from: "end" },
+          ease: "power2.in",
+        }, 0.04);
+
+        // Divider retracts from right — matches collapse timing
+        if (divider) {
+          tl.to(divider, { scaleX: 0, transformOrigin: "right center", duration: 0.22, ease: "power2.in" }, 0.06);
+        }
+
+        // Island collapses — smooth, coordinated
+        tl.to(root, { height: collapsedHeight, duration: 0.35, ease: "power3.inOut" }, 0.02);
+
         timelineRef.current = tl;
       } else {
         applyCollapsed();
@@ -310,123 +318,127 @@ export default function IslandNav({ onMenuOpenChange }) {
       const menuHeight = measureIslandHeight({ open: true, aboutExpanded: false });
 
       const tl = gsap.timeline({
-        defaults: { ease: "power3.inOut" },
         onComplete: () => {
           timelineRef.current = null;
-          // Re-measure once settled: the island's CSS width transition can finish
-          // after this timeline started, changing how the panel content wraps.
-          gsap.set(root, {
-            height: measureIslandHeight({ open: true, aboutExpanded: false }),
-          });
+          gsap.set(root, { height: measureIslandHeight({ open: true, aboutExpanded: false }) });
         },
       });
 
-      tl.fromTo(
-        root,
-        { height: collapsedHeight, scaleY: 0.98, transformOrigin: "top center" },
-        { height: menuHeight, scaleY: 1, duration: 0.5 },
+      // Island expands with dynamic easing
+      tl.fromTo(root,
+        { height: collapsedHeight },
+        { height: menuHeight, duration: 0.48, ease: "expo.out" },
         0,
       );
-      tl.fromTo(
-        targets,
-        { y: 12, opacity: 0 },
-        {
-          y: 0,
-          opacity: 1,
-          duration: tokens.revealDuration * 0.45,
-          stagger: tokens.revealStagger,
-          ease: tokens.revealEase,
-        },
-        0.12,
+
+      // Divider draws in with smooth curve
+      if (divider) {
+        tl.fromTo(divider,
+          { scaleX: 0, transformOrigin: "left center" },
+          { scaleX: 1, duration: 0.45, ease: "expo.out" },
+          0.08,
+        );
+      }
+
+      // Links fold down — fluid, staggered entry
+      tl.fromTo(targets,
+        { ...LINK_ENTER },
+        { ...LINK_REST, duration: 0.58, stagger: { amount: 0.08, from: "start" }, ease: "expo.out" },
+        0.15,
       );
 
       timelineRef.current = tl;
     } else if (aboutJustToggled) {
       const tl = gsap.timeline({
-        defaults: { ease: "power3.inOut" },
         onComplete: () => {
           timelineRef.current = null;
-          gsap.set(root, {
-            height: measureIslandHeight({ open: true, aboutExpanded: aboutOpen }),
-          });
+          gsap.set(root, { height: measureIslandHeight({ open: true, aboutExpanded: aboutOpen }) });
         },
       });
 
       if (aboutOpen && aboutDetail) {
-        // About view: the whole link cluster (About included) slides out and
-        // leaves the flow, the island resizes, then the about text reveals
-        // line by line.
-        tl.to(
-          targets,
-          { opacity: 0, y: -10, duration: 0.2, stagger: 0.04, ease: tokens.hideEase },
-          0,
-        );
+        // Links exit upward — quick and smooth
+        tl.to(targets, {
+          ...LINK_EXIT_UP,
+          duration: 0.2,
+          stagger: { amount: 0.06, from: "end" },
+          ease: "power2.in",
+        }, 0);
+
         if (linksBlock) tl.set(linksBlock, { display: "none" });
+
+        // Island expands for about content
         tl.add(() => {
           gsap.to(root, {
             height: measureIslandHeight({ open: true, aboutExpanded: true }),
-            duration: 0.4,
-            ease: "power3.inOut",
+            duration: 0.48,
+            ease: "expo.out",
           });
-        });
-        // Split after the island's width transition has settled so the line
-        // wrapping matches the final layout.
+        }, 0.08);
+
+        // About text reveals with fluid animation
         tl.add(() => {
           const lines = buildAboutSplits();
-          gsap.set(aboutDetail, { opacity: 1, y: 0 });
+          gsap.set(aboutDetail, { autoAlpha: 1, y: 0, filter: "blur(0px)" });
           if (lines.length) {
-            gsap.set(lines, { y: "100%" });
+            gsap.set(lines, { y: "108%", filter: "blur(6px)" });
             gsap.to(lines, {
               y: "0%",
-              duration: tokens.revealDuration,
-              stagger: tokens.revealStagger,
-              ease: tokens.revealEase,
+              filter: "blur(0px)",
+              duration: 0.8,
+              stagger: 0.045,
+              ease: "expo.out",
             });
           }
-        }, "+=0.34");
+        }, 0.18);
       } else if (aboutDetail) {
-        // Back to menu: lines drop away, the detail collapses, the page links
-        // return and the island shrinks back.
+        // Lines exit upward with smooth blur
         const lines = aboutLinesRef.current;
         if (lines.length) {
-          tl.to(lines, { y: "100%", duration: 0.25, stagger: 0.012, ease: tokens.hideEase }, 0);
+          tl.to(lines, {
+            y: "-105%",
+            filter: "blur(4px)",
+            duration: 0.2,
+            stagger: { amount: 0.07, from: "end" },
+            ease: "power2.in",
+          }, 0);
         } else {
-          tl.to(aboutDetail, { opacity: 0, y: 8, duration: 0.2, ease: tokens.hideEase }, 0);
+          tl.to(aboutDetail, { autoAlpha: 0, y: -10, filter: "blur(4px)", duration: 0.16, ease: "power2.in" }, 0);
         }
+
         tl.add(() => {
           aboutDetail.classList.remove("island-nav__about-detail--open");
-          gsap.set(aboutDetail, { opacity: 0, y: 8 });
+          gsap.set(aboutDetail, { autoAlpha: 0, y: 14, filter: "blur(0px)" });
           revertAboutSplits();
           if (linksBlock) gsap.set(linksBlock, { clearProps: "display" });
           gsap.to(root, {
             height: measureIslandHeight({ open: true, aboutExpanded: false }),
-            duration: 0.36,
-            ease: "power3.inOut",
+            duration: 0.4,
+            ease: "expo.out",
           });
-        });
-        tl.fromTo(
-          targets,
-          { opacity: 0, y: 12 },
-          {
-            opacity: 1,
-            y: 0,
-            duration: tokens.revealDuration * 0.45,
-            stagger: tokens.revealStagger,
-            ease: tokens.revealEase,
-          },
-          "+=0.08",
+        }, 0.06);
+
+        // Links return with fluid 3D fold
+        tl.fromTo(targets,
+          { ...LINK_ENTER },
+          { ...LINK_REST, duration: 0.52, stagger: { amount: 0.07, from: "start" }, ease: "expo.out" },
+          0.12,
         );
       }
 
       timelineRef.current = tl;
     } else if (isOpen) {
-      gsap.set(root, { height: targetHeight, scaleY: 1 });
+      // Already open — sync state immediately
+      gsap.set(root, { height: targetHeight });
       if (linksBlock) {
         gsap.set(linksBlock, aboutOpen ? { display: "none" } : { clearProps: "display" });
       }
-      gsap.set(targets, { y: 0, opacity: 1 });
+      gsap.set(targets, { ...LINK_REST });
       if (aboutDetail) {
-        gsap.set(aboutDetail, { opacity: aboutOpen ? 1 : 0, y: aboutOpen ? 0 : 8 });
+        gsap.set(aboutDetail, { autoAlpha: aboutOpen ? 1 : 0, y: aboutOpen ? 0 : 12, filter: "blur(0px)" });
+      }
+      if (divider) {
+        gsap.set(divider, { scaleX: 1, transformOrigin: "left center" });
       }
       setPanelInteractive(true);
     }
@@ -488,7 +500,6 @@ export default function IslandNav({ onMenuOpenChange }) {
   }, [aboutOpen, isOpen, toggleMenu]);
 
   const toggleLabel = !isOpen ? "MENU" : aboutOpen ? "BACK" : "CLOSE";
-
   const linkClassName = "island-nav__link u-text-style-h2 u-text-style-font-primary";
 
   return (
@@ -516,6 +527,7 @@ export default function IslandNav({ onMenuOpenChange }) {
           </button>
         </div>
         <div id={PANEL_ID} className="island-nav__panel" ref={panelRef} aria-hidden="true">
+          <div className="island-nav__divider" ref={dividerRef} />
           <div className="island-nav__links-block" ref={linksBlockRef}>
             <ul className="island-nav__links">
               {MENU_LINKS.map((item, index) => (
