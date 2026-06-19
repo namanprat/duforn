@@ -77,34 +77,34 @@ export default function MainPage() {
             )}
             <CameraRevealGroup waitForCamera delay={0.16}>
               <div className="hero_actions">
-              <a
-                className="button button-primary hero_action_wrap"
-                href="/work"
-                onClick={(e) => go(e, "/work")}
-                data-rotate-hover={useRotateHover ? "" : undefined}
-              >
-                <span className="hero_action_text">
-                  {useRotateHover ? <RotateHoverLabel text="View Work" /> : "View Work"}
-                </span>
-                <span className="hero_action_icon" aria-hidden="true">
-                  ↗
-                </span>
-              </a>
-              <a
-                className="button button-secondary hero_action_wrap"
-                href="/contact"
-                onClick={(e) => go(e, "/contact")}
-                data-rotate-hover={useRotateHover ? "" : undefined}
-              >
-                <span className="hero_action_text">
-                  {useRotateHover ? <RotateHoverLabel text="Contact" /> : "Contact"}
-                </span>
-                <span className="hero_action_icon" aria-hidden="true">
-                  ↗
-                </span>
-              </a>
-            </div>
-          </CameraRevealGroup>
+                <a
+                  className="button button-primary hero_action_wrap"
+                  href="/work"
+                  onClick={(e) => go(e, "/work")}
+                  data-rotate-hover={useRotateHover ? "" : undefined}
+                >
+                  <span className="hero_action_text">
+                    {useRotateHover ? <RotateHoverLabel text="View Work" /> : "View Work"}
+                  </span>
+                  <span className="hero_action_icon" aria-hidden="true">
+                    ↗
+                  </span>
+                </a>
+                <a
+                  className="button button-secondary hero_action_wrap"
+                  href="/contact"
+                  onClick={(e) => go(e, "/contact")}
+                  data-rotate-hover={useRotateHover ? "" : undefined}
+                >
+                  <span className="hero_action_text">
+                    {useRotateHover ? <RotateHoverLabel text="Contact" /> : "Contact"}
+                  </span>
+                  <span className="hero_action_icon" aria-hidden="true">
+                    ↗
+                  </span>
+                </a>
+              </div>
+            </CameraRevealGroup>
           </div>
         </div>
       </div>

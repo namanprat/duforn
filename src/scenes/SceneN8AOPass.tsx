@@ -52,16 +52,7 @@ export default function SceneN8AOPass({
       color: "black",
       transparencyAware: false,
     });
-  }, [
-    pass,
-    radius,
-    distanceFalloff,
-    intensity,
-    aoSamples,
-    denoiseSamples,
-    denoiseRadius,
-    halfRes,
-  ]);
+  }, [pass, radius, distanceFalloff, intensity, aoSamples, denoiseSamples, denoiseRadius, halfRes]);
 
   useLayoutEffect(() => {
     if (!quality) return;

@@ -192,7 +192,6 @@ body.menu-open .menu-nav-backdrop {
   width: calc(100% - var(--site--margin) * 2);
   max-width: var(--container--main);
 
-  
   padding: 0 calc(-1 * var(--spacing-space-5));
 
   --menu-inset: var(--spacing-space-3);
@@ -355,7 +354,8 @@ body.menu-open .menu-nav-backdrop {
 
 .about-panel__section--divided {
   padding-top: var(--spacing-space-4);
-  border-top: var(--border-width--main) solid color-mix(in srgb, var(--about-muted) 30%, transparent);
+  border-top: var(--border-width--main) solid
+    color-mix(in srgb, var(--about-muted) 30%, transparent);
 }
 
 .about-panel__label {
@@ -391,7 +391,8 @@ body.menu-open .menu-nav-backdrop {
 .about-panel__principle {
   padding-bottom: var(--spacing-space-3);
   margin-bottom: var(--spacing-space-3);
-  border-bottom: var(--border-width--main) solid color-mix(in srgb, var(--about-muted) 30%, transparent);
+  border-bottom: var(--border-width--main) solid
+    color-mix(in srgb, var(--about-muted) 30%, transparent);
 }
 
 .about-panel__principle:last-child {
@@ -465,13 +466,14 @@ body.menu-open .menu-nav-backdrop {
   align-items: center;
 }
 
-/* Work route: title sits near the top (v1 reference) rather than vertically
-   centred, so it clears the cloth strip and updates as you scroll. */
+/* Work route: title sits at the top (v1 reference) rather than vertically
+   centred, so it clears the cloth strip and updates as you scroll. The leading
+   `u-section-spacer-medium` pushes it down off the nav. */
 .work_page {
+  position: relative;
   display: flex;
   flex-flow: column;
   align-items: center;
-  padding-top: var(--page-top-pad);
 }
 
 .hero_contain,

@@ -1,21 +1,12 @@
 import { button, folder, useControls } from "leva";
-import { useWebglStore, type RoomNamespace } from "../store/webgl";
 import { cameraBasePoseRef, type CameraPose } from "./cam/pose";
-import { ROOM_POSES } from "./cam/roomPoses";
-
-const ROOM_NAMESPACES: RoomNamespace[] = ["main", "work", "contact", "archive"];
-
-function isRoomNamespace(page: string): page is RoomNamespace {
-  return ROOM_NAMESPACES.includes(page as RoomNamespace);
-}
+import { ROOM_POSES, type RoomNamespace } from "./cam/roomPoses";
 
 /**
  * Dev-only Leva panel for per-room camera pose tuning on any room route.
  */
-export default function RoomCameraGui() {
-  const activePage = useWebglStore((s) => s.activePage);
-  const onRoom = isRoomNamespace(activePage);
-  const room = onRoom ? activePage : "main";
+export default function RoomCameraGui({ activeRoom }: { activeRoom: RoomNamespace }) {
+  const room = activeRoom;
   const camera = ROOM_POSES[room];
 
   const setCam = (key: keyof CameraPose, value: number) => {
@@ -106,7 +97,6 @@ export default function RoomCameraGui() {
       }),
     },
     { collapsed: false },
-    { render: () => onRoom },
   );
 
   return null;

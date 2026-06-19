@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { useLocation } from "react-router-dom";
 import { Canvas } from "@react-three/fiber";
 import * as THREE from "three";
 import BakedScene from "./BakedScene";
@@ -6,12 +7,12 @@ import CameraRig from "./CameraRig";
 import RoomCam from "./RoomCam";
 import Env from "./Env";
 import { WorkClothStripScene } from "../work/ClothStrip";
-import { useWebglStore } from "../store/webgl";
 import ScenePostFX from "./ScenePostFX";
 import ScenePostFXGui from "./ScenePostFXGui";
 import WorkSceneGui from "./WorkSceneGui";
 import RoomCameraGui from "./RoomCameraGui";
 import { MAIN_POSE, poseToCameraPosition } from "./cam/roomPoses";
+import { getRouteNamespace } from "../lib/route";
 
 const MAIN_CAMERA = poseToCameraPosition(MAIN_POSE);
 
@@ -21,8 +22,10 @@ const MAIN_CAMERA = poseToCameraPosition(MAIN_POSE);
  * camera, BakedScene renders the unlit baked geometry.
  */
 export default function SceneCanvas() {
-  const activePage = useWebglStore((s) => s.activePage);
-  const isInteractive = activePage === "work" || activePage === "main";
+  const location = useLocation();
+  const activePage = getRouteNamespace(location.pathname);
+  const activeRoom = activePage === "projectDetail" ? "main" : activePage;
+  const isInteractive = activeRoom === "work" || activeRoom === "main";
 
   return (
     <div className={`scene_canvas_wrap${isInteractive ? " scene_canvas_wrap--interactive" : ""}`}>
@@ -41,7 +44,7 @@ export default function SceneCanvas() {
           gl.outputColorSpace = THREE.SRGBColorSpace;
         }}
       >
-        <RoomCam />
+        <RoomCam activeRoom={activeRoom} />
         <CameraRig />
         <Suspense fallback={null}>
           <Env
@@ -54,14 +57,14 @@ export default function SceneCanvas() {
         </Suspense>
         <Suspense fallback={null}>
           <BakedScene />
-          <WorkClothStripScene />
+          <WorkClothStripScene activeRoom={activeRoom} />
         </Suspense>
         <ScenePostFX />
         {import.meta.env.DEV ? (
           <>
             <ScenePostFXGui />
-            <RoomCameraGui />
-            <WorkSceneGui />
+            <RoomCameraGui activeRoom={activeRoom} />
+            <WorkSceneGui enabled={activeRoom === "work"} />
           </>
         ) : null}
       </Canvas>

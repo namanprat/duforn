@@ -1,29 +1,17 @@
 import { useLayoutEffect, useRef } from "react";
 import gsap from "gsap";
-import { useWebglStore, type RoomNamespace } from "../store/webgl";
 import { cameraBasePoseRef, cameraTransitionRef, POSE_KEYS } from "./cam/pose";
 import {
   ROOM_POSES,
   ROOM_TRANSITION_SECONDS,
   prefersReducedMotion,
   posesEqual,
+  type RoomNamespace,
 } from "./cam/roomPoses";
 import { setArrivedRoom } from "../lib/cam/arrival";
-import { getRouteNamespace } from "../lib/route";
 
 const ARRIVAL_LEAD_SECONDS = 0.2;
-
-function resolveInitialRoom(): RoomNamespace {
-  if (typeof window !== "undefined") {
-    const ns = getRouteNamespace(window.location.pathname);
-    if (ns !== "projectDetail") return ns;
-  }
-  const page = useWebglStore.getState().activePage;
-  return page === "projectDetail" ? "main" : page;
-}
-
-// Baseline so CameraRig isn't at origin before the first layout effect runs.
-Object.assign(cameraBasePoseRef.current, ROOM_POSES[resolveInitialRoom()]);
+Object.assign(cameraBasePoseRef.current, ROOM_POSES.main);
 
 function snapTo(target: (typeof ROOM_POSES)[RoomNamespace]) {
   for (const key of POSE_KEYS) {
@@ -31,21 +19,13 @@ function snapTo(target: (typeof ROOM_POSES)[RoomNamespace]) {
   }
 }
 
-/**
- * GSAP-driven camera pose orchestrator. Each room defines a static pose in
- * `ROOM_POSES`; route changes tween `cameraBasePoseRef.current` to the new pose.
- * CameraRig reads from `cameraBasePoseRef.current` every frame.
- */
-export default function RoomCam() {
-  const activePage = useWebglStore((state) => state.activePage);
+export default function RoomCam({ activeRoom }: { activeRoom: RoomNamespace }) {
   const prevRoomRef = useRef<RoomNamespace | null>(null);
   const tweenRef = useRef<gsap.core.Tween | null>(null);
   const arrivalCallRef = useRef<gsap.core.Tween | null>(null);
 
   useLayoutEffect(() => {
-    if (activePage === "projectDetail") return;
-
-    const next = activePage;
+    const next = activeRoom;
     const prev = prevRoomRef.current;
     const targetPose = ROOM_POSES[next];
     const prevPose = prev != null ? ROOM_POSES[prev] : null;
@@ -106,7 +86,7 @@ export default function RoomCam() {
     });
 
     prevRoomRef.current = next;
-  }, [activePage]);
+  }, [activeRoom]);
 
   useLayoutEffect(() => {
     return () => {

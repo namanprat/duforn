@@ -3,7 +3,11 @@ import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import { registerPageTextReveal } from "../lib/text";
 import { MOTION_TOKENS } from "../lib/anim/tokens";
-import { prefersReducedMotion, resolveMotionTokens, waitForCamera as waitForCameraGate } from "./useRevealGate";
+import {
+  prefersReducedMotion,
+  resolveMotionTokens,
+  waitForCamera as waitForCameraGate,
+} from "./useRevealGate";
 
 interface MaskRevealProps {
   children: React.ReactNode;

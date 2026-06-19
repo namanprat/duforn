@@ -1,14 +1,11 @@
 import { button, folder, useControls } from "leva";
-import { useWebglStore } from "../store/webgl";
 import { useWorkSceneControlsStore } from "../store/workScene";
 
 const RAD_TO_DEG = 180 / Math.PI;
 const DEG_TO_RAD = Math.PI / 180;
 
 /** Dev-only Leva panel for work-page cloth strip transform. */
-export default function WorkSceneGui() {
-  const activePage = useWebglStore((s) => s.activePage);
-  const onWork = activePage === "work";
+export default function WorkSceneGui({ enabled }: { enabled: boolean }) {
   const setControl = useWorkSceneControlsStore((s) => s.setControl);
   const resetControls = useWorkSceneControlsStore((s) => s.resetControls);
   const strip = useWorkSceneControlsStore((s) => s.controls.strip);
@@ -109,7 +106,7 @@ export default function WorkSceneGui() {
       }),
     },
     { collapsed: false },
-    { render: () => onWork },
+    { render: () => enabled },
   );
 
   return null;

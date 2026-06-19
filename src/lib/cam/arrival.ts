@@ -1,4 +1,4 @@
-import type { RoomNamespace } from "../../store/webgl";
+import type { RoomNamespace } from "../route";
 
 export const CAMERA_ARRIVED_EVENT = "duforn:room-camera-arrived";
 

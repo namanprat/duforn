@@ -5,11 +5,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { usePointerField } from "./usePointerField";
 import { ProjectBgTrailCanvas } from "./bgTrail";
 import { buildProjectBgMaterials } from "./bgMaterials";
-import {
-  PROJECT_BG,
-  PROJECT_BG_TRAIL_SIZE,
-  PROJECT_DETAIL_BG_CAMERA_Z,
-} from "./sceneConfig";
+import { PROJECT_BG, PROJECT_BG_TRAIL_SIZE, PROJECT_DETAIL_BG_CAMERA_Z } from "./sceneConfig";
 import { getLenis } from "../lib/lenis-scroll";
 
 const MODEL_URL = "/models/project-bg.glb";
@@ -47,12 +43,7 @@ export default function ProjectBg({ onReady }: ProjectBgProps) {
 
   useEffect(() => {
     const virtualScene = new THREE.Scene();
-    const virtualCamera = new THREE.PerspectiveCamera(
-      PROJECT_BG.cameraFov,
-      1,
-      0.1,
-      100,
-    );
+    const virtualCamera = new THREE.PerspectiveCamera(PROJECT_BG.cameraFov, 1, 0.1, 100);
     virtualCamera.position.set(0, 0, PROJECT_DETAIL_BG_CAMERA_Z + PROJECT_BG.cameraZOffset);
     virtualCamera.lookAt(0, 0, 0);
 

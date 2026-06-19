@@ -7,7 +7,6 @@ import WorkPage from "./routes/Work";
 import ContactPage from "./routes/Contact";
 import ProjectDetailPage from "./routes/Project";
 import ArchivePage from "./routes/Archive";
-import { useWebglStore } from "./store/webgl";
 import { setNavigateHandler } from "./lib/nav";
 import { startWorkTexturePreload } from "./lib/work-preload";
 import { getRouteNamespace } from "./lib/route";
@@ -25,7 +24,6 @@ const TITLES: Record<string, string> = {
 function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
-  const setActivePage = useWebglStore((s) => s.setActivePage);
   const namespace = getRouteNamespace(location.pathname);
   const transitionRef = useRef(false);
 
@@ -47,14 +45,13 @@ function AppShell() {
   }, [navigate, location.pathname]);
 
   useLayoutEffect(() => {
-    setActivePage(namespace);
     document.title = TITLES[namespace] ?? TITLES.main;
     document.body.classList.add("page-wrap");
     document.body.classList.toggle("page-wrap--scrollable", namespace === "projectDetail");
     return () => {
       document.body.classList.remove("page-wrap--scrollable");
     };
-  }, [namespace, setActivePage]);
+  }, [namespace]);
 
   useEffect(() => {
     if (namespace === "projectDetail") {

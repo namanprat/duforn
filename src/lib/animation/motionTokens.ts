@@ -34,4 +34,3 @@ export const MOTION_TOKENS = {
     aboutRevealDelay: 0.1,
   },
 } as const;
-

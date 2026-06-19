@@ -48,6 +48,7 @@ export default function WorkPage() {
       className="work_page u-min-height-screen u-color-light u-background-transparent"
       data-page-namespace="work"
     >
+      <div className="u-section-spacer-medium" />
       <TextRevealLines
         key={title}
         animateOnScroll={false}

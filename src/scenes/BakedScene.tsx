@@ -30,10 +30,7 @@ type ShadowSetup = {
   catcherD: number;
 };
 
-function computeShadowSetup(
-  scene: THREE.Object3D,
-  size: THREE.Vector3,
-): ShadowSetup {
+function computeShadowSetup(scene: THREE.Object3D, size: THREE.Vector3): ShadowSetup {
   const w = size.x * MODEL_SCALE;
   const h = size.y * MODEL_SCALE;
   const d = size.z * MODEL_SCALE;

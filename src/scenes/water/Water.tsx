@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
+import { useLocation } from "react-router-dom";
 import * as THREE from "three";
 import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
 import { WaterSim } from "./WaterSim";
@@ -7,7 +8,7 @@ import { createWaterSurfaceMaterial } from "./surfaceMaterial";
 import { createCausticsPass, patchCausticsReceivers, WATER_LIGHT_DIR } from "./caustics";
 import { createPoolWaterMesh, findCausticsReceiverMeshes, getWaterBounds } from "./pool";
 import { worldPointToSimUv } from "./waterPlanarMapping";
-import { useWebglStore } from "../../store/webgl";
+import { getRouteNamespace } from "../../lib/route";
 
 const HDR_URL = "/main.hdr";
 
@@ -33,8 +34,9 @@ const STARTUP_DROPS = [
 ] as const;
 
 export default function Water({ sceneRoot }: WaterProps) {
+  const location = useLocation();
   const { gl, camera } = useThree();
-  const activePage = useWebglStore((s) => s.activePage);
+  const activePage = getRouteNamespace(location.pathname);
 
   const simRef = useRef<WaterSim | null>(null);
   const surfaceRef = useRef<ReturnType<typeof createWaterSurfaceMaterial> | null>(null);

@@ -97,11 +97,7 @@ export default function RotateHoverLabel({ text }: RotateHoverLabelProps) {
     if (isFirstRender.current) {
       isFirstRender.current = false;
     } else {
-      gsap.fromTo(
-        allSpans,
-        { yPercent: 100 },
-        { yPercent: 0, duration, ease, stagger },
-      );
+      gsap.fromTo(allSpans, { yPercent: 100 }, { yPercent: 0, duration, ease, stagger });
     }
 
     return () => {
@@ -130,4 +126,3 @@ export default function RotateHoverLabel({ text }: RotateHoverLabelProps) {
     </span>
   );
 }
-

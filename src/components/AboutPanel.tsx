@@ -10,7 +10,7 @@ import {
   ABOUT_PRINCIPLES,
   ABOUT_WORDS,
 } from "../content/studio";
-import { createAboutLenis } from "../lib/lenis-about";
+import Lenis from "lenis";
 import { MOTION_TOKENS } from "../lib/anim/tokens";
 import { MOTION_TOKENS as MENU_MOTION } from "../lib/animation/motionTokens";
 
@@ -22,8 +22,7 @@ interface AboutPanelProps {
 }
 
 const prefersReducedMotion = () =>
-  typeof window !== "undefined" &&
-  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export default function AboutPanel({ active }: AboutPanelProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -39,7 +38,13 @@ export default function AboutPanel({ active }: AboutPanelProps) {
       return;
     }
 
-    const lenis = createAboutLenis(wrapper, content);
+    const lenis = new Lenis({
+      wrapper,
+      content,
+      lerp: 0.1,
+      smoothWheel: true,
+      wheelMultiplier: 0.8,
+    });
     lenis.scrollTo(0, { immediate: true });
     lenis.resize();
 

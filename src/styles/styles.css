@@ -1,6 +1,6 @@
 /* --- UTILITY CLASSES --- */
 @import "fluid-type.css";
-@import url("https://use.typekit.net/nix4hno.css");
+@import url("https://use.typekit.net/nci7cab.css");
 
 @font-face {
   font-family: "ivypresto-display", serif;
@@ -13,8 +13,8 @@
   font-style: italic;
 }
 @font-face {
-  font-family: "neue-haas-grotesk-display", sans-serif;
-  font-weight: 400;
+  font-family: "helvetica-neue-lt-pro", sans-serif;
+  font-weight: 500;
   font-style: normal;
 }
 @font-face {
@@ -46,8 +46,7 @@ html {
   /* ─── Fonts ─────────────────────────────────────────── */
   --text-style-font-primary: ivypresto-display, serif;
   /*--text-style-font-secondary: DufornMono, monospace;*/
-  --text-style-font-secondary:  "neue-haas-grotesk-display", sans-serif;
-
+  --text-style-font-secondary: "helvetica-neue-lt-pro", sans-serif;
 
   /* ─── Colours ────────────────────────────────────────── */
   --theme-accent: #f6f6f6;
@@ -150,13 +149,6 @@ html {
   display: none;
 }
 
-body {
-  font-family: var(--text-style-font-primary);
-  font-size: var(--typography-font-size-text-main);
-  background-color: var(--swatch-dark);
-  color: var(--swatch-dark);
-}
-
 span {
   color: inherit;
 }
@@ -177,6 +169,7 @@ a {
 }
 
 h1 {
+  font-family: var(--text-style-font-primary);
   font-size: var(--typography-font-size-h1);
   font-weight: 500;
   line-height: var(--typography-line-height-1);
@@ -184,6 +177,7 @@ h1 {
 }
 
 h2 {
+  font-family: var(--text-style-font-primary);
   font-size: var(--typography-font-size-h2);
   font-weight: 500;
   line-height: var(--typography-line-height-1);
@@ -205,6 +199,8 @@ h4 {
 }
 
 h5 {
+  font-family: var(--text-style-font-secondary);
+
   text-decoration: none;
   font-size: var(--typography-font-size-h5);
   font-weight: 400;
@@ -215,11 +211,12 @@ h5 {
 button,
 a.button,
 body :is(li, ul, ol, dl, dt, dd),
-a {
+a,
+p{
+  font-family: var(--text-style-font-secondary);
   font-size: var(--typography-font-size-text-main);
   letter-spacing: var(--typography-letter-spacing);
   font-weight: 400;
-  font-family: var(--text-style-font-primary);
   font-style: normal;
   text-decoration: none;
   line-height: var(--typography-line-height-medium);
@@ -238,7 +235,25 @@ a.button {
   transition:
     background-color 0.2s ease,
     color 0.2s ease,
-    border-color 0.2s ease;
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  button.button:not([disabled]):not([data-button-hover-scale="false"]):hover,
+  a.button:not([aria-disabled="true"]):not([data-button-hover-scale="false"]):hover {
+    transform: scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button,
+  a.button {
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease,
+      border-color 0.2s ease;
+  }
 }
 
 .button-primary {
@@ -602,7 +617,6 @@ section {
 
 /* System type scale — fluid sizes from fluid-type.css */
 
-
 /* Theming & Color */
 
 .u-heading-accent strong {
@@ -617,7 +631,6 @@ section {
 .u-color-light {
   color: var(--swatch-light);
 }
-
 
 .u-object-fit-cover {
   object-fit: cover;
@@ -1151,6 +1164,7 @@ img {
 
 .work-page__title {
   width: min(100%, 12ch);
+  margin-block: 0;
   margin-inline: auto;
   overflow: hidden;
   text-wrap: balance;

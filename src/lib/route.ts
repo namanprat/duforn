@@ -1,4 +1,5 @@
-import type { AppNamespace } from "../store/webgl";
+export type RoomNamespace = "main" | "work" | "contact" | "archive";
+export type AppNamespace = RoomNamespace | "projectDetail";
 
 const PATH_TO_NAMESPACE: Record<string, AppNamespace> = {
   "/": "main",

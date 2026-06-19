@@ -1,5 +1,7 @@
 import { DEFAULT_CAMERA_BASE_POSE, type CameraPose } from "./pose";
-import type { RoomNamespace } from "../../store/webgl";
+import type { RoomNamespace } from "../../lib/route";
+
+export type { RoomNamespace } from "../../lib/route";
 
 export function withDelta(base: CameraPose, delta: Partial<CameraPose>): CameraPose {
   return Object.freeze({ ...base, ...delta });
@@ -33,14 +35,18 @@ export function poseToCameraPosition(pose: CameraPose): { x: number; y: number; 
  * Per-room "stable" camera pose. Values authored against the baked Roman-bath
  * scene at MODEL_SCALE = 13. Tune live via RoomCameraGui (dev) and commit here.
  */
+// Main pose uses shared fov / center Y; work and contact override per-room.
+const SHARED_FOV = 65;
+const SHARED_CENTER_Y = 17.5;
+
 export const MAIN_POSE: CameraPose = Object.freeze({
   ...DEFAULT_CAMERA_BASE_POSE,
   orbitCenterX: 65,
-  orbitCenterY: 17.5,
+  orbitCenterY: SHARED_CENTER_Y,
   orbitCenterZ: 10.5,
   orbitRadius: 5,
   cameraHeight: 1,
-  fov: 65,
+  fov: SHARED_FOV,
   orbitAngleDeg: -26,
   lookAtYawDeg: 0,
   lookAtPitchDeg: 0,

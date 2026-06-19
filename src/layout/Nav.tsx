@@ -12,7 +12,7 @@ import gsap from "gsap";
 import { navigateTo } from "../lib/nav";
 import RotateHoverLabel from "../components/RotateHoverLabel";
 import AboutPanel from "../components/AboutPanel";
-import { initLinkHover, shouldUseNavRotateHover } from "../lib/link-hover";
+import { shouldUseNavRotateHover } from "../lib/link-hover";
 import { MOTION_TOKENS } from "../lib/animation/motionTokens";
 
 const MENU_LINKS = [
@@ -25,8 +25,7 @@ const PANEL_CLIP_CLOSED = "inset(0% 0% 100% 100% round 16px)";
 const PANEL_CLIP_OPEN = "inset(0% 0% 0% 0% round 16px)";
 
 const prefersReducedMotion = () =>
-  typeof window !== "undefined" &&
-  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 function resolveMenuWidthPx(aboutOpen: boolean, trackWidth: number): number {
   const rootFont = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
@@ -113,10 +112,6 @@ export default function Nav() {
   }, [isAboutOpen]);
 
   useEffect(() => {
-    initLinkHover();
-  }, [isMenuOpen, isAboutOpen, toggleLabel]);
-
-  useEffect(() => {
     if (!isMenuOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
@@ -128,56 +123,53 @@ export default function Nav() {
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [closeAll, isAboutOpen, isMenuOpen]);
 
-  const measurePanelHeight = useCallback(
-    (aboutOpen: boolean, widthPx: number) => {
-      const panel = panelRef.current;
-      const menuNav = menuNavRef.current;
-      const scope = scopeRef.current;
-      if (!panel || !menuNav || !scope) return 0;
+  const measurePanelHeight = useCallback((aboutOpen: boolean, widthPx: number) => {
+    const panel = panelRef.current;
+    const menuNav = menuNavRef.current;
+    const scope = scopeRef.current;
+    if (!panel || !menuNav || !scope) return 0;
 
-      const about = scope.querySelector<HTMLElement>(".menu-nav__about");
-      const linksBlock = scope.querySelector<HTMLElement>(".menu-nav__links");
+    const about = scope.querySelector<HTMLElement>(".menu-nav__about");
+    const linksBlock = scope.querySelector<HTMLElement>(".menu-nav__links");
 
-      const prev = {
-        width: menuNav.style.width,
-        height: panel.style.height,
-        visibility: panel.style.visibility,
-        aboutDisplay: about?.style.display ?? "",
-        aboutHeight: about?.style.height ?? "",
-        aboutVisibility: about?.style.visibility ?? "",
-        linksDisplay: linksBlock?.style.display ?? "",
-      };
+    const prev = {
+      width: menuNav.style.width,
+      height: panel.style.height,
+      visibility: panel.style.visibility,
+      aboutDisplay: about?.style.display ?? "",
+      aboutHeight: about?.style.height ?? "",
+      aboutVisibility: about?.style.visibility ?? "",
+      linksDisplay: linksBlock?.style.display ?? "",
+    };
 
-      menuNav.style.width = `${widthPx}px`;
-      panel.style.visibility = "visible";
-      panel.style.height = "auto";
+    menuNav.style.width = `${widthPx}px`;
+    panel.style.visibility = "visible";
+    panel.style.height = "auto";
 
-      if (aboutOpen && about) {
-        about.style.display = "block";
-        about.style.height = "auto";
-        about.style.visibility = "visible";
-        if (linksBlock) linksBlock.style.display = "none";
-      } else {
-        if (about) about.style.display = "none";
-        if (linksBlock) linksBlock.style.display = "";
-      }
+    if (aboutOpen && about) {
+      about.style.display = "block";
+      about.style.height = "auto";
+      about.style.visibility = "visible";
+      if (linksBlock) linksBlock.style.display = "none";
+    } else {
+      if (about) about.style.display = "none";
+      if (linksBlock) linksBlock.style.display = "";
+    }
 
-      const height = panel.scrollHeight;
+    const height = panel.scrollHeight;
 
-      menuNav.style.width = prev.width;
-      panel.style.height = prev.height;
-      panel.style.visibility = prev.visibility;
-      if (about) {
-        about.style.display = prev.aboutDisplay;
-        about.style.height = prev.aboutHeight;
-        about.style.visibility = prev.aboutVisibility;
-      }
-      if (linksBlock) linksBlock.style.display = prev.linksDisplay;
+    menuNav.style.width = prev.width;
+    panel.style.height = prev.height;
+    panel.style.visibility = prev.visibility;
+    if (about) {
+      about.style.display = prev.aboutDisplay;
+      about.style.height = prev.aboutHeight;
+      about.style.visibility = prev.aboutVisibility;
+    }
+    if (linksBlock) linksBlock.style.display = prev.linksDisplay;
 
-      return height;
-    },
-    [],
-  );
+    return height;
+  }, []);
 
   useLayoutEffect(() => {
     const scope = scopeRef.current;
@@ -271,7 +263,7 @@ export default function Nav() {
         autoAlpha: 0,
         duration: menu.closeDuration * 0.6,
         stagger: { each: menu.lineStagger, from: "end" },
-      }      ).to(
+      }).to(
         panel,
         {
           height: 0,
@@ -390,11 +382,7 @@ export default function Nav() {
   }, [isAboutOpen, isMenuOpen, measurePanelHeight]);
 
   const toggleAriaLabel =
-    toggleLabel === "Menu"
-      ? "Open menu"
-      : toggleLabel === "Back"
-        ? "Back to menu"
-        : "Close menu";
+    toggleLabel === "Menu" ? "Open menu" : toggleLabel === "Back" ? "Back to menu" : "Close menu";
 
   return (
     <header className="site-header">
@@ -420,11 +408,7 @@ export default function Nav() {
           data-rotate-hover={useRotateHover ? "" : undefined}
           onClick={handleToggleClick}
         >
-          {useRotateHover ? (
-            <RotateHoverLabel text={toggleLabel} />
-          ) : (
-            toggleLabel
-          )}
+          {useRotateHover ? <RotateHoverLabel text={toggleLabel} /> : toggleLabel}
         </button>
       </div>
 

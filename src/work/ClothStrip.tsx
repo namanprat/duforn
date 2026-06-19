@@ -5,7 +5,6 @@ import { createColorFallbackTexture, loadTextureAsset } from "../lib/assets";
 import { getPreloadedTextures } from "../lib/work-preload";
 import { workItems } from "../content/work-items";
 import { navigateTo } from "../lib/nav";
-import { pickGpuBranch } from "../lib/render/dual";
 import { useWorkSceneControlsStore } from "../store/workScene";
 import {
   COLS,
@@ -22,6 +21,11 @@ const VELOCITY_SCALE_THRESHOLD = 0.02;
 
 function loadTextureAssets(urls: string[], options = {}) {
   return Promise.all(urls.map((url) => loadTextureAsset(url, options)));
+}
+
+function isWebGPURenderer(renderer: unknown) {
+  const candidate = renderer as { __rendererType?: string; isWebGPURenderer?: boolean } | undefined;
+  return candidate?.__rendererType === "webgpu" || candidate?.isWebGPURenderer === true;
 }
 
 function buildArcGeometry(
@@ -70,14 +74,16 @@ function buildArcGeometry(
   return geometry;
 }
 
-async function createWebGPUStripMaterial(textures: THREE.Texture[], stripConfig: Record<string, number>) {
+async function createWebGPUStripMaterial(
+  textures: THREE.Texture[],
+  stripConfig: Record<string, number>,
+) {
   const { MeshBasicNodeMaterial } = await import("three/webgpu");
   const tsl = await import("three/tsl");
   const {
     Fn,
     float,
     vec2,
-    vec3,
     vec4,
     int,
     uniform,
@@ -131,14 +137,18 @@ async function createWebGPUStripMaterial(textures: THREE.Texture[], stripConfig:
     const wind = uniforms.uWindStrength.mul(0.01);
     const freq = uniforms.uWaveFrequency;
     const wave1 = sin(u.mul(freq).sub(time.mul(float(2.0).add(wind)))).mul(looseness);
-    const wave2 = sin(u.add(v).mul(freq.mul(0.7)).sub(time.mul(1.8))).mul(looseness).mul(0.5);
+    const wave2 = sin(u.add(v).mul(freq.mul(0.7)).sub(time.mul(1.8)))
+      .mul(looseness)
+      .mul(0.5);
     const flutter = sin(u.mul(freq.mul(2.5)).sub(time.mul(4.0)))
       .mul(looseness)
       .mul(looseness)
       .mul(0.18);
 
     pos.y.subAssign(v.mul(v).mul(uniforms.uGravityScale.mul(0.08)).mul(looseness));
-    pos.z.addAssign(wave1.add(wave2).mul(uniforms.uWaveAmplitude).add(flutter.mul(uniforms.uWaveAmplitude)));
+    pos.z.addAssign(
+      wave1.add(wave2).mul(uniforms.uWaveAmplitude).add(flutter.mul(uniforms.uWaveAmplitude)),
+    );
     pos.x.addAssign(sin(time.mul(0.18)).mul(looseness).mul(0.04));
 
     return pos;
@@ -289,10 +299,15 @@ function createWebGLStripMaterial(textures: THREE.Texture[], stripConfig: Record
   return { material, uniforms };
 }
 
-export function WorkClothStripScene() {
+export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
   const { gl } = useThree();
   const systemRef = useRef<{ material: THREE.Material; uniforms: any } | null>(null);
   const groupRef = useRef<THREE.Group>(null);
+  // The strip stays in the scene on every room, but only responds to input on
+  // the work page. Tracked in a ref so the window listeners read it live without
+  // re-subscribing on every route change.
+  const onWorkRef = useRef(false);
+  onWorkRef.current = activeRoom === "work";
   const stripControls = useWorkSceneControlsStore((state) => state.controls.strip);
   const visibleItems = Math.max(1, stripControls.visibleItems ?? DEFAULT_VISIBLE_ITEMS);
   const gapSize = stripControls.gapSize ?? DEFAULT_GAP_SIZE;
@@ -319,14 +334,20 @@ export function WorkClothStripScene() {
   const grabScaleRef = useRef(1);
 
   useEffect(() => {
-    const element = gl.domElement;
+    // Listen on window rather than the canvas: the strip sits behind the page
+    // wrappers (`.site_wrap` / `.site_content`, z-index 1) which would otherwise
+    // swallow wheel/drag before they reached the canvas. Skip while the menu/about
+    // overlay is open so its own scroll keeps working.
+    const canInteract = () => onWorkRef.current && !document.body.classList.contains("menu-open");
     const onWheel = (e: WheelEvent) => {
+      if (!canInteract()) return;
       e.preventDefault();
       const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
       scrollRef.current.target += delta * scrollConfig.wheelSensitivity;
       scrollRef.current.velocity += delta * scrollConfig.wheelSensitivity * 0.24;
     };
     const onPointerDown = (e: PointerEvent) => {
+      if (!canInteract()) return;
       inputRef.current.isDown = true;
       inputRef.current.lastX = e.clientX;
       inputRef.current.startX = e.clientX;
@@ -344,17 +365,22 @@ export function WorkClothStripScene() {
       inputRef.current.isDown = false;
     };
 
-    element.addEventListener("wheel", onWheel, { passive: false });
-    element.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onPointerUp);
     return () => {
-      element.removeEventListener("wheel", onWheel);
-      element.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
     };
-  }, [gl, scrollConfig.dragSensitivity, scrollConfig.dragVelocityScale, scrollConfig.wheelSensitivity]);
+  }, [
+    gl,
+    scrollConfig.dragSensitivity,
+    scrollConfig.dragVelocityScale,
+    scrollConfig.wheelSensitivity,
+  ]);
 
   const [textures, setTextures] = useState<THREE.Texture[] | null>(null);
   const fallbackTextures = useMemo(
@@ -412,10 +438,9 @@ export function WorkClothStripScene() {
   useEffect(() => {
     let cancelled = false;
     if (!activeTextures) return;
-    const createStripMaterial = pickGpuBranch(gl, {
-      webgpu: () => createWebGPUStripMaterial,
-      webgl: () => createWebGLStripMaterial,
-    });
+    const createStripMaterial = isWebGPURenderer(gl)
+      ? createWebGPUStripMaterial
+      : createWebGLStripMaterial;
     Promise.resolve(createStripMaterial(activeTextures, stripConfig))
       .then((system) => {
         if (cancelled) return;
@@ -480,13 +505,16 @@ export function WorkClothStripScene() {
     const newTitle = workItems[centerIdx]?.title || "";
     if (newTitle !== currentTitleRef.current) {
       currentTitleRef.current = newTitle;
-      window.dispatchEvent(new CustomEvent("duforn:work-strip-title", { detail: { title: newTitle } }));
+      window.dispatchEvent(
+        new CustomEvent("duforn:work-strip-title", { detail: { title: newTitle } }),
+      );
     }
   });
 
   if (!activeTextures || !stripMaterial) return null;
 
   const handleStripClick = (e: any) => {
+    if (!onWorkRef.current) return;
     if (inputRef.current.dragDist > 8 || !e.uv) return;
     e.stopPropagation();
     const resolvedSlot = resolveVisibleSlotAtUv(

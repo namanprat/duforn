@@ -249,27 +249,27 @@ export default function TextRevealLines({
     },
     {
       scope: containerRef,
-      dependencies: [
-        animateOnScroll,
-        animate,
-        delay,
-        scope,
-        waitForCamera,
-        layoutKey,
-      ],
+      dependencies: [animateOnScroll, animate, delay, scope, waitForCamera, layoutKey],
     },
   );
 
   if (React.Children.count(children) === 1) {
     const only = React.Children.only(children);
     return React.cloneElement(only, {
-      ref: mergeRefs(containerRef, (only as React.ReactElement & { ref?: React.Ref<HTMLElement> }).ref),
+      ref: mergeRefs(
+        containerRef,
+        (only as React.ReactElement & { ref?: React.Ref<HTMLElement> }).ref,
+      ),
       "data-text-reveal-root": "",
     } as React.HTMLAttributes<HTMLElement>);
   }
 
   return (
-    <div ref={containerRef as React.RefObject<HTMLDivElement>} data-copy-wrapper="true" data-text-reveal-root="">
+    <div
+      ref={containerRef as React.RefObject<HTMLDivElement>}
+      data-copy-wrapper="true"
+      data-text-reveal-root=""
+    >
       {children}
     </div>
   );

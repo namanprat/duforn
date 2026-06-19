@@ -37,11 +37,7 @@ export function createPoolWaterMesh(root: THREE.Object3D): THREE.Mesh | null {
 
   const mesh = new THREE.Mesh(geo);
   mesh.name = "PoolWater";
-  mesh.position.set(
-    (bbox.min.x + bbox.max.x) * 0.5,
-    bbox.max.y,
-    (bbox.min.z + bbox.max.z) * 0.5,
-  );
+  mesh.position.set((bbox.min.x + bbox.max.x) * 0.5, bbox.max.y, (bbox.min.z + bbox.max.z) * 0.5);
   mesh.userData.isWater = true;
   mesh.renderOrder = 10;
   mesh.frustumCulled = false;
@@ -76,8 +72,10 @@ export function findCausticsReceiverMeshes(
     const forced = RECEIVER_NAMES.some((n) => norm.includes(n));
 
     const box = meshBox(mesh);
-    const overlapX = Math.min(box.max.x, bounds.minX + bounds.width) - Math.max(box.min.x, bounds.minX);
-    const overlapZ = Math.min(box.max.z, bounds.minZ + bounds.depth) - Math.max(box.min.z, bounds.minZ);
+    const overlapX =
+      Math.min(box.max.x, bounds.minX + bounds.width) - Math.max(box.min.x, bounds.minX);
+    const overlapZ =
+      Math.min(box.max.z, bounds.minZ + bounds.depth) - Math.max(box.min.z, bounds.minZ);
     const overlap = Math.max(0, overlapX) * Math.max(0, overlapZ);
 
     if (forced || (overlap >= minOverlap && box.min.y < waterY - 0.01)) {

@@ -1,11 +1,6 @@
 export default function ArchivePage() {
   return (
-    <main
-      id="main"
-      data-page-container="true"
-      data-page-namespace="archive"
-      aria-label="Archive"
-    >
+    <main id="main" data-page-container="true" data-page-namespace="archive" aria-label="Archive">
       <div className="archive-page">
         <header className="archive-page__header u-container-main">
           <p className="archive-page__eyebrow u-text-style-small u-text-style-font-secondary">

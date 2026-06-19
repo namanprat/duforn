@@ -1,11 +1,8 @@
-import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import SceneCanvas from "../scenes/SceneCanvas";
 import ProjectDetailCanvas from "../scenes/ProjectDetailCanvas";
 import Nav from "./Nav";
-import { useWebglStore } from "../store/webgl";
-import { destroyLinkHover, initLinkHover } from "../lib/link-hover";
-import { destroyButtonHoverScale, initButtonHoverScale } from "../lib/button-hover-scale";
+import { getRouteNamespace } from "../lib/route";
 import "../styles/pages.css";
 
 /**
@@ -15,18 +12,9 @@ import "../styles/pages.css";
  */
 export default function SiteLayout() {
   const location = useLocation();
-  const activePage = useWebglStore((s) => s.activePage);
-  const showRoomCanvas = activePage !== "projectDetail";
-  const showProjectCanvas = activePage === "projectDetail";
-
-  useEffect(() => {
-    initLinkHover();
-    initButtonHoverScale();
-    return () => {
-      destroyLinkHover();
-      destroyButtonHoverScale();
-    };
-  }, [location.pathname]);
+  const namespace = getRouteNamespace(location.pathname);
+  const showRoomCanvas = namespace !== "projectDetail";
+  const showProjectCanvas = namespace === "projectDetail";
 
   return (
     <div className="site_wrap">
