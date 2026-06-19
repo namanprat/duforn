@@ -1,35 +1,34 @@
-import React, { useLayoutEffect, useRef, useState } from "react";
-import RotateHoverLabel from "../ui/HoverLabel";
+import { useLayoutEffect, useRef, useState } from "react";
+import ContactWordmark from "./ContactWordmark";
 import TextRevealLines from "../text/Reveal";
 import CameraRevealGroup from "../text/CameraRevealGroup";
 import MaskReveal from "../text/MaskReveal";
-import { shouldUseNavRotateHover } from "../../scripts/link-hover";
-import ContactWordmark from "./ContactWordmark";
+import { CONTACT_EMAIL, CONTACT_INTRO_COPY, CONTACT_LINKS } from "../content/studio";
+import RotateHoverLabel from "../components/RotateHoverLabel";
+import { shouldUseNavRotateHover } from "../lib/link-hover";
 
-const CONTACT_EMAIL = "naman@duforn.com";
-const CONTACT_DESKTOP_MQ = "(min-width: 769px)";
+const DESKTOP_MQ = "(min-width: 50em)";
 
 export default function ContactPage() {
-  const useRotateEmailHover = shouldUseNavRotateHover();
   const buttonsRef = useRef<HTMLDivElement>(null);
   const [buttonsHeight, setButtonsHeight] = useState<number | null>(null);
-  const [isDesktopLayout, setIsDesktopLayout] = useState(() =>
-    typeof window !== "undefined" ? window.matchMedia(CONTACT_DESKTOP_MQ).matches : true,
+  const useRotateHover = shouldUseNavRotateHover();
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia(DESKTOP_MQ).matches : true,
   );
 
   useLayoutEffect(() => {
-    const mq = window.matchMedia(CONTACT_DESKTOP_MQ);
-    const onLayoutChange = () => setIsDesktopLayout(mq.matches);
-    onLayoutChange();
-    mq.addEventListener("change", onLayoutChange);
-    return () => mq.removeEventListener("change", onLayoutChange);
+    const mq = window.matchMedia(DESKTOP_MQ);
+    const onChange = () => setIsDesktop(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
   }, []);
 
   useLayoutEffect(() => {
     const el = buttonsRef.current;
     if (!el) return;
-
-    const mq = window.matchMedia(CONTACT_DESKTOP_MQ);
+    const mq = window.matchMedia(DESKTOP_MQ);
 
     const update = () => {
       if (!mq.matches) {
@@ -40,94 +39,67 @@ export default function ContactPage() {
     };
 
     update();
-
-    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
-    ro?.observe(el);
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
     mq.addEventListener("change", update);
-
     return () => {
-      ro?.disconnect();
+      ro.disconnect();
       mq.removeEventListener("change", update);
     };
   }, []);
 
-  const contactContentStyle =
+  const containStyle =
     buttonsHeight != null
       ? ({ "--contact-buttons-height": `${buttonsHeight}px` } as React.CSSProperties)
       : undefined;
 
   return (
-    <main id="main" data-page-container="true" data-page-namespace="contact">
-      <section className="contact u-color-light u-background-transparent u-min-height-screen u-flex-vertical-nowrap u-justify-content-center u-align-items-center">
-        <div
-          className="contact-content u-container-main u-height-auto u-width-full u-max-width-full"
-          style={contactContentStyle}
-        >
-          <div className="contact-grid__title u-overflow-hidden u-width-full">
-            <MaskReveal waitForCamera delay={0.06} className="contact-page-title-mask">
-              <h1
-                className="contact-page-title"
-                aria-label="contact"
-                data-brand-handoff-title="contact"
-              >
-                <ContactWordmark
-                  className="contact-page-title-svg"
-                  align={isDesktopLayout ? "start" : "mid"}
-                />
-              </h1>
-            </MaskReveal>
-          </div>
-          <TextRevealLines animateOnScroll={false} waitForCamera delay={0.06}>
-            <p className="contact-grid__intro contact-intro u-text-align-right u-width-full">
-              AVAILABLE FOR FREELANCE PROJECTS,
-              <br />
-              ART DIRECTION, AND DIGITAL DESIGN INQUIRIES.
-            </p>
-          </TextRevealLines>
-
-          <div className="contact-grid__actions u-flex-vertical-nowrap u-gap-3">
-            <CameraRevealGroup delay={0.12}>
-              <div
-                ref={buttonsRef}
-                className="contact-grid__buttons u-flex-vertical-nowrap u-gap-2"
-              >
-                <a
-                  className="button button-primary"
-                  href="https://www.instagram.com/namanprat_"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  data-rotate-hover={useRotateEmailHover ? "" : undefined}
-                >
-                  {useRotateEmailHover ? <RotateHoverLabel text="INSTAGRAM" /> : "INSTAGRAM"}{" "}
-                  <span aria-hidden="true">↗</span>
-                </a>
-                <a
-                  className="button button-secondary"
-                  href="https://cal.com/namanprat/discovery-call"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  data-rotate-hover={useRotateEmailHover ? "" : undefined}
-                >
-                  {useRotateEmailHover ? (
-                    <RotateHoverLabel text="DISCOVERY CALL" />
-                  ) : (
-                    "DISCOVERY CALL"
-                  )}{" "}
-                  <span aria-hidden="true">↗</span>
-                </a>
-              </div>
-              <h2 className="contact-grid__email contact-email u-text-italic">
-                <a
-                  href={`mailto:${CONTACT_EMAIL}`}
-                  data-rotate-hover={useRotateEmailHover ? "" : undefined}
-                >
-                  {useRotateEmailHover ? <RotateHoverLabel text={CONTACT_EMAIL} /> : CONTACT_EMAIL}
-                </a>
-              </h2>
-            </CameraRevealGroup>
-          </div>
+    <main
+      className="contact_wrap u-min-height-screen u-color-light u-background-transparent"
+      data-page-namespace="contact"
+    >
+      <div className="contact_contain u-container-main" style={containStyle}>
+        <div className="contact_title_wrap u-width-full">
+          <MaskReveal waitForCamera delay={0.06} className="contact-page-title-mask">
+            <h1 className="contact_title" aria-label="contact">
+              <ContactWordmark className="contact_title_svg" align={isDesktop ? "start" : "mid"} />
+            </h1>
+          </MaskReveal>
         </div>
-      </section>
+
+        <TextRevealLines animateOnScroll={false} waitForCamera delay={0.06}>
+          <h5 className="contact_intro u-width-full">{CONTACT_INTRO_COPY}</h5>
+        </TextRevealLines>
+
+        <div className="contact_actions_wrap">
+          <CameraRevealGroup delay={0.12}>
+            <div ref={buttonsRef} className="contact_buttons_wrap">
+              {CONTACT_LINKS.map((link, index) => (
+                <a
+                  key={link.href}
+                  className={`button ${index === 0 ? "button-primary" : "button-secondary"} contact_button_wrap`}
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-rotate-hover={useRotateHover ? "" : undefined}
+                >
+                  <span className="contact_button_text">
+                    {useRotateHover ? <RotateHoverLabel text={link.label} /> : link.label}
+                  </span>
+                  <span className="contact_button_icon" aria-hidden="true">
+                    ↗
+                  </span>
+                </a>
+              ))}
+            </div>
+            <h2 className="contact_email">
+              <a className="contact_email_link_wrap" href={`mailto:${CONTACT_EMAIL}`}>
+                <h2 className="u-text-style-h2 u-text-lowercase">{CONTACT_EMAIL}</h2>
+              </a>
+            </h2>
+          </CameraRevealGroup>
+        </div>
+      </div>
     </main>
   );
 }

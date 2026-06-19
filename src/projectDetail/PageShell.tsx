@@ -1,29 +1,40 @@
-// @ts-nocheck
-import React from "react";
 import TextRevealLines from "../text/Reveal";
-import RotateHoverLabel from "../ui/HoverLabel";
-import { shouldUseNavRotateHover } from "../../scripts/link-hover";
+import RotateHoverLabel from "../components/RotateHoverLabel";
+import { shouldUseNavRotateHover } from "../lib/link-hover";
 import MoneyMeStripCanvas from "./MoneyMeStripCanvas";
 
-/**
- * Project detail layout. Each major block uses a `project-details-*`
- * component class that owns its column width and horizontal centering
- * (see `.project-details-{content,hero-info,cover-frame,supporting-image}`
- * in styles.css). Text inside stays default left-aligned.
- */
+interface ImageItem {
+  src?: string;
+  alt: string;
+  objectFit?: "contain" | "cover";
+  webpSrcSet?: string[];
+  jpgSrc?: string;
+  jpgSrcSet?: string[];
+  sizes?: string;
+  kind?: string;
+}
 
-function ProjectDetailsImage({ item, eager = false }) {
+interface StorySection {
+  heading: string;
+  body: string[];
+}
+
+interface ProjectHero {
+  titleLines: Array<{ main: string; align?: string; accent?: string }>;
+  overview: string;
+  services: string[];
+  cta: { label: string } | null;
+}
+
+function ProjectDetailsImage({ item, eager = false }: { item: ImageItem; eager?: boolean }) {
   const fit = item.objectFit === "contain" ? "u-object-fit-contain" : "u-object-fit-cover";
-  const imgProps = {
+  const imgProps: React.ImgHTMLAttributes<HTMLImageElement> = {
     alt: item.alt,
     decoding: "async",
     className: `u-display-block u-width-full u-height-full ${fit}`,
-    "data-film-plane-target": "true",
   };
 
-  if (!eager) {
-    imgProps.loading = "lazy";
-  }
+  if (!eager) imgProps.loading = "lazy";
 
   if (item.webpSrcSet?.length) {
     return (
@@ -42,7 +53,11 @@ function ProjectDetailsImage({ item, eager = false }) {
   return <img {...imgProps} src={item.src} />;
 }
 
-function ProjectDetailsHeroHeadline({ lines = [] }) {
+function ProjectDetailsHeroHeadline({
+  lines = [],
+}: {
+  lines: ProjectHero["titleLines"];
+}) {
   const title = lines
     .map((line) => [line.accent, line.main].filter(Boolean).join(" "))
     .filter(Boolean)
@@ -60,11 +75,9 @@ function ProjectDetailsHeroHeadline({ lines = [] }) {
   );
 }
 
-function ProjectDetailsHero({ hero }) {
-  if (!hero) return null;
-
+function ProjectDetailsHero({ hero }: { hero: ProjectHero }) {
   const { titleLines, overview, services, cta } = hero;
-  const useRotateCtaHover = shouldUseNavRotateHover();
+  const useRotateHover = shouldUseNavRotateHover();
 
   return (
     <section className="u-margin-top-0">
@@ -90,7 +103,7 @@ function ProjectDetailsHero({ hero }) {
               </p>
             </TextRevealLines>
             <div className="u-display-grid">
-              {services?.map((service) => (
+              {services.map((service) => (
                 <TextRevealLines key={service} delay={0.02}>
                   <h4>{service}</h4>
                 </TextRevealLines>
@@ -100,9 +113,9 @@ function ProjectDetailsHero({ hero }) {
               <button
                 type="button"
                 className="button button-primary button-primary--black u-margin-top-4"
-                data-rotate-hover={useRotateCtaHover ? "" : undefined}
+                data-rotate-hover={useRotateHover ? "" : undefined}
               >
-                {useRotateCtaHover ? <RotateHoverLabel text={cta.label} /> : cta.label}
+                {useRotateHover ? <RotateHoverLabel text={cta.label} /> : cta.label}
               </button>
             ) : null}
           </div>
@@ -112,28 +125,24 @@ function ProjectDetailsHero({ hero }) {
   );
 }
 
-function ProjectDetailsCover({ item }) {
+function ProjectDetailsCover({ item }: { item: ImageItem }) {
   return (
     <section className="project-details-cover">
-      <div
-        className="project-details-cover-frame"
-        data-film-plane-trigger="true"
-        data-film-plane-interaction="scroll-scale"
-      >
+      <div className="project-details-cover-frame">
         <ProjectDetailsImage item={item} eager />
       </div>
     </section>
   );
 }
 
-function ProjectDetailsStorySection({ section }) {
+function ProjectDetailsStorySection({ section }: { section: StorySection }) {
   return (
     <article className="u-display-grid u-gap-2">
       <TextRevealLines>
         <h2 className="u-text-style-h4 u-margin-0">{section.heading}</h2>
       </TextRevealLines>
       <div className="u-display-grid u-gap-4">
-        {section.body?.map((paragraph) => (
+        {section.body.map((paragraph) => (
           <TextRevealLines key={paragraph}>
             <p>{paragraph}</p>
           </TextRevealLines>
@@ -143,8 +152,8 @@ function ProjectDetailsStorySection({ section }) {
   );
 }
 
-function ProjectDetailsStorySectionGroup({ sections }) {
-  if (!sections?.length) return null;
+function ProjectDetailsStorySectionGroup({ sections }: { sections: StorySection[] }) {
+  if (!sections.length) return null;
 
   return (
     <section className="u-margin-top-0">
@@ -159,23 +168,32 @@ function ProjectDetailsStorySectionGroup({ sections }) {
   );
 }
 
-function ProjectDetailsSupportingImage({ item, wide = false }) {
-  const cls = wide
-    ? "project-details-supporting-image u-margin-top-0"
-    : "project-details-supporting-image";
+function ProjectDetailsSupportingImage({
+  item,
+  wide = false,
+}: {
+  item: ImageItem;
+  wide?: boolean;
+}) {
+  const cls = wide ? "project-details-supporting-image u-margin-top-0" : "project-details-supporting-image";
   return (
     <section className={cls}>
       <div className="u-container-main">
-        <div className="project-details-supporting-image-frame" data-film-plane-trigger="true">
-          {item.kind === "money-me-strips" ? (
-            <MoneyMeStripCanvas />
-          ) : (
-            <ProjectDetailsImage item={item} />
-          )}
+        <div className="project-details-supporting-image-frame">
+          {item.kind === "money-me-strips" ? <MoneyMeStripCanvas /> : <ProjectDetailsImage item={item} />}
         </div>
       </div>
     </section>
   );
+}
+
+interface ProjectDetailsPageShellProps {
+  projectHero: ProjectHero;
+  heroImage: ImageItem;
+  sections: StorySection[];
+  interstitialImage: ImageItem;
+  closingSection: StorySection | null;
+  outro: string;
 }
 
 export default function ProjectDetailsPageShell({
@@ -185,29 +203,22 @@ export default function ProjectDetailsPageShell({
   interstitialImage,
   closingSection,
   outro,
-}) {
-  const introSections = sections?.slice(0, 2) ?? [];
-  const restSections = sections?.slice(2) ?? [];
+}: ProjectDetailsPageShellProps) {
+  const introSections = sections.slice(0, 2);
+  const restSections = sections.slice(2);
 
   return (
     <main
-      id="main"
       className="project-details-page"
       data-page-container="true"
       data-page-namespace="projectDetail"
     >
       <ProjectDetailsHero hero={projectHero} />
-
       {heroImage ? <ProjectDetailsCover item={heroImage} /> : null}
-
       <ProjectDetailsStorySectionGroup sections={introSections} />
-
       {interstitialImage ? <ProjectDetailsSupportingImage item={interstitialImage} wide /> : null}
-
       <ProjectDetailsStorySectionGroup sections={restSections} />
-
       {closingSection ? <ProjectDetailsStorySectionGroup sections={[closingSection]} /> : null}
-
       {outro ? (
         <section className="project-details-outro">
           <div className="u-container-main">

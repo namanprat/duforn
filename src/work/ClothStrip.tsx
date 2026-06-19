@@ -1,14 +1,11 @@
-// @ts-nocheck
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
-
-import { createColorFallbackTexture, loadTextureAssets } from "../../scripts/runtime/assets";
-import { getPreloadedTextures } from "../../scripts/work-preload";
-import { workItems } from "../../data/work-items";
+import { createColorFallbackTexture, loadTextureAsset } from "../lib/assets";
+import { getPreloadedTextures } from "../lib/work-preload";
+import { workItems } from "../content/work-items";
 import { navigateTo } from "../lib/nav";
-import { pickGpuBranch } from "../lib/render";
-import { useWebglStore } from "../store/webgl";
+import { pickGpuBranch } from "../lib/render/dual";
 import { useWorkSceneControlsStore } from "../store/workScene";
 import {
   COLS,
@@ -23,11 +20,22 @@ const GRAB_SCALE = 0.96;
 const GRAB_SCALE_LERP = 0.14;
 const VELOCITY_SCALE_THRESHOLD = 0.02;
 
-function buildArcGeometry(cols, rows, arcRadius, arcSpan, height, yOffset) {
+function loadTextureAssets(urls: string[], options = {}) {
+  return Promise.all(urls.map((url) => loadTextureAsset(url, options)));
+}
+
+function buildArcGeometry(
+  cols: number,
+  rows: number,
+  arcRadius: number,
+  arcSpan: number,
+  height: number,
+  yOffset: number,
+) {
   const count = cols * rows;
   const positions = new Float32Array(count * 3);
   const uvs = new Float32Array(count * 2);
-  const indices = [];
+  const indices: number[] = [];
 
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -35,7 +43,6 @@ function buildArcGeometry(cols, rows, arcRadius, arcSpan, height, yOffset) {
       const v = r / (rows - 1);
       const i = r * cols + c;
       const angle = (u - 0.5) * arcSpan;
-
       positions[i * 3] = Math.sin(angle) * arcRadius;
       positions[i * 3 + 1] = yOffset + (v - 0.5) * height;
       positions[i * 3 + 2] = (Math.cos(angle) - 1) * arcRadius;
@@ -63,19 +70,25 @@ function buildArcGeometry(cols, rows, arcRadius, arcSpan, height, yOffset) {
   return geometry;
 }
 
-async function createWebGPUStripMaterial(textures, stripConfig) {
+async function createWebGPUStripMaterial(textures: THREE.Texture[], stripConfig: Record<string, number>) {
   const { MeshBasicNodeMaterial } = await import("three/webgpu");
   const tsl = await import("three/tsl");
   const {
     Fn,
     float,
     vec2,
+    vec3,
     vec4,
     int,
     uniform,
     uniformTexture,
     uv,
     texture,
+    varying,
+    positionLocal,
+    sin,
+    abs,
+    pow,
     mix,
     step,
     clamp,
@@ -83,7 +96,7 @@ async function createWebGPUStripMaterial(textures, stripConfig) {
     floor,
     fract,
     mod,
-  } = tsl;
+  } = tsl as any;
 
   const uniforms = {
     uScrollOffset: uniform(0),
@@ -91,6 +104,11 @@ async function createWebGPUStripMaterial(textures, stripConfig) {
     uNumUnique: uniform(stripConfig.numUnique),
     uGapSize: uniform(stripConfig.gapSize),
     uOpacity: uniform(1.0),
+    uTime: uniform(0),
+    uWindStrength: uniform(0.8),
+    uWaveAmplitude: uniform(0.05),
+    uWaveFrequency: uniform(16.0),
+    uGravityScale: uniform(1.2),
     uTex0: uniformTexture(textures[0]),
     uTex1: uniformTexture(textures[1]),
     uTex2: uniformTexture(textures[2]),
@@ -98,6 +116,33 @@ async function createWebGPUStripMaterial(textures, stripConfig) {
     uTex4: uniformTexture(textures[4]),
     uTex5: uniformTexture(textures[5]),
   };
+
+  const vLooseness = varying(float(0), "vLooseness");
+
+  const vertexFn = Fn(() => {
+    const pos = positionLocal.toVar();
+    const uvCoord = uv();
+    const u = uvCoord.x;
+    const v = uvCoord.y;
+    const time = uniforms.uTime;
+    const looseness = smoothstep(float(0), float(0.25), v);
+    vLooseness.assign(looseness);
+
+    const wind = uniforms.uWindStrength.mul(0.01);
+    const freq = uniforms.uWaveFrequency;
+    const wave1 = sin(u.mul(freq).sub(time.mul(float(2.0).add(wind)))).mul(looseness);
+    const wave2 = sin(u.add(v).mul(freq.mul(0.7)).sub(time.mul(1.8))).mul(looseness).mul(0.5);
+    const flutter = sin(u.mul(freq.mul(2.5)).sub(time.mul(4.0)))
+      .mul(looseness)
+      .mul(looseness)
+      .mul(0.18);
+
+    pos.y.subAssign(v.mul(v).mul(uniforms.uGravityScale.mul(0.08)).mul(looseness));
+    pos.z.addAssign(wave1.add(wave2).mul(uniforms.uWaveAmplitude).add(flutter.mul(uniforms.uWaveAmplitude)));
+    pos.x.addAssign(sin(time.mul(0.18)).mul(looseness).mul(0.04));
+
+    return pos;
+  });
 
   const fragmentFn = Fn(() => {
     const uvCoord = uv();
@@ -120,30 +165,38 @@ async function createWebGPUStripMaterial(textures, stripConfig) {
     col.assign(mix(col, texture(uniforms.uTex3, texCoord).rgb, float(idx.equal(int(3)))));
     col.assign(mix(col, texture(uniforms.uTex4, texCoord).rgb, float(idx.equal(int(4)))));
     col.assign(mix(col, texture(uniforms.uTex5, texCoord).rgb, float(idx.equal(int(5)))));
+    const center = float(1).sub(abs(uvCoord.x.sub(0.5)).mul(2.0));
+    const light = float(0.75).add(vLooseness.mul(0.2)).add(center.mul(0.08));
+    const rim = pow(center, float(2.0)).mul(0.05);
     const edgeFade = smoothstep(float(0), float(0.06), uvCoord.x).mul(
       smoothstep(float(0), float(0.06), float(1).sub(uvCoord.x)),
     );
-    return vec4(col, edgeFade.mul(uniforms.uOpacity));
+    return vec4(col.mul(light).add(rim), edgeFade.mul(uniforms.uOpacity));
   });
 
-  const mat = new MeshBasicNodeMaterial({
+  const material = new MeshBasicNodeMaterial({
     transparent: true,
     depthWrite: false,
     depthTest: true,
     side: THREE.DoubleSide,
-  });
-  mat.fragmentNode = fragmentFn();
-
-  return { material: mat, uniforms };
+  }) as THREE.Material;
+  (material as any).positionNode = vertexFn();
+  (material as any).fragmentNode = fragmentFn();
+  return { material, uniforms };
 }
 
-function createWebGLStripMaterial(textures, stripConfig) {
+function createWebGLStripMaterial(textures: THREE.Texture[], stripConfig: Record<string, number>) {
   const uniforms = {
     uScrollOffset: { value: 0 },
     uGapSize: { value: stripConfig.gapSize },
     uItemsOnStrip: { value: stripConfig.itemsOnStrip },
     uNumUnique: { value: stripConfig.numUnique },
     uOpacity: { value: 1.0 },
+    uTime: { value: 0 },
+    uWindStrength: { value: 0.8 },
+    uWaveAmplitude: { value: 0.05 },
+    uWaveFrequency: { value: 16.0 },
+    uGravityScale: { value: 1.2 },
     uTex0: { value: textures[0] },
     uTex1: { value: textures[1] },
     uTex2: { value: textures[2] },
@@ -158,10 +211,31 @@ function createWebGLStripMaterial(textures, stripConfig) {
     depthWrite: false,
     uniforms,
     vertexShader: `
+      uniform float uTime;
+      uniform float uWaveAmplitude;
+      uniform float uWaveFrequency;
+      uniform float uWindStrength;
+      uniform float uGravityScale;
+
       varying vec2 vUv;
+      varying float vLooseness;
+
       void main() {
         vUv = uv;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        float looseness = smoothstep(0.0, 0.25, uv.y);
+        vLooseness = looseness;
+
+        vec3 pos = position;
+        float wind = uWindStrength * 0.01;
+        float wave1 = sin(uv.x * uWaveFrequency - uTime * (2.0 + wind)) * looseness;
+        float wave2 = sin((uv.x + uv.y) * (uWaveFrequency * 0.7) - uTime * 1.8) * looseness * 0.5;
+        float flutter = sin(uv.x * (uWaveFrequency * 2.5) - uTime * 4.0) * looseness * looseness * 0.18;
+
+        pos.y -= uv.y * uv.y * (uGravityScale * 0.08) * looseness;
+        pos.z += (wave1 + wave2) * uWaveAmplitude + flutter * uWaveAmplitude;
+        pos.x += sin(uTime * 0.18) * looseness * 0.04;
+
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
       }
     `,
     fragmentShader: `
@@ -177,6 +251,7 @@ function createWebGLStripMaterial(textures, stripConfig) {
       uniform float uNumUnique;
       uniform float uOpacity;
       varying vec2 vUv;
+      varying float vLooseness;
 
       vec3 sampleStripTexture(int index, vec2 coord) {
         if (index == 0) return texture2D(uTex0, coord).rgb;
@@ -201,8 +276,12 @@ function createWebGLStripMaterial(textures, stripConfig) {
         vec2 texCoord = clamp(vec2(texU, vUv.y), vec2(0.001), vec2(0.999));
         int wrappedIndex = int(mod(itemFloor + uNumUnique, uNumUnique));
         vec3 color = sampleStripTexture(wrappedIndex, texCoord);
+
+        float center = 1.0 - abs(vUv.x - 0.5) * 2.0;
+        float light = 0.75 + vLooseness * 0.2 + center * 0.08;
+        float rim = pow(center, 2.0) * 0.05;
         float edgeFade = smoothstep(0.0, 0.06, vUv.x) * smoothstep(0.0, 0.06, 1.0 - vUv.x);
-        gl_FragColor = vec4(color, edgeFade * uOpacity);
+        gl_FragColor = vec4(color * light + rim, edgeFade * uOpacity);
       }
     `,
   });
@@ -212,9 +291,7 @@ function createWebGLStripMaterial(textures, stripConfig) {
 
 export function WorkClothStripScene() {
   const { gl } = useThree();
-  const activePage = useWebglStore((s) => s.activePage);
-  const onWorkPage = activePage === "work";
-  const systemRef = useRef(null);
+  const systemRef = useRef<{ material: THREE.Material; uniforms: any } | null>(null);
   const groupRef = useRef<THREE.Group>(null);
   const stripControls = useWorkSceneControlsStore((state) => state.controls.strip);
   const visibleItems = Math.max(1, stripControls.visibleItems ?? DEFAULT_VISIBLE_ITEMS);
@@ -237,36 +314,32 @@ export function WorkClothStripScene() {
     stripYOffset: stripControls.stripYOffset,
   };
   const scrollRef = useRef({ target: 0, current: 0, velocity: 0 });
-  const inputRef = useRef({ isDown: false, lastX: 0, startX: 0 });
+  const inputRef = useRef({ isDown: false, lastX: 0, startX: 0, dragDist: 0 });
   const currentTitleRef = useRef("");
   const grabScaleRef = useRef(1);
 
   useEffect(() => {
     const element = gl.domElement;
-
-    const onWheel = (e) => {
+    const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
       scrollRef.current.target += delta * scrollConfig.wheelSensitivity;
       scrollRef.current.velocity += delta * scrollConfig.wheelSensitivity * 0.24;
     };
-
-    const onPointerDown = (e) => {
+    const onPointerDown = (e: PointerEvent) => {
       inputRef.current.isDown = true;
       inputRef.current.lastX = e.clientX;
       inputRef.current.startX = e.clientX;
       inputRef.current.dragDist = 0;
     };
-
-    const onPointerMove = (e) => {
+    const onPointerMove = (e: PointerEvent) => {
       if (!inputRef.current.isDown) return;
       const dx = e.clientX - inputRef.current.lastX;
-      inputRef.current.dragDist = (inputRef.current.dragDist || 0) + Math.abs(dx);
+      inputRef.current.dragDist += Math.abs(dx);
       inputRef.current.lastX = e.clientX;
       scrollRef.current.target -= dx * scrollConfig.dragSensitivity;
       scrollRef.current.velocity = -dx * scrollConfig.dragVelocityScale;
     };
-
     const onPointerUp = () => {
       inputRef.current.isDown = false;
     };
@@ -281,15 +354,9 @@ export function WorkClothStripScene() {
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
     };
-  }, [
-    gl,
-    scrollConfig.dragSensitivity,
-    scrollConfig.dragVelocityScale,
-    scrollConfig.wheelSensitivity,
-  ]);
+  }, [gl, scrollConfig.dragSensitivity, scrollConfig.dragVelocityScale, scrollConfig.wheelSensitivity]);
 
-  const [textures, setTextures] = useState(null);
-
+  const [textures, setTextures] = useState<THREE.Texture[] | null>(null);
   const fallbackTextures = useMemo(
     () =>
       workItems.slice(0, NUM_UNIQUE).map(() =>
@@ -308,9 +375,7 @@ export function WorkClothStripScene() {
       setTextures(cached);
       return;
     }
-    loadTextureAssets(images, {
-      onErrorTexture: () => createColorFallbackTexture(),
-    })
+    loadTextureAssets(images, { onErrorTexture: () => createColorFallbackTexture() })
       .then(setTextures)
       .catch(() => {});
   }, []);
@@ -341,18 +406,16 @@ export function WorkClothStripScene() {
     [arcConfig.arcSpan, arcConfig.stripHeight, gapSize, visibleItems],
   );
 
-  const [stripMaterial, setStripMaterial] = useState(null);
+  const [stripMaterial, setStripMaterial] = useState<THREE.Material | null>(null);
   const activeTextures = textures || fallbackTextures;
 
   useEffect(() => {
     let cancelled = false;
     if (!activeTextures) return;
-
     const createStripMaterial = pickGpuBranch(gl, {
       webgpu: () => createWebGPUStripMaterial,
       webgl: () => createWebGLStripMaterial,
     });
-
     Promise.resolve(createStripMaterial(activeTextures, stripConfig))
       .then((system) => {
         if (cancelled) return;
@@ -369,7 +432,7 @@ export function WorkClothStripScene() {
     };
   }, [gl, activeTextures, stripConfig]);
 
-  useFrame(() => {
+  useFrame((state) => {
     const sys = systemRef.current;
     if (!sys) return;
 
@@ -401,7 +464,15 @@ export function WorkClothStripScene() {
     }
 
     sys.uniforms.uScrollOffset.value = s.current;
-    sys.uniforms.uOpacity.value = onWorkPage ? 1 : 0;
+    sys.uniforms.uOpacity.value = 1;
+
+    if ("uTime" in sys.uniforms) {
+      sys.uniforms.uTime.value = state.clock.getElapsedTime();
+      sys.uniforms.uWindStrength.value = sc.windStrength ?? 0.8;
+      sys.uniforms.uWaveAmplitude.value = sc.flutterAmplitude ?? 0.05;
+      sys.uniforms.uWaveFrequency.value = sc.flutterFrequency ?? 16;
+      sys.uniforms.uGravityScale.value = sc.gravityScale ?? 1.2;
+    }
 
     const vi = Math.max(1, sc.visibleItems ?? DEFAULT_VISIBLE_ITEMS);
     const gs = sc.gapSize ?? DEFAULT_GAP_SIZE;
@@ -409,19 +480,15 @@ export function WorkClothStripScene() {
     const newTitle = workItems[centerIdx]?.title || "";
     if (newTitle !== currentTitleRef.current) {
       currentTitleRef.current = newTitle;
-      window.dispatchEvent(
-        new CustomEvent("duforn:work-strip-title", { detail: { title: newTitle } }),
-      );
+      window.dispatchEvent(new CustomEvent("duforn:work-strip-title", { detail: { title: newTitle } }));
     }
   });
 
-  if (!onWorkPage || !activeTextures || !stripMaterial) return null;
+  if (!activeTextures || !stripMaterial) return null;
 
-  const handleStripClick = (e) => {
-    if (inputRef.current.dragDist > 8) return;
-    if (!e.uv) return;
+  const handleStripClick = (e: any) => {
+    if (inputRef.current.dragDist > 8 || !e.uv) return;
     e.stopPropagation();
-
     const resolvedSlot = resolveVisibleSlotAtUv(
       e.uv.x,
       scrollRef.current.current,
@@ -430,7 +497,6 @@ export function WorkClothStripScene() {
       NUM_UNIQUE,
     );
     if (!resolvedSlot) return;
-
     const href = workItems[resolvedSlot.itemIndex]?.href;
     if (!href) return;
     navigateTo(href);

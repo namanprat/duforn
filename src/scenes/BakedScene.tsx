@@ -1,0 +1,182 @@
+import { useEffect, useMemo, useRef } from "react";
+import { useGLTF } from "@react-three/drei";
+import * as THREE from "three";
+import { normalizeModelBounds } from "./sceneUtils";
+import Water from "./water/Water";
+
+const MODEL_URL = "/main_scene.glb";
+const MODEL_SCALE = 13;
+const GLASS_NAME = "window";
+// The full patio deck/floor — kept lit (MeshStandard) so it receives the sun's
+// cast shadows, while the rest of the scene stays baked-unlit.
+const FLOOR_NAME = "tiles";
+
+// Low, raking sun (points *toward* the light) so the back structures throw long
+// shadows across the open pool deck. Separate from the water/caustics sun so
+// tuning shadows doesn't disturb the surface glint. Low y = long shadows.
+const SHADOW_SUN_DIR = new THREE.Vector3(0.32, 0.32, 0.89).normalize();
+
+type ShadowSetup = {
+  /** World-space sun position (the directional light sits here). */
+  sunPos: THREE.Vector3;
+  /** World-space point the sun aims at (deck center). */
+  target: THREE.Vector3;
+  /** Half-extent of the ortho shadow camera (world units). */
+  orthoHalf: number;
+  shadowFar: number;
+  /** Floor/deck catcher placement (world units). */
+  catcherY: number;
+  catcherW: number;
+  catcherD: number;
+};
+
+function computeShadowSetup(
+  scene: THREE.Object3D,
+  size: THREE.Vector3,
+): ShadowSetup {
+  const w = size.x * MODEL_SCALE;
+  const h = size.y * MODEL_SCALE;
+  const d = size.z * MODEL_SCALE;
+
+  // Deck level ≈ top of the pool walls (the rim the floor sits at). The model is
+  // recentred to min.y = 0 (pool basin bottom), so the deck is well above 0.
+  let deckLocalTop = size.y * 0.18;
+  const poolWalls = scene.getObjectByName("PoolWalls");
+  if (poolWalls) {
+    const box = new THREE.Box3().setFromObject(poolWalls);
+    if (Number.isFinite(box.max.y)) deckLocalTop = box.max.y;
+  }
+  const catcherY = deckLocalTop * MODEL_SCALE + 0.05;
+
+  const span = Math.max(w, d);
+  const target = new THREE.Vector3(0, catcherY, 0);
+  // Low sun → place it far out so the whole footprint is inside the frustum.
+  const dist = span * 1.6 + h;
+  const sunPos = target.clone().add(SHADOW_SUN_DIR.clone().multiplyScalar(dist));
+
+  return {
+    sunPos,
+    target,
+    // Wide ortho frustum so long raking shadows aren't clipped.
+    orthoHalf: span * 1.05,
+    shadowFar: dist + span * 1.6,
+    catcherY,
+    catcherW: w * 1.4,
+    catcherD: d * 1.4,
+  };
+}
+
+export default function BakedScene() {
+  const { scene } = useGLTF(MODEL_URL, true);
+  const lightRef = useRef<THREE.DirectionalLight>(null);
+
+  const { root, shadow } = useMemo(() => {
+    if (scene.userData.__bakedPrepared) {
+      return { root: scene, shadow: scene.userData.__shadow as ShadowSetup };
+    }
+    scene.userData.__bakedPrepared = true;
+
+    scene.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh || mesh.userData?.isWater) return;
+
+      if (mesh.name === GLASS_NAME) {
+        mesh.material = new THREE.MeshPhysicalMaterial({
+          transmission: 1.0,
+          thickness: 0.05,
+          roughness: 0.04,
+          ior: 1.5,
+          metalness: 0,
+          transparent: true,
+          envMapIntensity: 1.0,
+          color: "#ffffff",
+        });
+        return;
+      }
+
+      if (mesh.name === FLOOR_NAME) {
+        // Lit floor so the sun's shadows read on it. Baked texture as albedo,
+        // lit by the scene HDR (ambient) + the directional sun (shadow-casting).
+        const fsrc = mesh.material as THREE.MeshStandardMaterial;
+        const fbaked = fsrc.emissiveMap || fsrc.map || null;
+        const std = new THREE.MeshStandardMaterial({ roughness: 0.95, metalness: 0 });
+        if (fbaked) {
+          fbaked.colorSpace = THREE.SRGBColorSpace;
+          std.map = fbaked;
+        }
+        std.side = THREE.DoubleSide;
+        // Low ambient fill so shadowed regions go dark enough to read.
+        std.envMapIntensity = 0.35;
+        mesh.material = std;
+        mesh.castShadow = false;
+        mesh.receiveShadow = true;
+        return;
+      }
+
+      const src = mesh.material as THREE.MeshStandardMaterial;
+      const baked = src.emissiveMap || src.map || null;
+      const basic = new THREE.MeshBasicMaterial();
+      if (baked) {
+        baked.colorSpace = THREE.SRGBColorSpace;
+        basic.map = baked;
+      } else {
+        basic.color =
+          src.emissive && src.emissive.getHex() !== 0
+            ? src.emissive
+            : src.color || new THREE.Color("#808080");
+      }
+      basic.toneMapped = true;
+      basic.side = THREE.DoubleSide;
+      mesh.material = basic;
+      // Basic materials can't *receive* shadows, but they still cast into the
+      // shadow map (depth pass) — so the geometry throws shadows onto the floor
+      // catcher while the baked look is untouched. (Article's traverse pattern.)
+      mesh.castShadow = true;
+      mesh.receiveShadow = false;
+    });
+
+    const { size } = normalizeModelBounds(scene);
+    const shadowSetup = computeShadowSetup(scene, size);
+    scene.userData.__shadow = shadowSetup;
+    return { root: scene, shadow: shadowSetup };
+  }, [scene]);
+
+  // Aim the sun at the deck center; size its ortho shadow frustum to the scene.
+  useEffect(() => {
+    const light = lightRef.current;
+    if (!light) return;
+    light.target.position.copy(shadow.target);
+    light.target.updateMatrixWorld();
+    const cam = light.shadow.camera;
+    cam.left = -shadow.orthoHalf;
+    cam.right = shadow.orthoHalf;
+    cam.top = shadow.orthoHalf;
+    cam.bottom = -shadow.orthoHalf;
+    cam.near = 0.5;
+    cam.far = shadow.shadowFar;
+    cam.updateProjectionMatrix();
+  }, [shadow]);
+
+  return (
+    <>
+      <group scale={MODEL_SCALE}>
+        <primitive object={root} />
+        <Water sceneRoot={root} />
+      </group>
+
+      {/* Low raking sun: lights the deck and casts the long shadows onto it. */}
+      <directionalLight
+        ref={lightRef}
+        intensity={3.6}
+        position={shadow.sunPos}
+        castShadow
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
+        shadow-bias={-0.0004}
+        shadow-normalBias={0.6}
+      />
+    </>
+  );
+}
+
+useGLTF.preload(MODEL_URL);

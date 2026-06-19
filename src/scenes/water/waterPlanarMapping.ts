@@ -1,7 +1,5 @@
-// @ts-nocheck
 import * as THREE from "three";
 
-/** Planar mapping params for the water mesh: minX, minZ, width (X), depth (Z). */
 export type WaterPlanarBounds = {
   minX: number;
   minZ: number;
@@ -18,7 +16,16 @@ export function boxToPlanarBounds(box: THREE.Box3): WaterPlanarBounds {
   };
 }
 
-/** vec4(minX, minZ, width, depth) packed for the material uPlanar uniform. */
 export function planarBoundsToUniform(bounds: WaterPlanarBounds) {
   return new THREE.Vector4(bounds.minX, bounds.minZ, bounds.width, bounds.depth);
+}
+
+export function worldPointToSimUv(
+  point: THREE.Vector3,
+  bounds: WaterPlanarBounds,
+): { u: number; v: number } {
+  return {
+    u: THREE.MathUtils.clamp((point.x - bounds.minX) / bounds.width, 0, 1),
+    v: THREE.MathUtils.clamp(1 - (point.z - bounds.minZ) / bounds.depth, 0, 1),
+  };
 }

@@ -1,0 +1,37 @@
+export const MOTION_TOKENS = {
+  textReveal: {
+    revealDuration: 1,
+    revealStagger: 0.1,
+    hideDuration: 0.55,
+    hideStagger: 0.06,
+    revealEase: "power4.out",
+    hideEase: "power3.in",
+    showDurationScale: 0.75,
+    showStaggerScale: 0.8,
+  },
+  navHover: {
+    staggerAmount: 0.161,
+    duration: 0.45,
+    ease: "power1.out",
+  },
+  buttonHover: {
+    enterDuration: 0.28,
+    leaveDuration: 0.32,
+    ease: "power2.out",
+    enterScale: 0.95,
+    leaveScale: 1,
+  },
+  menu: {
+    openDuration: 0.55,
+    closeDuration: 0.4,
+    ease: "power3.out",
+    closeEase: "power3.in",
+    lineStagger: 0.06,
+    lineDuration: 0.45,
+    aboutDuration: 0.5,
+    widthDuration: 0.5,
+    heightDuration: 0.5,
+    aboutRevealDelay: 0.1,
+  },
+} as const;
+

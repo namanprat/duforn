@@ -1,60 +1,54 @@
-// @ts-nocheck
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import gsap from "gsap";
-import { useWebglStore } from "../store/webgl";
-import { cameraBasePoseRef, cameraTransitionRef, DEFAULT_CAMERA_BASE_POSE } from "../lib/cam/pose";
+import { useWebglStore, type RoomNamespace } from "../store/webgl";
+import { cameraBasePoseRef, cameraTransitionRef, POSE_KEYS } from "./cam/pose";
 import {
   ROOM_POSES,
   ROOM_TRANSITION_SECONDS,
-  isRoomNamespace,
   prefersReducedMotion,
-} from "../lib/cam/roomPoses";
+  posesEqual,
+} from "./cam/roomPoses";
 import { setArrivedRoom } from "../lib/cam/arrival";
-import { getMainCameraPose } from "../store/homeScene";
+import { getRouteNamespace } from "../lib/route";
 
-const POSE_KEYS = Object.keys(DEFAULT_CAMERA_BASE_POSE);
-
-// Main-room pose as baseline so CameraRig isn't at origin before RoomCam mounts.
-Object.assign(cameraBasePoseRef.current, ROOM_POSES.main);
-
-function getTargetPose(room) {
-  if (room === "main") {
-    return { ...DEFAULT_CAMERA_BASE_POSE, ...getMainCameraPose() };
-  }
-  return ROOM_POSES[room];
-}
-
-function snapTo(target) {
-  for (const key of POSE_KEYS) {
-    if (target[key] != null) cameraBasePoseRef.current[key] = target[key];
-  }
-}
-
-/**
- * GSAP-driven camera pose orchestrator. Replaces the prior Theatre.js setup:
- * each room defines a static pose in `ROOM_POSES`, and route changes tween
- * `cameraBasePoseRef.current` to the new pose with an inOut ease. CameraRig
- * reads from `cameraBasePoseRef.current` every frame.
- */
-/**
- * Lead-in for the arrival signal: fire `setArrivedRoom` this many seconds
- * before the tween actually finishes, so text/button reveals start ahead of
- * the final camera settle (perceived as a snappier choreography).
- */
 const ARRIVAL_LEAD_SECONDS = 0.2;
 
+function resolveInitialRoom(): RoomNamespace {
+  if (typeof window !== "undefined") {
+    const ns = getRouteNamespace(window.location.pathname);
+    if (ns !== "projectDetail") return ns;
+  }
+  const page = useWebglStore.getState().activePage;
+  return page === "projectDetail" ? "main" : page;
+}
+
+// Baseline so CameraRig isn't at origin before the first layout effect runs.
+Object.assign(cameraBasePoseRef.current, ROOM_POSES[resolveInitialRoom()]);
+
+function snapTo(target: (typeof ROOM_POSES)[RoomNamespace]) {
+  for (const key of POSE_KEYS) {
+    cameraBasePoseRef.current[key] = target[key];
+  }
+}
+
+/**
+ * GSAP-driven camera pose orchestrator. Each room defines a static pose in
+ * `ROOM_POSES`; route changes tween `cameraBasePoseRef.current` to the new pose.
+ * CameraRig reads from `cameraBasePoseRef.current` every frame.
+ */
 export default function RoomCam() {
   const activePage = useWebglStore((state) => state.activePage);
-  const prevRoomRef = useRef(null);
-  const tweenRef = useRef(null);
-  const arrivalCallRef = useRef(null);
+  const prevRoomRef = useRef<RoomNamespace | null>(null);
+  const tweenRef = useRef<gsap.core.Tween | null>(null);
+  const arrivalCallRef = useRef<gsap.core.Tween | null>(null);
 
-  useEffect(() => {
-    if (!isRoomNamespace(activePage)) return;
+  useLayoutEffect(() => {
+    if (activePage === "projectDetail") return;
 
     const next = activePage;
     const prev = prevRoomRef.current;
-    const targetPose = getTargetPose(next);
+    const targetPose = ROOM_POSES[next];
+    const prevPose = prev != null ? ROOM_POSES[prev] : null;
 
     if (tweenRef.current) {
       tweenRef.current.kill();
@@ -66,15 +60,13 @@ export default function RoomCam() {
       arrivalCallRef.current = null;
     }
 
-    // Same room (e.g. component remounted but route didn't change) — keep the
-    // existing arrival signal so subscribers don't get stuck waiting.
     if (prev === next) return;
 
-    // Route really changed → arrival signal is stale until we land again.
     setArrivedRoom(null);
 
-    // First mount or reduced motion: snap without tween.
-    if (prev == null || prefersReducedMotion()) {
+    const samePose = prevPose != null && posesEqual(prevPose, targetPose);
+
+    if (prev == null || prefersReducedMotion() || samePose) {
       cameraTransitionRef.current = false;
       snapTo(targetPose);
       prevRoomRef.current = next;
@@ -99,7 +91,6 @@ export default function RoomCam() {
       onComplete: () => {
         tweenRef.current = null;
         cameraTransitionRef.current = false;
-        // Backup arrival in case the lead-in delayedCall was killed/missed.
         if (arrivalCallRef.current) {
           arrivalCallRef.current.kill();
           arrivalCallRef.current = null;
@@ -108,7 +99,6 @@ export default function RoomCam() {
       },
     });
 
-    // Lead arrival by `ARRIVAL_LEAD_SECONDS` so reveals start before settle.
     const leadDelay = Math.max(0, ROOM_TRANSITION_SECONDS - ARRIVAL_LEAD_SECONDS);
     arrivalCallRef.current = gsap.delayedCall(leadDelay, () => {
       arrivalCallRef.current = null;
@@ -118,7 +108,7 @@ export default function RoomCam() {
     prevRoomRef.current = next;
   }, [activePage]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     return () => {
       tweenRef.current?.kill();
       tweenRef.current = null;

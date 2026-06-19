@@ -1,17 +1,18 @@
-// @ts-nocheck
-
-export function getRendererType(renderer) {
-  if (!renderer) return "unknown";
-  if (renderer.__rendererType) return renderer.__rendererType;
-  if (renderer.isWebGPURenderer) return "webgpu";
-  if (renderer.isWebGLRenderer) return "webgl";
+export function getRendererType(renderer: unknown) {
+  const candidate = renderer as
+    | { __rendererType?: string; isWebGPURenderer?: boolean; isWebGLRenderer?: boolean }
+    | undefined;
+  if (!candidate) return "unknown";
+  if (candidate.__rendererType) return candidate.__rendererType;
+  if (candidate.isWebGPURenderer) return "webgpu";
+  if (candidate.isWebGLRenderer) return "webgl";
   return "unknown";
 }
 
-export function isWebGPURenderer(renderer) {
+export function isWebGPURenderer(renderer: unknown) {
   return getRendererType(renderer) === "webgpu";
 }
 
-export function isWebGLRenderer(renderer) {
+export function isWebGLRenderer(renderer: unknown) {
   return getRendererType(renderer) === "webgl";
 }

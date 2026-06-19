@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useRef } from "react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
@@ -9,40 +8,42 @@ import { MOTION_TOKENS } from "../lib/anim/tokens";
 import {
   prefersReducedMotion,
   resolveMotionTokens,
-  waitForCamera as waitForCamera_fn,
-  waitForPreloader as waitForPreloader_fn,
+  waitForCamera as waitForCameraGate,
 } from "./useRevealGate";
 
 gsap.registerPlugin(SplitText, ScrollTrigger);
 
 const LINE_CLASS = "text-reveal-line";
 
-function mergeRefs(...refs) {
-  return (node) => {
+function mergeRefs<T>(...refs: Array<React.Ref<T> | undefined>) {
+  return (node: T | null) => {
     refs.forEach((r) => {
       if (typeof r === "function") r(node);
-      else if (r) r.current = node;
+      else if (r && "current" in r) (r as React.MutableRefObject<T | null>).current = node;
     });
   };
 }
 
-/**
- * Line-mask reveal matching `text-reveal/src/components/Copy.jsx`.
- */
+interface TextRevealLinesProps {
+  children: React.ReactElement;
+  animateOnScroll?: boolean;
+  animate?: boolean;
+  delay?: number;
+  scope?: string;
+  waitForCamera?: boolean;
+  layoutKey?: number;
+}
+
 export default function TextRevealLines({
   children,
   animateOnScroll = true,
-  /** When false, lines appear instantly with no reveal tween (still registers hide/show). */
   animate = true,
   delay = 0,
   scope = "page",
-  waitForPreloader = false,
-  /** Wait for the room camera to finish its arrival tween before revealing. */
   waitForCamera = false,
-  /** When layout changes (e.g. measured width), pass a new value so SplitText reverts and re-splits. */
   layoutKey = 0,
-}) {
-  const containerRef = useRef(null);
+}: TextRevealLinesProps) {
+  const containerRef = useRef<HTMLElement | null>(null);
   const effectiveDelay = delay;
 
   useGSAP(
@@ -54,19 +55,15 @@ export default function TextRevealLines({
       const { revealDuration, revealStagger, hideDuration, hideStagger } =
         resolveMotionTokens(reduce);
 
-      const splitRefs = [];
-      let lineEls = [];
-      let scrollTriggerInstance = null;
-      let intersectionObserver = null;
-      let disposePreloader = null;
-      let disposeCamera = null;
+      const splitRefs: SplitText[] = [];
+      let lineEls: Element[] = [];
+      let scrollTriggerInstance: ScrollTrigger | null = null;
+      let intersectionObserver: IntersectionObserver | null = null;
+      let disposeCamera: (() => void) | null = null;
 
-      let elements = [];
-      if (root.hasAttribute("data-copy-wrapper")) {
-        elements = Array.from(root.children).filter((n) => n.nodeType === 1);
-      } else {
-        elements = [root];
-      }
+      const elements: Element[] = root.hasAttribute("data-copy-wrapper")
+        ? Array.from(root.children).filter((n) => n.nodeType === 1)
+        : [root];
 
       elements.forEach((element) => {
         const split = SplitText.create(element, {
@@ -81,22 +78,18 @@ export default function TextRevealLines({
         const computedStyle = window.getComputedStyle(element);
         const textIndent = computedStyle.textIndent;
         if (textIndent && textIndent !== "0px" && split.lines.length > 0) {
-          split.lines[0].style.paddingLeft = textIndent;
-          element.style.textIndent = "0";
+          (split.lines[0] as HTMLElement).style.paddingLeft = textIndent;
+          (element as HTMLElement).style.textIndent = "0";
         }
       });
 
       gsap.set(lineEls, { y: reduce ? "0%" : "100%" });
 
       const killScrollTrigger = () => {
-        if (scrollTriggerInstance) {
-          scrollTriggerInstance.kill();
-          scrollTriggerInstance = null;
-        }
-        if (intersectionObserver) {
-          intersectionObserver.disconnect();
-          intersectionObserver = null;
-        }
+        scrollTriggerInstance?.kill();
+        scrollTriggerInstance = null;
+        intersectionObserver?.disconnect();
+        intersectionObserver = null;
       };
 
       const runRevealImmediate = (extraDelay = 0) => {
@@ -110,7 +103,7 @@ export default function TextRevealLines({
           y: "0%",
           duration: revealDuration,
           stagger: revealStagger,
-          ease: "power4.out",
+          ease: MOTION_TOKENS.textReveal.revealEase,
           delay: effectiveDelay + extraDelay,
         });
       };
@@ -138,8 +131,6 @@ export default function TextRevealLines({
           },
         });
 
-        // If trigger is already past start at creation (e.g. after route transitions/refresh),
-        // reveal immediately so lines don't remain stuck at y:100%.
         if (scrollTriggerInstance.isActive || scrollTriggerInstance.progress > 0) {
           killScrollTrigger();
           gsap.to(lineEls, {
@@ -152,8 +143,6 @@ export default function TextRevealLines({
           return;
         }
 
-        // Secondary guard for smooth-scroll / route-transition timing mismatches:
-        // reveal when element intersects viewport even if ScrollTrigger never enters.
         if (typeof IntersectionObserver !== "undefined") {
           intersectionObserver = new IntersectionObserver(
             (entries) => {
@@ -168,18 +157,12 @@ export default function TextRevealLines({
                 delay: effectiveDelay,
               });
             },
-            {
-              root: null,
-              rootMargin: "0px 0px -25% 0px",
-              threshold: 0.01,
-            },
+            { root: null, rootMargin: "0px 0px -25% 0px", threshold: 0.01 },
           );
           intersectionObserver.observe(root);
         }
       };
 
-      // Gate chain: when both waitForCamera and waitForPreloader are set, the
-      // camera gate clears first, then we hand off to the preloader gate.
       const armReveal = () => {
         if (!animate) {
           killScrollTrigger();
@@ -192,18 +175,8 @@ export default function TextRevealLines({
           return;
         }
         const fire = () => runRevealImmediate(0);
-        if (waitForCamera && waitForPreloader) {
-          disposeCamera = waitForCamera_fn(root, () => {
-            disposePreloader = waitForPreloader_fn(fire);
-          });
-          return;
-        }
         if (waitForCamera) {
-          disposeCamera = waitForCamera_fn(root, fire);
-          return;
-        }
-        if (waitForPreloader) {
-          disposePreloader = waitForPreloader_fn(fire);
+          disposeCamera = waitForCameraGate(root, fire);
           return;
         }
         runRevealImmediate(0);
@@ -214,14 +187,8 @@ export default function TextRevealLines({
       const hide = () =>
         new Promise<void>((resolve) => {
           killScrollTrigger();
-          if (disposePreloader) {
-            disposePreloader();
-            disposePreloader = null;
-          }
-          if (disposeCamera) {
-            disposeCamera();
-            disposeCamera = null;
-          }
+          disposeCamera?.();
+          disposeCamera = null;
           gsap.killTweensOf(lineEls);
           if (!lineEls.length) {
             resolve();
@@ -264,14 +231,12 @@ export default function TextRevealLines({
           });
         });
 
-      const control = { hide, show };
-      const unregister = registerPageTextReveal(control);
+      const unregister = registerPageTextReveal({ hide, show });
 
       return () => {
         unregister();
         killScrollTrigger();
-        if (disposePreloader) disposePreloader();
-        if (disposeCamera) disposeCamera();
+        disposeCamera?.();
         splitRefs.forEach((split) => {
           try {
             split?.revert();
@@ -289,7 +254,6 @@ export default function TextRevealLines({
         animate,
         delay,
         scope,
-        waitForPreloader,
         waitForCamera,
         layoutKey,
       ],
@@ -299,13 +263,13 @@ export default function TextRevealLines({
   if (React.Children.count(children) === 1) {
     const only = React.Children.only(children);
     return React.cloneElement(only, {
-      ref: mergeRefs(containerRef, only.ref),
+      ref: mergeRefs(containerRef, (only as React.ReactElement & { ref?: React.Ref<HTMLElement> }).ref),
       "data-text-reveal-root": "",
-    });
+    } as React.HTMLAttributes<HTMLElement>);
   }
 
   return (
-    <div ref={containerRef} data-copy-wrapper="true" data-text-reveal-root="">
+    <div ref={containerRef as React.RefObject<HTMLDivElement>} data-copy-wrapper="true" data-text-reveal-root="">
       {children}
     </div>
   );

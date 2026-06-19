@@ -1,21 +1,21 @@
-// @ts-nocheck
-import React, { useLayoutEffect, useMemo, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { MONEY_ME_STRIPS_BG, STRIP_PATHS } from "./moneyMeStrips/config";
+import { readCssLengthPx } from "../lib/css-length";
 
 gsap.registerPlugin(ScrollTrigger);
 
 const ROTATION_DEG = 30;
 
-function Strips({ wrapperRef }) {
-  const textures = useTexture(STRIP_PATHS);
+function Strips({ wrapperRef }: { wrapperRef: React.RefObject<HTMLDivElement | null> }) {
+  const textures = useTexture([...STRIP_PATHS]);
   const { size, invalidate } = useThree();
-  const groupRef = useRef(null);
-  const meshRefs = useRef([]);
+  const groupRef = useRef<THREE.Group>(null);
+  const meshRefs = useRef<THREE.Mesh[]>([]);
 
   useMemo(() => {
     textures.forEach((t) => {
@@ -26,24 +26,28 @@ function Strips({ wrapperRef }) {
     });
   }, [textures]);
 
-  const stripDims = useMemo(() => {
-    return textures.map((t) => {
-      const img = t.image;
-      const w = img?.naturalWidth ?? img?.width ?? 540;
-      const h = img?.naturalHeight ?? img?.height ?? 3596;
-      return { w, h };
-    });
-  }, [textures]);
+  const stripDims = useMemo(
+    () =>
+      textures.map((t) => {
+        const img = t.image as HTMLImageElement | undefined;
+        const w = img?.naturalWidth ?? img?.width ?? 540;
+        const h = img?.naturalHeight ?? img?.height ?? 3596;
+        return { w, h };
+      }),
+    [textures],
+  );
 
   const layout = useMemo(() => {
     const count = STRIP_PATHS.length;
     const stripW = stripDims[0]?.w ?? 540;
     const theta = THREE.MathUtils.degToRad(ROTATION_DEG);
     const cosT = Math.cos(theta);
-    const fitStripW = (size.width * cosT) / count;
+    const gapPx = readCssLengthPx("--spacing-space-3");
+    const totalGaps = Math.max(0, count - 1) * gapPx;
+    const fitStripW = (size.width * cosT - totalGaps) / count;
     const scaledStripW = fitStripW * 1.43;
     const baseScale = scaledStripW / stripW;
-    const spacing = scaledStripW / cosT;
+    const spacing = scaledStripW / cosT + gapPx;
     return { spacing, baseScale };
   }, [size.width, stripDims]);
 
@@ -97,7 +101,9 @@ function Strips({ wrapperRef }) {
         return (
           <mesh
             key={STRIP_PATHS[i]}
-            ref={(el) => (meshRefs.current[i] = el)}
+            ref={(el) => {
+              if (el) meshRefs.current[i] = el;
+            }}
             position={[x, 0, 0]}
             rotation={[0, 0, THREE.MathUtils.degToRad(ROTATION_DEG)]}
             scale={[layout.baseScale, layout.baseScale, 1]}
@@ -112,7 +118,7 @@ function Strips({ wrapperRef }) {
 }
 
 export default function MoneyMeStripCanvas() {
-  const wrapperRef = useRef(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
   return (
     <div
@@ -126,7 +132,6 @@ export default function MoneyMeStripCanvas() {
         background: MONEY_ME_STRIPS_BG,
         overflow: "hidden",
       }}
-      data-film-plane-target="true"
     >
       <Canvas
         orthographic

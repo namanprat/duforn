@@ -1,10 +1,8 @@
-import React from "react";
-
-type ContactWordmarkProps = {
+interface ContactWordmarkProps {
   className?: string;
   /** Desktop: right-align in the title cell. Mobile: center in the stack. */
   align?: "start" | "mid";
-};
+}
 
 /** Inline "contact" wordmark — sized by parent (matches buttons column height on desktop). */
 export default function ContactWordmark({ className, align = "start" }: ContactWordmarkProps) {

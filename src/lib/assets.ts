@@ -1,9 +1,17 @@
-// @ts-nocheck
 import * as THREE from "three";
 
-export function configureTexture(texture, options = {}) {
-  if (!texture) return texture;
+interface TextureOptions {
+  colorSpace?: THREE.ColorSpace;
+  minFilter?: THREE.TextureFilter;
+  magFilter?: THREE.TextureFilter;
+  generateMipmaps?: boolean;
+  wrapS?: THREE.Wrapping;
+  wrapT?: THREE.Wrapping;
+  renderer?: THREE.WebGLRenderer | null;
+  anisotropy?: number | null;
+}
 
+export function configureTexture(texture: THREE.Texture, options: TextureOptions = {}) {
   const {
     colorSpace = THREE.SRGBColorSpace,
     minFilter = THREE.LinearMipmapLinearFilter,
@@ -30,7 +38,7 @@ export function configureTexture(texture, options = {}) {
   return texture;
 }
 
-export function createColorFallbackTexture(options = {}) {
+export function createColorFallbackTexture(options: TextureOptions & { rgba?: number[] } = {}) {
   const { rgba = [220, 218, 210, 255], ...textureOptions } = options;
   const texture = new THREE.DataTexture(new Uint8Array(rgba), 1, 1, THREE.RGBAFormat);
   return configureTexture(texture, {
@@ -41,19 +49,31 @@ export function createColorFallbackTexture(options = {}) {
   });
 }
 
-export function loadTextureAsset(url, options = {}) {
+export function loadTextureAsset(
+  url: string,
+  options: TextureOptions & {
+    loader?: THREE.TextureLoader;
+    onErrorTexture?: THREE.Texture | (() => THREE.Texture);
+  } = {},
+) {
   const {
     loader = new THREE.TextureLoader(),
     onErrorTexture = () => createColorFallbackTexture(),
     ...textureOptions
   } = options;
 
-  return new Promise((resolve) => {
+  return new Promise<THREE.Texture>((resolve) => {
     loader.load(
       url,
       (texture) => resolve(configureTexture(texture, textureOptions)),
       undefined,
-      () => resolve(typeof onErrorTexture === "function" ? onErrorTexture() : onErrorTexture),
+      () => {
+        const fallback =
+          typeof onErrorTexture === "function"
+            ? (onErrorTexture as () => THREE.Texture)()
+            : onErrorTexture;
+        resolve(fallback);
+      },
     );
   });
 }

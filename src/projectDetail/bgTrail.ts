@@ -1,10 +1,6 @@
 /**
  * Trail mask for project-bg shading. Produces a soft white stroke that decays
  * each frame — sample .r as height.
- *
- * The blurred radial gradient is baked into an offscreen sprite once at
- * construction; the per-frame cost is a fade rect + one drawImage. No
- * per-frame gradient allocation, no per-frame canvas blur filter.
  */
 
 const GRADIENT_STOPS: ReadonlyArray<[number, number]> = [
@@ -54,7 +50,6 @@ export class ProjectBgTrailCanvas {
   private ctx: CanvasRenderingContext2D | null;
   private sprite: HTMLCanvasElement;
   private fadeAlpha = 0.025;
-  /** Frames left until the last stamp has fully decayed to black. */
   private decayFramesLeft = 0;
 
   constructor(width = 256, height = 256) {
@@ -71,10 +66,6 @@ export class ProjectBgTrailCanvas {
     this.sprite = bakeGradientSprite(width * 0.12 * 2.5, 4);
   }
 
-  /**
-   * Stamps the trail at canvas pixel coordinates and decays the previous
-   * frames. Returns true when the canvas changed (texture upload needed).
-   */
   update(mouse: TrailPoint | null): boolean {
     const { ctx, canvas } = this;
     if (!ctx) return false;
@@ -88,24 +79,11 @@ export class ProjectBgTrailCanvas {
     if (hasStamp) {
       const half = this.sprite.width / 2;
       ctx.drawImage(this.sprite, (mouse.x as number) - half, (mouse.y as number) - half);
-      // ~1/fadeAlpha frames until a full-white stamp fades below visibility.
       this.decayFramesLeft = Math.ceil(1 / this.fadeAlpha) + 8;
     } else {
       this.decayFramesLeft -= 1;
     }
 
     return true;
-  }
-
-  resize(width: number, height: number): void {
-    if (this.canvas.width === width && this.canvas.height === height) return;
-    this.canvas.width = width;
-    this.canvas.height = height;
-    this.sprite = bakeGradientSprite(width * 0.12 * 2.5, 4);
-    if (this.ctx) {
-      this.ctx.fillStyle = "black";
-      this.ctx.fillRect(0, 0, width, height);
-    }
-    this.decayFramesLeft = 0;
   }
 }

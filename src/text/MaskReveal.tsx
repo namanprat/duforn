@@ -3,34 +3,20 @@ import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import { registerPageTextReveal } from "../lib/text";
 import { MOTION_TOKENS } from "../lib/anim/tokens";
-import {
-  prefersReducedMotion,
-  resolveMotionTokens,
-  waitForCamera as waitForCamera_fn,
-  waitForPreloader as waitForPreloader_fn,
-} from "./useRevealGate";
+import { prefersReducedMotion, resolveMotionTokens, waitForCamera as waitForCameraGate } from "./useRevealGate";
 
 interface MaskRevealProps {
   children: React.ReactNode;
   delay?: number;
-  /** Wait for the room camera to finish its arrival tween before revealing. */
   waitForCamera?: boolean;
-  waitForPreloader?: boolean;
   className?: string;
 }
 
-/**
- * Line-mask reveal for a single non-text block (SVG wordmark, image, etc.).
- * Sibling of `TextRevealLines` with identical motion: the child starts at
- * y:100% inside an overflow-hidden mask and rises to 0% with the same tokens,
- * gates, and page-text registry as the SplitText line reveal — so it animates
- * and route-hides in lockstep with surrounding text.
- */
+/** Masked y-slide reveal for non-text blocks (SVG wordmarks, etc.). */
 export default function MaskReveal({
   children,
   delay = 0,
   waitForCamera = false,
-  waitForPreloader = false,
   className,
 }: MaskRevealProps) {
   const maskRef = useRef<HTMLDivElement>(null);
@@ -48,7 +34,6 @@ export default function MaskReveal({
       gsap.set(inner, { y: reduce ? "0%" : "100%" });
 
       let disposeCamera: (() => void) | null = null;
-      let disposePreloader: (() => void) | null = null;
 
       const runReveal = () => {
         gsap.killTweensOf(inner);
@@ -64,28 +49,16 @@ export default function MaskReveal({
         });
       };
 
-      if (waitForCamera && waitForPreloader) {
-        disposeCamera = waitForCamera_fn(mask, () => {
-          disposePreloader = waitForPreloader_fn(runReveal);
-        });
-      } else if (waitForCamera) {
-        disposeCamera = waitForCamera_fn(mask, runReveal);
-      } else if (waitForPreloader) {
-        disposePreloader = waitForPreloader_fn(runReveal);
+      if (waitForCamera) {
+        disposeCamera = waitForCameraGate(mask, runReveal);
       } else {
         runReveal();
       }
 
       const hide = () =>
         new Promise<void>((resolve) => {
-          if (disposeCamera) {
-            disposeCamera();
-            disposeCamera = null;
-          }
-          if (disposePreloader) {
-            disposePreloader();
-            disposePreloader = null;
-          }
+          disposeCamera?.();
+          disposeCamera = null;
           gsap.killTweensOf(inner);
           if (reduce) {
             gsap.set(inner, { y: "100%" });
@@ -121,14 +94,13 @@ export default function MaskReveal({
 
       return () => {
         unregister();
-        if (disposeCamera) disposeCamera();
-        if (disposePreloader) disposePreloader();
+        disposeCamera?.();
         gsap.killTweensOf(inner);
       };
     },
     {
       scope: maskRef,
-      dependencies: [delay, waitForCamera, waitForPreloader],
+      dependencies: [delay, waitForCamera],
     },
   );
 

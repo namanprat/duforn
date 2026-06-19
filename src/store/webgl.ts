@@ -1,8 +1,14 @@
 import { create } from "zustand";
 
-export const useWebglStore = create((set) => ({
+export type RoomNamespace = "main" | "work" | "contact" | "archive";
+export type AppNamespace = RoomNamespace | "projectDetail";
+
+interface WebglState {
+  activePage: AppNamespace;
+  setActivePage: (page: AppNamespace) => void;
+}
+
+export const useWebglStore = create<WebglState>((set) => ({
   activePage: "main",
-  rendererType: "unknown",
   setActivePage: (page) => set({ activePage: page }),
-  setRendererType: (rendererType) => set({ rendererType }),
 }));

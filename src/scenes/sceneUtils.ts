@@ -1,8 +1,18 @@
-// @ts-nocheck
 import * as THREE from "three";
-import { disableBackfaceCullingOnMaterial } from "../lib/render/materialSide";
 
-export function normalizeModelBounds(model) {
+/**
+ * Recenter a model so it sits on the floor (min.y = 0) and is centered on X/Z.
+ * Mutates the immediate children's positions. Carried over from duforn v1 so the
+ * authored room poses (scale 13) frame the scene identically.
+ */
+export function normalizeModelBounds(model: THREE.Object3D): {
+  box: THREE.Box3;
+  center: THREE.Vector3;
+  size: THREE.Vector3;
+} {
+  // Compute bounds in the model's own space. Forcing a matrix update makes this
+  // correct regardless of any (scaled) parent the model is mounted under.
+  model.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(model);
   const center = box.getCenter(new THREE.Vector3());
   const size = box.getSize(new THREE.Vector3());
@@ -14,54 +24,4 @@ export function normalizeModelBounds(model) {
   });
 
   return { box, center, size };
-}
-
-function tuneMaterialMaps(material) {
-  if (material.map) material.map.colorSpace = THREE.SRGBColorSpace;
-  if (material.emissiveMap) material.emissiveMap.colorSpace = THREE.SRGBColorSpace;
-  material.needsUpdate = true;
-}
-
-function getFallbackPhysicalMaterial(sourceMaterial) {
-  return new THREE.MeshPhysicalMaterial({
-    name: sourceMaterial?.name || "",
-    color: sourceMaterial?.color?.clone ? sourceMaterial.color.clone() : new THREE.Color(0xffffff),
-    map: sourceMaterial?.map || null,
-    normalMap: sourceMaterial?.normalMap || null,
-    roughnessMap: sourceMaterial?.roughnessMap || null,
-    metalnessMap: sourceMaterial?.metalnessMap || null,
-    aoMap: sourceMaterial?.aoMap || null,
-    roughness: sourceMaterial?.roughness ?? 0.65,
-    metalness: sourceMaterial?.metalness ?? 0.2,
-    clearcoat: sourceMaterial?.clearcoat ?? 0,
-    clearcoatRoughness: sourceMaterial?.clearcoatRoughness ?? 0,
-    envMapIntensity: sourceMaterial?.envMapIntensity ?? 1,
-    side: THREE.DoubleSide,
-  });
-}
-
-/** Fix map color spaces and upgrade non-PBR materials without retuning values. */
-export function applyModelMaterialTuning(model) {
-  model.traverse((child) => {
-    // Skip the water mesh — WaterRipples owns its material (PoolWaterMaterial).
-    if (!child.isMesh || child.userData?.isWater) return;
-
-    const apply = (sourceMaterial) => {
-      if (!sourceMaterial) return sourceMaterial;
-
-      let material = sourceMaterial;
-
-      if (!material.isMeshStandardMaterial && !material.isMeshPhysicalMaterial) {
-        material = getFallbackPhysicalMaterial(sourceMaterial);
-      }
-
-      tuneMaterialMaps(material);
-      disableBackfaceCullingOnMaterial(material);
-      return material;
-    };
-
-    child.material = Array.isArray(child.material)
-      ? child.material.map(apply)
-      : apply(child.material);
-  });
 }

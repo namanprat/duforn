@@ -1,18 +1,15 @@
-import React, { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { navigateTo } from "../lib/nav";
 import TextRevealLines from "../text/Reveal";
 import CameraRevealGroup from "../text/CameraRevealGroup";
-import RotateHoverLabel from "../ui/HoverLabel";
-import { shouldUseNavRotateHover } from "../../scripts/link-hover";
 import { STUDIO_INTRO_COPY } from "../content/studio";
-
-const HERO_CTA_LABEL = "VIEW WORK";
-const HERO_CONTACT_LABEL = "CONTACT";
+import RotateHoverLabel from "../components/RotateHoverLabel";
+import { shouldUseNavRotateHover } from "../lib/link-hover";
 
 export default function MainPage() {
   const brandClipRef = useRef<HTMLDivElement | null>(null);
   const [heroCopyWidthPx, setHeroCopyWidthPx] = useState<number | null>(null);
-  const useRotateButtonHover = shouldUseNavRotateHover();
+  const useRotateHover = shouldUseNavRotateHover();
 
   useLayoutEffect(() => {
     const el = brandClipRef.current;
@@ -40,87 +37,77 @@ export default function MainPage() {
     };
   }, []);
 
+  const go = (event: React.MouseEvent<HTMLAnchorElement>, path: string) => {
+    event.preventDefault();
+    navigateTo(path);
+  };
+
   return (
-    <>
-      <main id="main" data-page-container="true" data-page-namespace="main">
-        <section className="hero u-color-light u-background-transparent u-min-height-screen">
-          <div className="hero-stage__contain u-container-main u-height-full u-width-full u-max-width-full">
-            <div className="hero-stage__center">
-              <div className="hero-stage__brand-stack">
-                <div ref={brandClipRef} className="home-hero-brand-clip">
-                  <TextRevealLines animateOnScroll={false} waitForPreloader waitForCamera>
-                    <h1
-                      className="home-hero-brand u-text-style-display"
-                      data-brand-handoff-title="main"
-                    >
-                      Duforn
-                    </h1>
-                  </TextRevealLines>
-                </div>
-                <div className="u-flex-vertical-nowrap u-align-items-center u-gap-4">
-                  {heroCopyWidthPx != null ? (
-                    <div
-                      className="hero-stage__copy-rail"
-                      style={{ width: heroCopyWidthPx, maxWidth: "100%" }}
-                    >
-                      <TextRevealLines
-                        animateOnScroll={false}
-                        waitForPreloader
-                        waitForCamera
-                        delay={0.08}
-                        layoutKey={heroCopyWidthPx}
-                      >
-                        <p className="u-text-align-center u-width-full">{STUDIO_INTRO_COPY}</p>
-                      </TextRevealLines>
-                    </div>
-                  ) : (
-                    <div
-                      className="hero-stage__copy-rail hero-stage__copy-rail--measuring"
-                      aria-hidden="true"
-                    />
-                  )}
-                  <CameraRevealGroup waitForCamera waitForPreloader delay={0.16}>
-                    <div className="hero-stage__actions">
-                      <a
-                        className="button button-primary hero-stage__cta"
-                        href="/work"
-                        data-rotate-hover={useRotateButtonHover ? "" : undefined}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          navigateTo("/work");
-                        }}
-                      >
-                        {useRotateButtonHover ? (
-                          <RotateHoverLabel text={HERO_CTA_LABEL} />
-                        ) : (
-                          <span className="hero-stage__cta-label">{HERO_CTA_LABEL}</span>
-                        )}
-                        <span aria-hidden="true">↗</span>
-                      </a>
-                      <a
-                        className="button button-secondary hero-stage__cta"
-                        href="/contact"
-                        data-rotate-hover={useRotateButtonHover ? "" : undefined}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          navigateTo("/contact");
-                        }}
-                      >
-                        {useRotateButtonHover ? (
-                          <RotateHoverLabel text={HERO_CONTACT_LABEL} />
-                        ) : (
-                          <span className="hero-stage__cta-label">{HERO_CONTACT_LABEL}</span>
-                        )}
-                        <span aria-hidden="true">↗</span>
-                      </a>
-                    </div>
-                  </CameraRevealGroup>
-                </div>
-              </div>
-            </div>
+    <main
+      className="hero_wrap u-min-height-screen u-color-light u-background-transparent"
+      data-page-namespace="main"
+    >
+      <div className="hero_contain u-container-main">
+        <div className="hero_stack">
+          <div ref={brandClipRef} className="home-hero-brand-clip">
+            <TextRevealLines animateOnScroll={false} waitForCamera>
+              <h1 className="hero_title u-text-style-display">Duforn</h1>
+            </TextRevealLines>
           </div>
-        </section>
-      </main>
-    </>
+          <div className="hero_cluster">
+            {heroCopyWidthPx != null ? (
+              <div
+                className="hero-stage__copy-rail"
+                style={{ width: heroCopyWidthPx, maxWidth: "100%" }}
+              >
+                <TextRevealLines
+                  animateOnScroll={false}
+                  waitForCamera
+                  delay={0.08}
+                  layoutKey={heroCopyWidthPx}
+                >
+                  <p className="hero_text u-text-align-center u-width-full">{STUDIO_INTRO_COPY}</p>
+                </TextRevealLines>
+              </div>
+            ) : (
+              <div
+                className="hero-stage__copy-rail hero-stage__copy-rail--measuring"
+                aria-hidden="true"
+              />
+            )}
+            <CameraRevealGroup waitForCamera delay={0.16}>
+              <div className="hero_actions">
+              <a
+                className="button button-primary hero_action_wrap"
+                href="/work"
+                onClick={(e) => go(e, "/work")}
+                data-rotate-hover={useRotateHover ? "" : undefined}
+              >
+                <span className="hero_action_text">
+                  {useRotateHover ? <RotateHoverLabel text="View Work" /> : "View Work"}
+                </span>
+                <span className="hero_action_icon" aria-hidden="true">
+                  ↗
+                </span>
+              </a>
+              <a
+                className="button button-secondary hero_action_wrap"
+                href="/contact"
+                onClick={(e) => go(e, "/contact")}
+                data-rotate-hover={useRotateHover ? "" : undefined}
+              >
+                <span className="hero_action_text">
+                  {useRotateHover ? <RotateHoverLabel text="Contact" /> : "Contact"}
+                </span>
+                <span className="hero_action_icon" aria-hidden="true">
+                  ↗
+                </span>
+              </a>
+            </div>
+          </CameraRevealGroup>
+          </div>
+        </div>
+      </div>
+    </main>
   );
 }

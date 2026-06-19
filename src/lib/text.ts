@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 export type TextRevealControl = {
   hide: () => Promise<void>;
   show: () => Promise<void>;

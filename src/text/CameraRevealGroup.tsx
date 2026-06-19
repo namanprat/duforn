@@ -1,34 +1,25 @@
-// @ts-nocheck
 import React, { useRef } from "react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import { registerPageTextReveal } from "../lib/text";
 import { MOTION_TOKENS } from "../lib/anim/tokens";
-import {
-  prefersReducedMotion,
-  resolveMotionTokens,
-  waitForCamera as waitForCamera_fn,
-  waitForPreloader as waitForPreloader_fn,
-} from "./useRevealGate";
+import { prefersReducedMotion, resolveMotionTokens, waitForCamera as waitForCameraGate } from "./useRevealGate";
 
-/**
- * Fade + slide reveal for non-text elements (buttons, link cards, etc.) gated
- * on camera arrival. Sibling of `TextRevealLines` — registers with the same
- * page-text registry so `hideAllRegisteredPageText` reaches it during route
- * leaves, and listens to `duforn:room-camera-arrived` scoped to the host
- * `[data-page-namespace]` (so a stale arrival from the prior room cannot
- * pre-arm it).
- *
- * Layout: wrapper uses `display: contents` so it does not affect flex/grid.
- */
+interface CameraRevealGroupProps {
+  children: React.ReactNode;
+  delay?: number;
+  yOffset?: number;
+  waitForCamera?: boolean;
+}
+
+/** Fade + slide reveal for buttons and grouped UI, gated on camera arrival. */
 export default function CameraRevealGroup({
   children,
   delay = 0,
   yOffset = 28,
   waitForCamera = true,
-  waitForPreloader = false,
-}) {
-  const containerRef = useRef(null);
+}: CameraRevealGroupProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useGSAP(
     () => {
@@ -43,8 +34,7 @@ export default function CameraRevealGroup({
 
       gsap.set(items, { y: reduce ? 0 : yOffset, opacity: reduce ? 1 : 0 });
 
-      let disposeCamera = null;
-      let disposePreloader = null;
+      let disposeCamera: (() => void) | null = null;
 
       const runReveal = () => {
         gsap.killTweensOf(items);
@@ -62,28 +52,16 @@ export default function CameraRevealGroup({
         });
       };
 
-      if (waitForCamera && waitForPreloader) {
-        disposeCamera = waitForCamera_fn(root, () => {
-          disposePreloader = waitForPreloader_fn(runReveal);
-        });
-      } else if (waitForCamera) {
-        disposeCamera = waitForCamera_fn(root, runReveal);
-      } else if (waitForPreloader) {
-        disposePreloader = waitForPreloader_fn(runReveal);
+      if (waitForCamera) {
+        disposeCamera = waitForCameraGate(root, runReveal);
       } else {
         runReveal();
       }
 
       const hide = () =>
         new Promise<void>((resolve) => {
-          if (disposeCamera) {
-            disposeCamera();
-            disposeCamera = null;
-          }
-          if (disposePreloader) {
-            disposePreloader();
-            disposePreloader = null;
-          }
+          disposeCamera?.();
+          disposeCamera = null;
           gsap.killTweensOf(items);
           if (reduce) {
             gsap.set(items, { y: yOffset, opacity: 0 });
@@ -123,14 +101,13 @@ export default function CameraRevealGroup({
 
       return () => {
         unregister();
-        if (disposeCamera) disposeCamera();
-        if (disposePreloader) disposePreloader();
+        disposeCamera?.();
         gsap.killTweensOf(items);
       };
     },
     {
       scope: containerRef,
-      dependencies: [delay, yOffset, waitForCamera, waitForPreloader],
+      dependencies: [delay, yOffset, waitForCamera],
     },
   );
 

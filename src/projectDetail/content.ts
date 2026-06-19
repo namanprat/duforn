@@ -1,4 +1,3 @@
-// @ts-nocheck
 export const projectDetailContent = {
   projectHero: {
     titleLines: [{ main: "money.me", align: "left" }],
@@ -10,7 +9,6 @@ export const projectDetailContent = {
       { label: "Client", value: "money.me" },
       { label: "Location", value: "Mumbai, India" },
     ],
-    // CTA label is "View Live Project" — hidden on this case study.
     cta: null,
   },
   heroImage: {
