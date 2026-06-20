@@ -1,0 +1,20 @@
+# Backup files
+*.bak
+
+# Build output and installed dependencies
+dist/
+node_modules/
+.vite/
+
+# OS files
+.DS_Store
+**/.DS_Store
+
+# Platform-specific binaries
+node_modules/@esbuild/linux-x64/
+node_modules/@rollup/rollup-linux-x64-gnu/
+node_modules/@esbuild/darwin-arm64/
+node_modules/@rollup/rollup-darwin-arm64/
+.vercel
+# Added by code-review-graph
+.code-review-graph/

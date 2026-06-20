@@ -36,18 +36,18 @@ export function poseToCameraPosition(pose: CameraPose): { x: number; y: number; 
  * scene at MODEL_SCALE = 13. Tune live via RoomCameraGui (dev) and commit here.
  */
 // Main pose uses shared fov / center Y; work and contact override per-room.
-const SHARED_FOV = 65;
-const SHARED_CENTER_Y = 17.5;
+const SHARED_FOV = 70;
+const SHARED_CENTER_Y = 19.6;
 
 export const MAIN_POSE: CameraPose = Object.freeze({
   ...DEFAULT_CAMERA_BASE_POSE,
-  orbitCenterX: 65,
-  orbitCenterY: SHARED_CENTER_Y,
-  orbitCenterZ: 10.5,
+  orbitCenterX: 50,
+  orbitCenterY: 20,
+  orbitCenterZ: 9.8,
   orbitRadius: 5,
-  cameraHeight: 1,
+  cameraHeight: 0,
   fov: SHARED_FOV,
-  orbitAngleDeg: -26,
+  orbitAngleDeg: -31,
   lookAtYawDeg: 0,
   lookAtPitchDeg: 0,
 });
@@ -56,20 +56,27 @@ export const ROOM_POSES: Record<RoomNamespace, CameraPose> = Object.freeze({
   main: MAIN_POSE,
   work: Object.freeze({
     ...DEFAULT_CAMERA_BASE_POSE,
-    orbitCenterX: 27,
-    orbitCenterY: 18,
-    orbitCenterZ: -12,
+    orbitCenterX: 8,
+    orbitCenterY: SHARED_CENTER_Y,
+    orbitCenterZ: -4.7,
     orbitRadius: 5,
-    cameraHeight: 1,
-    fov: 63,
-    orbitAngleDeg: 0,
-    lookAtYawDeg: 90,
-    lookAtPitchDeg: 6,
+    cameraHeight: 0,
+    fov: SHARED_FOV,
+    orbitAngleDeg: 90,
+    lookAtYawDeg: 0,
+    lookAtPitchDeg: 0,
   }),
-  contact: withDelta(MAIN_POSE, {
-    orbitCenterX: MAIN_POSE.orbitCenterX - 2,
-    fov: 60,
-    orbitAngleDeg: 0,
+  contact: Object.freeze({
+    ...DEFAULT_CAMERA_BASE_POSE,
+    orbitCenterX: -66,
+    orbitCenterY: 20,
+    orbitCenterZ: 9.8,
+    orbitRadius: 5,
+    cameraHeight: 0,
+    fov: SHARED_FOV,
+    orbitAngleDeg: -6.5,
+    lookAtYawDeg: 0,
+    lookAtPitchDeg: 0,
   }),
   archive: MAIN_POSE,
 });

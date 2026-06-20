@@ -1,6 +1,7 @@
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { Canvas } from "@react-three/fiber";
+import { PerspectiveCamera } from "@react-three/drei";
 import * as THREE from "three";
 import BakedScene from "./BakedScene";
 import CameraRig from "./CameraRig";
@@ -11,60 +12,105 @@ import ScenePostFX from "./ScenePostFX";
 import ScenePostFXGui from "./ScenePostFXGui";
 import WorkSceneGui from "./WorkSceneGui";
 import RoomCameraGui from "./RoomCameraGui";
+import WaterGui from "./WaterGui";
+import ProjectDetailScene from "../projectDetail/ProjectDetailScene";
+import ProjectCoverScene from "../projectDetail/ProjectCoverScene";
+import MoneyMeStripScene from "../projectDetail/MoneyMeStripScene";
 import { MAIN_POSE, poseToCameraPosition } from "./cam/roomPoses";
 import { getRouteNamespace } from "../lib/route";
 
 const MAIN_CAMERA = poseToCameraPosition(MAIN_POSE);
 
 /**
- * Single persistent canvas for all rooms. Mounted once by the layout so it
- * survives route changes — RoomCam tweens the shared pose, CameraRig drives the
- * camera, BakedScene renders the unlit baked geometry.
+ * Single persistent canvas for all 3D. Route changes toggle scene subgraphs;
+ * ScenePostFX always processes the final frame.
  */
 export default function SceneCanvas() {
   const location = useLocation();
   const activePage = getRouteNamespace(location.pathname);
-  const activeRoom = activePage === "projectDetail" ? "main" : activePage;
-  const isInteractive = activeRoom === "work" || activeRoom === "main";
+  const isRoom = activePage !== "projectDetail";
+  const isProject = activePage === "projectDetail";
+  const activeRoom = isRoom ? activePage : "main";
+  const isInteractive =
+    activePage === "projectDetail" || activeRoom === "work" || activeRoom === "main";
+
+  // R3F sizes its renderer from a ResizeObserver on its container. Under React
+  // StrictMode the observer can be torn down and re-attached on the dev
+  // double-mount without delivering an initial measurement, leaving the canvas
+  // stuck at the 300x150 default until the next window resize. Nudge a resize a
+  // few times after mount (the observer may attach a frame or two later) so the
+  // renderer picks up the real container size.
+  useEffect(() => {
+    const nudge = () => window.dispatchEvent(new Event("resize"));
+    const rafs = [
+      requestAnimationFrame(nudge),
+      requestAnimationFrame(() => requestAnimationFrame(nudge)),
+    ];
+    const timer = window.setTimeout(nudge, 150);
+    return () => {
+      rafs.forEach((id) => cancelAnimationFrame(id));
+      window.clearTimeout(timer);
+    };
+  }, []);
 
   return (
     <div className={`scene_canvas_wrap${isInteractive ? " scene_canvas_wrap--interactive" : ""}`}>
       <Canvas
-        camera={{
-          position: [MAIN_CAMERA.x, MAIN_CAMERA.y, MAIN_CAMERA.z],
-          fov: MAIN_POSE.fov,
-          near: 0.1,
-          far: 1000,
-        }}
-        gl={{ antialias: true, stencil: false }}
+        gl={{ antialias: true, stencil: false, localClippingEnabled: true }}
         shadows={{ type: THREE.PCFShadowMap }}
         onCreated={({ gl }) => {
-          gl.toneMapping = THREE.ACESFilmicToneMapping;
-          gl.toneMappingExposure = 1.0; // tune against a Cycles reference render
+          // ScenePostFX owns tonemapping via EffectComposer — avoid double application.
+          gl.toneMapping = THREE.NoToneMapping;
+          gl.toneMappingExposure = 1.0;
           gl.outputColorSpace = THREE.SRGBColorSpace;
         }}
       >
-        <RoomCam activeRoom={activeRoom} />
-        <CameraRig />
-        <Suspense fallback={null}>
-          <Env
-            hdrFiles="/main.hdr"
-            showHdriBackground
-            fogColor={0x000000}
-            fogDensity={0}
-            showShadowCatcher={false}
-          />
-        </Suspense>
-        <Suspense fallback={null}>
-          <BakedScene />
-          <WorkClothStripScene activeRoom={activeRoom} />
-        </Suspense>
+        {isRoom ? (
+          <>
+            <PerspectiveCamera
+              makeDefault
+              position={[MAIN_CAMERA.x, MAIN_CAMERA.y, MAIN_CAMERA.z]}
+              fov={MAIN_POSE.fov}
+              near={0.1}
+              far={1000}
+            />
+            <RoomCam activeRoom={activeRoom} />
+            <CameraRig />
+            <Suspense fallback={null}>
+              <Env
+                hdrFiles="/main.hdr"
+                showHdriBackground
+                fogColor={0x000000}
+                fogDensity={0}
+                showShadowCatcher={false}
+              />
+            </Suspense>
+            <Suspense fallback={null}>
+              <BakedScene />
+              <WorkClothStripScene activeRoom={activeRoom} />
+            </Suspense>
+          </>
+        ) : null}
+        {isProject ? (
+          <>
+            <Suspense fallback={null}>
+              <ProjectDetailScene />
+            </Suspense>
+            <Suspense fallback={null}>
+              <ProjectCoverScene />
+            </Suspense>
+            <Suspense fallback={null}>
+              <MoneyMeStripScene />
+            </Suspense>
+          </>
+        ) : null}
         <ScenePostFX />
         {import.meta.env.DEV ? (
           <>
             <ScenePostFXGui />
-            <RoomCameraGui activeRoom={activeRoom} />
+            {isRoom ? <RoomCameraGui activeRoom={activeRoom} /> : null}
             <WorkSceneGui enabled={activeRoom === "work"} />
+            {isRoom ? <WaterGui /> : null}
           </>
         ) : null}
       </Canvas>

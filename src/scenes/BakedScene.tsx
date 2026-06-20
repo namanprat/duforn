@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef } from "react";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { normalizeModelBounds } from "./sceneUtils";
-import Water from "./water/Water";
+import { resolveWaterMesh } from "./water/createPoolWaterMesh";
+import WaterRipples from "./water/WaterRipples";
 
 const MODEL_URL = "/main_scene.glb";
 const MODEL_SCALE = 13;
@@ -12,8 +13,7 @@ const GLASS_NAME = "window";
 const FLOOR_NAME = "tiles";
 
 // Low, raking sun (points *toward* the light) so the back structures throw long
-// shadows across the open pool deck. Separate from the water/caustics sun so
-// tuning shadows doesn't disturb the surface glint. Low y = long shadows.
+// shadows across the open pool deck. Low y = long shadows.
 const SHADOW_SUN_DIR = new THREE.Vector3(0.32, 0.32, 0.89).normalize();
 
 type ShadowSetup = {
@@ -66,6 +66,7 @@ function computeShadowSetup(scene: THREE.Object3D, size: THREE.Vector3): ShadowS
 export default function BakedScene() {
   const { scene } = useGLTF(MODEL_URL, true);
   const lightRef = useRef<THREE.DirectionalLight>(null);
+  const modelRef = useRef<THREE.Group>(null);
 
   const { root, shadow } = useMemo(() => {
     if (scene.userData.__bakedPrepared) {
@@ -75,7 +76,7 @@ export default function BakedScene() {
 
     scene.traverse((o) => {
       const mesh = o as THREE.Mesh;
-      if (!mesh.isMesh || mesh.userData?.isWater) return;
+      if (!mesh.isMesh) return;
 
       if (mesh.name === GLASS_NAME) {
         mesh.material = new THREE.MeshPhysicalMaterial({
@@ -138,6 +139,9 @@ export default function BakedScene() {
     return { root: scene, shadow: shadowSetup };
   }, [scene]);
 
+  // The pool water surface mesh inside the GLB (rippled by WaterRipples).
+  const waterMesh = useMemo(() => resolveWaterMesh(root), [root]);
+
   // Aim the sun at the deck center; size its ortho shadow frustum to the scene.
   useEffect(() => {
     const light = lightRef.current;
@@ -156,10 +160,11 @@ export default function BakedScene() {
 
   return (
     <>
-      <group scale={MODEL_SCALE}>
+      <group ref={modelRef} scale={MODEL_SCALE}>
         <primitive object={root} />
-        <Water sceneRoot={root} />
       </group>
+
+      {waterMesh ? <WaterRipples mesh={waterMesh} sceneRoot={root} /> : null}
 
       {/* Low raking sun: lights the deck and casts the long shadows onto it. */}
       <directionalLight

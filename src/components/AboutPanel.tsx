@@ -8,8 +8,8 @@ import {
   ABOUT_INTRO_PARAGRAPHS,
   ABOUT_META,
   ABOUT_PRINCIPLES,
-  ABOUT_WORDS,
 } from "../content/studio";
+import AboutDitherCanvas from "./AboutDitherCanvas";
 import Lenis from "lenis";
 import { MOTION_TOKENS } from "../lib/anim/tokens";
 import { MOTION_TOKENS as MENU_MOTION } from "../lib/animation/motionTokens";
@@ -121,14 +121,7 @@ export default function AboutPanel({ active }: AboutPanelProps) {
         ))}
 
         <div className="about-panel__media">
-          <div className="about-panel__media-bg" aria-hidden="true" />
-          <div className="about-panel__words">
-            {ABOUT_WORDS.map((word, index) => (
-              <p key={word} className="about-panel__word" data-word-index={index}>
-                {word}
-              </p>
-            ))}
-          </div>
+          {active && <AboutDitherCanvas />}
         </div>
 
         <p className="about-panel__meta" data-reveal>

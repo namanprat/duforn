@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import SiteLayout from "./layout/Site";
 import MainPage from "./routes/Main";
 import WorkPage from "./routes/Work";
@@ -56,7 +55,6 @@ function AppShell() {
   useEffect(() => {
     if (namespace === "projectDetail") {
       initLenis();
-      ScrollTrigger.refresh();
     } else {
       destroyLenis();
     }

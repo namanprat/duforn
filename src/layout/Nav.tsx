@@ -9,11 +9,14 @@ import {
 } from "react";
 import { useLocation } from "react-router-dom";
 import gsap from "gsap";
+import { Flip } from "gsap/Flip";
 import { navigateTo } from "../lib/nav";
 import RotateHoverLabel from "../components/RotateHoverLabel";
 import AboutPanel from "../components/AboutPanel";
 import { shouldUseNavRotateHover } from "../lib/link-hover";
 import { MOTION_TOKENS } from "../lib/animation/motionTokens";
+
+gsap.registerPlugin(Flip);
 
 const MENU_LINKS = [
   { label: "Work", path: "/work" },
@@ -21,18 +24,8 @@ const MENU_LINKS = [
   { label: "Archive", path: "/archive" },
 ] as const;
 
-const PANEL_CLIP_CLOSED = "inset(0% 0% 100% 100% round 16px)";
-const PANEL_CLIP_OPEN = "inset(0% 0% 0% 0% round 16px)";
-
 const prefersReducedMotion = () =>
   typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-function resolveMenuWidthPx(aboutOpen: boolean, trackWidth: number): number {
-  const rootFont = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-  const rem = aboutOpen ? 46 : 15;
-  const cap = aboutOpen ? trackWidth * 0.92 : trackWidth;
-  return Math.min(rem * rootFont, cap);
-}
 
 interface NavLinkProps {
   to: string;
@@ -123,54 +116,6 @@ export default function Nav() {
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [closeAll, isAboutOpen, isMenuOpen]);
 
-  const measurePanelHeight = useCallback((aboutOpen: boolean, widthPx: number) => {
-    const panel = panelRef.current;
-    const menuNav = menuNavRef.current;
-    const scope = scopeRef.current;
-    if (!panel || !menuNav || !scope) return 0;
-
-    const about = scope.querySelector<HTMLElement>(".menu-nav__about");
-    const linksBlock = scope.querySelector<HTMLElement>(".menu-nav__links");
-
-    const prev = {
-      width: menuNav.style.width,
-      height: panel.style.height,
-      visibility: panel.style.visibility,
-      aboutDisplay: about?.style.display ?? "",
-      aboutHeight: about?.style.height ?? "",
-      aboutVisibility: about?.style.visibility ?? "",
-      linksDisplay: linksBlock?.style.display ?? "",
-    };
-
-    menuNav.style.width = `${widthPx}px`;
-    panel.style.visibility = "visible";
-    panel.style.height = "auto";
-
-    if (aboutOpen && about) {
-      about.style.display = "block";
-      about.style.height = "auto";
-      about.style.visibility = "visible";
-      if (linksBlock) linksBlock.style.display = "none";
-    } else {
-      if (about) about.style.display = "none";
-      if (linksBlock) linksBlock.style.display = "";
-    }
-
-    const height = panel.scrollHeight;
-
-    menuNav.style.width = prev.width;
-    panel.style.height = prev.height;
-    panel.style.visibility = prev.visibility;
-    if (about) {
-      about.style.display = prev.aboutDisplay;
-      about.style.height = prev.aboutHeight;
-      about.style.visibility = prev.aboutVisibility;
-    }
-    if (linksBlock) linksBlock.style.display = prev.linksDisplay;
-
-    return height;
-  }, []);
-
   useLayoutEffect(() => {
     const scope = scopeRef.current;
     const menuNav = menuNavRef.current;
@@ -181,211 +126,169 @@ export default function Nav() {
 
     const lines = scope.querySelectorAll<HTMLElement>(".menu-nav__line");
     const about = scope.querySelector<HTMLElement>(".menu-nav__about");
-    const linksBlock = scope.querySelector<HTMLElement>(".menu-nav__links");
     const aboutContent = about?.querySelector<HTMLElement>(".about-panel__content") ?? null;
 
     const { menu } = MOTION_TOKENS;
     const reduced = prefersReducedMotion();
     const prev = prevStateRef.current;
-    const track = scope.querySelector<HTMLElement>(".menu-nav-track");
-    const trackWidth = track?.clientWidth ?? menuNav.clientWidth;
-    const linksWidth = resolveMenuWidthPx(false, trackWidth);
-    const aboutWidth = resolveMenuWidthPx(true, trackWidth);
 
-    menuNav.classList.toggle("is-open", isMenuOpen);
-    menuNav.classList.toggle("is-about", isAboutOpen);
-
-    const menuJustOpened = isMenuOpen && !prev.isMenuOpen;
     const menuJustClosed = !isMenuOpen && prev.isMenuOpen;
     const aboutJustOpened = isAboutOpen && !prev.isAboutOpen && isMenuOpen;
     const aboutJustClosed = !isAboutOpen && prev.isAboutOpen && isMenuOpen;
 
-    const setPanelHeightAuto = () => {
-      gsap.set(panel, { height: "auto", clearProps: "height" });
-    };
+    const flipCleanup = "height,width,transform,top,left,right,bottom,position,opacity,visibility";
 
-    const syncReduced = () => {
-      if (!isMenuOpen) {
-        gsap.set(panel, {
-          clipPath: PANEL_CLIP_CLOSED,
-          autoAlpha: 0,
-          visibility: "hidden",
-          height: 0,
-        });
-        gsap.set(menuNav, { width: linksWidth });
-        gsap.set(lines, { yPercent: 120, autoAlpha: 0 });
-        if (about) gsap.set(about, { display: "none", height: 0, autoAlpha: 0 });
-        if (linksBlock) gsap.set(linksBlock, { clearProps: "display" });
-        return;
-      }
+    // The is-open / is-about classes are state-driven in JSX, so React owns the
+    // resting state and can never wrongly hide the box. To let Flip tween from the
+    // OLD layout, briefly revert to the previous classes, snapshot, then restore the
+    // live ones (synchronous — no paint happens in between).
+    menuNav.classList.toggle("is-open", prev.isMenuOpen);
+    menuNav.classList.toggle("is-about", prev.isAboutOpen);
+    const flipState = Flip.getState([menuNav, panel], { props: "borderRadius" });
+    menuNav.classList.toggle("is-open", isMenuOpen);
+    menuNav.classList.toggle("is-about", isAboutOpen);
 
-      const width = isAboutOpen ? aboutWidth : linksWidth;
-      const height = measurePanelHeight(isAboutOpen, width);
-      gsap.set(menuNav, { width });
-      gsap.set(panel, {
-        clipPath: PANEL_CLIP_OPEN,
-        autoAlpha: 1,
-        visibility: "visible",
-        height: isAboutOpen ? "auto" : height,
-      });
-      gsap.set(lines, { yPercent: isAboutOpen ? -120 : 0, autoAlpha: isAboutOpen ? 0 : 1 });
-      if (linksBlock) gsap.set(linksBlock, { display: isAboutOpen ? "none" : "block" });
-      if (about) {
-        gsap.set(about, {
-          display: isAboutOpen ? "block" : "none",
-          height: isAboutOpen ? "auto" : 0,
-          autoAlpha: isAboutOpen ? 1 : 0,
-        });
-      }
-      if (isAboutOpen) setAboutLenisActive(true);
-    };
+    prevStateRef.current = { isMenuOpen, isAboutOpen };
 
-    if (reduced) {
-      syncReduced();
-      prevStateRef.current = { isMenuOpen, isAboutOpen };
+    // Stayed closed (e.g. initial mount, route change while closed): nothing to play.
+    if (!isMenuOpen && !prev.isMenuOpen) {
+      gsap.set(panel, { autoAlpha: 0, clearProps: flipCleanup });
+      gsap.set(lines, { yPercent: 120, autoAlpha: 0 });
+      setAboutLenisActive(false);
       return () => timelineRef.current?.kill();
     }
 
-    if (menuJustClosed) {
-      const tl = gsap.timeline({
-        defaults: { ease: menu.closeEase },
-        onComplete: () => {
-          gsap.set(panel, { visibility: "hidden", height: 0 });
-          gsap.set(menuNav, { width: linksWidth });
-          if (about) gsap.set(about, { display: "none", height: 0, autoAlpha: 0 });
-          if (linksBlock) gsap.set(linksBlock, { clearProps: "display" });
-          setAboutLenisActive(false);
-          timelineRef.current = null;
-        },
-      });
-      tl.to(lines, {
-        yPercent: 120,
-        autoAlpha: 0,
-        duration: menu.closeDuration * 0.6,
-        stagger: { each: menu.lineStagger, from: "end" },
-      }).to(
-        panel,
-        {
-          height: 0,
-          clipPath: PANEL_CLIP_CLOSED,
-          autoAlpha: 0,
-          duration: menu.closeDuration,
-        },
-        "<0.05",
-      );
-      timelineRef.current = tl;
-    } else if (menuJustOpened) {
-      const targetHeight = measurePanelHeight(false, linksWidth);
-      gsap.set(panel, { visibility: "visible", height: 0 });
-      gsap.set(menuNav, { width: linksWidth });
-      if (about) gsap.set(about, { display: "none", height: 0, autoAlpha: 0 });
-      if (linksBlock) gsap.set(linksBlock, { clearProps: "display" });
+    if (reduced) {
+      // Snap to the resting state with no tween.
+      gsap.set(panel, { autoAlpha: isMenuOpen ? 1 : 0, clearProps: flipCleanup });
+      gsap.set(menuNav, { clearProps: flipCleanup });
+      gsap.set(lines, { yPercent: isAboutOpen ? -120 : 0, autoAlpha: isAboutOpen ? 0 : 1 });
+      if (aboutContent) gsap.set(aboutContent, { clearProps: "opacity,visibility" });
+      setAboutLenisActive(isAboutOpen);
+      return () => timelineRef.current?.kill();
+    }
 
-      const tl = gsap.timeline({
-        defaults: { ease: menu.ease },
-        onComplete: () => (timelineRef.current = null),
-      });
-      tl.fromTo(
-        panel,
-        { clipPath: PANEL_CLIP_CLOSED, autoAlpha: 0, height: 0 },
-        {
-          clipPath: PANEL_CLIP_OPEN,
-          autoAlpha: 1,
-          height: targetHeight,
-          duration: menu.openDuration,
-        },
-      ).fromTo(
+    // Keep the panel rendered for the whole transition (including the close).
+    gsap.set(panel, { visibility: "visible" });
+    // Hide the About copy while the box expands; AboutPanel fades it in once active.
+    if (aboutJustOpened && aboutContent) gsap.set(aboutContent, { autoAlpha: 0 });
+
+    const boxDuration = aboutJustOpened
+      ? menu.aboutDuration
+      : aboutJustClosed
+        ? menu.aboutDuration * 0.85
+        : isMenuOpen
+          ? menu.openDuration
+          : menu.closeDuration;
+
+    const tl = gsap.timeline({
+      onComplete: () => {
+        gsap.set(menuNav, { clearProps: flipCleanup });
+        if (isMenuOpen) {
+          gsap.set(panel, { clearProps: flipCleanup });
+        } else {
+          gsap.set(panel, { clearProps: flipCleanup, autoAlpha: 0 });
+        }
+        setAboutLenisActive(isAboutOpen);
+        timelineRef.current = null;
+      },
+    });
+
+    tl.add(
+      Flip.from(flipState, {
+        duration: boxDuration,
+        // One smooth in/out ease for every transition so the box reads as a single
+        // fluid surface (Dynamic-Island style).
+        ease: menu.boxEase,
+        absolute: true,
+        // Animate real width/height (not scaleX/Y) so corners/blur stay crisp and
+        // the box grows from its pinned top-right corner instead of stretching.
+        scale: false,
+      }),
+      0,
+    );
+
+    // Panel fade tracks the box growing in / collapsing out.
+    tl.fromTo(
+      panel,
+      { autoAlpha: prev.isMenuOpen ? 1 : 0 },
+      { autoAlpha: isMenuOpen ? 1 : 0, duration: boxDuration * 0.6, ease: "none" },
+      0,
+    );
+
+    // Link line choreography.
+    if (menuJustClosed) {
+      tl.to(
         lines,
-        { yPercent: 120, autoAlpha: 0 },
+        {
+          yPercent: 120,
+          autoAlpha: 0,
+          duration: menu.closeDuration * 0.6,
+          ease: menu.closeEase,
+          stagger: { each: menu.lineStagger, from: "end" },
+        },
+        0,
+      );
+    } else if (aboutJustOpened) {
+      tl.to(
+        lines,
+        {
+          yPercent: -120,
+          autoAlpha: 0,
+          duration: menu.lineDuration * 0.7,
+          ease: menu.closeEase,
+          stagger: { each: menu.lineStagger, from: "end" },
+        },
+        0,
+      );
+    } else if (aboutJustClosed) {
+      if (aboutContent) {
+        tl.to(
+          aboutContent,
+          { autoAlpha: 0, duration: menu.lineDuration * 0.5, ease: menu.closeEase },
+          0,
+        );
+      }
+      tl.fromTo(
+        lines,
+        { yPercent: -120, autoAlpha: 0 },
         {
           yPercent: 0,
           autoAlpha: 1,
           duration: menu.lineDuration,
+          ease: menu.ease,
           stagger: menu.lineStagger,
         },
-        "<0.12",
+        boxDuration * 0.2,
       );
-      timelineRef.current = tl;
-    } else if (aboutJustOpened && about) {
-      const targetHeight = measurePanelHeight(true, aboutWidth);
-      const tl = gsap.timeline({
-        defaults: { ease: menu.ease },
-        onComplete: () => {
-          setPanelHeightAuto();
-          // Box has finished expanding — let AboutPanel reveal its copy line-by-line.
-          setAboutLenisActive(true);
-          timelineRef.current = null;
+    } else if (isMenuOpen && !isAboutOpen) {
+      // Opening the links view, or returning to it from About.
+      tl.fromTo(
+        lines,
+        { yPercent: prev.isAboutOpen ? -120 : 120, autoAlpha: 0 },
+        {
+          yPercent: 0,
+          autoAlpha: 1,
+          duration: menu.lineDuration,
+          ease: menu.ease,
+          stagger: menu.lineStagger,
         },
-      });
-
-      tl.to(lines, {
-        yPercent: -120,
-        autoAlpha: 0,
-        duration: menu.lineDuration * 0.7,
-        ease: menu.closeEase,
-        stagger: { each: menu.lineStagger, from: "end" },
-      })
-        .add(() => {
-          if (linksBlock) linksBlock.style.display = "none";
-          gsap.set(about, { display: "block", height: "auto", autoAlpha: 1 });
-          // Keep copy hidden during the expand; AboutPanel fades + splits it in afterwards.
-          if (aboutContent) gsap.set(aboutContent, { autoAlpha: 0 });
-        })
-        .to(menuNav, { width: aboutWidth, duration: menu.widthDuration }, "<0.05")
-        .to(panel, { height: targetHeight, duration: menu.heightDuration }, "<");
-      timelineRef.current = tl;
-    } else if (aboutJustClosed && about) {
-      const targetHeight = measurePanelHeight(false, linksWidth);
-      const tl = gsap.timeline({
-        defaults: { ease: menu.closeEase },
-        onComplete: () => {
-          setAboutLenisActive(false);
-          timelineRef.current = null;
-        },
-      });
-
-      tl.to(aboutContent, { autoAlpha: 0, duration: menu.lineDuration * 0.5 })
-        .to(panel, { height: targetHeight, duration: menu.heightDuration * 0.85 }, "<0.05")
-        .to(menuNav, { width: linksWidth, duration: menu.widthDuration * 0.85 }, "<")
-        .add(() => {
-          about.style.display = "none";
-          if (linksBlock) linksBlock.style.display = "";
-        })
-        .fromTo(
-          lines,
-          { yPercent: -120, autoAlpha: 0 },
-          {
-            yPercent: 0,
-            autoAlpha: 1,
-            duration: menu.lineDuration,
-            ease: menu.ease,
-            stagger: menu.lineStagger,
-          },
-          "<0.08",
-        );
-      timelineRef.current = tl;
-    } else if (isMenuOpen) {
-      const width = isAboutOpen ? aboutWidth : linksWidth;
-      gsap.set(menuNav, { width });
-      if (isAboutOpen) {
-        setPanelHeightAuto();
-        if (linksBlock) gsap.set(linksBlock, { display: "none" });
-        if (about) gsap.set(about, { display: "block", height: "auto", autoAlpha: 1 });
-      }
+        prev.isMenuOpen ? boxDuration * 0.2 : boxDuration * 0.3,
+      );
     }
 
-    prevStateRef.current = { isMenuOpen, isAboutOpen };
+    timelineRef.current = tl;
 
     return () => {
       timelineRef.current?.kill();
     };
-  }, [isAboutOpen, isMenuOpen, measurePanelHeight]);
+  }, [isAboutOpen, isMenuOpen]);
 
   const toggleAriaLabel =
     toggleLabel === "Menu" ? "Open menu" : toggleLabel === "Back" ? "Back to menu" : "Close menu";
 
   return (
-    <header className="site-header">
+    <header className={`site-header${isMenuOpen ? " site-header--menu-open" : ""}`}>
       <button
         type="button"
         className="menu-nav-backdrop"
@@ -424,13 +327,14 @@ export default function Nav() {
             aria-hidden={!isMenuOpen}
           >
             <div ref={panelRef} className="menu-nav__panel">
+              <div className="menu-nav__lead" aria-hidden="true" />
               <ul className="menu-nav__links">
                 {MENU_LINKS.map(({ label, path }) => (
                   <li key={path} className="menu-nav__item">
                     <span className="menu-nav__line">
                       <NavLink
                         to={path}
-                        className="menu-nav__link u-text-style-menu"
+                        className="menu-nav__link u-text-style-h4"
                         onClick={closeMenu}
                         rotateHover={useRotateHover}
                       >
@@ -443,7 +347,7 @@ export default function Nav() {
                   <span className="menu-nav__line">
                     <a
                       href="#about"
-                      className="menu-nav__link menu-nav__about-toggle u-text-style-menu"
+                      className="menu-nav__link menu-nav__about-toggle u-text-style-h4"
                       role="button"
                       aria-expanded={isAboutOpen}
                       aria-controls="site-about"

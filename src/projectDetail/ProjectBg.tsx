@@ -120,7 +120,7 @@ export default function ProjectBg({ onReady }: ProjectBgProps) {
     const t = state.clock.elapsedTime;
     orbitPointerRef.current.set(
       Math.cos(t * ORBIT_SPEED) * ORBIT_RADIUS,
-      Math.sin(t * ORBIT_SPEED) * ORBIT_RADIUS,
+      -Math.sin(t * ORBIT_SPEED) * ORBIT_RADIUS,
     );
 
     const pointerIdle =
@@ -140,7 +140,7 @@ export default function ProjectBg({ onReady }: ProjectBgProps) {
     const trailMap = trailTextureRef.current;
     if (trail && trailMap) {
       const px = (activePointer.x + 1) * 0.5 * PROJECT_BG_TRAIL_SIZE;
-      const py = (activePointer.y + 1) * 0.5 * PROJECT_BG_TRAIL_SIZE;
+      const py = (1 - activePointer.y) * 0.5 * PROJECT_BG_TRAIL_SIZE;
       if (trail.update({ x: px, y: py })) {
         trailMap.needsUpdate = true;
       }
@@ -149,7 +149,7 @@ export default function ProjectBg({ onReady }: ProjectBgProps) {
     if (clonedSceneRef.current) {
       clonedSceneRef.current.position.set(
         PROJECT_BG.x,
-        PROJECT_BG.y - scrollCurrentRef.current * PROJECT_BG.scrollDrift,
+        PROJECT_BG.y + scrollCurrentRef.current * PROJECT_BG.scrollDrift,
         PROJECT_BG.z,
       );
     }

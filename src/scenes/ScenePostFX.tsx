@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import {
   ChromaticAberration,
   EffectComposer,
@@ -28,7 +28,7 @@ const TONE_MAPPING_MODES: Record<string, ToneMappingMode> = {
  * Subtle realism stack: AO, ACES tonemapping, edge-weighted chromatic aberration,
  * restrained vignette, and film grain.
  */
-export default function ScenePostFX() {
+export default function ScenePostFX({ children }: { children?: ReactNode }) {
   const fx = usePostFxControlsStore((s) => s.controls);
 
   const chromaticOffset = useMemo(
@@ -70,6 +70,7 @@ export default function ScenePostFX() {
         />
       ) : null}
       {fx.grain.enabled ? <Noise opacity={fx.grain.opacity} /> : null}
+      {children}
     </EffectComposer>
   );
 }

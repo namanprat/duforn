@@ -1,4 +1,5 @@
 import TextRevealLines from "../text/Reveal";
+import { ProjectCoverAnchor } from "./ProjectCanvasAnchor";
 import MoneyMeStripCanvas from "./MoneyMeStripCanvas";
 
 const HERO_TITLE = "money.me";
@@ -39,18 +40,6 @@ const STORY_SECTIONS = [
     ],
   },
 ] as const;
-
-function ProjectImage({ src, alt, eager = false }: { src: string; alt: string; eager?: boolean }) {
-  return (
-    <img
-      src={src}
-      alt={alt}
-      decoding="async"
-      loading={eager ? undefined : "lazy"}
-      className="u-display-block u-width-full u-height-full u-object-fit-cover"
-    />
-  );
-}
 
 function StorySection({ heading, body }: { heading: string; body: readonly string[] }) {
   return (
@@ -132,7 +121,7 @@ export default function ProjectDetailPage() {
 
       <section className="project-details-cover">
         <div className="project-details-cover-frame">
-          <ProjectImage src="/money-me/money-cover.webp" alt="money.me cover image" eager />
+          <ProjectCoverAnchor src="/money-me/money-cover.webp" />
         </div>
       </section>
 

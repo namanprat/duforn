@@ -26,8 +26,6 @@ export const ABOUT_INTRO_PARAGRAPHS: string[] = [
   "When we work with founders, we are immersed in your story, ruthless about what moves people, and built to close the gap between who you are and how the world sees you.",
 ];
 
-export const ABOUT_WORDS: string[] = ["listen", "create", "obsess", "inspire"];
-
 export const ABOUT_META = {
   est: "EST 2022",
   based: "BASED IN MELBOURNE and HANOI",

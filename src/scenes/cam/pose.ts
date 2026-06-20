@@ -20,7 +20,7 @@ export const DEFAULT_CAMERA_BASE_POSE: CameraPose = Object.freeze({
   orbitCenterY: 0.5,
   orbitCenterZ: 0,
   orbitRadius: 5,
-  cameraHeight: 1,
+  cameraHeight: 0,
   fov: 65,
   orbitAngleDeg: 90,
   lookAtYawDeg: 0,

@@ -2,7 +2,6 @@ import React, { useRef } from "react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import { SplitText } from "gsap/SplitText";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { registerPageTextReveal } from "../lib/text";
 import { MOTION_TOKENS } from "../lib/anim/tokens";
 import {
@@ -10,8 +9,9 @@ import {
   resolveMotionTokens,
   waitForCamera as waitForCameraGate,
 } from "./useRevealGate";
+import { armScrollLineReveal, type ScrollLineRevealController } from "./scrollLineReveal";
 
-gsap.registerPlugin(SplitText, ScrollTrigger);
+gsap.registerPlugin(SplitText);
 
 const LINE_CLASS = "text-reveal-line";
 
@@ -57,8 +57,7 @@ export default function TextRevealLines({
 
       const splitRefs: SplitText[] = [];
       let lineEls: Element[] = [];
-      let scrollTriggerInstance: ScrollTrigger | null = null;
-      let intersectionObserver: IntersectionObserver | null = null;
+      let scrollReveal: ScrollLineRevealController | null = null;
       let disposeCamera: (() => void) | null = null;
 
       const elements: Element[] = root.hasAttribute("data-copy-wrapper")
@@ -85,15 +84,13 @@ export default function TextRevealLines({
 
       gsap.set(lineEls, { y: reduce ? "0%" : "100%" });
 
-      const killScrollTrigger = () => {
-        scrollTriggerInstance?.kill();
-        scrollTriggerInstance = null;
-        intersectionObserver?.disconnect();
-        intersectionObserver = null;
+      const killScrollTriggers = () => {
+        scrollReveal?.kill();
+        scrollReveal = null;
       };
 
       const runRevealImmediate = (extraDelay = 0) => {
-        killScrollTrigger();
+        killScrollTriggers();
         gsap.killTweensOf(lineEls);
         if (reduce) {
           gsap.set(lineEls, { y: "0%" });
@@ -109,63 +106,29 @@ export default function TextRevealLines({
       };
 
       const runRevealScroll = () => {
-        killScrollTrigger();
+        killScrollTriggers();
         gsap.killTweensOf(lineEls);
         if (reduce) {
           gsap.set(lineEls, { y: "0%" });
           return;
         }
-        gsap.set(lineEls, { y: "100%" });
-        scrollTriggerInstance = ScrollTrigger.create({
-          trigger: root,
-          start: "top 75%",
-          once: true,
-          onEnter: () => {
-            gsap.to(lineEls, {
-              y: "0%",
-              duration: revealDuration,
-              stagger: revealStagger,
-              ease: MOTION_TOKENS.textReveal.revealEase,
-              delay: effectiveDelay,
-            });
-          },
+
+        scrollReveal = armScrollLineReveal(lineEls, {
+          delay: effectiveDelay,
+          reduce,
+          revealDuration,
+          revealStagger,
         });
 
-        if (scrollTriggerInstance.isActive || scrollTriggerInstance.progress > 0) {
-          killScrollTrigger();
-          gsap.to(lineEls, {
-            y: "0%",
-            duration: revealDuration,
-            stagger: revealStagger,
-            ease: MOTION_TOKENS.textReveal.revealEase,
-            delay: effectiveDelay,
-          });
-          return;
-        }
-
-        if (typeof IntersectionObserver !== "undefined") {
-          intersectionObserver = new IntersectionObserver(
-            (entries) => {
-              const entry = entries[0];
-              if (!entry?.isIntersecting) return;
-              killScrollTrigger();
-              gsap.to(lineEls, {
-                y: "0%",
-                duration: revealDuration,
-                stagger: revealStagger,
-                ease: MOTION_TOKENS.textReveal.revealEase,
-                delay: effectiveDelay,
-              });
-            },
-            { root: null, rootMargin: "0px 0px -25% 0px", threshold: 0.01 },
-          );
-          intersectionObserver.observe(root);
+        requestAnimationFrame(() => scrollReveal?.refresh());
+        if (typeof document !== "undefined" && document.fonts?.ready) {
+          document.fonts.ready.then(() => scrollReveal?.refresh());
         }
       };
 
       const armReveal = () => {
         if (!animate) {
-          killScrollTrigger();
+          killScrollTriggers();
           gsap.killTweensOf(lineEls);
           gsap.set(lineEls, { y: "0%" });
           return;
@@ -186,7 +149,7 @@ export default function TextRevealLines({
 
       const hide = () =>
         new Promise<void>((resolve) => {
-          killScrollTrigger();
+          killScrollTriggers();
           disposeCamera?.();
           disposeCamera = null;
           gsap.killTweensOf(lineEls);
@@ -210,7 +173,7 @@ export default function TextRevealLines({
 
       const show = () =>
         new Promise<void>((resolve) => {
-          killScrollTrigger();
+          killScrollTriggers();
           gsap.killTweensOf(lineEls);
           if (!lineEls.length) {
             resolve();
@@ -235,7 +198,7 @@ export default function TextRevealLines({
 
       return () => {
         unregister();
-        killScrollTrigger();
+        killScrollTriggers();
         disposeCamera?.();
         splitRefs.forEach((split) => {
           try {

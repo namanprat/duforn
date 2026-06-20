@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": [
+        "-c",
+        "export PATH=/usr/local/bin:/opt/homebrew/bin:$PATH && cd /Users/naman/Developer/GitHub/duforn && node node_modules/.bin/vp dev --configLoader runner"
+      ],
+      "port": 5173,
+      "autoPort": true
+    }
+  ]
+}
