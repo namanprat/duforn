@@ -1,3 +1,0 @@
-{
-  "ignorePatterns": ["webgpu-water-main/**", "node_modules/**", "dist/**"],
-}
