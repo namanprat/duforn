@@ -1,34 +1,62 @@
 /** Wave-equation pool ripple + ocean-style surface defaults. */
 
 export const POOL_SIM_DEFAULTS = {
-  gridSize: 192,
-  modifier: 0.994,
+  gridSize: 256,
+  modifier: 0.995,
   substeps: 1,
   impulseRadius: 3.0,
   impulseStrength: 0.45,
-  normalScale: 8.0,
-  maxSlope: 0.7,
+  normalScale: 9.0,
+  maxSlope: 0.75,
   pointerThrottleMs: 44,
   minCellDistance: 0.8,
-  startupImpulseStrengthScale: 0.24,
+  startupImpulseStrengthScale: 0.32,
+  pointerImpulsesPerFrame: 4,
+};
+
+/** Generated water plane fit vs PoolWalls (dev-tweakable via WaterGui). */
+export const POOL_PLANE_DEFAULTS = {
+  inset: 0.96,
+  rimDrop: 0.08,
+  rimDropMax: 0.04,
+  offsetX: 0,
+  offsetY: 0,
+  offsetZ: 0,
 };
 
 /** webgl-water (Evan Wallace) surface recipe, adapted to the GLB pool. */
 export const POOL_WATER_DEFAULTS = {
-  /** When false, reflection uses defaultReflection instead of scene.environment. */
-  hdrReflection: false,
   exposure: 1,
-  aboveWaterTint: [0.25, 1.0, 1.25] as [number, number, number],
-  fresnelBase: 0,
-  fresnelPower: 3.0,
-  fresnelNormalStrength: 0.3,
-  normalStrength: 0.6,
-  refractionOffset: 0.1,
+  aboveWaterTint: [0.22, 0.98, 1.18] as [number, number, number],
+  /** Schlick F0 — ~0.02 for water (IOR 1.33). */
+  fresnelBase: 0.02,
+  fresnelPower: 5.0,
+  fresnelNormalStrength: 0.52,
+  normalStrength: 0.65,
+  refractionOffset: 0.085,
+  /** Ripple normal offset on planar reflection UV (world-space scale). */
+  reflectionDistortion: 0.04,
   envRefractionStrength: 0.08,
-  waterDepth: 0.8,
-  waterClarity: 0,
-  defaultReflection: "#7d97a8",
-  opacity: 0.5,
+  envIntensity: 1.15,
+  /** Scales cubemap sky contribution in reflections. */
+  hdrBlend: 0.35,
+  reflectionCubemapUrl: "/main.hdr",
+  /** Perturb cubemap reflection by ripple normals (0 = mirror, 1 = very rough). */
+  reflectionRoughness: 0.18,
+  /** Cubemap fill weight for upward reflections (sky). */
+  planarSkyFill: 0.85,
+  /** RGB channel split on refracted backdrop (subtle). */
+  chromaticAberration: 0.32,
+  waterDepth: 1.15,
+  waterClarity: 0.38,
+  opacity: 0.72,
+  displacementScale: 0.035,
+  hdrReflection: true,
+  sunStrength: 1.05,
+  sunShininess: 480.0,
+  sunColor: "#fff4e8",
+  /** Sparkle on ripple crests + sun disk in reflections. */
+  sunGlintStrength: 0.72,
   breezeStrength: 0.55,
   breezeScale: 7.5,
   breezeSpeed: 0.06,
@@ -40,14 +68,17 @@ export const POOL_WATER_DEFAULTS = {
 
 export const POOL_WATER_RENDER_ORDER = 10;
 
+/** Visualize the resolved water mesh as solid red (debug). */
+export const WATER_DEBUG_HIGHLIGHT_PLANE = false;
+
 /** Refracted-light caustics projected onto the GLB pool floor/walls. */
 export const POOL_CAUSTICS_DEFAULTS = {
   enabled: true,
-  strength: 0.35,
-  depth: 0.16,
-  normalScale: 300.0,
-  gain: 0.45,
-  maxIntensity: 4.0,
+  strength: 0.42,
+  depth: 0.18,
+  normalScale: 320.0,
+  gain: 0.5,
+  maxIntensity: 4.5,
   edgeFade: 0.08,
   depthFade: 0.2,
   lightElevationDeg: 55,

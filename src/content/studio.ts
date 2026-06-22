@@ -1,5 +1,9 @@
 export const STUDIO_INTRO_COPY =
-  "We are an art direction and web studio in Mumbai. Working with culture, curating digital experiences. Making work that moves people.";
+  "Based out of mumbai and bangalore. Working with culture, curating digital experiences.";
+
+export const HERO_EYEBROW = "2026";
+export const HERO_TITLE_LEAD = "Naman Pratulya";
+export const HERO_TITLE_SERIF = "DOWNTOWN GROCERY";
 
 export const CONTACT_INTRO_COPY =
   "Available for freelance projects, art direction, and digital design inquiries.";
@@ -18,12 +22,8 @@ export const CONTACT_LINKS: ContactLink[] = [
 
 /* --- About panel content (verbatim from Figma node 566-2767) -------------- */
 
-export const ABOUT_HEADING = "About the studio";
-
 export const ABOUT_INTRO_PARAGRAPHS: string[] = [
-  "Hey I'm Huy. I started MONOLOG because I watched exceptional founders stay invisible because their presence never caught up to who they'd become despite the scale of their ambition.",
-  "That gap became an obsession. I've spent years breaking down what separates forgettable digital presence from work that actually moves people, thinking that's reached over 60,000 creatives and shapes every project we take on.",
-  "When we work with founders, we are immersed in your story, ruthless about what moves people, and built to close the gap between who you are and how the world sees you.",
+  "I'm a digital designer with a simple goal: make things look good and work even better. I spend most of my time designing websites, obsessing over details, and figuring out how to turn ideas into experiences that feel clear, intuitive, and visually compelling. I enjoy the process as much as the outcome—understanding what's important, stripping away what's not, and creating work that feels effortless. For me, good design isn't about adding more; it's about knowing what to leave out.",
 ];
 
 export const ABOUT_META = {
@@ -32,15 +32,14 @@ export const ABOUT_META = {
 } as const;
 
 export const ABOUT_CLIENTS: string[] = [
-  "Vinamilk",
-  "Moc Chau Creamery",
-  "OH Architecture",
-  "Supersolid Agency",
-  "Mammoth Murals",
-  "SLIK Agency",
-  "BlueBrown Partners",
-  "Backhouse",
-  "University of Sydney",
+  "Animal",
+  "November",
+  "Notice",
+  "Egodeath",
+  "Project Qaafi",
+  "Haptic AI",
+  "Perception Pod",
+  "t.Bonk",
 ];
 
 export const ABOUT_AWARDS: string[] = [

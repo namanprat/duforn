@@ -60,7 +60,7 @@ export default function ContactPage() {
     >
       <div className="contact_contain u-container-main" style={containStyle}>
         <div className="contact_title_wrap u-width-full">
-          <MaskReveal waitForCamera delay={0.06} className="contact-page-title-mask">
+          <MaskReveal waitForCamera delay={0.06}>
             <h1 className="contact_title" aria-label="contact">
               <ContactWordmark className="contact_title_svg" align={isDesktop ? "start" : "mid"} />
             </h1>

@@ -19,13 +19,3 @@ export function boxToPlanarBounds(box: THREE.Box3): WaterPlanarBounds {
 export function planarBoundsToUniform(bounds: WaterPlanarBounds) {
   return new THREE.Vector4(bounds.minX, bounds.minZ, bounds.width, bounds.depth);
 }
-
-export function worldPointToSimUv(
-  point: THREE.Vector3,
-  bounds: WaterPlanarBounds,
-): { u: number; v: number } {
-  return {
-    u: THREE.MathUtils.clamp((point.x - bounds.minX) / bounds.width, 0, 1),
-    v: THREE.MathUtils.clamp(1 - (point.z - bounds.minZ) / bounds.depth, 0, 1),
-  };
-}

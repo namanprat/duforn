@@ -9,15 +9,15 @@ import ArchivePage from "./routes/Archive";
 import { setNavigateHandler } from "./lib/nav";
 import { startWorkTexturePreload } from "./lib/work-preload";
 import { getRouteNamespace } from "./lib/route";
-import { hideAllRegisteredPageText } from "./lib/text";
+import { hideAllRegisteredPageText, showAllRegisteredPageText } from "./lib/text";
 import { destroyLenis, initLenis } from "./lib/lenis-scroll";
 
 const TITLES: Record<string, string> = {
-  main: "Duforn",
-  work: "Duforn | Work",
-  contact: "Duforn | Contact",
-  archive: "Duforn | Archive",
-  projectDetail: "Duforn | money.me",
+  main: "Naman Pratulya",
+  work: "Naman Pratulya | Work",
+  contact: "Naman Pratulya | Contact",
+  archive: "Naman Pratulya | Archive",
+  projectDetail: "Naman Pratulya | money.me",
 };
 
 function AppShell() {
@@ -47,12 +47,7 @@ function AppShell() {
     document.title = TITLES[namespace] ?? TITLES.main;
     document.body.classList.add("page-wrap");
     document.body.classList.toggle("page-wrap--scrollable", namespace === "projectDetail");
-    return () => {
-      document.body.classList.remove("page-wrap--scrollable");
-    };
-  }, [namespace]);
 
-  useEffect(() => {
     if (namespace === "projectDetail") {
       initLenis();
     } else {
@@ -60,8 +55,19 @@ function AppShell() {
     }
 
     return () => {
+      document.body.classList.remove("page-wrap--scrollable");
       destroyLenis();
     };
+  }, [namespace]);
+
+  useEffect(() => {
+    if (namespace !== "projectDetail") return undefined;
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        void showAllRegisteredPageText();
+      });
+    });
+    return () => cancelAnimationFrame(id);
   }, [namespace]);
 
   useEffect(() => {

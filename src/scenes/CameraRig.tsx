@@ -2,7 +2,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import type { PerspectiveCamera } from "three";
 import { cameraBasePoseRef, cameraTransitionRef } from "./cam/pose";
-import { prefersReducedMotion } from "./cam/roomPoses";
+import { prefersReducedMotion } from "../lib/prefersReducedMotion";
 
 /**
  * Pointer parallax tuning. Reworked from v1 to feel gentler and more damped:

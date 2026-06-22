@@ -15,6 +15,7 @@ import RotateHoverLabel from "../components/RotateHoverLabel";
 import AboutPanel from "../components/AboutPanel";
 import { shouldUseNavRotateHover } from "../lib/link-hover";
 import { MOTION_TOKENS } from "../lib/animation/motionTokens";
+import { prefersReducedMotion } from "../lib/prefersReducedMotion";
 
 gsap.registerPlugin(Flip);
 
@@ -24,8 +25,41 @@ const MENU_LINKS = [
   { label: "Archive", path: "/archive" },
 ] as const;
 
-const prefersReducedMotion = () =>
-  typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const IST_TIME_FORMAT = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Asia/Kolkata",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
+});
+
+/** Indian Standard Time as a `HH:MM:SS` string. */
+const formatISTTime = () => IST_TIME_FORMAT.format(new Date());
+
+/** Live IST clock, ticking every second. */
+function useISTTime() {
+  const [time, setTime] = useState(formatISTTime);
+  useEffect(() => {
+    const id = window.setInterval(() => setTime(formatISTTime()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  return time;
+}
+
+/**
+ * Nav brand: live IST clock on home, "Naman Pratulya" elsewhere.
+ * One hover surface for both; clock ticks repaint silently via `live`.
+ */
+function NavBrand({ isHome, useRotateHover }: { isHome: boolean; useRotateHover: boolean }) {
+  const time = useISTTime();
+  const brandText = isHome ? `${time} IST` : "Naman Pratulya";
+
+  return (
+    <span className="nav-brand__clip">
+      {useRotateHover ? <RotateHoverLabel text={brandText} /> : brandText}
+    </span>
+  );
+}
 
 interface NavLinkProps {
   to: string;
@@ -65,6 +99,7 @@ export default function Nav() {
   const [aboutLenisActive, setAboutLenisActive] = useState(false);
   const useRotateHover = shouldUseNavRotateHover();
   const toggleLabel = isAboutOpen ? "Back" : isMenuOpen ? "Close" : "Menu";
+  const isHome = location.pathname === "/";
 
   const scopeRef = useRef<HTMLDivElement | null>(null);
   const menuNavRef = useRef<HTMLDivElement | null>(null);
@@ -299,12 +334,12 @@ export default function Nav() {
 
       <div className="site-header__inner u-container-main">
         <NavLink className="link-main site-header__brand" to="/" rotateHover={useRotateHover}>
-          {useRotateHover ? <RotateHoverLabel text="Duforn" /> : "Duforn"}
+          <NavBrand isHome={isHome} useRotateHover={useRotateHover} />
         </NavLink>
 
         <button
           type="button"
-          className="site-header__toggle"
+          className="link-main site-header__toggle"
           aria-label={toggleAriaLabel}
           aria-expanded={isMenuOpen}
           aria-controls="site-menu"

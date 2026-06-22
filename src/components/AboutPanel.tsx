@@ -11,8 +11,8 @@ import {
 } from "../content/studio";
 import AboutDitherCanvas from "./AboutDitherCanvas";
 import Lenis from "lenis";
-import { MOTION_TOKENS } from "../lib/anim/tokens";
-import { MOTION_TOKENS as MENU_MOTION } from "../lib/animation/motionTokens";
+import { MOTION_TOKENS } from "../lib/animation/motionTokens";
+import { prefersReducedMotion } from "../lib/prefersReducedMotion";
 
 gsap.registerPlugin(SplitText, ScrollTrigger);
 
@@ -20,9 +20,6 @@ interface AboutPanelProps {
   /** Becomes true once the box has finished expanding — the cue to reveal the copy. */
   active: boolean;
 }
-
-const prefersReducedMotion = () =>
-  typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export default function AboutPanel({ active }: AboutPanelProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -86,7 +83,7 @@ export default function AboutPanel({ active }: AboutPanelProps) {
           duration: revealDuration,
           stagger: revealStagger,
           ease: revealEase,
-          delay: MENU_MOTION.menu.aboutRevealDelay,
+          delay: MOTION_TOKENS.menu.aboutRevealDelay,
         });
       },
     });
@@ -141,7 +138,7 @@ export default function AboutPanel({ active }: AboutPanelProps) {
           </div>
         </section>
 
-        <section className="about-panel__section about-panel__section--divided">
+       {/* <section className="about-panel__section about-panel__section--divided">
           <p className="about-panel__label" data-reveal>
             Awards
           </p>
@@ -152,9 +149,9 @@ export default function AboutPanel({ active }: AboutPanelProps) {
               </p>
             ))}
           </div>
-        </section>
+        </section> */}
 
-        <section className="about-panel__section about-panel__section--divided">
+         {/*<section className="about-panel__section about-panel__section--divided">
           <p className="about-panel__label" data-reveal>
             Our principles
           </p>
@@ -170,7 +167,7 @@ export default function AboutPanel({ active }: AboutPanelProps) {
               </div>
             ))}
           </div>
-        </section>
+        </section> */}
       </div>
     </div>
   );

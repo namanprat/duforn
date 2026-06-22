@@ -104,8 +104,5 @@ export function ProjectStripsAnchor() {
   return <div ref={setRef} data-money-me-strip="true" />;
 }
 
-/** @deprecated Use ProjectCanvasAnchorProvider */
-export const MoneyMeStripAnchorProvider = ProjectCanvasAnchorProvider;
-
 /** @deprecated Use ProjectStripsAnchor */
 export default ProjectStripsAnchor;

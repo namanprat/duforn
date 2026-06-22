@@ -4,9 +4,35 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 gsap.registerPlugin(ScrollTrigger);
 
+const SCROLLER = document.body;
+
 let lenis: Lenis | null = null;
 let tickerCallback: ((time: number) => void) | null = null;
 let lenisScrollTriggerSync: (() => void) | null = null;
+
+function bindScrollTriggerProxy(instance: Lenis) {
+  ScrollTrigger.scrollerProxy(SCROLLER, {
+    scrollTop(value) {
+      if (arguments.length) {
+        instance.scrollTo(value, { immediate: true });
+      }
+      return instance.scroll;
+    },
+    getBoundingClientRect() {
+      return {
+        top: 0,
+        left: 0,
+        width: window.innerWidth,
+        height: window.innerHeight,
+      };
+    },
+    pinType: SCROLLER.style.transform ? "transform" : "fixed",
+  });
+}
+
+function clearScrollTriggerProxy() {
+  ScrollTrigger.scrollerProxy(SCROLLER, {});
+}
 
 export function initLenis() {
   if (lenis) return lenis;
@@ -23,6 +49,8 @@ export function initLenis() {
     },
   });
 
+  bindScrollTriggerProxy(lenis);
+
   lenisScrollTriggerSync = () => {
     ScrollTrigger.update();
   };
@@ -34,6 +62,8 @@ export function initLenis() {
 
   gsap.ticker.add(tickerCallback);
   gsap.ticker.lagSmoothing(500, 33);
+
+  requestAnimationFrame(() => ScrollTrigger.refresh());
 
   return lenis;
 }
@@ -53,6 +83,7 @@ export function destroyLenis() {
 
   lenis.destroy();
   lenis = null;
+  clearScrollTriggerProxy();
 }
 
 export function getLenis() {

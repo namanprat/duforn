@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { POOL_SIM_DEFAULTS } from "../config/poolWaterDefaults";
 import { ShallowWaterState, createShallowWaterParams } from "./shallowWaterCPU";
 
-/** WebGL: CPU shallow water + height DataTexture for materials. */
+/** WebGL: CPU shallow water + height DataTexture for materials and caustics. */
 export class PoolShallowWaterSimCPU {
   readonly nw: number;
   readonly nh: number;
@@ -56,6 +56,19 @@ export class PoolShallowWaterSimCPU {
     this.impulseY = gy;
     this.impulseStrengthScale = strengthScale;
     this.impulsePending = true;
+  }
+
+  setSimParams(
+    next: Partial<{
+      modifier: number;
+      impulseStrength: number;
+      impulseRadius: number;
+    }> = {},
+  ) {
+    const { params } = this.state;
+    if (next.modifier !== undefined) params.modifier = next.modifier;
+    if (next.impulseStrength !== undefined) params.impulseStrength = next.impulseStrength;
+    if (next.impulseRadius !== undefined) params.impulseRadius = next.impulseRadius;
   }
 
   step({ substeps = POOL_SIM_DEFAULTS.substeps } = {}) {

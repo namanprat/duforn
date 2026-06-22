@@ -3,10 +3,6 @@ import type { RoomNamespace } from "../../lib/route";
 
 export type { RoomNamespace } from "../../lib/route";
 
-export function withDelta(base: CameraPose, delta: Partial<CameraPose>): CameraPose {
-  return Object.freeze({ ...base, ...delta });
-}
-
 export function posesEqual(a: CameraPose, b: CameraPose): boolean {
   return (
     a.orbitCenterX === b.orbitCenterX &&
@@ -83,8 +79,3 @@ export const ROOM_POSES: Record<RoomNamespace, CameraPose> = Object.freeze({
 
 /** Seconds per directed route transition. */
 export const ROOM_TRANSITION_SECONDS = 1.8;
-
-export function prefersReducedMotion(): boolean {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}

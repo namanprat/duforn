@@ -2,7 +2,7 @@ import React, { useRef } from "react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import { registerPageTextReveal } from "../lib/text";
-import { MOTION_TOKENS } from "../lib/anim/tokens";
+import { MOTION_TOKENS } from "../lib/animation/motionTokens";
 import {
   prefersReducedMotion,
   resolveMotionTokens,

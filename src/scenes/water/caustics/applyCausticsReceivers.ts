@@ -6,7 +6,12 @@ import * as THREE from "three";
 import { POOL_CAUSTICS_DEFAULTS } from "../config/poolWaterDefaults";
 import { planarBoundsToUniform, type WaterPlanarBounds } from "../waterPlanarMapping";
 
-const FORCED_RECEIVER_NAMES = ["poolwall", "poolfloor", "poolbasin"];
+/** Always receive caustics regardless of height (pool shell + deck floor). */
+const FORCE_RECEIVER_EXACT = ["PoolWalls", "tiles"];
+
+const RECEIVER_ALLOWLIST = ["poolfloor", "poolbasin", "poolwall", "pooltile"];
+
+const RECEIVER_EXCLUDE_EXACT = ["Water", "window"];
 
 function getMeshWorldBounds(mesh: THREE.Mesh) {
   mesh.updateWorldMatrix(true, false);
@@ -23,15 +28,35 @@ function normalizeName(name: unknown) {
   return typeof name === "string" ? name.toLowerCase().replace(/[^a-z0-9]/g, "") : "";
 }
 
-function isForcedReceiver(mesh: THREE.Mesh) {
+function meshNameTokens(mesh: THREE.Mesh) {
   const mat = mesh.material;
   const matName = Array.isArray(mat) ? mat[0]?.name : mat?.name;
   const names = [normalizeName(mesh.name), normalizeName(matName)];
   for (let p = mesh.parent; p; p = p.parent) names.push(normalizeName(p.name));
-  return names.some((n) => n && FORCED_RECEIVER_NAMES.some((f) => n.includes(f)));
+  return names.filter(Boolean);
 }
 
-/** Receivers overlapping the pool footprint in XZ, plus forced names (e.g. PoolWalls). */
+function isForcedReceiver(mesh: THREE.Mesh) {
+  if (FORCE_RECEIVER_EXACT.includes(mesh.name)) return true;
+  const tokens = meshNameTokens(mesh);
+  return tokens.some((n) => RECEIVER_ALLOWLIST.some((allow) => n.includes(allow)));
+}
+
+function isExcludedReceiver(mesh: THREE.Mesh) {
+  if (mesh.userData?.isWater) return true;
+  if (RECEIVER_EXCLUDE_EXACT.includes(mesh.name)) return true;
+  const tokens = meshNameTokens(mesh);
+  if (tokens.some((n) => n.includes("window") || n.includes("glass"))) return true;
+  // Exact "water" token only — not "poolwalls".
+  if (tokens.some((n) => n === "water")) return true;
+  return false;
+}
+
+function isBelowWater(box: THREE.Box3, waterY: number) {
+  return box.min.y < waterY - 1e-4;
+}
+
+/** Pool floor/walls; PoolWalls + tiles always included. */
 export function findCausticsReceivers(
   root: THREE.Object3D | null,
   waterMesh: THREE.Mesh,
@@ -45,14 +70,23 @@ export function findCausticsReceivers(
 
   root.traverse((o) => {
     const mesh = o as THREE.Mesh;
-    if (!mesh.isMesh || mesh === waterMesh || mesh.userData?.isWater) return;
+    if (!mesh.isMesh || mesh === waterMesh) return;
+    if (isExcludedReceiver(mesh)) return;
 
-    if (!isForcedReceiver(mesh)) {
-      const box = getMeshWorldBounds(mesh);
-      if (getXZOverlapArea(box, bounds) < minOverlap) return;
-      if (box.min.y >= waterY - 1e-4) return;
+    if (FORCE_RECEIVER_EXACT.includes(mesh.name)) {
+      meshes.push(mesh);
+      return;
     }
 
+    const box = getMeshWorldBounds(mesh);
+    if (!isBelowWater(box, waterY)) return;
+
+    if (isForcedReceiver(mesh)) {
+      meshes.push(mesh);
+      return;
+    }
+
+    if (getXZOverlapArea(box, bounds) < minOverlap) return;
     meshes.push(mesh);
   });
 
@@ -82,9 +116,37 @@ const FRAG_APPLY = /* glsl */ `
   vec4 cSample = texture2D(uCausticTex, cUv);
   float cBelow = 1.0 - smoothstep(uCausticWaterY - uCausticDepthFade, uCausticWaterY, vCausticWorld.y);
   float cK = (cSample.r - 1.0) * uCausticStrength * cSample.g * cBelow * uCausticEnabled;
-  diffuseColor.rgb *= max(1.0 + cK, 0.0);
+  outgoingLight *= max(1.0 + cK, 0.0);
 }
 `;
+
+function injectCausticsShader(shader: THREE.WebGLProgramParametersWithUniforms) {
+  shader.vertexShader = shader.vertexShader
+    .replace("#include <common>", "#include <common>\nvarying vec3 vCausticWorld;")
+    .replace(
+      "#include <begin_vertex>",
+      "#include <begin_vertex>\nvCausticWorld = (modelMatrix * vec4(position, 1.0)).xyz;",
+    );
+
+  shader.fragmentShader = shader.fragmentShader
+    .replace("#include <common>", `#include <common>\n${FRAG_DECLARATIONS}`);
+
+  if (shader.fragmentShader.includes("#include <opaque_fragment>")) {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      "#include <opaque_fragment>",
+      `${FRAG_APPLY}\n#include <opaque_fragment>`,
+    );
+    return;
+  }
+
+  const legacyHook = shader.fragmentShader.includes("#include <map_fragment>")
+    ? "#include <map_fragment>"
+    : "#include <dithering_fragment>";
+  shader.fragmentShader = shader.fragmentShader.replace(
+    legacyHook,
+    `${legacyHook}\n${FRAG_APPLY.replace(/outgoingLight/g, "diffuseColor.rgb")}`,
+  );
+}
 
 type ReceiverParams = { strength?: number; enabled?: boolean; depthFade?: number };
 
@@ -128,15 +190,7 @@ export function applyCausticsReceivers(
     const clone = source.clone();
     clone.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, shared);
-      shader.vertexShader = shader.vertexShader
-        .replace("#include <common>", "#include <common>\nvarying vec3 vCausticWorld;")
-        .replace(
-          "#include <begin_vertex>",
-          "#include <begin_vertex>\nvCausticWorld = (modelMatrix * vec4(position, 1.0)).xyz;",
-        );
-      shader.fragmentShader = shader.fragmentShader
-        .replace("#include <common>", `#include <common>\n${FRAG_DECLARATIONS}`)
-        .replace("#include <map_fragment>", `#include <map_fragment>\n${FRAG_APPLY}`);
+      injectCausticsShader(shader);
     };
     clone.customProgramCacheKey = () => "pool-caustics-receiver";
 

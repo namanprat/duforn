@@ -1,3 +1,5 @@
+import { prefersReducedMotion } from "../../lib/prefersReducedMotion";
+
 export type RenderQualityTier = "desktop" | "mobile" | "mobileReduced";
 
 function isCoarsePointer() {
@@ -5,14 +7,6 @@ function isCoarsePointer() {
     typeof window !== "undefined" &&
     typeof window.matchMedia === "function" &&
     window.matchMedia("(pointer: coarse)").matches
-  );
-}
-
-export function prefersReducedMotion() {
-  return (
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
   );
 }
 
@@ -24,8 +18,8 @@ export function getRenderQualityTier(): RenderQualityTier {
 }
 
 const POOL_SIM_RESOLUTION_BY_TIER: Record<RenderQualityTier, number> = {
-  desktop: 192,
-  mobile: 128,
+  desktop: 256,
+  mobile: 144,
   mobileReduced: 96,
 };
 
@@ -34,9 +28,9 @@ export function getPoolSimResolutionForTier(tier: RenderQualityTier): number {
 }
 
 const POOL_CAUSTICS_RT_BY_TIER: Record<RenderQualityTier, number> = {
-  desktop: 512,
-  mobile: 256,
-  mobileReduced: 128,
+  desktop: 768,
+  mobile: 384,
+  mobileReduced: 192,
 };
 
 export function getPoolCausticsSizeForTier(tier: RenderQualityTier): number {

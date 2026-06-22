@@ -1,10 +1,10 @@
 import { useLayoutEffect, useRef } from "react";
 import gsap from "gsap";
 import { cameraBasePoseRef, cameraTransitionRef, POSE_KEYS } from "./cam/pose";
+import { prefersReducedMotion } from "../lib/prefersReducedMotion";
 import {
   ROOM_POSES,
   ROOM_TRANSITION_SECONDS,
-  prefersReducedMotion,
   posesEqual,
   type RoomNamespace,
 } from "./cam/roomPoses";

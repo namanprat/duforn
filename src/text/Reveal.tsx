@@ -3,7 +3,7 @@ import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import { SplitText } from "gsap/SplitText";
 import { registerPageTextReveal } from "../lib/text";
-import { MOTION_TOKENS } from "../lib/anim/tokens";
+import { MOTION_TOKENS } from "../lib/animation/motionTokens";
 import {
   prefersReducedMotion,
   resolveMotionTokens,
@@ -51,6 +51,7 @@ export default function TextRevealLines({
       const root = containerRef.current;
       if (!root) return;
 
+      let cancelled = false;
       const reduce = prefersReducedMotion();
       const { revealDuration, revealStagger, hideDuration, hideStagger } =
         resolveMotionTokens(reduce);
@@ -64,34 +65,33 @@ export default function TextRevealLines({
         ? Array.from(root.children).filter((n) => n.nodeType === 1)
         : [root];
 
-      elements.forEach((element) => {
-        const split = SplitText.create(element, {
-          type: "lines",
-          mask: "lines",
-          linesClass: LINE_CLASS,
-          lineThreshold: 0.1,
-        });
-        splitRefs.push(split);
-        lineEls = lineEls.concat(split.lines);
-
-        const computedStyle = window.getComputedStyle(element);
-        const textIndent = computedStyle.textIndent;
-        if (textIndent && textIndent !== "0px" && split.lines.length > 0) {
-          (split.lines[0] as HTMLElement).style.paddingLeft = textIndent;
-          (element as HTMLElement).style.textIndent = "0";
-        }
-      });
-
-      gsap.set(lineEls, { y: reduce ? "0%" : "100%" });
+      const collectLines = () => {
+        lineEls = splitRefs.flatMap((split) => split.lines ?? []);
+      };
 
       const killScrollTriggers = () => {
         scrollReveal?.kill();
         scrollReveal = null;
       };
 
+      const applyTextIndentFixes = () => {
+        elements.forEach((element, index) => {
+          const split = splitRefs[index];
+          if (!split?.lines?.length) return;
+
+          const computedStyle = window.getComputedStyle(element);
+          const textIndent = computedStyle.textIndent;
+          if (textIndent && textIndent !== "0px") {
+            (split.lines[0] as HTMLElement).style.paddingLeft = textIndent;
+            (element as HTMLElement).style.textIndent = "0";
+          }
+        });
+      };
+
       const runRevealImmediate = (extraDelay = 0) => {
         killScrollTriggers();
         gsap.killTweensOf(lineEls);
+        if (!lineEls.length) return;
         if (reduce) {
           gsap.set(lineEls, { y: "0%" });
           return;
@@ -108,6 +108,7 @@ export default function TextRevealLines({
       const runRevealScroll = () => {
         killScrollTriggers();
         gsap.killTweensOf(lineEls);
+        if (!lineEls.length) return;
         if (reduce) {
           gsap.set(lineEls, { y: "0%" });
           return;
@@ -121,12 +122,11 @@ export default function TextRevealLines({
         });
 
         requestAnimationFrame(() => scrollReveal?.refresh());
-        if (typeof document !== "undefined" && document.fonts?.ready) {
-          document.fonts.ready.then(() => scrollReveal?.refresh());
-        }
       };
 
       const armReveal = () => {
+        if (!lineEls.length) return;
+
         if (!animate) {
           killScrollTriggers();
           gsap.killTweensOf(lineEls);
@@ -145,13 +145,77 @@ export default function TextRevealLines({
         runRevealImmediate(0);
       };
 
-      armReveal();
+      const setHidden = () => {
+        collectLines();
+        if (!lineEls.length) return false;
+        gsap.set(lineEls, { y: reduce ? "0%" : "100%" });
+        return true;
+      };
+
+      const buildSplits = () => {
+        splitRefs.forEach((split) => {
+          try {
+            split.revert();
+          } catch {
+            /* ignore */
+          }
+        });
+        splitRefs.length = 0;
+
+        elements.forEach((element) => {
+          const split = SplitText.create(element, {
+            type: "lines",
+            mask: "lines",
+            linesClass: LINE_CLASS,
+            lineThreshold: 0.1,
+            autoSplit: true,
+          });
+          splitRefs.push(split);
+        });
+
+        applyTextIndentFixes();
+        return setHidden();
+      };
+
+      const boot = (attempt = 0) => {
+        if (cancelled) return;
+        if (!buildSplits()) {
+          if (attempt < 12) {
+            requestAnimationFrame(() => boot(attempt + 1));
+            return;
+          }
+          collectLines();
+          if (lineEls.length) gsap.set(lineEls, { y: "0%" });
+          return;
+        }
+        armReveal();
+        scrollReveal?.refresh();
+      };
+
+      const start = async () => {
+        try {
+          if (document.fonts?.ready) await document.fonts.ready;
+        } catch {
+          /* ignore */
+        }
+        if (cancelled) return;
+        requestAnimationFrame(() => boot());
+        if (document.fonts?.ready) {
+          document.fonts.ready.then(() => {
+            if (cancelled) return;
+            boot();
+          });
+        }
+      };
+
+      void start();
 
       const hide = () =>
         new Promise<void>((resolve) => {
           killScrollTriggers();
           disposeCamera?.();
           disposeCamera = null;
+          collectLines();
           gsap.killTweensOf(lineEls);
           if (!lineEls.length) {
             resolve();
@@ -174,6 +238,9 @@ export default function TextRevealLines({
       const show = () =>
         new Promise<void>((resolve) => {
           killScrollTriggers();
+          disposeCamera?.();
+          disposeCamera = null;
+          collectLines();
           gsap.killTweensOf(lineEls);
           if (!lineEls.length) {
             resolve();
@@ -197,6 +264,7 @@ export default function TextRevealLines({
       const unregister = registerPageTextReveal({ hide, show });
 
       return () => {
+        cancelled = true;
         unregister();
         killScrollTriggers();
         disposeCamera?.();

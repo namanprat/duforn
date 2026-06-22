@@ -1,28 +1,32 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { useThree, useFrame } from "@react-three/fiber";
-import { createPoolWaterSim } from "./compute/createPoolWaterSim";
-import { createPoolWaterMaterial, type PoolWaterMaterialApi } from "./materials/createPoolWaterMaterial";
+import { createPoolWaterSim, type PoolWaterSim } from "./compute/createPoolWaterSim";
+import { createPoolWaterMaterial, applyPoolWaterStaticParams, type PoolWaterMaterialApi } from "./materials/createPoolWaterMaterial";
 import { createHomeCaustics, type HomeCaustics } from "./caustics/createHomeCaustics";
 import { applyCausticsReceivers, findCausticsReceivers, type CausticsReceivers } from "./caustics/applyCausticsReceivers";
+import { createWaterBackdrop, type WaterBackdrop } from "./WaterBackdrop";
+import { createWaterPlanarReflection, type WaterPlanarReflection } from "./WaterPlanarReflection";
+import { loadWaterReflectionCubemap } from "./materials/poolWaterReflection";
 import { boxToPlanarBounds, type WaterPlanarBounds } from "./waterPlanarMapping";
+import { planeAlignmentSnapshot, syncPoolWaterPlane } from "./createPoolWaterMesh";
 import {
   POOL_CAUSTICS_DEFAULTS,
   POOL_SIM_DEFAULTS,
   POOL_WATER_DEFAULTS,
   POOL_WATER_RENDER_ORDER,
+  WATER_DEBUG_HIGHLIGHT_PLANE,
 } from "./config/poolWaterDefaults";
 import {
   getPoolCausticsSizeForTier,
   getPoolSimResolutionForTier,
   getRenderQualityTier,
-  prefersReducedMotion,
   uvToSimGrid,
 } from "./waterSimUtils";
-import type { PoolShallowWaterSimCPU } from "./compute/PoolShallowWaterSimCPU";
+import { prefersReducedMotion } from "../../lib/prefersReducedMotion";
 
 function buildStartupImpulseQueue(nw: number, nh: number) {
-  const s = POOL_SIM_DEFAULTS.startupImpulseStrengthScale;
+  const s = POOL_SIM_DEFAULTS.startupImpulseStrengthScale * 1.25;
   return [
     { uv: new THREE.Vector2(0.36, 0.42), strengthScale: s },
     { uv: new THREE.Vector2(0.62, 0.35), strengthScale: s * 0.9 },
@@ -58,9 +62,14 @@ export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
   const { gl, camera, scene } = useThree();
   const qualityTier = getRenderQualityTier();
 
-  const simRef = useRef<PoolShallowWaterSimCPU | null>(null);
+  const simRef = useRef<PoolWaterSim | null>(null);
   const materialApiRef = useRef<PoolWaterMaterialApi | null>(null);
   const causticsCtxRef = useRef<{ caustics: HomeCaustics; receivers: CausticsReceivers } | null>(null);
+  const backdropRef = useRef<WaterBackdrop | null>(null);
+  const planarRef = useRef<WaterPlanarReflection | null>(null);
+  const waterYRef = useRef(0);
+  const reflectionMatrixRef = useRef(new THREE.Matrix4());
+  const drawSizeRef = useRef(new THREE.Vector2());
   const boundsRef = useRef<WaterPlanarBounds | null>(null);
   const previousMaterialRef = useRef<THREE.Material | null>(null);
   const lastSpawnTimeRef = useRef(0);
@@ -69,7 +78,8 @@ export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
   const ndcRef = useRef(new THREE.Vector2());
   const impulseQueueRef = useRef<{ gx: number; gy: number; strengthScale?: number }[]>([]);
   const matrixSnapshotRef = useRef<number[] | null>(null);
-  const lastEnvRef = useRef<THREE.Texture | null>(null);
+  const reflectionCubeRef = useRef<THREE.Texture | null>(null);
+  const planeSnapshotRef = useRef(planeAlignmentSnapshot());
 
   const gridSize = getPoolSimResolutionForTier(qualityTier);
   const nwRef = useRef(gridSize);
@@ -80,6 +90,7 @@ export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
     const box = meshWorldBox(mesh);
     const bounds = boxToPlanarBounds(box);
     boundsRef.current = bounds;
+    waterYRef.current = box.max.y;
     materialApiRef.current?.setPlanarBounds(bounds);
     matrixSnapshotRef.current = mesh.matrixWorld.elements.slice();
 
@@ -109,12 +120,26 @@ export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
     }
   };
 
+  const queueImpulseFromHit = (hit: THREE.Intersection) => {
+    const bounds = boundsRef.current ?? refreshBounds();
+    if (!bounds) return null;
+    return {
+      gx: ((hit.point.x - bounds.minX) / bounds.width) * (nwRef.current - 1),
+      gy: (1 - (hit.point.z - bounds.minZ) / bounds.depth) * (nhRef.current - 1),
+    };
+  };
+
   useEffect(() => {
     if (!mesh || !gl) return undefined;
 
+    let cancelled = false;
     previousMaterialRef.current = mesh.material as THREE.Material;
+    mesh.visible = true;
     mesh.frustumCulled = false;
     mesh.renderOrder = POOL_WATER_RENDER_ORDER;
+    mesh.userData.isWater = true;
+
+    if (WATER_DEBUG_HIGHLIGHT_PLANE) return undefined;
 
     const bounds = refreshBounds();
     if (!bounds) return undefined;
@@ -125,55 +150,117 @@ export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
     nhRef.current = nh;
 
     const renderer = gl as THREE.WebGLRenderer;
-    const sim = createPoolWaterSim(renderer, nw, nh);
-    simRef.current = sim;
+    const backdrop = createWaterBackdrop(renderer);
+    const planar = createWaterPlanarReflection(renderer);
+    backdropRef.current = backdrop;
+    planarRef.current = planar;
 
-    const materialApi = createPoolWaterMaterial({ sim, bounds, envMap: scene.environment ?? null });
-    materialApiRef.current = materialApi;
-    mesh.material = materialApi.material;
+    (async () => {
+      try {
+        const sim = await createPoolWaterSim(renderer, nw, nh);
+        if (cancelled) {
+          sim.dispose();
+          return;
+        }
+        simRef.current = sim;
 
-    if (scene.environment) {
-      lastEnvRef.current = scene.environment;
-      materialApi.setEnvironment(scene.environment);
-    }
+        const materialApi = createPoolWaterMaterial({
+          sim,
+          bounds,
+        });
+        if (cancelled) {
+          materialApi.dispose();
+          sim.dispose();
+          return;
+        }
 
-    const modelRoot = sceneRoot;
-    const { meshes: receiverMeshes } = findCausticsReceivers(modelRoot, mesh, bounds, waterY);
-    if (receiverMeshes.length > 0) {
-      const caustics = createHomeCaustics(renderer, {
-        sim,
-        bounds,
-        size: getPoolCausticsSizeForTier(qualityTier),
-      });
-      const receivers = applyCausticsReceivers(renderer, {
-        meshes: receiverMeshes,
-        texture: caustics.texture,
-        bounds,
-        waterY,
-      });
-      causticsCtxRef.current = { caustics, receivers };
-      refreshBounds();
-    } else {
-      console.warn("[WaterRipples] no caustics receiver meshes found under the pool");
-    }
+        materialApiRef.current = materialApi;
+        mesh.material = materialApi.material;
+        materialApi.setBackdrop(backdrop.texture);
+        materialApi.setPlanarReflection(planar.texture);
+        applyPoolWaterStaticParams(materialApi);
 
-    impulseQueueRef.current = buildStartupImpulseQueue(nw, nh);
+        const reflectionCube = await loadWaterReflectionCubemap(renderer);
+        if (cancelled) {
+          reflectionCube?.dispose();
+          return;
+        }
+        if (reflectionCube) {
+          reflectionCubeRef.current = reflectionCube;
+          materialApi.setReflectionCubemap(reflectionCube);
+        }
+
+        const { meshes: receiverMeshes } = findCausticsReceivers(sceneRoot, mesh, bounds, waterY);
+        if (receiverMeshes.length > 0) {
+          const caustics = createHomeCaustics(renderer, {
+            sim,
+            bounds,
+            size: getPoolCausticsSizeForTier(qualityTier),
+          });
+          if (cancelled) {
+            caustics.dispose();
+            return;
+          }
+
+          const receivers = applyCausticsReceivers(renderer, {
+            meshes: receiverMeshes,
+            texture: caustics.texture,
+            bounds,
+            waterY,
+          });
+          if (cancelled) {
+            receivers.restore();
+            caustics.dispose();
+            return;
+          }
+
+          causticsCtxRef.current = { caustics, receivers };
+          refreshBounds();
+
+          if (import.meta.env.DEV) {
+            console.info("[WaterRipples] pool water ready", {
+              waterMesh: mesh.name,
+              grid: `${nw}×${nh}`,
+              reflectionCubemap: Boolean(reflectionCube),
+              causticsReceivers: receiverMeshes.length,
+              receiverNames: receiverMeshes.map((m) => m.name),
+            });
+          }
+        } else if (import.meta.env.DEV) {
+          console.warn("[WaterRipples] no caustics receiver meshes found under the pool");
+        }
+
+        impulseQueueRef.current = buildStartupImpulseQueue(nw, nh);
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.error("[WaterRipples] failed to build pool water", err);
+        }
+      }
+    })();
 
     return () => {
+      cancelled = true;
       causticsCtxRef.current?.receivers.restore();
       causticsCtxRef.current?.caustics.dispose();
       causticsCtxRef.current = null;
       materialApiRef.current?.dispose();
       materialApiRef.current = null;
+      backdropRef.current?.dispose();
+      backdropRef.current = null;
+      planarRef.current?.dispose();
+      planarRef.current = null;
+      reflectionCubeRef.current?.dispose();
+      reflectionCubeRef.current = null;
       simRef.current?.dispose();
       simRef.current = null;
       impulseQueueRef.current = [];
       if (mesh && previousMaterialRef.current) {
         mesh.material = previousMaterialRef.current;
         mesh.renderOrder = 0;
+        delete mesh.userData.isWater;
       }
     };
-  }, [mesh, gl, scene, gridSize, sceneRoot]);
+  }, [mesh, gl, gridSize, sceneRoot]);
 
   useEffect(() => {
     if (!mesh || !gl?.domElement) return undefined;
@@ -182,7 +269,7 @@ export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
     const raycaster = raycasterRef.current;
     const ndc = ndcRef.current;
 
-    const spawnImpulse = (event: PointerEvent) => {
+    const queueImpulseAtEvent = (event: PointerEvent, strengthScale = 1) => {
       if (!simRef.current || prefersReducedMotion()) return;
       refreshBounds();
 
@@ -193,13 +280,8 @@ export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
       const hits = raycaster.intersectObject(mesh, false);
       if (!hits.length) return;
 
-      const bounds = boundsRef.current;
-      if (!bounds) return;
-
-      const gridPoint = {
-        gx: ((hits[0].point.x - bounds.minX) / bounds.width) * (nwRef.current - 1),
-        gy: (1 - (hits[0].point.z - bounds.minZ) / bounds.depth) * (nhRef.current - 1),
-      };
+      const gridPoint = queueImpulseFromHit(hits[0]);
+      if (!gridPoint) return;
 
       const now = performance.now();
       if (now - lastSpawnTimeRef.current < POOL_SIM_DEFAULTS.pointerThrottleMs) return;
@@ -211,11 +293,24 @@ export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
 
       lastSpawnTimeRef.current = now;
       lastSpawnCellRef.current.set(gridPoint.gx, gridPoint.gy);
-      impulseQueueRef.current.push({ ...gridPoint, strengthScale: 1 });
+      impulseQueueRef.current.push({ ...gridPoint, strengthScale });
     };
 
-    window.addEventListener("pointermove", spawnImpulse, { passive: true });
-    return () => window.removeEventListener("pointermove", spawnImpulse);
+    const onPointerMove = (event: PointerEvent) => {
+      queueImpulseAtEvent(event, 1);
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      lastSpawnTimeRef.current = 0;
+      lastSpawnCellRef.current.set(-1, -1);
+      queueImpulseAtEvent(event, 1.2);
+    };
+
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+    window.addEventListener("pointerdown", onPointerDown, { passive: true });
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerdown", onPointerDown);
+    };
   }, [mesh, gl, camera]);
 
   useEffect(() => {
@@ -226,39 +321,50 @@ export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
   }, [mesh]);
 
   useFrame(() => {
+    const backdrop = backdropRef.current;
+    const planar = planarRef.current;
+    if (backdrop) {
+      backdrop.resize();
+      const size = gl.getDrawingBufferSize(drawSizeRef.current);
+      materialApiRef.current?.setResolution(size.x, size.y);
+      backdrop.render(scene, camera, mesh);
+    }
+    if (planar) {
+      planar.resize();
+      planar.render(scene, camera, mesh, waterYRef.current);
+      materialApiRef.current?.setReflectionMatrix(planar.getTextureMatrix(reflectionMatrixRef.current));
+    }
+  }, -1);
+
+  useFrame(() => {
     maybeRefreshBounds();
 
     const reducedMotion = prefersReducedMotion();
     const timeSeconds = performance.now() * 0.001;
     materialApiRef.current?.updateTime(timeSeconds, { reducedMotion });
 
+    const planeSnap = planeAlignmentSnapshot();
+    if (planeSnap !== planeSnapshotRef.current) {
+      planeSnapshotRef.current = planeSnap;
+      syncPoolWaterPlane(mesh, sceneRoot);
+      refreshBounds();
+    }
+
     const sim = simRef.current;
     if (sim?.ready) {
       const queue = impulseQueueRef.current;
-      if (queue.length > 0) {
+      const maxImpulses = POOL_SIM_DEFAULTS.pointerImpulsesPerFrame;
+      for (let i = 0; i < maxImpulses && queue.length > 0; i++) {
         const next = queue.shift()!;
         sim.setImpulse(next.gx, next.gy, next.strengthScale);
       }
       sim.step({ substeps: POOL_SIM_DEFAULTS.substeps });
     }
 
-    const w = POOL_WATER_DEFAULTS;
-    const s = POOL_SIM_DEFAULTS;
     materialApiRef.current?.setParams({
-      tintR: w.aboveWaterTint[0],
-      tintG: w.aboveWaterTint[1],
-      tintB: w.aboveWaterTint[2],
-      fresnelBase: w.fresnelBase,
-      fresnelPower: w.fresnelPower,
-      fresnelNormalStrength: w.fresnelNormalStrength,
-      waterClarity: w.waterClarity,
-      waterDepth: w.waterDepth,
-      exposure: w.exposure,
-      opacity: w.opacity,
-      envRefraction: w.envRefractionStrength,
-      envReflection: w.hdrReflection,
-      normalScale: s.normalScale,
-      maxSlope: s.maxSlope,
+      exposure: POOL_WATER_DEFAULTS.exposure,
+      hdrBlend: POOL_WATER_DEFAULTS.hdrBlend,
+      planarSkyFill: POOL_WATER_DEFAULTS.planarSkyFill,
     });
 
     const c = POOL_CAUSTICS_DEFAULTS;
@@ -275,16 +381,8 @@ export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
         maxIntensity: c.maxIntensity,
         gain: c.gain,
         edgeFade: c.edgeFade,
-        lightElevationDeg: c.lightElevationDeg,
-        lightAzimuthDeg: c.lightAzimuthDeg,
       });
-      if (c.enabled && !reducedMotion) ctx.caustics.update();
-    }
-
-    const env = scene.environment;
-    if (env && env !== lastEnvRef.current) {
-      materialApiRef.current?.setEnvironment(env);
-      lastEnvRef.current = env;
+      if (c.enabled) ctx.caustics.update();
     }
   });
 

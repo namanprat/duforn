@@ -93,7 +93,7 @@ function AboutDitherScene() {
 export default function AboutDitherCanvas() {
   return (
     <Canvas
-      shadows
+      shadows={{ type: THREE.PCFShadowMap }}
       dpr={[1, 1.5]}
       camera={{ position: [0, -1, 4], fov: 65 }}
       gl={{ alpha: false }}

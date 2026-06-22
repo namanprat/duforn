@@ -1,4 +1,4 @@
-import { Suspense, useEffect } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { Canvas } from "@react-three/fiber";
 import { PerspectiveCamera } from "@react-three/drei";
@@ -9,15 +9,15 @@ import RoomCam from "./RoomCam";
 import Env from "./Env";
 import { WorkClothStripScene } from "../work/ClothStrip";
 import ScenePostFX from "./ScenePostFX";
-import ScenePostFXGui from "./ScenePostFXGui";
-import WorkSceneGui from "./WorkSceneGui";
-import RoomCameraGui from "./RoomCameraGui";
-import WaterGui from "./WaterGui";
 import ProjectDetailScene from "../projectDetail/ProjectDetailScene";
 import ProjectCoverScene from "../projectDetail/ProjectCoverScene";
 import MoneyMeStripScene from "../projectDetail/MoneyMeStripScene";
 import { MAIN_POSE, poseToCameraPosition } from "./cam/roomPoses";
 import { getRouteNamespace } from "../lib/route";
+
+const DevSceneControls = import.meta.env.DEV
+  ? lazy(() => import("./DevSceneControls"))
+  : () => null;
 
 const MAIN_CAMERA = poseToCameraPosition(MAIN_POSE);
 
@@ -106,12 +106,9 @@ export default function SceneCanvas() {
         ) : null}
         <ScenePostFX />
         {import.meta.env.DEV ? (
-          <>
-            <ScenePostFXGui />
-            {isRoom ? <RoomCameraGui activeRoom={activeRoom} /> : null}
-            <WorkSceneGui enabled={activeRoom === "work"} />
-            {isRoom ? <WaterGui /> : null}
-          </>
+          <Suspense fallback={null}>
+            <DevSceneControls isRoom={isRoom} activeRoom={activeRoom} />
+          </Suspense>
         ) : null}
       </Canvas>
     </div>

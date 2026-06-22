@@ -2,22 +2,27 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { navigateTo } from "../lib/nav";
 import TextRevealLines from "../text/Reveal";
 import CameraRevealGroup from "../text/CameraRevealGroup";
-import { STUDIO_INTRO_COPY } from "../content/studio";
-import RotateHoverLabel from "../components/RotateHoverLabel";
-import { shouldUseNavRotateHover } from "../lib/link-hover";
+import {
+  STUDIO_INTRO_COPY,
+  HERO_EYEBROW,
+  HERO_TITLE_LEAD,
+  HERO_TITLE_SERIF,
+} from "../content/studio";
 
 export default function MainPage() {
-  const brandClipRef = useRef<HTMLDivElement | null>(null);
-  const [heroCopyWidthPx, setHeroCopyWidthPx] = useState<number | null>(null);
-  const useRotateHover = shouldUseNavRotateHover();
+  const pillRef = useRef<HTMLAnchorElement | null>(null);
+  // Width of the centered pill. The copy rail is sized to this so the
+  // left-aligned paragraph shares the button's left edge (per Figma), while the
+  // text overflows to the right.
+  const [ctaWidthPx, setCtaWidthPx] = useState<number | null>(null);
 
   useLayoutEffect(() => {
-    const el = brandClipRef.current;
+    const el = pillRef.current;
     if (!el) return;
 
     const measure = () => {
       const w = Math.round(el.getBoundingClientRect().width);
-      if (w > 0) setHeroCopyWidthPx(w);
+      if (w > 0) setCtaWidthPx(w);
     };
 
     measure();
@@ -49,59 +54,36 @@ export default function MainPage() {
     >
       <div className="hero_contain u-container-main">
         <div className="hero_stack">
-          <div ref={brandClipRef} className="home-hero-brand-clip">
+          <CameraRevealGroup waitForCamera>
+            <p className="hero_eyebrow">{HERO_EYEBROW}</p>
+          </CameraRevealGroup>
+          <div className="home-hero-brand-clip">
             <TextRevealLines animateOnScroll={false} waitForCamera>
-              <h1 className="hero_title u-text-style-display">Duforn</h1>
+              <h1 className="hero_title_lead">{HERO_TITLE_LEAD}</h1>
+            </TextRevealLines>
+            <TextRevealLines animateOnScroll={false} waitForCamera delay={0.06}>
+              <p className="hero_title_serif">{HERO_TITLE_SERIF}</p>
             </TextRevealLines>
           </div>
           <div className="hero_cluster">
-            {heroCopyWidthPx != null ? (
-              <div
-                className="hero-stage__copy-rail"
-                style={{ width: heroCopyWidthPx, maxWidth: "100%" }}
-              >
-                <TextRevealLines
-                  animateOnScroll={false}
-                  waitForCamera
-                  delay={0.08}
-                  layoutKey={heroCopyWidthPx}
-                >
-                  <p className="hero_text u-text-align-center u-width-full">{STUDIO_INTRO_COPY}</p>
-                </TextRevealLines>
-              </div>
-            ) : (
-              <div
-                className="hero-stage__copy-rail hero-stage__copy-rail--measuring"
-                aria-hidden="true"
-              />
-            )}
-            <CameraRevealGroup waitForCamera delay={0.16}>
+            <div
+              className="hero-stage__copy-rail"
+              style={ctaWidthPx ? { width: ctaWidthPx } : undefined}
+            >
+              <TextRevealLines animateOnScroll={false} waitForCamera delay={0.12}>
+                <p className="hero_text">{STUDIO_INTRO_COPY}</p>
+              </TextRevealLines>
+            </div>
+            <CameraRevealGroup waitForCamera delay={0.18}>
               <div className="hero_actions">
                 <a
-                  className="button button-primary hero_action_wrap"
+                  ref={pillRef}
+                  className="button button-primary hero_pill"
                   href="/work"
                   onClick={(e) => go(e, "/work")}
-                  data-rotate-hover={useRotateHover ? "" : undefined}
                 >
-                  <span className="hero_action_text">
-                    {useRotateHover ? <RotateHoverLabel text="View Work" /> : "View Work"}
-                  </span>
-                  <span className="hero_action_icon" aria-hidden="true">
-                    ↗
-                  </span>
-                </a>
-                <a
-                  className="button button-secondary hero_action_wrap"
-                  href="/contact"
-                  onClick={(e) => go(e, "/contact")}
-                  data-rotate-hover={useRotateHover ? "" : undefined}
-                >
-                  <span className="hero_action_text">
-                    {useRotateHover ? <RotateHoverLabel text="Contact" /> : "Contact"}
-                  </span>
-                  <span className="hero_action_icon" aria-hidden="true">
-                    ↗
-                  </span>
+                  <span className="hero_pill_text">View Work</span>
+                  <span className="hero_pill_dot" aria-hidden="true" />
                 </a>
               </div>
             </CameraRevealGroup>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import { useFrame, useThree } from "@react-three/fiber";
+import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { createColorFallbackTexture, loadTextureAsset } from "../lib/assets";
 import { getPreloadedTextures } from "../lib/work-preload";
 import { workItems } from "../content/work-items";
@@ -17,7 +17,6 @@ import { getActiveStripItemIndex, resolveVisibleSlotAtUv } from "./math";
 
 const GRAB_SCALE = 0.96;
 const GRAB_SCALE_LERP = 0.14;
-const VELOCITY_SCALE_THRESHOLD = 0.02;
 
 function loadTextureAssets(urls: string[], options = {}) {
   return Promise.all(urls.map((url) => loadTextureAsset(url, options)));
@@ -329,9 +328,47 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
     stripYOffset: stripControls.stripYOffset,
   };
   const scrollRef = useRef({ target: 0, current: 0, velocity: 0 });
-  const inputRef = useRef({ isDown: false, lastX: 0, startX: 0, dragDist: 0 });
+  const inputRef = useRef({
+    isDown: false,
+    startedOnStrip: false,
+    lastX: 0,
+    startX: 0,
+    dragDist: 0,
+  });
+  const hoverStripRef = useRef(false);
   const currentTitleRef = useRef("");
   const grabScaleRef = useRef(1);
+
+  const updateStripCursor = () => {
+    const canvas = gl.domElement as HTMLElement;
+    if (!onWorkRef.current || document.body.classList.contains("menu-open")) {
+      canvas.style.cursor = "";
+      return;
+    }
+    if (inputRef.current.isDown && inputRef.current.startedOnStrip) {
+      canvas.style.cursor = "grabbing";
+    } else if (hoverStripRef.current) {
+      canvas.style.cursor = "grab";
+    } else {
+      canvas.style.cursor = "";
+    }
+  };
+
+  const endStripDrag = () => {
+    inputRef.current.isDown = false;
+    inputRef.current.startedOnStrip = false;
+    updateStripCursor();
+  };
+
+  const beginStripDrag = (clientX: number, pointerId: number) => {
+    inputRef.current.isDown = true;
+    inputRef.current.startedOnStrip = true;
+    inputRef.current.lastX = clientX;
+    inputRef.current.startX = clientX;
+    inputRef.current.dragDist = 0;
+    gl.domElement.setPointerCapture(pointerId);
+    updateStripCursor();
+  };
 
   useEffect(() => {
     // Listen on window rather than the canvas: the strip sits behind the page
@@ -346,34 +383,32 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
       scrollRef.current.target += delta * scrollConfig.wheelSensitivity;
       scrollRef.current.velocity += delta * scrollConfig.wheelSensitivity * 0.24;
     };
-    const onPointerDown = (e: PointerEvent) => {
-      if (!canInteract()) return;
-      inputRef.current.isDown = true;
-      inputRef.current.lastX = e.clientX;
-      inputRef.current.startX = e.clientX;
-      inputRef.current.dragDist = 0;
-    };
     const onPointerMove = (e: PointerEvent) => {
-      if (!inputRef.current.isDown) return;
+      if (!inputRef.current.isDown || !inputRef.current.startedOnStrip) return;
       const dx = e.clientX - inputRef.current.lastX;
       inputRef.current.dragDist += Math.abs(dx);
       inputRef.current.lastX = e.clientX;
       scrollRef.current.target -= dx * scrollConfig.dragSensitivity;
       scrollRef.current.velocity = -dx * scrollConfig.dragVelocityScale;
     };
-    const onPointerUp = () => {
-      inputRef.current.isDown = false;
+    const onPointerUp = (e: PointerEvent) => {
+      if (!inputRef.current.startedOnStrip) return;
+      if (gl.domElement.hasPointerCapture(e.pointerId)) {
+        gl.domElement.releasePointerCapture(e.pointerId);
+      }
+      endStripDrag();
     };
 
     window.addEventListener("wheel", onWheel, { passive: false });
-    window.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerUp);
     return () => {
       window.removeEventListener("wheel", onWheel);
-      window.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
+      gl.domElement.style.cursor = "";
     };
   }, [
     gl,
@@ -381,6 +416,14 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
     scrollConfig.dragVelocityScale,
     scrollConfig.wheelSensitivity,
   ]);
+
+  useEffect(() => {
+    if (activeRoom === "work") return;
+    inputRef.current.isDown = false;
+    inputRef.current.startedOnStrip = false;
+    hoverStripRef.current = false;
+    gl.domElement.style.cursor = "";
+  }, [activeRoom, gl]);
 
   const [textures, setTextures] = useState<THREE.Texture[] | null>(null);
   const fallbackTextures = useMemo(
@@ -464,9 +507,8 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
     const sc = useWorkSceneControlsStore.getState().controls.strip;
     const group = groupRef.current;
     const s = scrollRef.current;
-    const isDragging = inputRef.current.isDown;
-    const isScrolling = Math.abs(s.velocity) > VELOCITY_SCALE_THRESHOLD;
-    const grabTarget = isDragging || isScrolling ? GRAB_SCALE : 1;
+    const isDraggingStrip = inputRef.current.isDown && inputRef.current.startedOnStrip;
+    const grabTarget = isDraggingStrip ? GRAB_SCALE : 1;
     grabScaleRef.current += (grabTarget - grabScaleRef.current) * GRAB_SCALE_LERP;
 
     if (group) {
@@ -478,8 +520,10 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
     }
 
     s.current += (s.target - s.current) * scrollConfig.scrollLerp;
-    s.velocity *= isDragging ? scrollConfig.scrollDraggingDamping : scrollConfig.scrollDamping;
-    if (!isDragging && Math.abs(s.velocity) < scrollConfig.snapVelocityThreshold) {
+    s.velocity *= isDraggingStrip
+      ? scrollConfig.scrollDraggingDamping
+      : scrollConfig.scrollDamping;
+    if (!isDraggingStrip && Math.abs(s.velocity) < scrollConfig.snapVelocityThreshold) {
       const snapTarget = Math.round(s.target);
       if (Math.abs(snapTarget - s.target) > scrollConfig.snapEpsilon) {
         s.target += (snapTarget - s.target) * scrollConfig.snapLerp;
@@ -513,6 +557,23 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
 
   if (!activeTextures || !stripMaterial) return null;
 
+  const handleStripPointerDown = (e: ThreeEvent<PointerEvent>) => {
+    if (!onWorkRef.current || document.body.classList.contains("menu-open")) return;
+    e.stopPropagation();
+    beginStripDrag(e.clientX, e.pointerId);
+  };
+
+  const handleStripPointerOver = () => {
+    if (!onWorkRef.current) return;
+    hoverStripRef.current = true;
+    updateStripCursor();
+  };
+
+  const handleStripPointerOut = () => {
+    hoverStripRef.current = false;
+    updateStripCursor();
+  };
+
   const handleStripClick = (e: any) => {
     if (!onWorkRef.current) return;
     if (inputRef.current.dragDist > 8 || !e.uv) return;
@@ -536,6 +597,9 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
         geometry={geometry}
         material={stripMaterial}
         frustumCulled={false}
+        onPointerDown={handleStripPointerDown}
+        onPointerOver={handleStripPointerOver}
+        onPointerOut={handleStripPointerOut}
         onClick={handleStripClick}
       />
     </group>

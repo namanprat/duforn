@@ -1,13 +1,7 @@
-import { MOTION_TOKENS } from "../lib/anim/tokens";
+import { MOTION_TOKENS } from "../lib/animation/motionTokens";
 import { CAMERA_ARRIVED_EVENT, getArrivedRoom } from "../lib/cam/arrival";
 
-export function prefersReducedMotion() {
-  return (
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
-}
+export { prefersReducedMotion } from "../lib/prefersReducedMotion";
 
 export function resolveMotionTokens(reduce: boolean) {
   const t = MOTION_TOKENS.textReveal;

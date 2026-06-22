@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef } from "react";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { normalizeModelBounds } from "./sceneUtils";
-import { resolveWaterMesh } from "./water/createPoolWaterMesh";
+import { SCENE_SUN_DIR } from "./lighting/sun";
+import { ensurePoolWaterMesh, applyWaterDebugMaterial } from "./water/createPoolWaterMesh";
 import WaterRipples from "./water/WaterRipples";
+import { WATER_DEBUG_HIGHLIGHT_PLANE } from "./water/config/poolWaterDefaults";
 
 const MODEL_URL = "/main_scene.glb";
 const MODEL_SCALE = 13;
@@ -14,7 +16,7 @@ const FLOOR_NAME = "tiles";
 
 // Low, raking sun (points *toward* the light) so the back structures throw long
 // shadows across the open pool deck. Low y = long shadows.
-const SHADOW_SUN_DIR = new THREE.Vector3(0.32, 0.32, 0.89).normalize();
+const SHADOW_SUN_DIR = SCENE_SUN_DIR;
 
 type ShadowSetup = {
   /** World-space sun position (the directional light sits here). */
@@ -78,6 +80,13 @@ export default function BakedScene() {
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
 
+      const srcMat = mesh.material as THREE.MeshStandardMaterial;
+      const matName = Array.isArray(srcMat) ? srcMat[0]?.name : srcMat?.name;
+      if (mesh.name === "Water" || matName === "Water") {
+        mesh.userData.isWater = true;
+        return;
+      }
+
       if (mesh.name === GLASS_NAME) {
         mesh.material = new THREE.MeshPhysicalMaterial({
           transmission: 1.0,
@@ -139,8 +148,18 @@ export default function BakedScene() {
     return { root: scene, shadow: shadowSetup };
   }, [scene]);
 
-  // The pool water surface mesh inside the GLB (rippled by WaterRipples).
-  const waterMesh = useMemo(() => resolveWaterMesh(root), [root]);
+  // Pool water surface — authored "Water" mesh or generated plane from PoolWalls.
+  const waterMesh = useMemo(() => ensurePoolWaterMesh(root), [root]);
+
+  useEffect(() => {
+    if (!waterMesh || !WATER_DEBUG_HIGHLIGHT_PLANE) return undefined;
+    const previous = waterMesh.material;
+    applyWaterDebugMaterial(waterMesh);
+    return () => {
+      waterMesh.material = previous;
+      waterMesh.renderOrder = 0;
+    };
+  }, [waterMesh]);
 
   // Aim the sun at the deck center; size its ortho shadow frustum to the scene.
   useEffect(() => {
@@ -164,7 +183,9 @@ export default function BakedScene() {
         <primitive object={root} />
       </group>
 
-      {waterMesh ? <WaterRipples mesh={waterMesh} sceneRoot={root} /> : null}
+      {waterMesh && !WATER_DEBUG_HIGHLIGHT_PLANE ? (
+        <WaterRipples mesh={waterMesh} sceneRoot={root} />
+      ) : null}
 
       {/* Low raking sun: lights the deck and casts the long shadows onto it. */}
       <directionalLight

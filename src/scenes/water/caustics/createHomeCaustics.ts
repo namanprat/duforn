@@ -6,8 +6,14 @@
  */
 import * as THREE from "three";
 import { POOL_CAUSTICS_DEFAULTS } from "../config/poolWaterDefaults";
-import type { PoolShallowWaterSimCPU } from "../compute/PoolShallowWaterSimCPU";
+import { SCENE_SUN_DIR } from "../../lighting/sun";
 import type { WaterPlanarBounds } from "../waterPlanarMapping";
+
+type WaterSimLike = {
+  getHeightTexture(): THREE.Texture;
+  getResolutionW(): number;
+  getResolutionH(): number;
+};
 
 export function causticsLightDirFromAngles(
   elevationDeg = POOL_CAUSTICS_DEFAULTS.lightElevationDeg,
@@ -20,6 +26,11 @@ export function causticsLightDirFromAngles(
     Math.sin(elevation),
     Math.cos(elevation) * Math.cos(azimuth),
   ).normalize();
+}
+
+/** Caustics sun matches the scene directional light (BakedScene shadow sun). */
+export function causticsLightDirFromSceneSun() {
+  return SCENE_SUN_DIR.clone();
 }
 
 const WEBGL_VERT = /* glsl */ `
@@ -82,7 +93,7 @@ export function createHomeCaustics(
     sim,
     size,
   }: {
-    sim: PoolShallowWaterSimCPU;
+    sim: WaterSimLike;
     bounds: WaterPlanarBounds;
     size: number;
   },
@@ -104,7 +115,7 @@ export function createHomeCaustics(
     uHeightMap: { value: sim.getHeightTexture() },
     uSimRes: { value: new THREE.Vector2(sim.getResolutionW(), sim.getResolutionH()) },
     uDepth: { value: d.depth },
-    uLightDir: { value: causticsLightDirFromAngles() },
+    uLightDir: { value: causticsLightDirFromSceneSun() },
     uNormalScale: { value: d.normalScale },
     uMaxIntensity: { value: d.maxIntensity },
     uEdgeFade: { value: d.edgeFade },
@@ -127,21 +138,33 @@ export function createHomeCaustics(
   scene.add(mesh);
   const camera = new THREE.OrthographicCamera();
 
+  const renderPass = () => {
+    uniforms.uHeightMap.value = sim.getHeightTexture();
+    const prevTarget = renderer.getRenderTarget();
+    renderer.setRenderTarget(target);
+    renderer.render(scene, camera);
+    renderer.setRenderTarget(prevTarget);
+  };
+
+  renderPass();
+
   return {
     get texture() {
       return target.texture;
     },
     target,
     setBounds() {},
-    setParams(next: {
-      normalScale?: number;
-      depth?: number;
-      maxIntensity?: number;
-      gain?: number;
-      edgeFade?: number;
-      lightElevationDeg?: number;
-      lightAzimuthDeg?: number;
-    } = {}) {
+    setParams(
+      next: {
+        normalScale?: number;
+        depth?: number;
+        maxIntensity?: number;
+        gain?: number;
+        edgeFade?: number;
+        lightElevationDeg?: number;
+        lightAzimuthDeg?: number;
+      } = {},
+    ) {
       if (next.normalScale !== undefined) uniforms.uNormalScale.value = next.normalScale;
       if (next.depth !== undefined) uniforms.uDepth.value = next.depth;
       if (next.maxIntensity !== undefined) uniforms.uMaxIntensity.value = next.maxIntensity;
@@ -151,14 +174,12 @@ export function createHomeCaustics(
         uniforms.uLightDir.value.copy(
           causticsLightDirFromAngles(next.lightElevationDeg, next.lightAzimuthDeg),
         );
+      } else {
+        uniforms.uLightDir.value.copy(causticsLightDirFromSceneSun());
       }
     },
     update() {
-      uniforms.uHeightMap.value = sim.getHeightTexture();
-      const prevTarget = renderer.getRenderTarget();
-      renderer.setRenderTarget(target);
-      renderer.render(scene, camera);
-      renderer.setRenderTarget(prevTarget);
+      renderPass();
     },
     dispose() {
       target.dispose();

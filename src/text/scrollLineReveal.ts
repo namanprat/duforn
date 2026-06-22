@@ -1,6 +1,7 @@
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { MOTION_TOKENS } from "../lib/anim/tokens";
+import { MOTION_TOKENS } from "../lib/animation/motionTokens";
+import { getLenis } from "../lib/lenis-scroll";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -40,18 +41,20 @@ export function armScrollLineReveal(
     revealed.clear();
   };
 
-  const refresh = () => {
-    ScrollTrigger.refresh();
-  };
-
   if (!lines.length) {
-    return { kill, refresh };
+    return {
+      kill,
+      refresh: () => ScrollTrigger.refresh(),
+    };
   }
 
   if (reduce) {
     gsap.set(lines, { y: "0%" });
     lines.forEach((line) => revealed.add(line));
-    return { kill, refresh };
+    return {
+      kill,
+      refresh: () => ScrollTrigger.refresh(),
+    };
   }
 
   gsap.set(lines, { y: "100%" });
@@ -74,13 +77,21 @@ export function armScrollLineReveal(
     });
   };
 
+  const refresh = () => {
+    ScrollTrigger.refresh();
+    revealPending();
+  };
+
   triggers = ScrollTrigger.batch(lines, {
     start: "top 95%",
     once: true,
+    ...(getLenis() ? { scroller: document.body } : {}),
     onEnter: () => {
       revealPending();
     },
   });
+
+  requestAnimationFrame(refresh);
 
   return { kill, refresh };
 }

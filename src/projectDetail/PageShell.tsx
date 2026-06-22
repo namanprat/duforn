@@ -85,31 +85,27 @@ export default function ProjectDetailPage() {
       <section className="u-margin-top-0">
         <div className="u-container-main">
           <div className="u-section-spacer-large" />
-          <TextRevealLines>
+          <TextRevealLines animateOnScroll={false}>
             <h1 className="u-width-full u-text-align-center u-text-style-display">{HERO_TITLE}</h1>
           </TextRevealLines>
 
           <div className="project-details-hero-info u-grid-autofit u-align-items-start">
             <article className="project-details-overview u-column-span-9">
-              <TextRevealLines>
-                <p className="project-details-kicker u-text-style-small u-text-style-font-secondary">
-                  Project Overview
-                </p>
+              <TextRevealLines animateOnScroll={false}>
+                <h5>Project Overview</h5>
               </TextRevealLines>
-              <TextRevealLines delay={0.05}>
+              <TextRevealLines animateOnScroll={false} delay={0.05}>
                 <h2 className="project-details-overview-copy">{HERO_OVERVIEW}</h2>
               </TextRevealLines>
             </article>
 
             <div className="project-details-services u-column-span-3">
-              <TextRevealLines>
-                <p className="project-details-kicker u-text-style-small u-text-style-font-secondary">
-                  Services
-                </p>
+              <TextRevealLines animateOnScroll={false}>
+                <h5>Services</h5>
               </TextRevealLines>
               <div className="u-display-grid">
                 {SERVICES.map((service) => (
-                  <TextRevealLines key={service} delay={0.02}>
+                  <TextRevealLines key={service} animateOnScroll={false} delay={0.02}>
                     <h4>{service}</h4>
                   </TextRevealLines>
                 ))}
