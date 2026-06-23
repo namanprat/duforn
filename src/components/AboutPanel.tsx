@@ -15,8 +15,8 @@ import { prefersReducedMotion } from "../lib/prefersReducedMotion";
 gsap.registerPlugin(SplitText);
 
 export type AboutPanelHandle = {
-  /** Unreveal lines; returns total animation duration in seconds. */
-  hide: () => number;
+  /** Unreveal lines (up = exit through the top); returns total duration in seconds. */
+  hide: (up: boolean) => number;
 };
 
 interface AboutPanelProps {
@@ -30,32 +30,40 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
 ) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
+  const mediaRef = useRef<HTMLDivElement | null>(null);
   const linesRef = useRef<HTMLElement[]>([]);
   const splitsRef = useRef<SplitText[]>([]);
   const revealTweenRef = useRef<gsap.core.Tween | null>(null);
   const hideTweenRef = useRef<gsap.core.Tween | null>(null);
   const rafRef = useRef(0);
 
+  const runHide = (up: boolean) => {
+    revealTweenRef.current?.kill();
+    hideTweenRef.current?.kill();
+
+    const lines = linesRef.current;
+    if (!lines.length) return 0;
+
+    const { hideDuration, hideStagger, hideEase } = MOTION_TOKENS.textReveal;
+    const total = hideDuration + hideStagger * Math.max(lines.length - 1, 0);
+
+    hideTweenRef.current = gsap.to(lines, {
+      yPercent: up ? -100 : 100,
+      duration: hideDuration,
+      stagger: { each: hideStagger, from: "end" },
+      ease: hideEase,
+    });
+
+    // Dissolve the 3D canvas out in parallel, over the full text-unreveal span.
+    if (mediaRef.current) {
+      gsap.to(mediaRef.current, { autoAlpha: 0, duration: total, ease: hideEase });
+    }
+
+    return total;
+  };
+
   useImperativeHandle(ref, () => ({
-    hide() {
-      revealTweenRef.current?.kill();
-      hideTweenRef.current?.kill();
-
-      const lines = linesRef.current;
-      if (!lines.length) return 0;
-
-      const { hideDuration, hideStagger, hideEase } = MOTION_TOKENS.textReveal;
-      const total = hideDuration + hideStagger * Math.max(lines.length - 1, 0);
-
-      hideTweenRef.current = gsap.to(lines, {
-        yPercent: 100,
-        duration: hideDuration,
-        stagger: { each: hideStagger, from: "end" },
-        ease: hideEase,
-      });
-
-      return total;
-    },
+    hide: runHide,
   }));
 
   useLayoutEffect(() => {
@@ -96,6 +104,16 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
       stagger: revealStagger,
       ease: revealEase,
     });
+
+    // Dissolve the 3D canvas in, in parallel over the full text-reveal span.
+    const revealSpan = revealDuration + revealStagger * Math.max(allLines.length - 1, 0);
+    if (mediaRef.current) {
+      gsap.fromTo(
+        mediaRef.current,
+        { autoAlpha: 0 },
+        { autoAlpha: 1, duration: revealSpan, ease: revealEase },
+      );
+    }
 
     const lenis = new Lenis({
       wrapper,
@@ -143,7 +161,7 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
           </p>
         ))}
 
-        <div className="about-panel__media">
+        <div className="about-panel__media" ref={mediaRef}>
           {active && <AboutDitherCanvas />}
         </div>
 

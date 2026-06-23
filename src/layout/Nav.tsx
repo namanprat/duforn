@@ -101,9 +101,13 @@ export default function Nav() {
 
   const closeAll = useCallback(() => setPhase("closed"), []);
   const openMenu = () => setPhase("links");
-  const openAbout = () => setPhase("about");
+  const openAbout = () => {
+    if (isMorphing) return;
+    setPhase("about");
+  };
 
   const handleToggleClick = () => {
+    if (isMorphing) return;
     if (isAbout) setPhase("links");
     else if (isOpen) setPhase("closed");
     else openMenu();
@@ -154,7 +158,9 @@ export default function Nav() {
         aria-label="Close menu"
         aria-hidden={!isOpen}
         tabIndex={isOpen ? 0 : -1}
-        onClick={closeAll}
+        onClick={() => {
+          if (!isMorphing) closeAll();
+        }}
       />
 
       <div className="site-header__inner u-container-main">
@@ -168,7 +174,7 @@ export default function Nav() {
           <div
             ref={menuNavRef}
             id="site-menu"
-            className={`menu-nav${shellOpen ? " is-open" : ""}${shellAbout ? " is-about" : ""}${bodyVisible || (isOpen && isAbout) ? " is-body-visible" : ""}${aboutVisible ? " is-about-visible" : ""}${isMorphing ? " is-morphing" : ""}`}
+            className={`menu-nav${shellOpen ? " is-open" : ""}${shellAbout ? " is-about" : ""}${bodyVisible ? " is-body-visible" : ""}${aboutVisible ? " is-about-visible" : ""}${isMorphing ? " is-morphing" : ""}`}
             role={isOpen ? "dialog" : undefined}
             aria-modal={isOpen ? true : undefined}
             aria-label={isOpen ? "Site menu" : undefined}

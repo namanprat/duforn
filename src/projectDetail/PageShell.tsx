@@ -83,9 +83,11 @@ export default function ProjectDetailPage() {
     >
       <section className="u-margin-top-0">
         <div className="u-container-main">
-          <div className="u-section-spacer-large" />
+          <div className="u-section-spacer-medium" />
           <TextRevealLines animateOnScroll={false}>
-            <h1 className="u-width-full u-text-align-center u-text-style-display">{HERO_TITLE}</h1>
+            <h1 className="u-container-full u-text-align-center u-text-style-display work-page__title">
+              {HERO_TITLE}
+            </h1>
           </TextRevealLines>
 
           <div className="project-details-hero-info u-grid-autofit u-align-items-start">

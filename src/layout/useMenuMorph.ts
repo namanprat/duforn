@@ -15,6 +15,9 @@ type MenuFlags = {
 
 const SURFACE_DIM_PROPS = "width,height";
 
+// Closing (exit) animations run this much faster than their opening counterparts.
+const CLOSE_SPEEDUP = 0.5;
+
 function phaseOpen(phase: MenuPhase) {
   return phase !== "closed";
 }
@@ -66,14 +69,21 @@ export function useMenuMorph({
   surfaceRef,
   aboutPanelRef,
 }: UseMenuMorphOptions) {
-  const timelineRef = useRef<gsap.core.Timeline | null>(null);
-  const prevPhaseRef = useRef<MenuPhase>("closed");
-  const shellRef = useRef<MenuPhase | null>(null);
+  const settledRef = useRef<MenuPhase>("closed");
+  const tlRef = useRef<gsap.core.Timeline | null>(null);
+  const unmountRef = useRef(false);
 
-  const [shellPhase, setShellPhase] = useState<MenuPhase | null>(null);
+  const [presented, setPresented] = useState<MenuFlags>(() => menuFlags("closed"));
   const [isMorphing, setIsMorphing] = useState(false);
-  const [bodyVisible, setBodyVisible] = useState(false);
-  const [aboutVisible, setAboutVisible] = useState(false);
+
+  useLayoutEffect(() => {
+    unmountRef.current = false;
+    return () => {
+      unmountRef.current = true;
+      tlRef.current?.kill();
+      tlRef.current = null;
+    };
+  }, []);
 
   useLayoutEffect(() => {
     const scope = scopeRef.current;
@@ -82,261 +92,198 @@ export function useMenuMorph({
     if (!scope || !menuNav || !surface) return;
 
     const lines = scope.querySelectorAll<HTMLElement>(".menu-nav__line");
-    const about = scope.querySelector<HTMLElement>(".menu-nav__about");
+    const aboutEl = scope.querySelector<HTMLElement>(".menu-nav__about");
     const { menu } = MOTION_TOKENS;
-    const reduced = prefersReducedMotion();
-    const prev = prevPhaseRef.current;
-    const isOpen = phaseOpen(phase);
-    const isAbout = phaseAbout(phase);
-    const prevOpen = phaseOpen(prev);
-    const prevAbout = phaseAbout(prev);
+    const target = phase;
+    const from = settledRef.current;
 
-    const menuJustClosed = !isOpen && prevOpen;
-    const menuJustOpened = isOpen && !prevOpen;
-    const aboutJustOpened = isAbout && !prevAbout && isOpen;
-    const aboutJustClosed = !isAbout && prevAbout && isOpen;
-    const isMidTransition =
-      menuJustOpened || menuJustClosed || aboutJustOpened || aboutJustClosed;
+    const hadInFlight = !!tlRef.current;
+    tlRef.current?.kill();
+    tlRef.current = null;
 
-    const commitPhase = () => {
-      prevPhaseRef.current = phase;
-    };
-
-    const finishMorph = () => {
-      menuNav.classList.remove("is-morphing");
+    const settle = (next: MenuPhase) => {
+      if (unmountRef.current) return;
+      settledRef.current = next;
+      tlRef.current = null;
       gsap.set(surface, { clearProps: SURFACE_DIM_PROPS });
-      if (about && isAbout) {
-        gsap.set(about, { clearProps: "opacity,visibility" });
+      if (aboutEl && phaseAbout(next)) {
+        gsap.set(aboutEl, { clearProps: "opacity,visibility" });
       }
-      setBodyVisible(isOpen);
-      setAboutVisible(isAbout);
+      setPresented(menuFlags(next, phaseOpen(next)));
       setIsMorphing(false);
-      shellRef.current = null;
-      setShellPhase(null);
-      commitPhase();
-      timelineRef.current = null;
     };
 
-    const syncLiveFlags = (body: boolean, aboutPanel: boolean) => {
-      const shell = shellRef.current;
-      const flags: MenuFlags = {
-        open: isOpen || (shell !== null && shell !== "closed"),
-        about: isAbout || aboutPanel || shell === "about",
-        bodyVisible: body,
-        aboutVisible: aboutPanel,
-      };
-      applyMenuFlags(menuNav, flags);
+    // Measure current (animated) size, then natural target size from `toFlags`.
+    const measureFromTo = (toFlags: MenuFlags) => {
+      const fromD = measureSurface(surface);
+      gsap.set(surface, { clearProps: SURFACE_DIM_PROPS });
+      const toD = readSurfaceDims(menuNav, surface, toFlags);
+      gsap.set(surface, { width: fromD.width, height: fromD.height });
+      return { fromD, toD };
     };
 
-    if (!isOpen && !prevOpen) {
-      menuNav.classList.remove("is-morphing");
-      gsap.set(surface, { clearProps: SURFACE_DIM_PROPS });
-      applyMenuFlags(menuNav, menuFlags("closed"));
-      gsap.set(lines, { yPercent: 120, autoAlpha: 0 });
-      setBodyVisible(false);
-      setAboutVisible(false);
-      commitPhase();
-      return () => timelineRef.current?.kill();
+    // Already resting at target — nothing to animate.
+    if (target === from && !hadInFlight) {
+      applyMenuFlags(menuNav, menuFlags(target, phaseOpen(target)));
+      setPresented(menuFlags(target, phaseOpen(target)));
+      setIsMorphing(false);
+      return;
     }
 
-    if (!isMidTransition && isOpen) {
-      return () => {};
-    }
-
-    timelineRef.current?.kill();
-
-    const fromDims = readSurfaceDims(
-      menuNav,
-      surface,
-      menuFlags(prev, prevOpen),
-    );
-
-    let toDims: { width: number; height: number };
-    if (aboutJustOpened) {
-      gsap.set(surface, { clearProps: SURFACE_DIM_PROPS });
-      syncLiveFlags(true, false);
-      toDims = readSurfaceDims(menuNav, surface, {
-        open: true,
-        about: true,
-        bodyVisible: true,
-        aboutVisible: false,
-      });
-    } else {
-      toDims = readSurfaceDims(menuNav, surface, menuFlags(phase, isOpen));
-    }
-
-    const toExpanded = isOpen && !isAbout;
-    const toAboutExpanded = isAbout;
-
-    if (reduced) {
-      menuNav.classList.remove("is-morphing");
-      gsap.set(surface, { clearProps: SURFACE_DIM_PROPS });
-      syncLiveFlags(toExpanded, toAboutExpanded);
+    if (prefersReducedMotion()) {
       gsap.set(lines, {
-        yPercent: isOpen && !isAbout ? 0 : isAbout ? -120 : 120,
-        autoAlpha: isOpen && !isAbout ? 1 : 0,
+        yPercent: phaseOpen(target) && !phaseAbout(target) ? 0 : phaseAbout(target) ? -120 : 120,
+        autoAlpha: phaseOpen(target) && !phaseAbout(target) ? 1 : 0,
       });
-      setBodyVisible(isOpen);
-      setAboutVisible(toAboutExpanded);
-      if (about && isAbout) {
-        gsap.set(about, { clearProps: "opacity,visibility" });
-      }
-      commitPhase();
-      return () => timelineRef.current?.kill();
+      settle(target);
+      return;
     }
 
-    menuNav.classList.add("is-morphing");
-    shellRef.current = prev;
-    setShellPhase(prev);
-    setIsMorphing(true);
-    gsap.set(surface, { width: fromDims.width, height: fromDims.height });
+    const start = (during: MenuFlags, fromD: { width: number; height: number }) => {
+      setPresented(during);
+      setIsMorphing(true);
+      gsap.set(surface, { width: fromD.width, height: fromD.height });
+    };
 
-    const closingAbout = aboutJustClosed || (menuJustClosed && prevAbout);
-    const aboutHideDuration = closingAbout ? (aboutPanelRef.current?.hide() ?? 0) : 0;
-
-    if (menuJustClosed) {
-      if (prevAbout) {
-        syncLiveFlags(true, true);
-        gsap.set(lines, { yPercent: -120, autoAlpha: 0 });
-      } else {
-        syncLiveFlags(true, false);
-        gsap.set(lines, { yPercent: 0, autoAlpha: 1 });
-      }
-    } else if (aboutJustClosed) {
-      syncLiveFlags(true, true);
-      gsap.set(lines, { yPercent: -120, autoAlpha: 0 });
-    } else if (aboutJustOpened) {
-      syncLiveFlags(true, false);
-      if (about) gsap.set(about, { autoAlpha: 0 });
-      gsap.set(lines, { yPercent: 0, autoAlpha: 1 });
-    } else if (!isOpen) {
-      syncLiveFlags(false, false);
+    // closed -> links: grow, then headers reveal in from below.
+    if (from === "closed" && target === "links") {
+      const { fromD, toD } = measureFromTo(menuFlags("links", true));
+      start(menuFlags("links", true), fromD);
       gsap.set(lines, { yPercent: 120, autoAlpha: 0 });
+
+      const boxDuration = menu.openDuration;
+      const tl = gsap.timeline();
+      tl.to(surface, { width: toD.width, height: toD.height, duration: boxDuration, ease: menu.boxOpenEase }, 0);
+      tl.fromTo(
+        lines,
+        { yPercent: 120, autoAlpha: 0 },
+        { yPercent: 0, autoAlpha: 1, duration: menu.lineDuration, ease: menu.ease, stagger: menu.lineStagger },
+        boxDuration,
+      );
+      tl.eventCallback("onComplete", () => settle("links"));
+      tlRef.current = tl;
+      return;
     }
 
-    const isShrinking =
-      toDims.width < fromDims.width - 1 || toDims.height < fromDims.height - 1;
-    const boxDuration =
-      aboutJustOpened || aboutJustClosed || (menuJustClosed && prevAbout)
-        ? menu.aboutDuration * menu.expandScale
-        : menu.openDuration;
-    const boxEase = isShrinking ? menu.boxShrinkEase : menu.boxOpenEase;
-    const contentAt = boxDuration * 0.35;
-    const lineFlipDuration = menu.lineDuration * 0.75;
+    // links -> closed: headers out (down), then shrink to pill.
+    if (from === "links" && target === "closed") {
+      const { fromD, toD } = measureFromTo(menuFlags("closed"));
+      start(menuFlags("links", true), fromD);
+      gsap.set(lines, { yPercent: 0, autoAlpha: 1 });
 
-    const tl = gsap.timeline({ onComplete: finishMorph });
-
-    tl.to(
-      surface,
-      { width: toDims.width, height: toDims.height, duration: boxDuration, ease: boxEase },
-      0,
-    );
-
-    if (menuJustClosed) {
-      if (prevAbout) {
-        tl.call(() => {
-          shellRef.current = "links";
-          setShellPhase("links");
-          syncLiveFlags(false, false);
-          setBodyVisible(false);
-          setAboutVisible(false);
-        }, [], aboutHideDuration);
-      } else {
-        tl.to(
-          lines,
-          {
-            yPercent: 120,
-            autoAlpha: 0,
-            duration: menu.lineDuration,
-            ease: menu.closeEase,
-            stagger: { each: menu.lineStagger, from: "end" },
-          },
-          0,
-        );
-        tl.call(() => {
-          syncLiveFlags(false, false);
-          setBodyVisible(false);
-          setAboutVisible(false);
-        }, [], contentAt);
-      }
-    } else if (aboutJustOpened) {
+      const boxDuration = menu.openDuration * CLOSE_SPEEDUP;
+      const lineDur = menu.lineDuration * CLOSE_SPEEDUP;
+      const lineStag = menu.lineStagger * CLOSE_SPEEDUP;
+      // Headers unreveal fully first, then the box collapses.
+      const headerOut = lineDur + lineStag * Math.max(lines.length - 1, 0);
+      const tl = gsap.timeline();
       tl.to(
         lines,
-        {
-          yPercent: -120,
-          autoAlpha: 0,
-          duration: lineFlipDuration,
-          ease: menu.closeEase,
-          stagger: { each: menu.lineStagger, from: "end" },
-        },
+        { yPercent: 120, autoAlpha: 0, duration: lineDur, ease: menu.closeEase, stagger: { each: lineStag, from: "end" } },
         0,
       );
-      tl.call(() => {
-        syncLiveFlags(true, true);
-        setAboutVisible(true);
-        if (about) gsap.set(about, { clearProps: "opacity,visibility" });
-      }, [], boxDuration);
-    } else if (aboutJustClosed) {
-      const linksAt = contentAt;
+      tl.to(surface, { width: toD.width, height: toD.height, duration: boxDuration, ease: menu.boxShrinkEase }, headerOut);
+      tl.eventCallback("onComplete", () => settle("closed"));
+      tlRef.current = tl;
+      return;
+    }
 
+    // links -> about: headers flip up & out, grow, then about text reveals.
+    if (from === "links" && target === "about") {
+      const { fromD, toD } = measureFromTo(menuFlags("about", true));
+      // Keep LINKS presentation during the flip so the header list stays visible/tweenable.
+      start(menuFlags("links", true), fromD);
+      if (aboutEl) gsap.set(aboutEl, { autoAlpha: 0 });
+      gsap.set(lines, { yPercent: 0, autoAlpha: 1 });
+
+      const boxDuration = menu.aboutDuration * menu.expandScale;
+      const lineFlip = menu.lineDuration * 0.75;
+      // Headers flip up fully first, then the box grows, then about text reveals.
+      const headerOut = lineFlip + menu.lineStagger * Math.max(lines.length - 1, 0);
+      const tl = gsap.timeline();
+      tl.to(
+        lines,
+        { yPercent: -120, autoAlpha: 0, duration: lineFlip, ease: menu.closeEase, stagger: { each: menu.lineStagger, from: "end" } },
+        0,
+      );
+      tl.to(surface, { width: toD.width, height: toD.height, duration: boxDuration, ease: menu.boxOpenEase }, headerOut);
+      tl.call(() => {
+        // Box is full-size: switch to about and let AboutPanel reveal its text.
+        setPresented(menuFlags("about", true));
+        if (aboutEl) gsap.set(aboutEl, { clearProps: "opacity,visibility" });
+      }, [], headerOut + boxDuration);
+      tl.eventCallback("onComplete", () => settle("about"));
+      tlRef.current = tl;
+      return;
+    }
+
+    // about -> links (Back): about text up, shrink, then headers reveal in from top.
+    if (from === "about" && target === "links") {
+      const { fromD, toD } = measureFromTo(menuFlags("links", true));
+      // Keep ABOUT presentation while its text unreveals (panel stays mounted).
+      start(menuFlags("about", true), fromD);
+
+      const hideDur = aboutPanelRef.current?.hide(true) ?? 0;
+      const boxDuration = menu.aboutDuration * menu.expandScale;
+      // Text unreveals fully first, then the box resizes, then headers come in.
+      const revealAt = hideDur + boxDuration;
+      const tl = gsap.timeline();
+      tl.to(surface, { width: toD.width, height: toD.height, duration: boxDuration, ease: menu.closeEase }, hideDur);
+      tl.call(() => {
+        // Text is gone: hand the box back to the links list and drop the about panel.
+        setPresented(menuFlags("links", true));
+        gsap.set(lines, { yPercent: -120, autoAlpha: 0 });
+      }, [], revealAt);
       tl.fromTo(
         lines,
         { yPercent: -120, autoAlpha: 0 },
-        {
-          yPercent: 0,
-          autoAlpha: 1,
-          duration: lineFlipDuration,
-          ease: menu.ease,
-          stagger: menu.lineStagger,
-        },
-        linksAt,
+        { yPercent: 0, autoAlpha: 1, duration: menu.lineDuration, ease: menu.ease, stagger: menu.lineStagger },
+        revealAt,
       );
-      tl.call(() => {
-        shellRef.current = "links";
-        setShellPhase("links");
-        syncLiveFlags(true, false);
-        setAboutVisible(false);
-        setBodyVisible(true);
-      }, [], aboutHideDuration);
-    } else if (isOpen && !isAbout) {
-      tl.call(() => {
-        syncLiveFlags(true, false);
-        setBodyVisible(true);
-      }, [], contentAt);
-      tl.fromTo(
-        lines,
-        { yPercent: prevAbout ? -120 : 120, autoAlpha: 0 },
-        {
-          yPercent: 0,
-          autoAlpha: 1,
-          duration: menu.lineDuration,
-          ease: menu.ease,
-          stagger: menu.lineStagger,
-        },
-        contentAt,
-      );
+      tl.eventCallback("onComplete", () => settle("links"));
+      tlRef.current = tl;
+      return;
     }
 
-    timelineRef.current = tl;
+    // about -> closed (click outside): about text down, shrink straight to pill.
+    if (from === "about" && target === "closed") {
+      const { fromD, toD } = measureFromTo(menuFlags("closed"));
+      // Keep ABOUT presentation while its text unreveals.
+      start(menuFlags("about", true), fromD);
 
-    return () => {
-      timelineRef.current?.kill();
-      menuNav.classList.remove("is-morphing");
-      shellRef.current = null;
-      setShellPhase(null);
-      setIsMorphing(false);
-    };
+      const hideDur = aboutPanelRef.current?.hide(false) ?? 0;
+      const boxDuration = menu.aboutDuration * menu.expandScale;
+      // Text unreveals fully first, then the box collapses to the pill.
+      const tl = gsap.timeline();
+      tl.to(surface, { width: toD.width, height: toD.height, duration: boxDuration, ease: menu.closeEase }, hideDur);
+      tl.eventCallback("onComplete", () => settle("closed"));
+      tlRef.current = tl;
+      return;
+    }
+
+    // Fallback (rapid interrupts, e.g. closed->closed): morph the box, snap content.
+    const { fromD, toD } = measureFromTo(menuFlags(target, phaseOpen(target)));
+    start(menuFlags(target, phaseOpen(target)), fromD);
+    if (phaseOpen(target) && !phaseAbout(target)) {
+      gsap.set(lines, { yPercent: 0, autoAlpha: 1 });
+    }
+    const grow = toD.height >= fromD.height;
+    const tl = gsap.timeline();
+    tl.to(surface, {
+      width: toD.width,
+      height: toD.height,
+      duration: menu.openDuration,
+      ease: grow ? menu.boxOpenEase : menu.closeEase,
+    }, 0);
+    tl.eventCallback("onComplete", () => settle(target));
+    tlRef.current = tl;
   }, [aboutPanelRef, menuNavRef, phase, scopeRef, surfaceRef]);
-
-  const isOpen = phase !== "closed";
-  const isAbout = phase === "about";
 
   return {
     isMorphing,
-    // ponytail: keep intent (phase) authoritative during morph; shellPhase is layout-only
-    shellOpen: isOpen || (shellPhase !== null && shellPhase !== "closed"),
-    shellAbout: isAbout || aboutVisible || shellPhase === "about",
-    bodyVisible,
-    aboutVisible,
+    shellOpen: presented.open,
+    shellAbout: presented.about,
+    bodyVisible: presented.bodyVisible,
+    aboutVisible: presented.aboutVisible,
   };
 }
