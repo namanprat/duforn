@@ -72,6 +72,8 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
       return;
     }
 
+    gsap.set(content, { autoAlpha: 0 });
+
     const blocks = Array.from(content.querySelectorAll<HTMLElement>("[data-reveal]"));
     const splits: SplitText[] = [];
 
@@ -89,6 +91,7 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
     const allLines = splits.flatMap((split) => split.lines) as HTMLElement[];
     linesRef.current = allLines;
     gsap.set(allLines, { yPercent: 100 });
+    gsap.set(content, { autoAlpha: 1 });
 
     const { revealDuration, revealStagger, revealEase } = MOTION_TOKENS.textReveal;
     revealTweenRef.current = gsap.to(allLines, {
@@ -96,7 +99,6 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
       duration: revealDuration,
       stagger: revealStagger,
       ease: revealEase,
-      delay: MOTION_TOKENS.menu.aboutRevealDelay,
     });
 
     const lenis = new Lenis({

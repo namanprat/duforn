@@ -622,8 +622,10 @@ body.page-wrap.page-wrap--scrollable:has([data-page-namespace="projectDetail"])
 }
 
 .site-header__brand {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   white-space: nowrap;
+  line-height: var(--typography-line-height-medium);
   transition:
     transform 0.35s ease,
     color 0.35s ease;
@@ -636,24 +638,21 @@ body.page-wrap.page-wrap--scrollable:has([data-page-namespace="projectDetail"])
   color: inherit;
 }
 
-.site-header a.nav-link-hover,
-.site-header button.nav-link-hover,
-.menu-nav__toggle.nav-link-hover,
-.menu-nav__link.nav-link-hover,
-.contact_contain a.nav-link-hover {
+.site-header a[data-rotate-hover],
+.site-header button[data-rotate-hover],
+.menu-nav__toggle[data-rotate-hover],
+.menu-nav__link[data-rotate-hover],
+.contact_contain a[data-rotate-hover] {
   --hover-line-height: var(--typography-line-height-medium);
-  display: block;
+  display: inline-flex;
+  align-items: center;
   line-height: var(--hover-line-height);
   overflow: visible;
-  align-self: start;
+  align-self: center;
 }
 
-.site-header button.nav-link-hover {
-  display: block;
-}
-
-a.button.nav-link-hover,
-button.button.nav-link-hover {
+a.button[data-rotate-hover],
+button.button[data-rotate-hover] {
   --hover-line-height: var(--typography-line-height-medium);
   display: inline-flex;
   align-items: center;
@@ -663,12 +662,15 @@ button.button.nav-link-hover {
 }
 
 .nav-link-hover__clip {
-  display: block;
+  display: inline-grid;
   overflow: hidden;
   position: relative;
-  width: 100%;
+  grid-template-areas: "stack";
+  width: max-content;
+  max-width: 100%;
   margin-bottom: 0;
   line-height: var(--hover-line-height, 1);
+  vertical-align: middle;
 }
 
 a.button .nav-link-hover__clip,
@@ -679,35 +681,54 @@ button.button .nav-link-hover__clip {
 }
 
 .nav-link-hover__track {
+  grid-area: stack;
   display: block;
   margin: 0;
   padding: 0;
   line-height: var(--hover-line-height, 1);
   white-space: nowrap;
+  transition:
+    transform var(--nav-hover-duration, 0.45s) var(--nav-hover-ease, ease),
+    opacity var(--nav-hover-duration, 0.45s) var(--nav-hover-ease, ease);
+  will-change: transform;
 }
 
 .nav-link-hover__track > span {
-  display: inline-block;
+  display: block;
   line-height: var(--hover-line-height, 1);
-  vertical-align: baseline;
-  will-change: transform;
+  white-space: nowrap;
 }
 
 .nav-brand__clip {
   display: inline-flex;
+  align-items: center;
   overflow: clip;
   line-height: var(--typography-line-height-medium);
   font-variant-numeric: tabular-nums;
-}
-
-.nav-brand__clip .nav-link-hover__clip {
-  width: max-content;
 }
 
 .site-header a:focus-visible,
 .site-header button:focus-visible {
   outline: 2px solid var(--swatch-light);
   outline-offset: var(--spacing-space-2);
+}
+
+[data-rotate-hover] .nav-link-hover__track:first-child {
+  transform: translateY(0%);
+}
+
+[data-rotate-hover] .nav-link-hover__track:last-child {
+  transform: translateY(100%);
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  [data-rotate-hover]:is(:hover, :focus-visible) .nav-link-hover__track:first-child {
+    transform: translateY(-100%);
+  }
+
+  [data-rotate-hover]:is(:hover, :focus-visible) .nav-link-hover__track:last-child {
+    transform: translateY(0%);
+  }
 }
 
 .menu-nav-backdrop {
@@ -763,17 +784,40 @@ body.menu-open .menu-nav-backdrop {
   width: max-content;
   inline-size: max-content;
   max-width: calc(100vw - var(--site--margin) * 2);
-  overflow: clip;
-  background-color: color-mix(in srgb, #191818 22%, transparent);
-  backdrop-filter: blur(16px) saturate(1.15);
-  -webkit-backdrop-filter: blur(16px) saturate(1.15);
+  overflow: hidden;
+  background-color: rgb(25 24 24 / 0.22);
   border: 1px solid color-mix(in srgb, var(--swatch-light) 10%, transparent);
   border-radius: var(--radius-main);
   transform-origin: top right;
+  isolation: isolate;
+}
+
+@supports (overflow: clip) {
+  .menu-nav__surface {
+    overflow: clip;
+  }
+}
+
+.menu-nav__surface::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: rgb(25 24 24 / 0.18);
+  backdrop-filter: blur(16px) saturate(1.15);
+  -webkit-backdrop-filter: blur(16px) saturate(1.15);
+  pointer-events: none;
 }
 
 .menu-nav.is-morphing .menu-nav__surface {
-  overflow: clip;
+  overflow: hidden;
+}
+
+@supports (overflow: clip) {
+  .menu-nav.is-morphing .menu-nav__surface {
+    overflow: clip;
+  }
 }
 
 .menu-nav.is-open .menu-nav__surface {
@@ -787,12 +831,15 @@ body.menu-open .menu-nav-backdrop {
 }
 
 .menu-nav__chrome {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   justify-content: flex-end;
   align-items: center;
   width: auto;
   box-sizing: border-box;
-  padding: var(--spacing-space-3);
+  min-height: calc(var(--typography-line-height-medium) * 1em + var(--spacing-space-3) * 2);
+  padding: 0;
 }
 
 .menu-nav.is-open .menu-nav__chrome,
@@ -811,13 +858,16 @@ body.menu-open .menu-nav-backdrop {
 
 .menu-nav__toggle {
   margin: 0;
-  padding: 0;
+  padding: var(--spacing-space-3);
   border: none;
   background: none;
   color: inherit;
   cursor: pointer;
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
   width: auto;
+  min-height: calc(var(--typography-line-height-medium) * 1em + var(--spacing-space-3) * 2);
   text-align: right;
   white-space: nowrap;
 }
@@ -833,8 +883,8 @@ body.menu-open .menu-nav-backdrop {
 
 .menu-nav.is-open .menu-nav__toggle .nav-link-hover__clip,
 .menu-nav.is-about .menu-nav__toggle .nav-link-hover__clip {
-  width: 100%;
-  margin-left: 0;
+  width: max-content;
+  margin-left: auto;
 }
 
 .menu-nav__toggle .nav-link-hover__track {
@@ -845,6 +895,8 @@ body.menu-open .menu-nav-backdrop {
   display: none;
   overflow: hidden;
   pointer-events: none;
+  position: relative;
+  z-index: 1;
 }
 
 .menu-nav.is-open.is-body-visible .menu-nav__body,
@@ -1250,6 +1302,11 @@ body.menu-open .menu-nav-backdrop {
   margin-bottom: 0;
   margin-left: auto;
   text-align: right;
+  font-family: var(--text-style-font-tertiary);
+  font-size: var(--typography-font-size-body-small);
+  line-height: var(--typography-line-height-medium);
+  letter-spacing: -0.05em;
+  text-transform: uppercase;
 }
 
 .contact_actions_wrap {
@@ -2014,6 +2071,7 @@ img {
   margin-inline: auto;
   overflow: hidden;
   text-wrap: balance;
+  cursor: pointer;
 }
 
 .work-page__title-line {

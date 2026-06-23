@@ -27,6 +27,7 @@ let activeOpts: ScrollLineRevealOptions | null = null;
 let orderedLines: Element[] = [];
 const revealed = new Set<Element>();
 let scrollTrigger: ScrollTrigger | null = null;
+let removeFallbackListeners: (() => void) | null = null;
 
 function sortByDocumentOrder(elements: Element[]): Element[] {
   return [...elements].sort((a, b) => {
@@ -67,10 +68,31 @@ function rebuildOrderedLines() {
 function killScrollListener() {
   scrollTrigger?.kill();
   scrollTrigger = null;
+  removeFallbackListeners?.();
+  removeFallbackListeners = null;
 }
 
 function ensureScrollListener() {
   if (scrollTrigger) return;
+
+  const onScroll = () => processReveal();
+  const onResize = () => {
+    ScrollTrigger.refresh();
+    processReveal();
+  };
+
+  window.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("resize", onResize);
+
+  const lenis = getLenis();
+  const onLenisScroll = () => processReveal();
+  lenis?.on("scroll", onLenisScroll);
+
+  removeFallbackListeners = () => {
+    window.removeEventListener("scroll", onScroll);
+    window.removeEventListener("resize", onResize);
+    lenis?.off("scroll", onLenisScroll);
+  };
 
   scrollTrigger = ScrollTrigger.create({
     id: REVEAL_TRIGGER_ID,

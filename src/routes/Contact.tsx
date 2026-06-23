@@ -68,7 +68,7 @@ export default function ContactPage() {
         </div>
 
         <TextRevealLines animateOnScroll={false} waitForCamera delay={0.06}>
-          <h5 className="contact_intro u-width-full">{CONTACT_INTRO_COPY}</h5>
+          <p className="contact_intro u-width-full">{CONTACT_INTRO_COPY}</p>
         </TextRevealLines>
 
         <div className="contact_actions_wrap">

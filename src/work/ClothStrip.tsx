@@ -348,7 +348,7 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
     if (inputRef.current.isDown && inputRef.current.startedOnStrip) {
       canvas.style.cursor = "grabbing";
     } else if (hoverStripRef.current) {
-      canvas.style.cursor = "grab";
+      canvas.style.cursor = "pointer";
     } else {
       canvas.style.cursor = "";
     }

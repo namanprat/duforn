@@ -259,11 +259,11 @@ export default function Nav() {
     let toDims: { width: number; height: number };
     if (aboutJustOpened) {
       gsap.set(surface, { clearProps: SURFACE_DIM_PROPS });
-      syncLiveFlags(true, true);
+      syncLiveFlags(true, false);
       toDims = readSurfaceDims(
         menuNav,
         surface,
-        menuFlags(isMenuOpen, isAboutOpen, isMenuOpen),
+        { open: true, about: true, bodyVisible: true, aboutVisible: false },
       );
     } else {
       toDims = readSurfaceDims(
@@ -311,8 +311,8 @@ export default function Nav() {
       syncLiveFlags(true, true);
       gsap.set(lines, { yPercent: -120, autoAlpha: 0 });
     } else if (aboutJustOpened) {
-      syncLiveFlags(true, true);
-      if (about) gsap.set(about, { clearProps: "opacity,visibility" });
+      syncLiveFlags(true, false);
+      if (about) gsap.set(about, { autoAlpha: 0 });
       gsap.set(lines, { yPercent: 0, autoAlpha: 1 });
     } else if (!isMenuOpen) {
       syncLiveFlags(false, false);
@@ -379,6 +379,11 @@ export default function Nav() {
         },
         0,
       );
+      tl.call(() => {
+        syncLiveFlags(true, true);
+        setIsAboutVisible(true);
+        if (about) gsap.set(about, { clearProps: "opacity,visibility" });
+      }, [], boxDuration);
     } else if (aboutJustClosed) {
       const linksAt = contentAt;
 
@@ -500,8 +505,6 @@ export default function Nav() {
                           const aboutEl = scopeRef.current?.querySelector<HTMLElement>(".menu-nav__about");
                           if (aboutEl) gsap.set(aboutEl, { clearProps: "opacity,visibility" });
                           setIsAboutOpen(true);
-                          setIsBodyVisible(true);
-                          setIsAboutVisible(true);
                         }}
                       >
                         {useRotateHover ? <RotateHoverLabel text="About" /> : "About"}
