@@ -7,6 +7,7 @@ export default function WorkPage() {
   const initialTitle = workItems[0]?.title ?? "Work";
   const [title, setTitle] = useState<string>(initialTitle);
   const revealedRef = useRef(false);
+  // ponytail: ref gates first reveal only; strip title changes remount via key without re-animating
 
   useEffect(() => {
     revealedRef.current = true;

@@ -93,8 +93,8 @@ export default function ContactPage() {
               ))}
             </div>
             <h2 className="contact_email">
-              <a className="contact_email_link_wrap" href={`mailto:${CONTACT_EMAIL}`}>
-                <h2 className="u-text-style-h2 u-text-lowercase">{CONTACT_EMAIL}</h2>
+              <a className="contact_email_link_wrap u-text-style-h2 u-text-lowercase" href={`mailto:${CONTACT_EMAIL}`}>
+                {CONTACT_EMAIL}
               </a>
             </h2>
           </CameraRevealGroup>

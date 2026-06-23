@@ -4,7 +4,7 @@ import SiteLayout from "./layout/Site";
 import MainPage from "./routes/Main";
 import WorkPage from "./routes/Work";
 import ContactPage from "./routes/Contact";
-import ProjectDetailPage from "./routes/Project";
+import ProjectDetailPage from "./projectDetail/PageShell";
 import ArchivePage from "./routes/Archive";
 import { setNavigateHandler } from "./lib/nav";
 import { startWorkTexturePreload } from "./lib/work-preload";

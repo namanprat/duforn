@@ -1,6 +1,6 @@
 import TextRevealLines from "../text/Reveal";
 import { ProjectCoverAnchor } from "./ProjectCanvasAnchor";
-import MoneyMeStripCanvas from "./MoneyMeStripCanvas";
+import { ProjectStripsAnchor } from "./ProjectCanvasAnchor";
 
 const HERO_TITLE = "money.me";
 const HERO_OVERVIEW =
@@ -79,7 +79,6 @@ export default function ProjectDetailPage() {
   return (
     <main
       className="project-details-page"
-      data-page-container="true"
       data-page-namespace="projectDetail"
     >
       <section className="u-margin-top-0">
@@ -126,7 +125,7 @@ export default function ProjectDetailPage() {
       <section className="project-details-supporting-image u-margin-top-0">
         <div className="u-container-main">
           <div className="project-details-supporting-image-frame">
-            <MoneyMeStripCanvas />
+            <ProjectStripsAnchor />
           </div>
         </div>
       </section>

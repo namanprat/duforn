@@ -1,7 +1,7 @@
 /**
  * Opaque-scene backdrop for the WebGL pool water.
  *
- * The WebGPU reference samples `viewportOpaqueMipTexture` — the already-rendered
+ * Samples the opaque scene color for refraction-style distortion.
  * scene color — to refract the pool basin through the ripples. WebGLRenderer has
  * no such buffer, so we render the scene (with the water hidden) to our own
  * target each frame and hand its texture to the water material.

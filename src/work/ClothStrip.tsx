@@ -22,11 +22,6 @@ function loadTextureAssets(urls: string[], options = {}) {
   return Promise.all(urls.map((url) => loadTextureAsset(url, options)));
 }
 
-function isWebGPURenderer(renderer: unknown) {
-  const candidate = renderer as { __rendererType?: string; isWebGPURenderer?: boolean } | undefined;
-  return candidate?.__rendererType === "webgpu" || candidate?.isWebGPURenderer === true;
-}
-
 function buildArcGeometry(
   cols: number,
   rows: number,
@@ -71,127 +66,6 @@ function buildArcGeometry(
   geometry.computeVertexNormals();
   geometry.computeBoundingSphere();
   return geometry;
-}
-
-async function createWebGPUStripMaterial(
-  textures: THREE.Texture[],
-  stripConfig: Record<string, number>,
-) {
-  const { MeshBasicNodeMaterial } = await import("three/webgpu");
-  const tsl = await import("three/tsl");
-  const {
-    Fn,
-    float,
-    vec2,
-    vec4,
-    int,
-    uniform,
-    uniformTexture,
-    uv,
-    texture,
-    varying,
-    positionLocal,
-    sin,
-    abs,
-    pow,
-    mix,
-    step,
-    clamp,
-    smoothstep,
-    floor,
-    fract,
-    mod,
-  } = tsl as any;
-
-  const uniforms = {
-    uScrollOffset: uniform(0),
-    uItemsOnStrip: uniform(stripConfig.itemsOnStrip),
-    uNumUnique: uniform(stripConfig.numUnique),
-    uGapSize: uniform(stripConfig.gapSize),
-    uOpacity: uniform(1.0),
-    uTime: uniform(0),
-    uWindStrength: uniform(0.8),
-    uWaveAmplitude: uniform(0.05),
-    uWaveFrequency: uniform(16.0),
-    uGravityScale: uniform(1.2),
-    uTex0: uniformTexture(textures[0]),
-    uTex1: uniformTexture(textures[1]),
-    uTex2: uniformTexture(textures[2]),
-    uTex3: uniformTexture(textures[3]),
-    uTex4: uniformTexture(textures[4]),
-    uTex5: uniformTexture(textures[5]),
-  };
-
-  const vLooseness = varying(float(0), "vLooseness");
-
-  const vertexFn = Fn(() => {
-    const pos = positionLocal.toVar();
-    const uvCoord = uv();
-    const u = uvCoord.x;
-    const v = uvCoord.y;
-    const time = uniforms.uTime;
-    const looseness = smoothstep(float(0), float(0.25), v);
-    vLooseness.assign(looseness);
-
-    const wind = uniforms.uWindStrength.mul(0.01);
-    const freq = uniforms.uWaveFrequency;
-    const wave1 = sin(u.mul(freq).sub(time.mul(float(2.0).add(wind)))).mul(looseness);
-    const wave2 = sin(u.add(v).mul(freq.mul(0.7)).sub(time.mul(1.8)))
-      .mul(looseness)
-      .mul(0.5);
-    const flutter = sin(u.mul(freq.mul(2.5)).sub(time.mul(4.0)))
-      .mul(looseness)
-      .mul(looseness)
-      .mul(0.18);
-
-    pos.y.subAssign(v.mul(v).mul(uniforms.uGravityScale.mul(0.08)).mul(looseness));
-    pos.z.addAssign(
-      wave1.add(wave2).mul(uniforms.uWaveAmplitude).add(flutter.mul(uniforms.uWaveAmplitude)),
-    );
-    pos.x.addAssign(sin(time.mul(0.18)).mul(looseness).mul(0.04));
-
-    return pos;
-  });
-
-  const fragmentFn = Fn(() => {
-    const uvCoord = uv();
-    const totalU = uvCoord.x.mul(uniforms.uItemsOnStrip).add(uniforms.uScrollOffset);
-    const itemFract = fract(totalU);
-    const itemIndex = floor(totalU);
-    const wrappedIndex = mod(itemIndex, uniforms.uNumUnique).toVar();
-    wrappedIndex.assign(
-      mix(wrappedIndex, wrappedIndex.add(uniforms.uNumUnique), step(wrappedIndex, float(-0.001))),
-    );
-    const halfGap = uniforms.uGapSize.mul(0.5);
-    const inGap = step(itemFract, halfGap).add(step(float(1).sub(halfGap), itemFract));
-    inGap.greaterThan(float(0.5)).discard();
-    const texU = itemFract.sub(halfGap).div(float(1).sub(uniforms.uGapSize));
-    const texCoord = clamp(vec2(texU, uvCoord.y), vec2(0.001), vec2(0.999));
-    const col = texture(uniforms.uTex0, texCoord).rgb.toVar();
-    const idx = int(wrappedIndex);
-    col.assign(mix(col, texture(uniforms.uTex1, texCoord).rgb, float(idx.equal(int(1)))));
-    col.assign(mix(col, texture(uniforms.uTex2, texCoord).rgb, float(idx.equal(int(2)))));
-    col.assign(mix(col, texture(uniforms.uTex3, texCoord).rgb, float(idx.equal(int(3)))));
-    col.assign(mix(col, texture(uniforms.uTex4, texCoord).rgb, float(idx.equal(int(4)))));
-    col.assign(mix(col, texture(uniforms.uTex5, texCoord).rgb, float(idx.equal(int(5)))));
-    const center = float(1).sub(abs(uvCoord.x.sub(0.5)).mul(2.0));
-    const light = float(0.75).add(vLooseness.mul(0.2)).add(center.mul(0.08));
-    const rim = pow(center, float(2.0)).mul(0.05);
-    const edgeFade = smoothstep(float(0), float(0.06), uvCoord.x).mul(
-      smoothstep(float(0), float(0.06), float(1).sub(uvCoord.x)),
-    );
-    return vec4(col.mul(light).add(rim), edgeFade.mul(uniforms.uOpacity));
-  });
-
-  const material = new MeshBasicNodeMaterial({
-    transparent: true,
-    depthWrite: false,
-    depthTest: true,
-    side: THREE.DoubleSide,
-  }) as THREE.Material;
-  (material as any).positionNode = vertexFn();
-  (material as any).fragmentNode = fragmentFn();
-  return { material, uniforms };
 }
 
 function createWebGLStripMaterial(textures: THREE.Texture[], stripConfig: Record<string, number>) {
@@ -479,26 +353,16 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
   const activeTextures = textures || fallbackTextures;
 
   useEffect(() => {
-    let cancelled = false;
     if (!activeTextures) return;
-    const createStripMaterial = isWebGPURenderer(gl)
-      ? createWebGPUStripMaterial
-      : createWebGLStripMaterial;
-    Promise.resolve(createStripMaterial(activeTextures, stripConfig))
-      .then((system) => {
-        if (cancelled) return;
-        setStripMaterial(system.material);
-        systemRef.current = system;
-      })
-      .catch(() => {});
+    const system = createWebGLStripMaterial(activeTextures, stripConfig);
+    setStripMaterial(system.material);
+    systemRef.current = system;
 
     return () => {
-      cancelled = true;
-      const sys = systemRef.current;
-      if (sys) sys.material.dispose();
+      system.material.dispose();
       systemRef.current = null;
     };
-  }, [gl, activeTextures, stripConfig]);
+  }, [activeTextures, stripConfig]);
 
   useFrame((state) => {
     const sys = systemRef.current;

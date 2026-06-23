@@ -2,7 +2,11 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { useThree, useFrame } from "@react-three/fiber";
 import { createPoolWaterSim, type PoolWaterSim } from "./compute/createPoolWaterSim";
-import { createPoolWaterMaterial, applyPoolWaterStaticParams, type PoolWaterMaterialApi } from "./materials/createPoolWaterMaterial";
+import {
+  createPoolWaterMaterialWebGl as createPoolWaterMaterial,
+  applyPoolWaterStaticParams,
+  type PoolWaterMaterialApi,
+} from "./materials/poolWaterMaterialWebGl";
 import { createHomeCaustics, type HomeCaustics } from "./caustics/createHomeCaustics";
 import { applyCausticsReceivers, findCausticsReceivers, type CausticsReceivers } from "./caustics/applyCausticsReceivers";
 import { createWaterBackdrop, type WaterBackdrop } from "./WaterBackdrop";

@@ -6,11 +6,7 @@ import {
 } from "react";
 import gsap from "gsap";
 import { SplitText } from "gsap/SplitText";
-import {
-  ABOUT_CLIENTS,
-  ABOUT_INTRO_PARAGRAPHS,
-  ABOUT_META,
-} from "../content/studio";
+import { ABOUT_CLIENTS, ABOUT_INTRO_PARAGRAPHS } from "../content/studio";
 import AboutDitherCanvas from "./AboutDitherCanvas";
 import Lenis from "lenis";
 import { MOTION_TOKENS } from "../lib/animation/motionTokens";
@@ -150,10 +146,6 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
         <div className="about-panel__media">
           {active && <AboutDitherCanvas />}
         </div>
-
-        <p className="about-panel__meta" data-reveal>
-          {ABOUT_META.est} — {ABOUT_META.based}
-        </p>
 
         <section className="about-panel__section">
           <p className="about-panel__label" data-reveal>
