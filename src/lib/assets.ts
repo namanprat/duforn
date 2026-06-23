@@ -41,6 +41,7 @@ export function configureTexture(texture: THREE.Texture, options: TextureOptions
 export function createColorFallbackTexture(options: TextureOptions & { rgba?: number[] } = {}) {
   const { rgba = [220, 218, 210, 255], ...textureOptions } = options;
   const texture = new THREE.DataTexture(new Uint8Array(rgba), 1, 1, THREE.RGBAFormat);
+  texture.premultiplyAlpha = false;
   return configureTexture(texture, {
     minFilter: THREE.LinearFilter,
     magFilter: THREE.LinearFilter,

@@ -56,6 +56,10 @@ export default function SceneCanvas() {
   return (
     <div className={`scene_canvas_wrap${isInteractive ? " scene_canvas_wrap--interactive" : ""}`}>
       <Canvas
+        // ponytail: cap DPR at 1.5 — at native DPR 2 the water's two full-scene
+        // passes + post stack dropped the WebGL context. Ceiling: slightly
+        // softer on 4K; upgrade path is per-tier DPR if needed.
+        dpr={[1, 1.5]}
         gl={{ antialias: true, stencil: false, localClippingEnabled: true }}
         shadows={{ type: THREE.PCFShadowMap }}
         onCreated={({ gl }) => {

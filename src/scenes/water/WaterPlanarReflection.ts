@@ -29,6 +29,11 @@ export function createWaterPlanarReflection(gl: THREE.WebGLRenderer) {
   });
   target.texture.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
 
+  const prev = gl.getRenderTarget();
+  gl.setRenderTarget(target);
+  gl.clear();
+  gl.setRenderTarget(prev);
+
   const mirrorCamera = new THREE.PerspectiveCamera();
   const textureMatrix = new THREE.Matrix4();
   const tmp = new THREE.Vector2();

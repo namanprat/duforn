@@ -14,6 +14,10 @@ export async function loadWaterReflectionCubemap(
   try {
     const hdr = await new HDRLoader().loadAsync(url);
     hdr.mapping = THREE.EquirectangularReflectionMapping;
+    hdr.generateMipmaps = false;
+    hdr.minFilter = THREE.LinearFilter;
+    hdr.magFilter = THREE.LinearFilter;
+    hdr.premultiplyAlpha = false;
     hdr.needsUpdate = true;
     return hdr;
   } catch (err) {

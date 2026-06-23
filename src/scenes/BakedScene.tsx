@@ -120,6 +120,12 @@ export default function BakedScene() {
         return;
       }
 
+      // Baked lightmap surfaces stay UNLIT (MeshBasic). The GLB textures already
+      // contain the baked lighting (stored as emissiveMap), so showing them at
+      // full brightness preserves the authored look — and keeps glowing light
+      // fixtures glowing and the interior bright enough to read THROUGH the glass.
+      // (Relighting these as MeshStandard albedo double-darkens: kills the lights
+      // and makes the glass look opaque. True relight needs albedo-only rebakes.)
       const src = mesh.material as THREE.MeshStandardMaterial;
       const baked = src.emissiveMap || src.map || null;
       const basic = new THREE.MeshBasicMaterial();
@@ -129,15 +135,14 @@ export default function BakedScene() {
       } else {
         basic.color =
           src.emissive && src.emissive.getHex() !== 0
-            ? src.emissive
-            : src.color || new THREE.Color("#808080");
+            ? src.emissive.clone()
+            : (src.color && src.color.clone()) || new THREE.Color("#808080");
       }
       basic.toneMapped = true;
       basic.side = THREE.DoubleSide;
       mesh.material = basic;
-      // Basic materials can't *receive* shadows, but they still cast into the
-      // shadow map (depth pass) — so the geometry throws shadows onto the floor
-      // catcher while the baked look is untouched. (Article's traverse pattern.)
+      // Still casts into the shadow map (depth pass) so geometry throws shadows
+      // onto the lit floor; can't receive shadows itself (baked look untouched).
       mesh.castShadow = true;
       mesh.receiveShadow = false;
     });

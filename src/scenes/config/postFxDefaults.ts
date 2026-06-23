@@ -1,7 +1,8 @@
 export const DEFAULT_POST_FX_CONTROLS = {
   enabled: true,
   ao: {
-    enabled: false,
+    // Layer 3 — cheap GI approximation; on by default now the room is lit PBR.
+    enabled: true,
     intensity: 1.75,
     radius: 3.2,
     distanceFalloff: 0.65,
@@ -11,9 +12,19 @@ export const DEFAULT_POST_FX_CONTROLS = {
     halfRes: true,
     quality: "high" as const,
   },
+  bloom: {
+    // Layer 5 — bright daylight scene, so a high threshold blooms only sun
+    // glints / water sparkle / window highlights, not the whole frame.
+    enabled: true,
+    intensity: 0.6,
+    luminanceThreshold: 0.9,
+    luminanceSmoothing: 0.3,
+    mipmapBlur: true,
+    radius: 0.6,
+  },
   toneMapping: {
     enabled: true,
-    mode: "ACES_FILMIC" as const,
+    mode: "AGX" as const,
   },
   vignette: {
     enabled: true,
@@ -46,6 +57,14 @@ export type PostFxControls = {
     denoiseRadius: number;
     halfRes: boolean;
     quality: "performance" | "low" | "medium" | "high" | "ultra";
+  };
+  bloom: {
+    enabled: boolean;
+    intensity: number;
+    luminanceThreshold: number;
+    luminanceSmoothing: number;
+    mipmapBlur: boolean;
+    radius: number;
   };
   toneMapping: {
     enabled: boolean;

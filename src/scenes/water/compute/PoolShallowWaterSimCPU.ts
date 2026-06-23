@@ -36,6 +36,9 @@ export class PoolShallowWaterSimCPU {
     this.heightTexture.magFilter = THREE.LinearFilter;
     this.heightTexture.wrapS = THREE.ClampToEdgeWrapping;
     this.heightTexture.wrapT = THREE.ClampToEdgeWrapping;
+    this.heightTexture.generateMipmaps = false;
+    // ponytail: non-DOM uploads — avoids Firefox texSubImage premult/y-flip warns.
+    this.heightTexture.premultiplyAlpha = false;
     this.heightTexture.needsUpdate = true;
   }
 

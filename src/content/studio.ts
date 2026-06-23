@@ -3,7 +3,7 @@ export const STUDIO_INTRO_COPY =
 
 export const HERO_EYEBROW = "2026";
 export const HERO_TITLE_LEAD = "Naman Pratulya";
-export const HERO_TITLE_SERIF = "DOWNTOWN GROCERY";
+export const HERO_TITLE_SERIF = "CREATIVE PORTFOLIO";
 
 export const CONTACT_INTRO_COPY =
   "Available for freelance projects, art direction, and digital design inquiries.";
@@ -27,8 +27,8 @@ export const ABOUT_INTRO_PARAGRAPHS: string[] = [
 ];
 
 export const ABOUT_META = {
-  est: "EST 2022",
-  based: "BASED IN MELBOURNE and HANOI",
+  est: " ",
+  based: " ",
 } as const;
 
 export const ABOUT_CLIENTS: string[] = [

@@ -22,16 +22,21 @@ export const MOTION_TOKENS = {
     leaveScale: 1,
   },
   menu: {
-    openDuration: 0.8,
-    closeDuration: 0.6,
+    // Box morph durations. Open/close share the same base; larger expand/shrink use expandScale.
+    openDuration: 0.62,
+    closeDuration: 0.62,
+    aboutDuration: 0.6,
+    expandScale: 1.5,
+    // Dynamic-Island spring: overshoot on grow, mirrored settle on shrink.
+    boxOpenEase: "back.out(1.1)",
+    boxShrinkEase: "back.in(1.1)",
+    boxEase: "back.out(1.1)",
+    // Staggered menu line reveal.
     ease: "power3.out",
     closeEase: "power3.in",
-    boxEase: "power2.inOut",
-    lineStagger: 0.08,
-    lineDuration: 0.6,
-    aboutDuration: 0.7,
-    widthDuration: 0.7,
-    heightDuration: 0.7,
+    lineStagger: 0.07,
+    lineDuration: 0.55,
+    // Delay before About-panel content reveal kicks in (used by AboutPanel).
     aboutRevealDelay: 0.1,
   },
 } as const;

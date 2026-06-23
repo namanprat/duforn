@@ -25,6 +25,11 @@ export function createWaterBackdrop(gl: THREE.WebGLRenderer) {
   });
   target.texture.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
 
+  const prev = gl.getRenderTarget();
+  gl.setRenderTarget(target);
+  gl.clear();
+  gl.setRenderTarget(prev);
+
   const tmp = new THREE.Vector2();
 
   return {

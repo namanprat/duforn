@@ -22,7 +22,7 @@ export default function Env({
 }: EnvProps) {
   return (
     <>
-      <Environment files={hdrFiles} background={showHdriBackground} />
+      <Environment files={hdrFiles} background={showHdriBackground} resolution={512} />
       {!showHdriBackground ? <color attach="background" args={[backgroundColor]} /> : null}
       {fogDensity > 1e-6 ? <fogExp2 attach="fog" color={fogColor} density={fogDensity} /> : null}
       {showShadowCatcher ? (

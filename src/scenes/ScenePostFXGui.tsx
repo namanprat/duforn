@@ -99,6 +99,49 @@ export default function ScenePostFXGui() {
           onChange: (v) => setControl("ao.quality", v),
         },
       }),
+      Bloom: folder({
+        bloomEnabled: {
+          label: "enabled",
+          value: fx.bloom.enabled,
+          onChange: (v) => setControl("bloom.enabled", v),
+        },
+        bloomIntensity: {
+          label: "intensity",
+          value: fx.bloom.intensity,
+          min: 0,
+          max: 3,
+          step: 0.05,
+          onChange: (v) => setControl("bloom.intensity", v),
+        },
+        luminanceThreshold: {
+          label: "threshold",
+          value: fx.bloom.luminanceThreshold,
+          min: 0,
+          max: 1,
+          step: 0.01,
+          onChange: (v) => setControl("bloom.luminanceThreshold", v),
+        },
+        luminanceSmoothing: {
+          label: "smoothing",
+          value: fx.bloom.luminanceSmoothing,
+          min: 0,
+          max: 1,
+          step: 0.01,
+          onChange: (v) => setControl("bloom.luminanceSmoothing", v),
+        },
+        bloomRadius: {
+          label: "radius",
+          value: fx.bloom.radius,
+          min: 0,
+          max: 1,
+          step: 0.01,
+          onChange: (v) => setControl("bloom.radius", v),
+        },
+        mipmapBlur: {
+          value: fx.bloom.mipmapBlur,
+          onChange: (v) => setControl("bloom.mipmapBlur", v),
+        },
+      }),
       ToneMapping: folder({
         toneEnabled: {
           label: "enabled",

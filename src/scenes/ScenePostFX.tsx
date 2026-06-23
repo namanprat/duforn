@@ -1,5 +1,6 @@
 import { useMemo, type ReactNode } from "react";
 import {
+  Bloom,
   ChromaticAberration,
   EffectComposer,
   Noise,
@@ -52,6 +53,15 @@ export default function ScenePostFX({ children }: { children?: ReactNode }) {
           denoiseRadius={fx.ao.denoiseRadius}
           halfRes={fx.ao.halfRes}
           quality={fx.ao.quality}
+        />
+      ) : null}
+      {fx.bloom.enabled ? (
+        <Bloom
+          intensity={fx.bloom.intensity}
+          luminanceThreshold={fx.bloom.luminanceThreshold}
+          luminanceSmoothing={fx.bloom.luminanceSmoothing}
+          mipmapBlur={fx.bloom.mipmapBlur}
+          radius={fx.bloom.radius}
         />
       ) : null}
       {fx.toneMapping.enabled ? <ToneMapping mode={toneMode} /> : null}
