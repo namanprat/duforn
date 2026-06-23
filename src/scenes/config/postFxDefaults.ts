@@ -24,7 +24,7 @@ export const DEFAULT_POST_FX_CONTROLS = {
   },
   toneMapping: {
     enabled: true,
-    mode: "AGX" as const,
+    mode: "ACES_FILMIC" as const,
   },
   vignette: {
     enabled: true,

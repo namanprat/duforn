@@ -11,7 +11,7 @@ import {
   updateClipPlanes,
 } from "./domAnchorUtils";
 
-const COVER_URL = "/money-me/money-cover.webp";
+const COVER_URL = "/media/money-me/money-cover.webp";
 const COVER_Z = -5;
 
 /** Hero cover image rendered into the unified canvas, tracking the DOM anchor

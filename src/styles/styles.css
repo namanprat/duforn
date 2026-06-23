@@ -638,6 +638,15 @@ body.page-wrap.page-wrap--scrollable:has([data-page-namespace="projectDetail"])
   color: inherit;
 }
 
+.site-header .menu-nav__surface[data-rotate-hover] {
+  --hover-line-height: var(--typography-line-height-medium);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  line-height: var(--hover-line-height);
+  overflow: visible;
+}
+
 .site-header a[data-rotate-hover],
 .site-header button[data-rotate-hover],
 .menu-nav__toggle[data-rotate-hover],
@@ -811,7 +820,19 @@ body.menu-open .menu-nav-backdrop {
 }
 
 .menu-nav.is-morphing .menu-nav__surface {
+  justify-content: flex-start;
   overflow: hidden;
+}
+
+.menu-nav.is-morphing .menu-nav__chrome {
+  display: flex !important;
+  flex-shrink: 0;
+  width: 100%;
+  align-self: flex-start;
+}
+
+.menu-nav.is-morphing .menu-nav__toggle {
+  pointer-events: auto;
 }
 
 @supports (overflow: clip) {
@@ -833,10 +854,10 @@ body.menu-open .menu-nav-backdrop {
 .menu-nav__chrome {
   position: relative;
   z-index: 1;
-  display: inline-flex;
+  display: flex;
   justify-content: flex-end;
   align-items: center;
-  width: auto;
+  width: 100%;
   box-sizing: border-box;
   min-height: calc(var(--typography-line-height-medium) * 1em + var(--spacing-space-3) * 2);
   padding: 0;
@@ -846,6 +867,32 @@ body.menu-open .menu-nav-backdrop {
 .menu-nav.is-about .menu-nav__chrome {
   display: flex;
   width: 100%;
+}
+
+.site-header .menu-nav__toggle[data-rotate-hover],
+.site-header .menu-nav__toggle {
+  display: flex;
+  width: 100%;
+  align-self: stretch;
+  justify-content: flex-end;
+  box-sizing: border-box;
+}
+
+.menu-nav:not(.is-open):not(.is-about) .menu-nav__surface[role="button"] {
+  cursor: pointer;
+}
+
+.menu-nav:not(.is-open):not(.is-about) .menu-nav__chrome {
+  display: contents;
+}
+
+.menu-nav:not(.is-open):not(.is-about) .menu-nav__toggle {
+  pointer-events: none;
+}
+
+.menu-nav:not(.is-open) .menu-nav__surface[role="button"]:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 4px;
 }
 
 .menu-nav__toggle.link-main {
@@ -863,18 +910,13 @@ body.menu-open .menu-nav-backdrop {
   background: none;
   color: inherit;
   cursor: pointer;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: flex-end;
-  width: auto;
+  width: 100%;
   min-height: calc(var(--typography-line-height-medium) * 1em + var(--spacing-space-3) * 2);
   text-align: right;
   white-space: nowrap;
-}
-
-.menu-nav.is-open .menu-nav__toggle,
-.menu-nav.is-about .menu-nav__toggle {
-  width: 100%;
 }
 
 .menu-nav:not(.is-open):not(.is-about) .menu-nav__toggle .nav-link-hover__clip {
@@ -970,6 +1012,12 @@ body.menu-open .menu-nav-backdrop {
 
 .menu-nav.is-about .menu-nav__about {
   display: block;
+}
+
+.menu-nav.is-about:not(.is-about-visible) .menu-nav__about {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .menu-nav.is-about.is-about-visible .menu-nav__about {

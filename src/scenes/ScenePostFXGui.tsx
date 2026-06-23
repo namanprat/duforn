@@ -2,6 +2,9 @@ import { button, folder, useControls } from "leva";
 import { usePostFxControlsStore } from "../store/postFx";
 
 const TONE_MAPPING_OPTIONS = {
+  ACES_FILMIC: "ACES_FILMIC",
+  AGX: "AGX",
+  NEUTRAL: "NEUTRAL",
   LINEAR: "LINEAR",
   REINHARD: "REINHARD",
   REINHARD2: "REINHARD2",
@@ -9,9 +12,6 @@ const TONE_MAPPING_OPTIONS = {
   UNCHARTED2: "UNCHARTED2",
   OPTIMIZED_CINEON: "OPTIMIZED_CINEON",
   CINEON: "CINEON",
-  ACES_FILMIC: "ACES_FILMIC",
-  AGX: "AGX",
-  NEUTRAL: "NEUTRAL",
 } as const;
 
 const AO_QUALITY_OPTIONS = {

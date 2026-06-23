@@ -4,6 +4,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
 } from "react";
@@ -142,6 +143,12 @@ export default function Nav() {
   const timelineRef = useRef<gsap.core.Timeline | null>(null);
   const aboutPanelRef = useRef<AboutPanelHandle | null>(null);
   const prevStateRef = useRef({ isMenuOpen: false, isAboutOpen: false });
+  const morphShellRef = useRef<{ open: boolean; about: boolean } | null>(null);
+  const [isMorphing, setIsMorphing] = useState(false);
+  const [morphShell, setMorphShell] = useState<{ open: boolean; about: boolean } | null>(null);
+
+  const shellOpen = isMenuOpen || morphShell?.open === true;
+  const shellAbout = isAboutOpen || isAboutVisible || morphShell?.about === true;
 
   const closeAll = useCallback(() => {
     setIsAboutOpen(false);
@@ -217,12 +224,22 @@ export default function Nav() {
       }
       setIsBodyVisible(isMenuOpen);
       setIsAboutVisible(isAboutOpen);
+      setIsMorphing(false);
+      morphShellRef.current = null;
+      setMorphShell(null);
       commitPrevState();
       timelineRef.current = null;
     };
 
     const syncLiveFlags = (bodyVisible: boolean, aboutVisible: boolean) => {
-      applyMenuFlags(menuNav, menuFlags(isMenuOpen, isAboutOpen, bodyVisible || aboutVisible));
+      const shell = morphShellRef.current;
+      const flags: MenuFlags = {
+        open: isMenuOpen || shell?.open === true,
+        about: isAboutOpen || aboutVisible || shell?.about === true,
+        bodyVisible,
+        aboutVisible,
+      };
+      applyMenuFlags(menuNav, flags);
       if (aboutVisible) {
         menuNav.classList.add("is-about-visible");
       } else {
@@ -294,6 +311,9 @@ export default function Nav() {
     }
 
     menuNav.classList.add("is-morphing");
+    morphShellRef.current = { open: prev.isMenuOpen, about: prev.isAboutOpen };
+    setMorphShell(morphShellRef.current);
+    setIsMorphing(true);
     gsap.set(surface, { width: fromDims.width, height: fromDims.height });
 
     const closingAbout = aboutJustClosed || (menuJustClosed && prev.isAboutOpen);
@@ -345,6 +365,8 @@ export default function Nav() {
     if (menuJustClosed) {
       if (prev.isAboutOpen) {
         tl.call(() => {
+          morphShellRef.current = { open: true, about: false };
+          setMorphShell({ open: true, about: false });
           syncLiveFlags(false, false);
           setIsBodyVisible(false);
           setIsAboutVisible(false);
@@ -400,6 +422,8 @@ export default function Nav() {
         linksAt,
       );
       tl.call(() => {
+        morphShellRef.current = { open: true, about: false };
+        setMorphShell({ open: true, about: false });
         syncLiveFlags(true, false);
         setIsAboutVisible(false);
         setIsBodyVisible(true);
@@ -428,8 +452,20 @@ export default function Nav() {
     return () => {
       timelineRef.current?.kill();
       menuNav.classList.remove("is-morphing");
+      morphShellRef.current = null;
+      setMorphShell(null);
+      setIsMorphing(false);
     };
   }, [isAboutOpen, isMenuOpen]);
+
+  const openMenu = () => setIsMenuOpen(true);
+
+  const handleSurfaceKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (shellOpen || isMorphing) return;
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    openMenu();
+  };
 
   const toggleAriaLabel =
     toggleLabel === "Menu" ? "Open menu" : toggleLabel === "Back" ? "Back to menu" : "Close menu";
@@ -455,24 +491,43 @@ export default function Nav() {
           <div
             ref={menuNavRef}
             id="site-menu"
-            className={`menu-nav${isMenuOpen ? " is-open" : ""}${isAboutOpen || isAboutVisible ? " is-about" : ""}${isBodyVisible || (isMenuOpen && isAboutOpen) ? " is-body-visible" : ""}${isAboutVisible ? " is-about-visible" : ""}`}
+            className={`menu-nav${shellOpen ? " is-open" : ""}${shellAbout ? " is-about" : ""}${isBodyVisible || (isMenuOpen && isAboutOpen) ? " is-body-visible" : ""}${isAboutVisible ? " is-about-visible" : ""}${isMorphing ? " is-morphing" : ""}`}
             role={isMenuOpen ? "dialog" : undefined}
             aria-modal={isMenuOpen ? true : undefined}
             aria-label={isMenuOpen ? "Site menu" : undefined}
           >
-            <div ref={surfaceRef} className="menu-nav__surface">
+            <div
+              ref={surfaceRef}
+              className="menu-nav__surface"
+              {...(!shellOpen && !isMorphing
+                ? {
+                    role: "button",
+                    tabIndex: 0,
+                    "aria-label": "Open menu",
+                    "data-rotate-hover": useRotateHover ? "" : undefined,
+                    onClick: openMenu,
+                    onKeyDown: handleSurfaceKeyDown,
+                  }
+                : {})}
+            >
               <div className="menu-nav__chrome">
-                <button
-                  type="button"
-                  className="menu-nav__toggle link-main"
-                  aria-label={toggleAriaLabel}
-                  aria-expanded={isMenuOpen}
-                  aria-controls="site-menu-body"
-                  data-rotate-hover={useRotateHover ? "" : undefined}
-                  onClick={handleToggleClick}
-                >
-                  {useRotateHover ? <RotateHoverLabel text={toggleLabel} /> : toggleLabel}
-                </button>
+                {shellOpen ? (
+                  <button
+                    type="button"
+                    className="menu-nav__toggle link-main"
+                    aria-label={toggleAriaLabel}
+                    aria-expanded={isMenuOpen}
+                    aria-controls="site-menu-body"
+                    data-rotate-hover={useRotateHover ? "" : undefined}
+                    onClick={handleToggleClick}
+                  >
+                    {useRotateHover ? <RotateHoverLabel text={toggleLabel} /> : toggleLabel}
+                  </button>
+                ) : (
+                  <span className="menu-nav__toggle link-main" aria-hidden="true">
+                    {useRotateHover ? <RotateHoverLabel text={toggleLabel} /> : toggleLabel}
+                  </span>
+                )}
               </div>
 
               <div id="site-menu-body" className="menu-nav__body" aria-hidden={!isMenuOpen}>
@@ -502,8 +557,6 @@ export default function Nav() {
                         data-rotate-hover={useRotateHover ? "" : undefined}
                         onClick={(event) => {
                           event.preventDefault();
-                          const aboutEl = scopeRef.current?.querySelector<HTMLElement>(".menu-nav__about");
-                          if (aboutEl) gsap.set(aboutEl, { clearProps: "opacity,visibility" });
                           setIsAboutOpen(true);
                         }}
                       >

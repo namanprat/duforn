@@ -117,7 +117,7 @@ export default function ProjectDetailPage() {
 
       <section className="project-details-cover">
         <div className="project-details-cover-frame">
-          <ProjectCoverAnchor src="/money-me/money-cover.webp" />
+          <ProjectCoverAnchor src="/media/money-me/money-cover.webp" />
         </div>
       </section>
 
