@@ -251,6 +251,12 @@ export default function TextRevealLines({
             resolve();
             return;
           }
+          if (animateOnScroll && scope === "page") {
+            gsap.set(lineEls, { y: "100%" });
+            runRevealScroll();
+            resolve();
+            return;
+          }
           gsap.to(lineEls, {
             y: "0%",
             duration: revealDuration * MOTION_TOKENS.textReveal.showDurationScale,

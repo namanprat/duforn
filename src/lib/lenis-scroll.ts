@@ -4,7 +4,9 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 gsap.registerPlugin(ScrollTrigger);
 
-const SCROLLER = document.body;
+/** Lenis 1.x scrolls documentElement when wrapper is window. */
+export const LENIS_SCROLLER = document.documentElement;
+const SCROLLER = LENIS_SCROLLER;
 
 let lenis: Lenis | null = null;
 let tickerCallback: ((time: number) => void) | null = null;

@@ -1,7 +1,7 @@
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { MOTION_TOKENS } from "../lib/animation/motionTokens";
-import { getLenis } from "../lib/lenis-scroll";
+import { getLenis, LENIS_SCROLLER } from "../lib/lenis-scroll";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -85,7 +85,7 @@ export function armScrollLineReveal(
   triggers = ScrollTrigger.batch(lines, {
     start: "top 95%",
     once: true,
-    ...(getLenis() ? { scroller: document.body } : {}),
+    ...(getLenis() ? { scroller: LENIS_SCROLLER } : {}),
     onEnter: () => {
       revealPending();
     },
