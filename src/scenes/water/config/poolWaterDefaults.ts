@@ -1,5 +1,16 @@
 /** Wave-equation pool ripple + ocean-style surface defaults. */
 
+/**
+ * Single, device-independent quality config (no tiers). The ripple sim runs on
+ * the GPU now, so one resolution holds 60fps everywhere.
+ */
+export const SIM_RES = 512;
+export const CAUSTICS_SIZE = 768;
+/** Planar reflection + backdrop render targets at half drawing-buffer res. */
+export const REFLECTION_SCALE = 0.5;
+/** Grid cells from the domain edge over which ripples are damped (sim units). */
+export const SIM_EDGE_BAND = 10;
+
 export const POOL_SIM_DEFAULTS = {
   gridSize: 256,
   modifier: 0.995,

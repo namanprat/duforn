@@ -14,6 +14,7 @@ import {
   ROWS,
 } from "./config";
 import { getActiveStripItemIndex, resolveVisibleSlotAtUv } from "./math";
+import { SCENE_SUN_DIR } from "../scenes/lighting/sun";
 
 const GRAB_SCALE = 0.96;
 const GRAB_SCALE_LERP = 0.14;
@@ -68,6 +69,10 @@ function buildArcGeometry(
   return geometry;
 }
 
+// Finite-difference step in UV for the displaced-surface normal — one grid cell.
+const NORMAL_DU = (1 / (COLS - 1)).toFixed(6);
+const NORMAL_DV = (1 / (ROWS - 1)).toFixed(6);
+
 function createWebGLStripMaterial(textures: THREE.Texture[], stripConfig: Record<string, number>) {
   const uniforms = {
     uScrollOffset: { value: 0 },
@@ -80,6 +85,13 @@ function createWebGLStripMaterial(textures: THREE.Texture[], stripConfig: Record
     uWaveAmplitude: { value: 0.05 },
     uWaveFrequency: { value: 16.0 },
     uGravityScale: { value: 1.2 },
+    // Arc rest-pose params — let the vertex shader recompute neighbor positions
+    // from uv so it can finite-difference an accurate displaced-surface normal.
+    uArcRadius: { value: stripConfig.arcRadius },
+    uArcSpan: { value: stripConfig.arcSpan },
+    uStripHeight: { value: stripConfig.stripHeight },
+    uStripYOffset: { value: stripConfig.stripYOffset },
+    uLightDir: { value: SCENE_SUN_DIR.clone() },
     uTex0: { value: textures[0] },
     uTex1: { value: textures[1] },
     uTex2: { value: textures[2] },
@@ -99,26 +111,54 @@ function createWebGLStripMaterial(textures: THREE.Texture[], stripConfig: Record
       uniform float uWaveFrequency;
       uniform float uWindStrength;
       uniform float uGravityScale;
+      uniform float uArcRadius;
+      uniform float uArcSpan;
+      uniform float uStripHeight;
+      uniform float uStripYOffset;
 
       varying vec2 vUv;
       varying float vLooseness;
+      varying vec3 vNormal;
+
+      // Rest-pose arc position — must match buildArcGeometry().
+      vec3 arcBase(vec2 quv) {
+        float angle = (quv.x - 0.5) * uArcSpan;
+        return vec3(
+          sin(angle) * uArcRadius,
+          uStripYOffset + (quv.y - 0.5) * uStripHeight,
+          (cos(angle) - 1.0) * uArcRadius
+        );
+      }
+
+      vec3 displace(vec2 quv, vec3 base) {
+        float looseness = smoothstep(0.0, 0.25, quv.y);
+        float wind = uWindStrength * 0.01;
+        float wave1 = sin(quv.x * uWaveFrequency - uTime * (2.0 + wind)) * looseness;
+        float wave2 = sin((quv.x + quv.y) * (uWaveFrequency * 0.7) - uTime * 1.8) * looseness * 0.5;
+        float flutter = sin(quv.x * (uWaveFrequency * 2.5) - uTime * 4.0) * looseness * looseness * 0.18;
+        vec3 p = base;
+        p.y -= quv.y * quv.y * (uGravityScale * 0.08) * looseness;
+        p.z += (wave1 + wave2) * uWaveAmplitude + flutter * uWaveAmplitude;
+        p.x += sin(uTime * 0.18) * looseness * 0.04;
+        return p;
+      }
 
       void main() {
         vUv = uv;
-        float looseness = smoothstep(0.0, 0.25, uv.y);
-        vLooseness = looseness;
+        vLooseness = smoothstep(0.0, 0.25, uv.y);
 
-        vec3 pos = position;
-        float wind = uWindStrength * 0.01;
-        float wave1 = sin(uv.x * uWaveFrequency - uTime * (2.0 + wind)) * looseness;
-        float wave2 = sin((uv.x + uv.y) * (uWaveFrequency * 0.7) - uTime * 1.8) * looseness * 0.5;
-        float flutter = sin(uv.x * (uWaveFrequency * 2.5) - uTime * 4.0) * looseness * looseness * 0.18;
+        // Rendered vertex uses the position attribute (bit-identical to before).
+        vec3 p = displace(uv, position);
 
-        pos.y -= uv.y * uv.y * (uGravityScale * 0.08) * looseness;
-        pos.z += (wave1 + wave2) * uWaveAmplitude + flutter * uWaveAmplitude;
-        pos.x += sin(uTime * 0.18) * looseness * 0.04;
+        // Two uv-neighbors via the rest-pose arc → exact face normal of the
+        // displaced cloth (winding matches buildArcGeometry's triangles).
+        const float DU = ${NORMAL_DU};
+        const float DV = ${NORMAL_DV};
+        vec3 pu = displace(uv + vec2(DU, 0.0), arcBase(uv + vec2(DU, 0.0)));
+        vec3 pv = displace(uv + vec2(0.0, DV), arcBase(uv + vec2(0.0, DV)));
+        vNormal = normalMatrix * normalize(cross(pu - p, pv - p));
 
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
       }
     `,
     fragmentShader: `
@@ -133,8 +173,10 @@ function createWebGLStripMaterial(textures: THREE.Texture[], stripConfig: Record
       uniform float uItemsOnStrip;
       uniform float uNumUnique;
       uniform float uOpacity;
+      uniform vec3 uLightDir;
       varying vec2 vUv;
       varying float vLooseness;
+      varying vec3 vNormal;
 
       vec3 sampleStripTexture(int index, vec2 coord) {
         if (index == 0) return texture2D(uTex0, coord).rgb;
@@ -161,7 +203,10 @@ function createWebGLStripMaterial(textures: THREE.Texture[], stripConfig: Record
         vec3 color = sampleStripTexture(wrappedIndex, texCoord);
 
         float center = 1.0 - abs(vUv.x - 0.5) * 2.0;
-        float light = 0.75 + vLooseness * 0.2 + center * 0.08;
+        // Wave-driven shading: the displaced normal makes light travel along crests.
+        float ndl = dot(normalize(vNormal), normalize(uLightDir)) * 0.5 + 0.5;
+        float shade = mix(0.88, 1.12, ndl);
+        float light = (0.75 + vLooseness * 0.2 + center * 0.08) * shade;
         float rim = pow(center, 2.0) * 0.05;
         float edgeFade = smoothstep(0.0, 0.06, vUv.x) * smoothstep(0.0, 0.06, 1.0 - vUv.x);
         gl_FragColor = vec4(color * light + rim, edgeFade * uOpacity);
@@ -343,10 +388,19 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
       itemsOnStrip: visibleItems,
       numUnique: NUM_UNIQUE,
       gapSize,
+      arcRadius: arcConfig.arcRadius,
       arcSpan: arcConfig.arcSpan,
       stripHeight: arcConfig.stripHeight,
+      stripYOffset: arcConfig.stripYOffset,
     }),
-    [arcConfig.arcSpan, arcConfig.stripHeight, gapSize, visibleItems],
+    [
+      arcConfig.arcRadius,
+      arcConfig.arcSpan,
+      arcConfig.stripHeight,
+      arcConfig.stripYOffset,
+      gapSize,
+      visibleItems,
+    ],
   );
 
   const [stripMaterial, setStripMaterial] = useState<THREE.Material | null>(null);

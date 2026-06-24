@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from "react";
 import {
-  Bloom,
   ChromaticAberration,
+  DepthOfField,
   EffectComposer,
   Noise,
   ToneMapping,
@@ -55,16 +55,14 @@ export default function ScenePostFX({ children }: { children?: ReactNode }) {
           quality={fx.ao.quality}
         />
       ) : null}
-      {fx.bloom.enabled ? (
-        <Bloom
-          intensity={fx.bloom.intensity}
-          luminanceThreshold={fx.bloom.luminanceThreshold}
-          luminanceSmoothing={fx.bloom.luminanceSmoothing}
-          mipmapBlur={fx.bloom.mipmapBlur}
-          radius={fx.bloom.radius}
+      {fx.toneMapping.enabled ? <ToneMapping mode={toneMode} /> : null}
+      {fx.dof.enabled ? (
+        <DepthOfField
+          worldFocusDistance={fx.dof.worldFocusDistance}
+          worldFocusRange={fx.dof.worldFocusRange}
+          bokehScale={fx.dof.bokehScale}
         />
       ) : null}
-      {fx.toneMapping.enabled ? <ToneMapping mode={toneMode} /> : null}
       {fx.chromaticAberration.enabled ? (
         <ChromaticAberration
           offset={chromaticOffset}

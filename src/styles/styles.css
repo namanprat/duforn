@@ -478,6 +478,16 @@ html:has(.page-wrap--scrollable) {
   background-color: transparent !important;
 }
 
+/* Home / work / contact / archive are single-screen routes — lock the document
+   to the viewport so the DOM never scrolls. Only project detail (the
+   `--scrollable` variant) scrolls. */
+body.page-wrap:not(.page-wrap--scrollable) {
+  height: 100svh;
+  height: 100dvh;
+  overflow-y: hidden;
+  overscroll-behavior: none;
+}
+
 /*
  * Work route: `<main>` stacks above the fixed WebGL canvas and is transparent, so it
  * swallowed wheel / drag / click before they reached the cloth strip. Pass events
@@ -1457,6 +1467,9 @@ body.menu-open .menu-nav-backdrop {
   }
 }
 
+/* Mobile: lock home/work/contact to the dynamic viewport so the DOM never
+   scrolls. The WebGL canvas is fixed with min-height:100dvh + safe-area insets,
+   so it keeps covering as the mobile browser UI shows/hides. */
 @media (max-width: 768px) {
   html:has([data-page-namespace="main"]),
   html:has([data-page-namespace="work"]),
@@ -1464,9 +1477,10 @@ body.menu-open .menu-nav-backdrop {
   body.page-wrap:has([data-page-namespace="main"]),
   body.page-wrap:has([data-page-namespace="work"]),
   body.page-wrap:has([data-page-namespace="contact"]) {
-    height: auto;
-    min-height: 100dvh;
-    overflow: visible;
+    height: 100svh;
+    height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
   }
 }
 

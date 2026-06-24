@@ -15,18 +15,15 @@ import { loadWaterReflectionCubemap } from "./materials/poolWaterReflection";
 import { boxToPlanarBounds, type WaterPlanarBounds } from "./waterPlanarMapping";
 import { planeAlignmentSnapshot, syncPoolWaterPlane } from "./createPoolWaterMesh";
 import {
+  CAUSTICS_SIZE,
   POOL_CAUSTICS_DEFAULTS,
   POOL_SIM_DEFAULTS,
   POOL_WATER_DEFAULTS,
   POOL_WATER_RENDER_ORDER,
+  SIM_RES,
   WATER_DEBUG_HIGHLIGHT_PLANE,
 } from "./config/poolWaterDefaults";
-import {
-  getPoolCausticsSizeForTier,
-  getPoolSimResolutionForTier,
-  getRenderQualityTier,
-  uvToSimGrid,
-} from "./waterSimUtils";
+import { uvToSimGrid } from "./waterSimUtils";
 import { prefersReducedMotion } from "../../lib/prefersReducedMotion";
 
 function buildStartupImpulseQueue(nw: number, nh: number) {
@@ -64,7 +61,6 @@ type WaterRipplesProps = {
 
 export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
   const { gl, camera, scene } = useThree();
-  const qualityTier = getRenderQualityTier();
 
   const simRef = useRef<PoolWaterSim | null>(null);
   const materialApiRef = useRef<PoolWaterMaterialApi | null>(null);
@@ -74,6 +70,9 @@ export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
   const waterYRef = useRef(0);
   const reflectionMatrixRef = useRef(new THREE.Matrix4());
   const drawSizeRef = useRef(new THREE.Vector2());
+  const frustumRef = useRef(new THREE.Frustum());
+  const frustumMatrixRef = useRef(new THREE.Matrix4());
+  const waterSphereRef = useRef(new THREE.Sphere());
   const boundsRef = useRef<WaterPlanarBounds | null>(null);
   const previousMaterialRef = useRef<THREE.Material | null>(null);
   const lastSpawnTimeRef = useRef(0);
@@ -85,7 +84,7 @@ export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
   const reflectionCubeRef = useRef<THREE.Texture | null>(null);
   const planeSnapshotRef = useRef(planeAlignmentSnapshot());
 
-  const gridSize = getPoolSimResolutionForTier(qualityTier);
+  const gridSize = SIM_RES;
   const nwRef = useRef(gridSize);
   const nhRef = useRef(gridSize);
 
@@ -199,7 +198,7 @@ export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
           const caustics = createHomeCaustics(renderer, {
             sim,
             bounds,
-            size: getPoolCausticsSizeForTier(qualityTier),
+            size: CAUSTICS_SIZE,
           });
           if (cancelled) {
             caustics.dispose();
@@ -327,6 +326,18 @@ export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
   useFrame(() => {
     const backdrop = backdropRef.current;
     const planar = planarRef.current;
+
+    // Skip the two full-scene reflection/backdrop passes when the pool is not in
+    // view — by far the cheapest big win when the camera is elsewhere.
+    mesh.updateWorldMatrix(true, false);
+    if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
+    if (mesh.geometry.boundingSphere) {
+      waterSphereRef.current.copy(mesh.geometry.boundingSphere).applyMatrix4(mesh.matrixWorld);
+      frustumMatrixRef.current.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+      frustumRef.current.setFromProjectionMatrix(frustumMatrixRef.current);
+      if (!frustumRef.current.intersectsSphere(waterSphereRef.current)) return;
+    }
+
     if (backdrop) {
       backdrop.resize();
       const size = gl.getDrawingBufferSize(drawSizeRef.current);
@@ -363,6 +374,8 @@ export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
         sim.setImpulse(next.gx, next.gy, next.strengthScale);
       }
       sim.step({ substeps: POOL_SIM_DEFAULTS.substeps });
+      // GPU sim ping-pongs targets, so the live height texture changes each step.
+      materialApiRef.current?.setHeightTexture(sim.getHeightTexture());
     }
 
     materialApiRef.current?.setParams({

@@ -1,8 +1,8 @@
 export const DEFAULT_POST_FX_CONTROLS = {
   enabled: true,
   ao: {
-    // Layer 3 — cheap GI approximation; on by default now the room is lit PBR.
-    enabled: true,
+    // Off — stack is CA + grain + tone mapping only. Toggle in the Leva panel.
+    enabled: false,
     intensity: 1.75,
     radius: 3.2,
     distanceFalloff: 0.65,
@@ -12,29 +12,26 @@ export const DEFAULT_POST_FX_CONTROLS = {
     halfRes: true,
     quality: "high" as const,
   },
-  bloom: {
-    // Layer 5 — bright daylight scene, so a high threshold blooms only sun
-    // glints / water sparkle / window highlights, not the whole frame.
-    enabled: true,
-    intensity: 0.6,
-    luminanceThreshold: 0.9,
-    luminanceSmoothing: 0.3,
-    mipmapBlur: true,
-    radius: 0.6,
+  dof: {
+    // Off — stack is CA + grain + tone mapping only. Toggle in the Leva panel.
+    enabled: false,
+    worldFocusDistance: 5.0,
+    worldFocusRange: 9.0,
+    bokehScale: 3.0,
   },
   toneMapping: {
     enabled: true,
     mode: "ACES_FILMIC" as const,
   },
   vignette: {
-    enabled: true,
+    enabled: false,
     offset: 0.32,
     darkness: 0.26,
     eskil: false,
   },
   grain: {
     enabled: true,
-    opacity: 0.015,
+    opacity: 0.03,
   },
   chromaticAberration: {
     enabled: true,
@@ -58,13 +55,11 @@ export type PostFxControls = {
     halfRes: boolean;
     quality: "performance" | "low" | "medium" | "high" | "ultra";
   };
-  bloom: {
+  dof: {
     enabled: boolean;
-    intensity: number;
-    luminanceThreshold: number;
-    luminanceSmoothing: number;
-    mipmapBlur: boolean;
-    radius: number;
+    worldFocusDistance: number;
+    worldFocusRange: number;
+    bokehScale: number;
   };
   toneMapping: {
     enabled: boolean;

@@ -7,15 +7,19 @@
  * target each frame and hand its texture to the water material.
  */
 import * as THREE from "three";
+import { REFLECTION_SCALE } from "./config/poolWaterDefaults";
 
 /** Matches Env fallback — keeps refracted pool reads as basin, not raw HDRI sky. */
 const BACKDROP_CLEAR = new THREE.Color(0xe8e6de);
+
+/** Scale a drawing-buffer dimension down to the backdrop render-target size. */
+const rtDim = (px: number) => Math.max(1, Math.floor(px * REFLECTION_SCALE));
 
 export type WaterBackdrop = ReturnType<typeof createWaterBackdrop>;
 
 export function createWaterBackdrop(gl: THREE.WebGLRenderer) {
   const size = gl.getDrawingBufferSize(new THREE.Vector2());
-  const target = new THREE.WebGLRenderTarget(Math.max(1, size.x), Math.max(1, size.y), {
+  const target = new THREE.WebGLRenderTarget(rtDim(size.x), rtDim(size.y), {
     type: THREE.UnsignedByteType,
     depthBuffer: true,
     stencilBuffer: false,
@@ -39,8 +43,10 @@ export function createWaterBackdrop(gl: THREE.WebGLRenderer) {
 
     resize() {
       gl.getDrawingBufferSize(tmp);
-      if (tmp.x !== target.width || tmp.y !== target.height) {
-        target.setSize(Math.max(1, tmp.x), Math.max(1, tmp.y));
+      const w = rtDim(tmp.x);
+      const h = rtDim(tmp.y);
+      if (w !== target.width || h !== target.height) {
+        target.setSize(w, h);
       }
     },
 

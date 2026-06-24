@@ -5,8 +5,12 @@
  * The water shader samples this via projective texture coordinates (mirror VP matrix).
  */
 import * as THREE from "three";
+import { REFLECTION_SCALE } from "./config/poolWaterDefaults";
 
 const CLIP_BIAS = new THREE.Matrix4().set(0.5, 0.0, 0.0, 0.5, 0.0, 0.5, 0.0, 0.5, 0.0, 0.0, 0.5, 0.5, 0.0, 0.0, 0.0, 1.0);
+
+/** Scale a drawing-buffer dimension down to the reflection render-target size. */
+const rtDim = (px: number) => Math.max(1, Math.floor(px * REFLECTION_SCALE));
 
 const tmpCamPos = new THREE.Vector3();
 const tmpLookAt = new THREE.Vector3();
@@ -19,7 +23,7 @@ export type WaterPlanarReflection = ReturnType<typeof createWaterPlanarReflectio
 
 export function createWaterPlanarReflection(gl: THREE.WebGLRenderer) {
   const size = gl.getDrawingBufferSize(new THREE.Vector2());
-  const target = new THREE.WebGLRenderTarget(Math.max(1, size.x), Math.max(1, size.y), {
+  const target = new THREE.WebGLRenderTarget(rtDim(size.x), rtDim(size.y), {
     type: THREE.UnsignedByteType,
     depthBuffer: true,
     stencilBuffer: false,
@@ -75,8 +79,10 @@ export function createWaterPlanarReflection(gl: THREE.WebGLRenderer) {
 
     resize() {
       gl.getDrawingBufferSize(tmp);
-      if (tmp.x !== target.width || tmp.y !== target.height) {
-        target.setSize(Math.max(1, tmp.x), Math.max(1, tmp.y));
+      const w = rtDim(tmp.x);
+      const h = rtDim(tmp.y);
+      if (w !== target.width || h !== target.height) {
+        target.setSize(w, h);
       }
     },
 

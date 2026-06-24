@@ -99,47 +99,35 @@ export default function ScenePostFXGui() {
           onChange: (v) => setControl("ao.quality", v),
         },
       }),
-      Bloom: folder({
-        bloomEnabled: {
+      DepthOfField: folder({
+        dofEnabled: {
           label: "enabled",
-          value: fx.bloom.enabled,
-          onChange: (v) => setControl("bloom.enabled", v),
+          value: fx.dof.enabled,
+          onChange: (v) => setControl("dof.enabled", v),
         },
-        bloomIntensity: {
-          label: "intensity",
-          value: fx.bloom.intensity,
+        worldFocusDistance: {
+          label: "focus distance",
+          value: fx.dof.worldFocusDistance,
+          min: 0.5,
+          max: 40,
+          step: 0.1,
+          onChange: (v) => setControl("dof.worldFocusDistance", v),
+        },
+        worldFocusRange: {
+          label: "focus range",
+          value: fx.dof.worldFocusRange,
+          min: 0.5,
+          max: 40,
+          step: 0.1,
+          onChange: (v) => setControl("dof.worldFocusRange", v),
+        },
+        bokehScale: {
+          label: "bokeh scale",
+          value: fx.dof.bokehScale,
           min: 0,
-          max: 3,
-          step: 0.05,
-          onChange: (v) => setControl("bloom.intensity", v),
-        },
-        luminanceThreshold: {
-          label: "threshold",
-          value: fx.bloom.luminanceThreshold,
-          min: 0,
-          max: 1,
-          step: 0.01,
-          onChange: (v) => setControl("bloom.luminanceThreshold", v),
-        },
-        luminanceSmoothing: {
-          label: "smoothing",
-          value: fx.bloom.luminanceSmoothing,
-          min: 0,
-          max: 1,
-          step: 0.01,
-          onChange: (v) => setControl("bloom.luminanceSmoothing", v),
-        },
-        bloomRadius: {
-          label: "radius",
-          value: fx.bloom.radius,
-          min: 0,
-          max: 1,
-          step: 0.01,
-          onChange: (v) => setControl("bloom.radius", v),
-        },
-        mipmapBlur: {
-          value: fx.bloom.mipmapBlur,
-          onChange: (v) => setControl("bloom.mipmapBlur", v),
+          max: 8,
+          step: 0.1,
+          onChange: (v) => setControl("dof.bokehScale", v),
         },
       }),
       ToneMapping: folder({

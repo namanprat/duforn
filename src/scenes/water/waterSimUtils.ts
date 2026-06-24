@@ -1,41 +1,5 @@
-import { prefersReducedMotion } from "../../lib/prefersReducedMotion";
-
-export type RenderQualityTier = "desktop" | "mobile" | "mobileReduced";
-
-function isCoarsePointer() {
-  return (
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(pointer: coarse)").matches
-  );
-}
-
-/** Pick pool sim / caustics resolution from viewport + motion preferences. */
-export function getRenderQualityTier(): RenderQualityTier {
-  if (prefersReducedMotion()) return "mobileReduced";
-  if (isCoarsePointer()) return "mobile";
-  return "desktop";
-}
-
-const POOL_SIM_RESOLUTION_BY_TIER: Record<RenderQualityTier, number> = {
-  desktop: 256,
-  mobile: 144,
-  mobileReduced: 96,
-};
-
-export function getPoolSimResolutionForTier(tier: RenderQualityTier): number {
-  return POOL_SIM_RESOLUTION_BY_TIER[tier] ?? POOL_SIM_RESOLUTION_BY_TIER.desktop;
-}
-
-const POOL_CAUSTICS_RT_BY_TIER: Record<RenderQualityTier, number> = {
-  desktop: 768,
-  mobile: 384,
-  mobileReduced: 192,
-};
-
-export function getPoolCausticsSizeForTier(tier: RenderQualityTier): number {
-  return POOL_CAUSTICS_RT_BY_TIER[tier] ?? POOL_CAUSTICS_RT_BY_TIER.desktop;
-}
+// Quality is a single device-independent config now (no tiers). The fixed sim /
+// caustics resolutions live in poolWaterDefaults (SIM_RES, CAUSTICS_SIZE).
 
 export function uvToSimGrid(
   uv: { x: number; y: number },

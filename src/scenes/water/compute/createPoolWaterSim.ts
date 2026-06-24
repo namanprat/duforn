@@ -1,11 +1,15 @@
 import type * as THREE from "three";
-import { PoolShallowWaterSimCPU } from "./PoolShallowWaterSimCPU";
+import { PoolShallowWaterSimGPU } from "./PoolShallowWaterSimGPU";
 
-export type PoolWaterSim = PoolShallowWaterSimCPU;
+export type PoolWaterSim = PoolShallowWaterSimGPU;
 
-/** WebGL-only shallow-water factory (duforn-best CPU path). */
+/**
+ * GPU ping-pong shallow-water factory. The CPU implementation
+ * (`PoolShallowWaterSimCPU` / `shallowWaterCPU.ts`) is retained as the validated
+ * reference for the wave equation the GPU shader ports — see its selfcheck.
+ */
 export function createPoolWaterSim(
-  _gl: THREE.WebGLRenderer,
+  gl: THREE.WebGLRenderer,
   nw: number,
   nh: number,
   simOpts: Partial<{
@@ -14,5 +18,5 @@ export function createPoolWaterSim(
     impulseRadius: number;
   }> = {},
 ) {
-  return Promise.resolve(new PoolShallowWaterSimCPU(nw, nh, simOpts));
+  return Promise.resolve(new PoolShallowWaterSimGPU(gl, nw, nh, simOpts));
 }

@@ -13,9 +13,23 @@ vec3 sampleBreezeNormal(vec2 uv) {
   return normalize(vec3(nx, 1.0, nz));
 }
 
+// High-frequency capillary detail — two crossed, scrolling octaves added ON TOP
+// of the sim ripples (not mixed away) so the surface reads as real water rather
+// than a smooth sheet. The GPU float sim gives clean normals to layer onto.
+vec2 detailSlope(vec2 uv) {
+  vec2 dir1 = uWindDir;
+  vec2 dir2 = vec2(-uWindDir.y, uWindDir.x);
+  float f = uBreezeScale * 3.0;
+  float p1 = dot(uv, dir1) * f + uTime * uBreezeSpeed * 6.0;
+  float p2 = dot(uv, dir2) * f * 1.37 - uTime * uBreezeSpeed * 4.3;
+  return (dir1 * cos(p1) + dir2 * cos(p2)) * f;
+}
+
 vec3 mixSurfaceNormal(vec3 rippleN, vec2 uv) {
   vec3 breezeN = sampleBreezeNormal(uv);
-  return normalize(mix(rippleN, breezeN, uBreezeMix));
+  vec3 base = normalize(mix(rippleN, breezeN, uBreezeMix));
+  vec2 sl = clamp(detailSlope(uv) * uBreezeStrength * 0.06, -uBreezeMaxSlope, uBreezeMaxSlope);
+  return normalize(base + vec3(sl.x, 0.0, sl.y));
 }
 `;
 

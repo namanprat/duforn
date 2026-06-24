@@ -295,6 +295,10 @@ export function createPoolWaterMaterialWebGl({
     setPlanarBounds(next: WaterPlanarBounds) {
       uniforms.uPlanar.value.set(next.minX, next.minZ, next.width, next.depth);
     },
+    /** GPU sim ping-pongs its target, so the live height texture changes each frame. */
+    setHeightTexture(tex: THREE.Texture) {
+      uniforms.uHeightMap.value = tex;
+    },
     setBackdrop(tex: THREE.Texture) {
       uniforms.uBackdrop.value = tex;
     },
