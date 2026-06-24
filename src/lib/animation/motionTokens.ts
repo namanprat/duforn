@@ -27,6 +27,8 @@ export const MOTION_TOKENS = {
     closeDuration: 0.62,
     aboutDuration: 0.6,
     expandScale: 1.5,
+    // Closing animations run 20% faster than their open counterparts.
+    closeSpeedScale: 0.8,
     // Dynamic-Island spring: overshoot on grow, mirrored settle on shrink.
     boxOpenEase: "back.out(1.1)",
     boxShrinkEase: "back.in(1.1)",

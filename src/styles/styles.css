@@ -780,7 +780,7 @@ body.menu-open .menu-nav-backdrop {
   max-width: calc(100vw - var(--site--margin) * 2);
   overflow: hidden;
   background-color: rgb(25 24 24 / 0.22);
- 
+  backdrop-filter: blur(16px) saturate(1.15);
   border-radius: var(--radius-small);
   transform-origin: top right;
 }
@@ -789,18 +789,6 @@ body.menu-open .menu-nav-backdrop {
   .menu-nav__surface {
     overflow: clip;
   }
-}
-
-.menu-nav__surface::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  border-radius: inherit;
-  background: rgb(25 24 24 / 0.18);
-  backdrop-filter: blur(16px) saturate(1.15);
-  -webkit-backdrop-filter: blur(16px) saturate(1.15);
-  pointer-events: none;
 }
 
 .menu-nav.is-morphing .menu-nav__surface {

@@ -45,12 +45,15 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
     if (!lines.length) return 0;
 
     const { hideDuration, hideStagger, hideEase } = MOTION_TOKENS.textReveal;
-    const total = hideDuration + hideStagger * Math.max(lines.length - 1, 0);
+    const close = MOTION_TOKENS.menu.closeSpeedScale;
+    const dur = hideDuration * close;
+    const stag = hideStagger * close;
+    const total = dur + stag * Math.max(lines.length - 1, 0);
 
     hideTweenRef.current = gsap.to(lines, {
       yPercent: up ? -100 : 100,
-      duration: hideDuration,
-      stagger: { each: hideStagger, from: "end" },
+      duration: dur,
+      stagger: { each: stag, from: "end" },
       ease: hideEase,
     });
 

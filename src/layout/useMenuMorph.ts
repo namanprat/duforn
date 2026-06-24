@@ -15,9 +15,6 @@ type MenuFlags = {
 
 const SURFACE_DIM_PROPS = "width,height";
 
-// Closing (exit) animations run this much faster than their opening counterparts.
-const CLOSE_SPEEDUP = 0.5;
-
 function phaseOpen(phase: MenuPhase) {
   return phase !== "closed";
 }
@@ -171,9 +168,10 @@ export function useMenuMorph({
       start(menuFlags("links", true), fromD);
       gsap.set(lines, { yPercent: 0, autoAlpha: 1 });
 
-      const boxDuration = menu.openDuration * CLOSE_SPEEDUP;
-      const lineDur = menu.lineDuration * CLOSE_SPEEDUP;
-      const lineStag = menu.lineStagger * CLOSE_SPEEDUP;
+      const close = menu.closeSpeedScale;
+      const boxDuration = menu.openDuration * close;
+      const lineDur = menu.lineDuration * close;
+      const lineStag = menu.lineStagger * close;
       // Headers unreveal fully first, then the box collapses.
       const headerOut = lineDur + lineStag * Math.max(lines.length - 1, 0);
       const tl = gsap.timeline();
@@ -223,12 +221,13 @@ export function useMenuMorph({
       // Keep ABOUT presentation while its text unreveals (panel stays mounted).
       start(menuFlags("about", true), fromD);
 
+      const close = menu.closeSpeedScale;
       const hideDur = aboutPanelRef.current?.hide(true) ?? 0;
-      const boxDuration = menu.aboutDuration * menu.expandScale;
+      const boxDuration = menu.aboutDuration * menu.expandScale * close;
       // Text unreveals fully first, then the box resizes, then headers come in.
       const revealAt = hideDur + boxDuration;
       const tl = gsap.timeline();
-      tl.to(surface, { width: toD.width, height: toD.height, duration: boxDuration, ease: menu.closeEase }, hideDur);
+      tl.to(surface, { width: toD.width, height: toD.height, duration: boxDuration, ease: menu.boxShrinkEase }, hideDur);
       tl.call(() => {
         // Text is gone: hand the box back to the links list and drop the about panel.
         setPresented(menuFlags("links", true));
@@ -251,11 +250,12 @@ export function useMenuMorph({
       // Keep ABOUT presentation while its text unreveals.
       start(menuFlags("about", true), fromD);
 
+      const close = menu.closeSpeedScale;
       const hideDur = aboutPanelRef.current?.hide(false) ?? 0;
-      const boxDuration = menu.aboutDuration * menu.expandScale;
+      const boxDuration = menu.aboutDuration * menu.expandScale * close;
       // Text unreveals fully first, then the box collapses to the pill.
       const tl = gsap.timeline();
-      tl.to(surface, { width: toD.width, height: toD.height, duration: boxDuration, ease: menu.closeEase }, hideDur);
+      tl.to(surface, { width: toD.width, height: toD.height, duration: boxDuration, ease: menu.boxShrinkEase }, hideDur);
       tl.eventCallback("onComplete", () => settle("closed"));
       tlRef.current = tl;
       return;
@@ -272,8 +272,8 @@ export function useMenuMorph({
     tl.to(surface, {
       width: toD.width,
       height: toD.height,
-      duration: menu.openDuration,
-      ease: grow ? menu.boxOpenEase : menu.closeEase,
+      duration: grow ? menu.openDuration : menu.openDuration * menu.closeSpeedScale,
+      ease: grow ? menu.boxOpenEase : menu.boxShrinkEase,
     }, 0);
     tl.eventCallback("onComplete", () => settle(target));
     tlRef.current = tl;
