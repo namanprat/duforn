@@ -7,7 +7,7 @@
  * target each frame and hand its texture to the water material.
  */
 import * as THREE from "three";
-import { REFLECTION_SCALE } from "./config/poolWaterDefaults";
+import { REFLECTION_SCALE, WATER_BASIN_LAYER } from "./config/poolWaterDefaults";
 
 /** Matches Env fallback — keeps refracted pool reads as basin, not raw HDRI sky. */
 const BACKDROP_CLEAR = new THREE.Color(0xe8e6de);
@@ -35,6 +35,11 @@ export function createWaterBackdrop(gl: THREE.WebGLRenderer) {
   gl.setRenderTarget(prev);
 
   const tmp = new THREE.Vector2();
+  // Basin-only camera: copies the main camera each frame but renders solely the
+  // WATER_BASIN_LAYER (pool floor/walls). The water sits on layer 0, so it is
+  // excluded here without any visible toggling.
+  const basinCam = new THREE.PerspectiveCamera();
+  basinCam.layers.set(WATER_BASIN_LAYER);
 
   return {
     get texture() {
@@ -50,23 +55,23 @@ export function createWaterBackdrop(gl: THREE.WebGLRenderer) {
       }
     },
 
-    /** Render the scene without the water mesh into the backdrop target. */
-    render(scene: THREE.Scene, camera: THREE.Camera, waterMesh: THREE.Object3D) {
-      const prevVisible = waterMesh.visible;
+    /** Render the basin (refraction backdrop) into the target. */
+    render(scene: THREE.Scene, camera: THREE.Camera) {
       const prevTarget = gl.getRenderTarget();
       const prevBackground = scene.background;
-      waterMesh.visible = false;
+      // ponytail: backdrop draws only the basin layer, not the whole scene.
+      // Ceiling: refraction shows only basin geometry (fine for a near-flat
+      // surface). Upgrade: widen the layer set if grazing-angle refraction needs
+      // above-water geometry.
+      basinCam.copy(camera as THREE.PerspectiveCamera);
+      basinCam.layers.set(WATER_BASIN_LAYER);
       scene.background = BACKDROP_CLEAR;
       gl.setRenderTarget(target);
       gl.setClearColor(BACKDROP_CLEAR, 1);
       gl.clear();
-      // ponytail: re-renders the full scene once per frame for the backdrop.
-      // Ceiling: extra full-scene draw. Upgrade: render only the caustics-receiver
-      // basin meshes into the target if this shows up in the profile.
-      gl.render(scene, camera);
+      gl.render(scene, basinCam);
       gl.setRenderTarget(prevTarget);
       scene.background = prevBackground;
-      waterMesh.visible = prevVisible;
     },
 
     dispose() {

@@ -21,6 +21,8 @@ import {
   POOL_WATER_DEFAULTS,
   POOL_WATER_RENDER_ORDER,
   SIM_RES,
+  WATER_BASIN_LAYER,
+  WATER_PASS_INTERVAL,
   WATER_DEBUG_HIGHLIGHT_PLANE,
 } from "./config/poolWaterDefaults";
 import { uvToSimGrid } from "./waterSimUtils";
@@ -83,6 +85,8 @@ export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
   const matrixSnapshotRef = useRef<number[] | null>(null);
   const reflectionCubeRef = useRef<THREE.Texture | null>(null);
   const planeSnapshotRef = useRef(planeAlignmentSnapshot());
+  const basinMeshesRef = useRef<THREE.Object3D[]>([]);
+  const passFrameRef = useRef(0);
 
   const gridSize = SIM_RES;
   const nwRef = useRef(gridSize);
@@ -194,6 +198,12 @@ export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
         }
 
         const { meshes: receiverMeshes } = findCausticsReceivers(sceneRoot, mesh, bounds, waterY);
+        // Tag basin meshes onto the backdrop layer (additive — they keep layer 0
+        // for the normal frame). The backdrop camera renders only this layer.
+        for (const rm of receiverMeshes) {
+          rm.traverse((o) => o.layers.enable(WATER_BASIN_LAYER));
+        }
+        basinMeshesRef.current = receiverMeshes;
         if (receiverMeshes.length > 0) {
           const caustics = createHomeCaustics(renderer, {
             sim,
@@ -243,6 +253,10 @@ export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
 
     return () => {
       cancelled = true;
+      for (const rm of basinMeshesRef.current) {
+        rm.traverse((o) => o.layers.disable(WATER_BASIN_LAYER));
+      }
+      basinMeshesRef.current = [];
       causticsCtxRef.current?.receivers.restore();
       causticsCtxRef.current?.caustics.dispose();
       causticsCtxRef.current = null;
@@ -338,11 +352,16 @@ export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
       if (!frustumRef.current.intersectsSphere(waterSphereRef.current)) return;
     }
 
+    // Amortize both scene-draws: refresh every Nth frame. The surface keeps
+    // sampling the last targets, so ripples animate at full rate while only the
+    // reflected/refracted scene updates at 60/N Hz (masked by ripple distortion).
+    if (passFrameRef.current++ % WATER_PASS_INTERVAL !== 0) return;
+
     if (backdrop) {
       backdrop.resize();
       const size = gl.getDrawingBufferSize(drawSizeRef.current);
       materialApiRef.current?.setResolution(size.x, size.y);
-      backdrop.render(scene, camera, mesh);
+      backdrop.render(scene, camera);
     }
     if (planar) {
       planar.resize();

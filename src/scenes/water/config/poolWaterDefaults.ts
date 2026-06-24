@@ -8,6 +8,13 @@ export const SIM_RES = 512;
 export const CAUSTICS_SIZE = 768;
 /** Planar reflection + backdrop render targets at half drawing-buffer res. */
 export const REFLECTION_SCALE = 0.5;
+/** Layer holding the basin (caustics-receiver) meshes — the only geometry the
+ *  backdrop refraction pass needs to draw. */
+export const WATER_BASIN_LAYER = 1;
+/** Refresh the backdrop/reflection scene-draws every Nth frame. The surface
+ *  animates at full rate; only the reflected/refracted scene runs at 60/N Hz,
+ *  hidden behind ripple-normal distortion. */
+export const WATER_PASS_INTERVAL = 2;
 /** Grid cells from the domain edge over which ripples are damped (sim units). */
 export const SIM_EDGE_BAND = 10;
 

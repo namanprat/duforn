@@ -156,7 +156,7 @@ export default function ProjectBg({ onReady }: ProjectBgProps) {
 
     const { width, height } = state.size;
     if (width !== prevSizeRef.current.width || height !== prevSizeRef.current.height) {
-      const dpr = Math.min(gl.getPixelRatio(), 1.5);
+      const dpr = Math.min(gl.getPixelRatio(), 2);
       renderTarget.setSize(
         Math.max(1, Math.floor(width * dpr * BG_RENDER_SCALE)),
         Math.max(1, Math.floor(height * dpr * BG_RENDER_SCALE)),

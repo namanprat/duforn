@@ -94,7 +94,7 @@ export default function AboutDitherCanvas() {
   return (
     <Canvas
       shadows={{ type: THREE.PCFShadowMap }}
-      dpr={[1, 1.5]}
+      dpr={[1, 2]}
       camera={{ position: [0, -1, 4], fov: 65 }}
       gl={{ alpha: false }}
       onCreated={({ gl }) => {
