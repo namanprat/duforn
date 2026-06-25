@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
-import { normalizeModelBounds } from "./sceneUtils";
+import { findObjectByName, meshMatchesName, normalizeModelBounds } from "./sceneUtils";
 import { SCENE_SUN_DIR } from "./lighting/sun";
 import { ensurePoolWaterMesh, applyWaterDebugMaterial } from "./water/createPoolWaterMesh";
 import WaterRipples from "./water/WaterRipples";
@@ -40,7 +40,7 @@ function computeShadowSetup(scene: THREE.Object3D, size: THREE.Vector3): ShadowS
   // Deck level ≈ top of the pool walls (the rim the floor sits at). The model is
   // recentred to min.y = 0 (pool basin bottom), so the deck is well above 0.
   let deckLocalTop = size.y * 0.18;
-  const poolWalls = scene.getObjectByName("PoolWalls");
+  const poolWalls = findObjectByName(scene, "PoolWalls");
   if (poolWalls) {
     const box = new THREE.Box3().setFromObject(poolWalls);
     if (Number.isFinite(box.max.y)) deckLocalTop = box.max.y;
@@ -82,12 +82,12 @@ export default function BakedScene() {
 
       const srcMat = mesh.material as THREE.MeshStandardMaterial;
       const matName = Array.isArray(srcMat) ? srcMat[0]?.name : srcMat?.name;
-      if (mesh.name === "Water" || matName === "Water") {
+      if (meshMatchesName(mesh.name, "Water") || meshMatchesName(matName, "Water")) {
         mesh.userData.isWater = true;
         return;
       }
 
-      if (mesh.name === GLASS_NAME) {
+      if (meshMatchesName(mesh.name, GLASS_NAME)) {
         mesh.material = new THREE.MeshPhysicalMaterial({
           transmission: 1.0,
           thickness: 0.05,
@@ -101,7 +101,7 @@ export default function BakedScene() {
         return;
       }
 
-      if (mesh.name === FLOOR_NAME) {
+      if (meshMatchesName(mesh.name, FLOOR_NAME)) {
         // Lit floor so the sun's shadows read on it. Baked texture as albedo,
         // lit by the scene HDR (ambient) + the directional sun (shadow-casting).
         const fsrc = mesh.material as THREE.MeshStandardMaterial;

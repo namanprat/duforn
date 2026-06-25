@@ -9,11 +9,12 @@ import RoomCam from "./RoomCam";
 import Env from "./Env";
 import { WorkClothStripScene } from "../work/ClothStrip";
 import ScenePostFX from "./ScenePostFX";
+import ArchiveScene from "./ArchiveScene";
 import ProjectDetailScene from "../projectDetail/ProjectDetailScene";
 import ProjectCoverScene from "../projectDetail/ProjectCoverScene";
 import MoneyMeStripScene from "../projectDetail/MoneyMeStripScene";
 import { MAIN_POSE, poseToCameraPosition } from "./cam/roomPoses";
-import { getRouteNamespace } from "../lib/route";
+import { getRouteNamespace, type RoomNamespace } from "../lib/route";
 
 const DevSceneControls = import.meta.env.DEV
   ? lazy(() => import("./DevSceneControls"))
@@ -28,11 +29,13 @@ const MAIN_CAMERA = poseToCameraPosition(MAIN_POSE);
 export default function SceneCanvas() {
   const location = useLocation();
   const activePage = getRouteNamespace(location.pathname);
-  const isRoom = activePage !== "projectDetail";
+  const isArchive = activePage === "archive";
   const isProject = activePage === "projectDetail";
-  const activeRoom = isRoom ? activePage : "main";
+  // Archive gets its own globe scene + camera, so it's no longer a "room".
+  const isRoom = !isProject && !isArchive;
+  const activeRoom = (isProject ? "main" : activePage) as RoomNamespace;
   const isInteractive =
-    activePage === "projectDetail" || activeRoom === "work" || activeRoom === "main";
+    isProject || isArchive || activeRoom === "work" || activeRoom === "main";
 
   // R3F sizes its renderer from a ResizeObserver on its container. Under React
   // StrictMode the observer can be torn down and re-attached on the dev
@@ -108,6 +111,11 @@ export default function SceneCanvas() {
               <MoneyMeStripScene />
             </Suspense>
           </>
+        ) : null}
+        {isArchive ? (
+          <Suspense fallback={null}>
+            <ArchiveScene />
+          </Suspense>
         ) : null}
         <ScenePostFX />
         {import.meta.env.DEV ? (

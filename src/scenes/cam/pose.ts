@@ -35,4 +35,10 @@ export const cameraBasePoseRef: { current: CameraPose } = {
 /** True while RoomCam GSAP is tweening between room poses. */
 export const cameraTransitionRef = { current: false };
 
+export const cameraRigControlsRef = {
+  current: {
+    parallaxEnabled: true,
+  },
+};
+
 export const POSE_KEYS = Object.keys(DEFAULT_CAMERA_BASE_POSE) as (keyof CameraPose)[];

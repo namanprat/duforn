@@ -37,9 +37,9 @@ const SHARED_CENTER_Y = 19.6;
 
 export const MAIN_POSE: CameraPose = Object.freeze({
   ...DEFAULT_CAMERA_BASE_POSE,
-  orbitCenterX: 50,
+  orbitCenterX: 91.714,
   orbitCenterY: 20,
-  orbitCenterZ: 9.8,
+  orbitCenterZ: 11.275,
   orbitRadius: 5,
   cameraHeight: 0,
   fov: SHARED_FOV,
@@ -52,9 +52,9 @@ export const ROOM_POSES: Record<RoomNamespace, CameraPose> = Object.freeze({
   main: MAIN_POSE,
   work: Object.freeze({
     ...DEFAULT_CAMERA_BASE_POSE,
-    orbitCenterX: 8,
-    orbitCenterY: SHARED_CENTER_Y,
-    orbitCenterZ: -4.7,
+    orbitCenterX: 37,
+    orbitCenterY: 18.9,
+    orbitCenterZ: -2,
     orbitRadius: 5,
     cameraHeight: 0,
     fov: SHARED_FOV,
@@ -64,9 +64,9 @@ export const ROOM_POSES: Record<RoomNamespace, CameraPose> = Object.freeze({
   }),
   contact: Object.freeze({
     ...DEFAULT_CAMERA_BASE_POSE,
-    orbitCenterX: -66,
+    orbitCenterX: -61.968,
     orbitCenterY: 20,
-    orbitCenterZ: 9.8,
+    orbitCenterZ: 9.266,
     orbitRadius: 5,
     cameraHeight: 0,
     fov: SHARED_FOV,

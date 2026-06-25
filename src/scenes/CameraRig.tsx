@@ -1,7 +1,7 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import type { PerspectiveCamera } from "three";
-import { cameraBasePoseRef, cameraTransitionRef } from "./cam/pose";
+import { cameraBasePoseRef, cameraRigControlsRef, cameraTransitionRef } from "./cam/pose";
 import { prefersReducedMotion } from "../lib/prefersReducedMotion";
 
 /**
@@ -66,6 +66,13 @@ export default function CameraRig({
 
   useEffect(() => {
     const onPointerMove = (event: PointerEvent) => {
+      if (!cameraRigControlsRef.current.parallaxEnabled) {
+        const t = pointerTarget.current;
+        t.angle = 0;
+        t.y = 0;
+        t.tilt = 0;
+        return;
+      }
       const { x, y } = normalizePoint(event.clientX, event.clientY);
       const t = pointerTarget.current;
       t.angle = x * PARALLAX.angleRange * parallaxScale * parallaxAngleScale;
@@ -96,6 +103,11 @@ export default function CameraRig({
 
     const base = cameraBasePoseRef.current;
     const target = pointerTarget.current;
+    if (!cameraRigControlsRef.current.parallaxEnabled) {
+      target.angle = 0;
+      target.y = 0;
+      target.tilt = 0;
+    }
 
     const rawDelta = Math.min(Math.max(delta, 1 / 120), 0.1);
     const smoothedDelta = smoothedDeltaRef.current + (rawDelta - smoothedDeltaRef.current) * 0.22;

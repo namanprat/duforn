@@ -534,6 +534,30 @@ body.page-wrap:has([data-page-namespace="projectDetail"])
   pointer-events: auto;
 }
 
+/* Archive: the orb canvas needs the drag, so let the transparent overlay pass
+   pointer events through to it (the header re-enables its own). */
+body.page-wrap:has([data-page-namespace="archive"]) .site_wrap,
+body.page-wrap:has([data-page-namespace="archive"]) .site_content,
+body.page-wrap:has([data-page-namespace="archive"]) main[data-page-namespace="archive"],
+body.page-wrap:has([data-page-namespace="archive"]) main[data-page-namespace="archive"] * {
+  pointer-events: none;
+}
+
+body.page-wrap:has([data-page-namespace="archive"])
+  main[data-page-namespace="archive"]
+  [data-archive-view-switcher],
+body.page-wrap:has([data-page-namespace="archive"])
+  main[data-page-namespace="archive"]
+  [data-archive-view-switcher] * {
+  pointer-events: auto;
+}
+
+/* Archive: solid black backdrop behind the (transparent) orb canvas. */
+html:has([data-page-namespace="archive"]),
+body.page-wrap:has([data-page-namespace="archive"]) {
+  background-color: #000;
+}
+
 /* Dev-only debug GUI — make sure every descendant stays interactive even when
    sibling/ancestor rules disable pointer-events. */
 [data-work-scene-controls="true"],
@@ -1099,24 +1123,7 @@ body.menu-open .menu-nav-backdrop {
   padding-top: var(--page-top-pad);
 }
 
-.archive-page__header {
-  pointer-events: none;
-  max-width: 28rem;
-}
-
-.archive-page__eyebrow {
-  color: color-mix(in srgb, var(--swatch-light) 55%, transparent);
-  margin-bottom: var(--spacing-space-2);
-  letter-spacing: var(--typography-letter-spacing-wide);
-}
-
-.archive-page__title {
-  margin-bottom: var(--spacing-space-3);
-}
-
-.archive-page__note {
-  color: color-mix(in srgb, var(--swatch-light) 70%, transparent);
-}
+/* Orb 'Archive' label now renders in-canvas via troika <Text> (ArchivePosterField). */
 
 /* --- Page shells (hero / work / contact) ---------------------------------- */
 .hero_wrap,

@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { findObjectByName, meshMatchesName } from "../sceneUtils";
 
 const WATER_EXACT_NAME = "Water";
 
@@ -9,7 +10,7 @@ const WATER_EXACT_NAME = "Water";
 export function findWaterMesh(root: THREE.Object3D | null): THREE.Mesh | null {
   if (!root) return null;
 
-  const byName = root.getObjectByName(WATER_EXACT_NAME) as THREE.Mesh | null;
+  const byName = findObjectByName(root, WATER_EXACT_NAME) as THREE.Mesh | null;
   if (byName?.isMesh) return byName;
 
   let byExactMaterial: THREE.Mesh | null = null;
@@ -17,7 +18,7 @@ export function findWaterMesh(root: THREE.Object3D | null): THREE.Mesh | null {
     const mesh = o as THREE.Mesh;
     if (!mesh.isMesh || byExactMaterial) return;
     const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-    if (materials.some((m) => m?.name === WATER_EXACT_NAME)) {
+    if (materials.some((m) => meshMatchesName(m?.name, WATER_EXACT_NAME))) {
       byExactMaterial = mesh;
     }
   });

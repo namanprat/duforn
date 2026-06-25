@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { findObjectByName } from "../sceneUtils";
 import { POOL_PLANE_DEFAULTS } from "./config/poolWaterDefaults";
 import { findWaterMesh } from "./findWaterMesh";
 
@@ -11,7 +12,7 @@ function meshWorldBox(mesh: THREE.Mesh) {
 }
 
 function poolShellPlacement(root: THREE.Object3D) {
-  const poolShell = root.getObjectByName("PoolWalls") as THREE.Mesh | null;
+  const poolShell = findObjectByName(root, "PoolWalls") as THREE.Mesh | null;
   if (!poolShell?.isMesh) return null;
 
   const box = meshWorldBox(poolShell);

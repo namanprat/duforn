@@ -1,0 +1,125 @@
+import { useEffect, useRef } from "react";
+import * as THREE from "three";
+import { useFrame, useThree } from "@react-three/fiber";
+import {
+  ARCHIVE_CONFIG,
+  ARCHIVE_GLOBE_HEIGHT,
+  ARCHIVE_GRID_HEIGHT,
+} from "./archiveConfig";
+import { rigState } from "./rigState";
+import {
+  stereographicUnwrap,
+  textureIndexForCell,
+  worldFromCell,
+  type Vec3,
+} from "./archiveLayout";
+
+export type TileData = {
+  index: number;
+  globePos: Vec3;
+  unwrapPos: Vec3;
+  texture: THREE.Texture;
+  w: number;
+  h: number;
+};
+
+const _qYaw = new THREE.Quaternion();
+const _qPitch = new THREE.Quaternion();
+const _qSpin = new THREE.Quaternion();
+const _orb = new THREE.Vector3();
+const _unwrap = new THREE.Vector3();
+const _target = new THREE.Vector3();
+const X_AXIS = new THREE.Vector3(1, 0, 0);
+const Y_AXIS = new THREE.Vector3(0, 1, 0);
+const damp = THREE.MathUtils.damp;
+const lerp = THREE.MathUtils.lerp;
+const smooth = (t: number) => t * t * (3 - 2 * t);
+
+type PosterTileProps = {
+  data: TileData;
+  textures: THREE.Texture[];
+};
+
+export default function PosterTile({ data, textures }: PosterTileProps) {
+  const { index, globePos, unwrapPos, texture, w, h } = data;
+  const group = useRef<THREE.Group>(null);
+  const mat = useRef<THREE.MeshBasicMaterial>(null);
+
+  useFrame((_, delta) => {
+    const g = group.current;
+    const material = mat.current;
+    if (!g || !material) return;
+
+    const m = rigState.morph;
+    const eased = smooth(m);
+
+    _qYaw.setFromAxisAngle(Y_AXIS, rigState.yaw);
+    _qPitch.setFromAxisAngle(X_AXIS, rigState.pitch);
+    _qSpin.copy(_qPitch).multiply(_qYaw);
+
+    _orb.set(globePos.x, globePos.y, globePos.z).applyQuaternion(_qSpin);
+    _unwrap.set(unwrapPos.x, unwrapPos.y, unwrapPos.z);
+
+    if (m > 0.98) {
+      const slot = rigState.gridSlots[index];
+      if (slot) {
+        const wp = worldFromCell(
+          slot.cx,
+          slot.cy,
+          ARCHIVE_CONFIG.cellSize,
+          rigState.gridPan.x,
+          rigState.gridPan.y,
+        );
+        g.position.set(wp.x, wp.y, wp.z);
+        const texIdx = textureIndexForCell(slot.cx, slot.cy, textures.length);
+        const nextMap = textures[texIdx];
+        if (nextMap && material.map !== nextMap) material.map = nextMap;
+      }
+      g.rotation.set(0, 0, 0);
+      const gs = damp(g.scale.x, ARCHIVE_GRID_HEIGHT, 12, delta);
+      g.scale.setScalar(gs);
+      return;
+    }
+
+    _target.copy(_orb).lerp(_unwrap, eased);
+    g.position.copy(_target);
+    g.rotation.set(lerp(g.rotation.x, 0, eased), lerp(g.rotation.y, 0, eased), 0);
+    if (material.map !== texture) material.map = texture;
+
+    const targetScale = lerp(ARCHIVE_GLOBE_HEIGHT, ARCHIVE_GRID_HEIGHT, eased);
+    const s = damp(g.scale.x, targetScale, 12, delta);
+    g.scale.setScalar(s);
+  });
+
+  return (
+    <group ref={group}>
+      <mesh>
+        <planeGeometry args={[w, h]} />
+        <meshBasicMaterial
+          ref={mat}
+          map={texture}
+          transparent
+          depthWrite
+          toneMapped={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+    </group>
+  );
+}
+
+export function buildTileData(
+  globePos: Vec3,
+  index: number,
+  texture: THREE.Texture,
+  aspect: number,
+): TileData {
+  return {
+    index,
+    globePos,
+    unwrapPos: stereographicUnwrap(globePos, ARCHIVE_CONFIG.sphereRadius),
+    texture,
+    w: aspect,
+    h: 1,
+  };
+}

@@ -3,6 +3,7 @@
  * GLB pool floor/wall meshes without replacing their visual appearance.
  */
 import * as THREE from "three";
+import { meshMatchesName, stripBakedSuffix } from "../../sceneUtils";
 import { POOL_CAUSTICS_DEFAULTS } from "../config/poolWaterDefaults";
 import { planarBoundsToUniform, type WaterPlanarBounds } from "../waterPlanarMapping";
 
@@ -25,7 +26,9 @@ function getXZOverlapArea(a: THREE.Box3, bounds: WaterPlanarBounds) {
 }
 
 function normalizeName(name: unknown) {
-  return typeof name === "string" ? name.toLowerCase().replace(/[^a-z0-9]/g, "") : "";
+  return typeof name === "string"
+    ? stripBakedSuffix(name).toLowerCase().replace(/[^a-z0-9]/g, "")
+    : "";
 }
 
 function meshNameTokens(mesh: THREE.Mesh) {
@@ -37,14 +40,14 @@ function meshNameTokens(mesh: THREE.Mesh) {
 }
 
 function isForcedReceiver(mesh: THREE.Mesh) {
-  if (FORCE_RECEIVER_EXACT.includes(mesh.name)) return true;
+  if (FORCE_RECEIVER_EXACT.some((n) => meshMatchesName(mesh.name, n))) return true;
   const tokens = meshNameTokens(mesh);
   return tokens.some((n) => RECEIVER_ALLOWLIST.some((allow) => n.includes(allow)));
 }
 
 function isExcludedReceiver(mesh: THREE.Mesh) {
   if (mesh.userData?.isWater) return true;
-  if (RECEIVER_EXCLUDE_EXACT.includes(mesh.name)) return true;
+  if (RECEIVER_EXCLUDE_EXACT.some((n) => meshMatchesName(mesh.name, n))) return true;
   const tokens = meshNameTokens(mesh);
   if (tokens.some((n) => n.includes("window") || n.includes("glass"))) return true;
   // Exact "water" token only — not "poolwalls".
@@ -73,7 +76,7 @@ export function findCausticsReceivers(
     if (!mesh.isMesh || mesh === waterMesh) return;
     if (isExcludedReceiver(mesh)) return;
 
-    if (FORCE_RECEIVER_EXACT.includes(mesh.name)) {
+    if (FORCE_RECEIVER_EXACT.some((n) => meshMatchesName(mesh.name, n))) {
       meshes.push(mesh);
       return;
     }

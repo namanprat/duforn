@@ -1,5 +1,5 @@
 import { button, folder, useControls } from "leva";
-import { cameraBasePoseRef, type CameraPose } from "./cam/pose";
+import { cameraBasePoseRef, cameraRigControlsRef, type CameraPose } from "./cam/pose";
 import { ROOM_POSES, type RoomNamespace } from "./cam/roomPoses";
 
 /**
@@ -90,6 +90,13 @@ export default function RoomCameraGui({ activeRoom }: { activeRoom: RoomNamespac
         max: 120,
         step: 0.5,
         onChange: (v) => setCam("fov", v),
+      },
+      parallaxEnabled: {
+        label: "pointer parallax",
+        value: cameraRigControlsRef.current.parallaxEnabled,
+        onChange: (v) => {
+          cameraRigControlsRef.current.parallaxEnabled = v;
+        },
       },
       "Log pose JSON": button(() => {
         const pose = { ...cameraBasePoseRef.current };

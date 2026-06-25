@@ -2,13 +2,13 @@ import { createSceneControlsStore } from "./scene";
 
 export const DEFAULT_WORK_SCENE_CONTROLS = {
   strip: {
-    x: 5.55,
-    y: 17.9,
-    z: -7.2,
-    rx: (1.5 * Math.PI) / 180,
-    ry: (-7.5 * Math.PI) / 180,
+    x: 35.3,
+    y: 17.0,
+    z: -12.0,
+    rx: (5.0 * Math.PI) / 180,
+    ry: (-3.5 * Math.PI) / 180,
     rz: 0,
-    scale: 1.0,
+    scale: 1.97,
     visibleItems: 7,
     gapSize: 0.04,
     curveRadius: 11,
