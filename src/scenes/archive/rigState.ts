@@ -1,5 +1,5 @@
 import { ARCHIVE_CONFIG } from "./archiveConfig";
-import type { CellId } from "./archiveLayout";
+import type { CellId, Vec3 } from "./archiveLayout";
 
 export const rigState = {
   zoom: ARCHIVE_CONFIG.globeZoom,
@@ -18,6 +18,14 @@ export const rigState = {
 
   /** Virtual cell per mesh slot — filled each frame in grid mode. */
   gridSlots: [] as CellId[],
+
+  /** Populated when tiles build — used for anchor pick on grid morph. */
+  globePositions: [] as Vec3[],
+  tileTextureIndices: [] as number[],
+
+  gridAnchorIndex: -1,
+  gridAnchorTextureIndex: 0,
+  tileGridCells: [] as CellId[],
 };
 
 export function resetRigToOrb() {
@@ -26,6 +34,9 @@ export function resetRigToOrb() {
   rigState.gridPan.y = 0;
   rigState.gridPanTarget.x = 0;
   rigState.gridPanTarget.y = 0;
+  rigState.gridAnchorIndex = -1;
+  rigState.gridAnchorTextureIndex = 0;
+  rigState.tileGridCells = [];
 }
 
 export function resetRigToGlobe() {

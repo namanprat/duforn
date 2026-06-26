@@ -1,9 +1,8 @@
 import { useMemo, useRef } from "react";
 import { Text } from "@react-three/drei";
-import { useFrame, useThree } from "@react-three/fiber";
+import { useFrame } from "@react-three/fiber";
 import ArchiveRig from "./ArchiveRig";
 import PosterTile, { buildTileData, type TileData } from "./PosterTile";
-import { assignGridSlots } from "./archiveGridPool";
 import { ARCHIVE_CONFIG, ARCHIVE_PRIMARY_FONT } from "./archiveConfig";
 import { fibonacciSpherePoints } from "./archiveLayout";
 import { rigState } from "./rigState";
@@ -11,34 +10,29 @@ import { useArchiveTextures } from "./useArchiveTextures";
 
 export default function ArchivePosterField() {
   const textures = useArchiveTextures();
-  const { size } = useThree();
   const textMat = useRef<{ opacity: number } | null>(null);
 
   const tiles = useMemo<TileData[]>(() => {
     if (!textures.length) return [];
 
     const pts = fibonacciSpherePoints(ARCHIVE_CONFIG.tileCount, ARCHIVE_CONFIG.sphereRadius);
-    return pts.map((globePos, i) => {
-      const texture = textures[Math.floor(Math.random() * textures.length)]!;
+    const globePositions: typeof rigState.globePositions = [];
+    const tileTextureIndices: number[] = [];
+    const built = pts.map((globePos, i) => {
+      const texIdx = Math.floor(Math.random() * textures.length);
+      const texture = textures[texIdx]!;
       const img = texture.image as { width: number; height: number } | undefined;
       const aspect = img && img.height ? img.width / img.height : 1;
+      globePositions.push(globePos);
+      tileTextureIndices.push(texIdx);
       return buildTileData(globePos, i, texture, aspect);
     });
+    rigState.globePositions = globePositions;
+    rigState.tileTextureIndices = tileTextureIndices;
+    return built;
   }, [textures]);
 
   useFrame(() => {
-    if (rigState.morph > 0.95) {
-      assignGridSlots(
-        rigState.gridSlots,
-        rigState.gridPan.x,
-        rigState.gridPan.y,
-        size.width,
-        size.height,
-        ARCHIVE_CONFIG.gridCameraZ,
-        75,
-      );
-    }
-
     if (textMat.current) {
       textMat.current.opacity = 1 - rigState.morph;
     }

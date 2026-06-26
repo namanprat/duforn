@@ -39,13 +39,25 @@ function useISTTime() {
   return time;
 }
 
-function NavBrand({ isHome, useRotateHover }: { isHome: boolean; useRotateHover: boolean }) {
+function NavBrand({
+  isHome,
+  useRotateHover,
+  paused = false,
+}: {
+  isHome: boolean;
+  useRotateHover: boolean;
+  paused?: boolean;
+}) {
   const time = useISTTime();
   const brandText = isHome ? `${time} IST` : "Naman Pratulya";
 
   return (
     <span className="nav-brand__clip">
-      {useRotateHover ? <RotateHoverLabel text={brandText} /> : brandText}
+      {useRotateHover ? (
+        <RotateHoverLabel text={brandText} changeKey={isHome ? "home" : "brand"} paused={paused} />
+      ) : (
+        brandText
+      )}
     </span>
   );
 }
@@ -165,7 +177,7 @@ export default function Nav() {
 
       <div className="site-header__inner u-container-main">
         <NavLink className="link-main site-header__brand" to="/" rotateHover={useRotateHover}>
-          <NavBrand isHome={isHome} useRotateHover={useRotateHover} />
+          <NavBrand isHome={isHome} useRotateHover={useRotateHover} paused={isMorphing} />
         </NavLink>
       </div>
 
@@ -194,23 +206,28 @@ export default function Nav() {
                 : {})}
             >
               <div className="menu-nav__chrome">
-                {shellOpen ? (
-                  <button
-                    type="button"
-                    className="menu-nav__toggle link-main"
-                    aria-label={toggleAriaLabel}
-                    aria-expanded={isOpen}
-                    aria-controls="site-menu-body"
-                    data-rotate-hover={useRotateHover ? "" : undefined}
-                    onClick={handleToggleClick}
-                  >
-                    {useRotateHover ? <RotateHoverLabel text={toggleLabel} /> : toggleLabel}
-                  </button>
-                ) : (
-                  <span className="menu-nav__toggle link-main" aria-hidden="true">
-                    {useRotateHover ? <RotateHoverLabel text={toggleLabel} /> : toggleLabel}
-                  </span>
-                )}
+                <button
+                  type="button"
+                  className="menu-nav__toggle link-main"
+                  aria-label={shellOpen ? toggleAriaLabel : undefined}
+                  aria-expanded={isOpen}
+                  aria-controls="site-menu-body"
+                  aria-hidden={!shellOpen}
+                  tabIndex={shellOpen ? 0 : -1}
+                  data-rotate-hover={useRotateHover ? "" : undefined}
+                  onClick={shellOpen ? handleToggleClick : undefined}
+                  style={!shellOpen ? { pointerEvents: "none" } : undefined}
+                >
+                  {useRotateHover ? (
+                    <RotateHoverLabel
+                      text={toggleLabel}
+                      changeKey={toggleLabel}
+                      paused={isMorphing}
+                    />
+                  ) : (
+                    toggleLabel
+                  )}
+                </button>
               </div>
 
               <div id="site-menu-body" className="menu-nav__body" aria-hidden={!isOpen}>
@@ -224,7 +241,11 @@ export default function Nav() {
                           onClick={closeAll}
                           rotateHover={useRotateHover}
                         >
-                          {useRotateHover ? <RotateHoverLabel text={label} /> : label}
+                          {useRotateHover ? (
+                            <RotateHoverLabel text={label} paused={isMorphing} />
+                          ) : (
+                            label
+                          )}
                         </NavLink>
                       </span>
                     </li>
@@ -244,7 +265,11 @@ export default function Nav() {
                         }}
                         onKeyDown={handleAboutKeyDown}
                       >
-                        {useRotateHover ? <RotateHoverLabel text="About" /> : "About"}
+                        {useRotateHover ? (
+                          <RotateHoverLabel text="About" paused={isMorphing} />
+                        ) : (
+                          "About"
+                        )}
                       </a>
                     </span>
                   </li>

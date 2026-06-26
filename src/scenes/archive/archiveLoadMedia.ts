@@ -28,6 +28,10 @@ export function loadArchiveMediaSource(url: string): Promise<ArchiveMediaSource>
 
       const onReady = () => {
         video.removeEventListener("loadeddata", onReady);
+        // Reflect intrinsic size onto the element — tile aspect is read from
+        // texture.image.width/height, which on a <video> defaults to 0 (→ squished).
+        video.width = video.videoWidth || 1;
+        video.height = video.videoHeight || 1;
         void video.play();
         const texture = new THREE.VideoTexture(video);
         configureArchiveTexture(texture);

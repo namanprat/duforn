@@ -6,7 +6,6 @@ import { rigState } from "./rigState";
 
 const damp = THREE.MathUtils.damp;
 const clamp = THREE.MathUtils.clamp;
-const lerp = THREE.MathUtils.lerp;
 
 export default function ArchiveRig() {
   const { camera, gl } = useThree();
@@ -47,8 +46,14 @@ export default function ArchiveRig() {
 
       if (gridMode()) {
         rigState.isDragging = maxTravel > ARCHIVE_CONFIG.clickThreshold;
-        rigState.gridPanTarget.x = basePanX - dx * ARCHIVE_CONFIG.gridPanSensitivity;
-        rigState.gridPanTarget.y = basePanY + dy * ARCHIVE_CONFIG.gridPanSensitivity;
+        // 1:1 grab — convert pixel drag to world pan at the live camera distance.
+        const cam = camera as THREE.PerspectiveCamera;
+        const halfFov = (cam.fov * Math.PI) / 360;
+        const h = gl.domElement.clientHeight || 1;
+        // 1.5× a 1:1 grab — grid moves faster than the cursor. Inverted on both axes.
+        const worldPerPx = (3 * camera.position.z * Math.tan(halfFov)) / h;
+        rigState.gridPanTarget.x = basePanX + dx * worldPerPx;
+        rigState.gridPanTarget.y = basePanY - dy * worldPerPx;
         return;
       }
 
@@ -57,12 +62,9 @@ export default function ArchiveRig() {
       const threshold = "ontouchstart" in window ? 15 : ARCHIVE_CONFIG.clickThreshold;
       if (maxTravel > threshold) rigState.isDragging = true;
 
+      // Both axes spin freely — top-to-bottom drag rotates the orb infinitely (no clamp).
       rigState.yawTarget = baseA + dx * ARCHIVE_CONFIG.spinSensitivity;
-      rigState.pitchTarget = clamp(
-        baseB + dy * ARCHIVE_CONFIG.spinSensitivity,
-        -ARCHIVE_CONFIG.maxPitch,
-        ARCHIVE_CONFIG.maxPitch,
-      );
+      rigState.pitchTarget = baseB + dy * ARCHIVE_CONFIG.spinSensitivity;
     };
 
     const onUp = () => {
@@ -78,7 +80,7 @@ export default function ArchiveRig() {
       rigState.zoom = clamp(
         rigState.zoom + e.deltaY * ARCHIVE_CONFIG.globeWheelSpeed,
         ARCHIVE_CONFIG.globeZoomMin,
-        ARCHIVE_CONFIG.globeZoom,
+        ARCHIVE_CONFIG.globeZoomMax,
       );
     };
 
@@ -96,11 +98,12 @@ export default function ArchiveRig() {
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
     };
-  }, [gl]);
+  }, [gl, camera]);
 
   useFrame((_, delta) => {
     if (rigState.morph < 0.05 && !rigState.isDragging && !rigState.isMorphing) {
       rigState.yawTarget += ARCHIVE_CONFIG.globeSpin * delta;
+      rigState.pitchTarget += ARCHIVE_CONFIG.globeSpin * delta;
     }
 
     rigState.yaw = damp(rigState.yaw, rigState.yawTarget, 4, delta);
@@ -119,11 +122,9 @@ export default function ArchiveRig() {
       delta,
     );
 
-    const gridBlend = rigState.morph;
-    const orbZ = rigState.zoom;
-    const gridZ = ARCHIVE_CONFIG.gridCameraZ;
-    const targetZ = lerp(orbZ, gridZ, gridBlend);
-    camera.position.z = damp(camera.position.z, targetZ, 1 / ARCHIVE_CONFIG.zoomDamp, delta);
+    // Camera keeps the orb zoom in every mode — entering grid no longer dollies,
+    // so the grid renders at whatever size the user had in orb.
+    camera.position.z = damp(camera.position.z, rigState.zoom, 1 / ARCHIVE_CONFIG.zoomDamp, delta);
     camera.position.x = damp(camera.position.x, 0, 5, delta);
     camera.position.y = damp(camera.position.y, 0, 5, delta);
 

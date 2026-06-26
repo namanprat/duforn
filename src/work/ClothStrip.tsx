@@ -18,6 +18,7 @@ import { SCENE_SUN_DIR } from "../scenes/lighting/sun";
 
 const GRAB_SCALE = 0.96;
 const GRAB_SCALE_LERP = 0.14;
+const DRAG_THRESHOLD_PX = 8;
 
 function loadTextureAssets(urls: string[], options = {}) {
   return Promise.all(urls.map((url) => loadTextureAsset(url, options)));
@@ -92,6 +93,16 @@ function createWebGLStripMaterial(textures: THREE.Texture[], stripConfig: Record
     uStripHeight: { value: stripConfig.stripHeight },
     uStripYOffset: { value: stripConfig.stripYOffset },
     uLightDir: { value: SCENE_SUN_DIR.clone() },
+    uBrightness: { value: 1 },
+    uContrast: { value: 1 },
+    uSaturation: { value: 1 },
+    uShadeMin: { value: 0.88 },
+    uShadeMax: { value: 1.12 },
+    uBaseLight: { value: 0.75 },
+    uLoosenessLight: { value: 0.2 },
+    uCenterLight: { value: 0.08 },
+    uRimStrength: { value: 0.05 },
+    uEdgeFade: { value: 0.06 },
     uTex0: { value: textures[0] },
     uTex1: { value: textures[1] },
     uTex2: { value: textures[2] },
@@ -174,6 +185,16 @@ function createWebGLStripMaterial(textures: THREE.Texture[], stripConfig: Record
       uniform float uNumUnique;
       uniform float uOpacity;
       uniform vec3 uLightDir;
+      uniform float uBrightness;
+      uniform float uContrast;
+      uniform float uSaturation;
+      uniform float uShadeMin;
+      uniform float uShadeMax;
+      uniform float uBaseLight;
+      uniform float uLoosenessLight;
+      uniform float uCenterLight;
+      uniform float uRimStrength;
+      uniform float uEdgeFade;
       varying vec2 vUv;
       varying float vLooseness;
       varying vec3 vNormal;
@@ -201,14 +222,18 @@ function createWebGLStripMaterial(textures: THREE.Texture[], stripConfig: Record
         vec2 texCoord = clamp(vec2(texU, vUv.y), vec2(0.001), vec2(0.999));
         int wrappedIndex = int(mod(itemFloor + uNumUnique, uNumUnique));
         vec3 color = sampleStripTexture(wrappedIndex, texCoord);
+        float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+        color = mix(vec3(luma), color, uSaturation);
+        color = (color - 0.5) * uContrast + 0.5;
+        color *= uBrightness;
 
         float center = 1.0 - abs(vUv.x - 0.5) * 2.0;
         // Wave-driven shading: the displaced normal makes light travel along crests.
         float ndl = dot(normalize(vNormal), normalize(uLightDir)) * 0.5 + 0.5;
-        float shade = mix(0.88, 1.12, ndl);
-        float light = (0.75 + vLooseness * 0.2 + center * 0.08) * shade;
-        float rim = pow(center, 2.0) * 0.05;
-        float edgeFade = smoothstep(0.0, 0.06, vUv.x) * smoothstep(0.0, 0.06, 1.0 - vUv.x);
+        float shade = mix(uShadeMin, uShadeMax, ndl);
+        float light = (uBaseLight + vLooseness * uLoosenessLight + center * uCenterLight) * shade;
+        float rim = pow(center, 2.0) * uRimStrength;
+        float edgeFade = smoothstep(0.0, uEdgeFade, vUv.x) * smoothstep(0.0, uEdgeFade, 1.0 - vUv.x);
         gl_FragColor = vec4(color * light + rim, edgeFade * uOpacity);
       }
     `,
@@ -264,7 +289,11 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
       canvas.style.cursor = "";
       return;
     }
-    if (inputRef.current.isDown && inputRef.current.startedOnStrip) {
+    if (
+      inputRef.current.isDown &&
+      inputRef.current.startedOnStrip &&
+      inputRef.current.dragDist > DRAG_THRESHOLD_PX
+    ) {
       canvas.style.cursor = "grabbing";
     } else if (hoverStripRef.current) {
       canvas.style.cursor = "pointer";
@@ -426,7 +455,9 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
     const group = groupRef.current;
     const s = scrollRef.current;
     const isDraggingStrip = inputRef.current.isDown && inputRef.current.startedOnStrip;
-    const grabTarget = isDraggingStrip ? GRAB_SCALE : 1;
+    const isGrabScaling =
+      isDraggingStrip && inputRef.current.dragDist > DRAG_THRESHOLD_PX;
+    const grabTarget = isGrabScaling ? GRAB_SCALE : 1;
     grabScaleRef.current += (grabTarget - grabScaleRef.current) * GRAB_SCALE_LERP;
 
     if (group) {
@@ -451,7 +482,17 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
     }
 
     sys.uniforms.uScrollOffset.value = s.current;
-    sys.uniforms.uOpacity.value = 1;
+    sys.uniforms.uOpacity.value = sc.opacity ?? 1;
+    sys.uniforms.uBrightness.value = sc.brightness ?? 1;
+    sys.uniforms.uContrast.value = sc.contrast ?? 1;
+    sys.uniforms.uSaturation.value = sc.saturation ?? 1;
+    sys.uniforms.uShadeMin.value = sc.shadeMin ?? 0.88;
+    sys.uniforms.uShadeMax.value = sc.shadeMax ?? 1.12;
+    sys.uniforms.uBaseLight.value = sc.baseLight ?? 0.75;
+    sys.uniforms.uLoosenessLight.value = sc.loosenessLight ?? 0.2;
+    sys.uniforms.uCenterLight.value = sc.centerLight ?? 0.08;
+    sys.uniforms.uRimStrength.value = sc.rimStrength ?? 0.05;
+    sys.uniforms.uEdgeFade.value = sc.edgeFade ?? 0.06;
 
     if ("uTime" in sys.uniforms) {
       sys.uniforms.uTime.value = state.clock.getElapsedTime();
@@ -494,7 +535,7 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
 
   const handleStripClick = (e: any) => {
     if (!onWorkRef.current) return;
-    if (inputRef.current.dragDist > 8 || !e.uv) return;
+    if (inputRef.current.dragDist > DRAG_THRESHOLD_PX || !e.uv) return;
     e.stopPropagation();
     const resolvedSlot = resolveVisibleSlotAtUv(
       e.uv.x,

@@ -2,6 +2,8 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { navigateTo } from "../lib/nav";
 import TextRevealLines from "../text/Reveal";
 import CameraRevealGroup from "../text/CameraRevealGroup";
+import RotateHoverLabel from "../components/RotateHoverLabel";
+import { shouldUseNavRotateHover } from "../lib/link-hover";
 import {
   STUDIO_INTRO_COPY,
   HERO_EYEBROW,
@@ -11,6 +13,7 @@ import {
 
 export default function MainPage() {
   const pillRef = useRef<HTMLAnchorElement | null>(null);
+  const useRotateHover = shouldUseNavRotateHover();
   // Width of the centered pill. The copy rail is sized to this so the
   // left-aligned paragraph shares the button's left edge (per Figma), while the
   // text overflows to the right.
@@ -80,9 +83,12 @@ export default function MainPage() {
                   ref={pillRef}
                   className="button button-primary hero_pill"
                   href="/work"
+                  data-rotate-hover={useRotateHover ? "" : undefined}
                   onClick={(e) => go(e, "/work")}
                 >
-                  <span className="hero_pill_text">View Work</span>
+                  <span className="hero_pill_text">
+                    {useRotateHover ? <RotateHoverLabel text="View Work" /> : "View Work"}
+                  </span>
                   <span className="hero_pill_dot" aria-hidden="true" />
                 </a>
               </div>

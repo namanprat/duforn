@@ -93,8 +93,12 @@ export default function ContactPage() {
               ))}
             </div>
             <h2 className="contact_email">
-              <a className="contact_email_link_wrap u-text-style-h2 u-text-lowercase" href={`mailto:${CONTACT_EMAIL}`}>
-                {CONTACT_EMAIL}
+              <a
+                className="contact_email_link_wrap u-text-style-h2 u-text-lowercase"
+                href={`mailto:${CONTACT_EMAIL}`}
+                data-rotate-hover={useRotateHover ? "" : undefined}
+              >
+                {useRotateHover ? <RotateHoverLabel text={CONTACT_EMAIL} /> : CONTACT_EMAIL}
               </a>
             </h2>
           </CameraRevealGroup>

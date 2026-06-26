@@ -2,11 +2,12 @@ import { createSceneControlsStore } from "./scene";
 
 export const DEFAULT_WORK_SCENE_CONTROLS = {
   strip: {
-    x: 35.3,
+    // ponytail: matches ROOM_POSES.work.orbitCenterX; nudge y/z in Leva if needed
+    x: 37.0,
     y: 17.0,
     z: -12.0,
-    rx: (5.0 * Math.PI) / 180,
-    ry: (-3.5 * Math.PI) / 180,
+    rx: (3.0 * Math.PI) / 180,
+    ry: 0,
     rz: 0,
     scale: 1.97,
     visibleItems: 7,
@@ -15,10 +16,10 @@ export const DEFAULT_WORK_SCENE_CONTROLS = {
     curveAmount: 2,
     stripHeight: 4,
     stripYOffset: 0,
-    windStrength: 0.8,
-    flutterAmplitude: 0.05,
-    flutterFrequency: 16,
-    gravityScale: 1.2,
+    windStrength: 1.04,
+    flutterAmplitude: 0.07,
+    flutterFrequency: 20.8,
+    gravityScale: 1.22,
     wheelSensitivity: 0.0028,
     dragSensitivity: 0.0068,
     dragVelocityScale: 0.0076,
@@ -28,6 +29,17 @@ export const DEFAULT_WORK_SCENE_CONTROLS = {
     snapVelocityThreshold: 0.035,
     snapLerp: 0.18,
     snapEpsilon: 0.0025,
+    brightness: 1,
+    contrast: 1,
+    saturation: 1.28,
+    shadeMin: 0.62,
+    shadeMax: 0.96,
+    baseLight: 0.6,
+    loosenessLight: 0,
+    centerLight: 0.5,
+    rimStrength: 0.04,
+    edgeFade: 0,
+    opacity: 1,
   },
 };
 

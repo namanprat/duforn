@@ -1,18 +1,14 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import * as THREE from "three";
-import { useFrame, useThree } from "@react-three/fiber";
+import { useFrame } from "@react-three/fiber";
 import {
   ARCHIVE_CONFIG,
   ARCHIVE_GLOBE_HEIGHT,
+  ARCHIVE_GRID_CELL_SIZE,
   ARCHIVE_GRID_HEIGHT,
 } from "./archiveConfig";
 import { rigState } from "./rigState";
-import {
-  stereographicUnwrap,
-  textureIndexForCell,
-  worldFromCell,
-  type Vec3,
-} from "./archiveLayout";
+import { stereographicUnwrap, wrappedCellWorld, type Vec3 } from "./archiveLayout";
 
 export type TileData = {
   index: number;
@@ -40,7 +36,7 @@ type PosterTileProps = {
   textures: THREE.Texture[];
 };
 
-export default function PosterTile({ data, textures }: PosterTileProps) {
+export default function PosterTile({ data }: PosterTileProps) {
   const { index, globePos, unwrapPos, texture, w, h } = data;
   const group = useRef<THREE.Group>(null);
   const mat = useRef<THREE.MeshBasicMaterial>(null);
@@ -58,23 +54,27 @@ export default function PosterTile({ data, textures }: PosterTileProps) {
     _qSpin.copy(_qPitch).multiply(_qYaw);
 
     _orb.set(globePos.x, globePos.y, globePos.z).applyQuaternion(_qSpin);
-    _unwrap.set(unwrapPos.x, unwrapPos.y, unwrapPos.z);
+    // Grid target = home cell wrapped to the copy nearest the viewport, so the
+    // grid loops infinitely in both axes as you pan (camera fixed, images move).
+    // Same value drives the morph path and the settle, so the m=0.98 boundary is
+    // continuous even when the grid was panned before exiting.
+    const cell = rigState.tileGridCells[index];
+    if (cell) {
+      const wp = wrappedCellWorld(
+        cell,
+        rigState.gridPan.x,
+        rigState.gridPan.y,
+        ARCHIVE_GRID_CELL_SIZE,
+      );
+      _unwrap.set(wp.x, wp.y, wp.z);
+    } else {
+      _unwrap.set(unwrapPos.x, unwrapPos.y, unwrapPos.z);
+    }
 
     if (m > 0.98) {
-      const slot = rigState.gridSlots[index];
-      if (slot) {
-        const wp = worldFromCell(
-          slot.cx,
-          slot.cy,
-          ARCHIVE_CONFIG.cellSize,
-          rigState.gridPan.x,
-          rigState.gridPan.y,
-        );
-        g.position.set(wp.x, wp.y, wp.z);
-        const texIdx = textureIndexForCell(slot.cx, slot.cy, textures.length);
-        const nextMap = textures[texIdx];
-        if (nextMap && material.map !== nextMap) material.map = nextMap;
-      }
+      g.position.copy(_unwrap);
+      if (material.map !== texture) material.map = texture;
+      if (texture.anisotropy < 4) texture.anisotropy = 4;
       g.rotation.set(0, 0, 0);
       const gs = damp(g.scale.x, ARCHIVE_GRID_HEIGHT, 12, delta);
       g.scale.setScalar(gs);

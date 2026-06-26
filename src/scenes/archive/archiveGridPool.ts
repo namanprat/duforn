@@ -1,4 +1,4 @@
-import { ARCHIVE_CONFIG } from "./archiveConfig";
+import { ARCHIVE_CONFIG, ARCHIVE_GRID_CELL_SIZE } from "./archiveConfig";
 import {
   listCellsInBounds,
   visibleCellBounds,
@@ -22,7 +22,7 @@ export function assignGridSlots(
     cameraZ,
     fovDeg,
     aspect,
-    ARCHIVE_CONFIG.cellSize,
+    ARCHIVE_GRID_CELL_SIZE,
   );
   const cells = listCellsInBounds(bounds);
   if (!cells.length) return;
