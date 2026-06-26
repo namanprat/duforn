@@ -15,6 +15,10 @@ type MenuFlags = {
 
 const SURFACE_DIM_PROPS = "width,height";
 
+// ponytail: inline span calc, extract only if a 6th callsite appears
+const lineSpan = (n: number, dur: number, stagger: number) =>
+  dur + stagger * Math.max(n - 1, 0);
+
 function phaseOpen(phase: MenuPhase) {
   return phase !== "closed";
 }
@@ -43,7 +47,7 @@ function applyMenuFlags(menuNav: HTMLElement, flags: MenuFlags) {
 function measureSurface(surface: HTMLElement) {
   void surface.offsetHeight;
   const { width, height } = surface.getBoundingClientRect();
-  return { width: Math.ceil(width), height: Math.ceil(height) };
+  return { width: Math.round(width), height: Math.round(height) };
 }
 
 function readSurfaceDims(menuNav: HTMLElement, surface: HTMLElement, flags: MenuFlags) {
@@ -102,7 +106,8 @@ export function useMenuMorph({
       if (unmountRef.current) return;
       settledRef.current = next;
       tlRef.current = null;
-      gsap.set(surface, { clearProps: SURFACE_DIM_PROPS });
+      // ponytail: keep tweened px dims at rest — clearProps caused CSS handoff snap;
+      // upgrade path: ResizeObserver remeasure if viewport-resize-while-open matters
       if (aboutEl && phaseAbout(next)) {
         gsap.set(aboutEl, { clearProps: "opacity,visibility" });
       }
@@ -132,6 +137,7 @@ export function useMenuMorph({
         yPercent: phaseOpen(target) && !phaseAbout(target) ? 0 : phaseAbout(target) ? -120 : 120,
         autoAlpha: phaseOpen(target) && !phaseAbout(target) ? 1 : 0,
       });
+      gsap.set(surface, { clearProps: SURFACE_DIM_PROPS });
       settle(target);
       return;
     }
@@ -142,20 +148,21 @@ export function useMenuMorph({
       gsap.set(surface, { width: fromD.width, height: fromD.height });
     };
 
+    const lineCount = lines.length;
+
     // closed -> links: grow, then headers reveal in from below.
     if (from === "closed" && target === "links") {
       const { fromD, toD } = measureFromTo(menuFlags("links", true));
       start(menuFlags("links", true), fromD);
       gsap.set(lines, { yPercent: 120, autoAlpha: 0 });
 
-      const boxDuration = menu.openDuration;
       const tl = gsap.timeline();
-      tl.to(surface, { width: toD.width, height: toD.height, duration: boxDuration, ease: menu.boxOpenEase }, 0);
+      tl.to(surface, { width: toD.width, height: toD.height, duration: menu.boxOpen, ease: menu.boxOpenEase }, 0);
       tl.fromTo(
         lines,
         { yPercent: 120, autoAlpha: 0 },
-        { yPercent: 0, autoAlpha: 1, duration: menu.lineDuration, ease: menu.ease, stagger: menu.lineStagger },
-        boxDuration,
+        { yPercent: 0, autoAlpha: 1, duration: menu.line, ease: menu.ease, stagger: menu.lineStagger },
+        menu.boxOpen,
       );
       tl.eventCallback("onComplete", () => settle("links"));
       tlRef.current = tl;
@@ -169,11 +176,10 @@ export function useMenuMorph({
       gsap.set(lines, { yPercent: 0, autoAlpha: 1 });
 
       const close = menu.closeSpeedScale;
-      const boxDuration = menu.openDuration * close;
-      const lineDur = menu.lineDuration * close;
+      const boxDuration = menu.boxOpen * close;
+      const lineDur = menu.line * close;
       const lineStag = menu.lineStagger * close;
-      // Headers unreveal fully first, then the box collapses.
-      const headerOut = lineDur + lineStag * Math.max(lines.length - 1, 0);
+      const headerOut = lineSpan(lineCount, lineDur, lineStag);
       const tl = gsap.timeline();
       tl.to(
         lines,
@@ -186,30 +192,28 @@ export function useMenuMorph({
       return;
     }
 
-    // links -> about: headers flip up & out, grow, then about text reveals.
+    // links -> about: headers flip up & out, grow, pause, then about text reveals.
     if (from === "links" && target === "about") {
       const { fromD, toD } = measureFromTo(menuFlags("about", true));
-      // Keep LINKS presentation during the flip so the header list stays visible/tweenable.
       start(menuFlags("links", true), fromD);
       if (aboutEl) gsap.set(aboutEl, { autoAlpha: 0 });
       gsap.set(lines, { yPercent: 0, autoAlpha: 1 });
 
-      const boxDuration = menu.aboutDuration * menu.expandScale;
-      const lineFlip = menu.lineDuration * 0.75;
-      // Headers flip up fully first, then the box grows, then about text reveals.
-      const headerOut = lineFlip + menu.lineStagger * Math.max(lines.length - 1, 0);
+      const lineFlip = menu.line * menu.lineFlipScale;
+      const headerOut = lineSpan(lineCount, lineFlip, menu.lineStagger);
+      const aboutAt = headerOut + menu.boxAbout;
       const tl = gsap.timeline();
       tl.to(
         lines,
         { yPercent: -120, autoAlpha: 0, duration: lineFlip, ease: menu.closeEase, stagger: { each: menu.lineStagger, from: "end" } },
         0,
       );
-      tl.to(surface, { width: toD.width, height: toD.height, duration: boxDuration, ease: menu.boxOpenEase }, headerOut);
+      tl.to(surface, { width: toD.width, height: toD.height, duration: menu.boxAbout, ease: menu.boxOpenEase }, headerOut);
+      tl.to({}, { duration: menu.aboutRevealDelay }, aboutAt);
       tl.call(() => {
-        // Box is full-size: switch to about and let AboutPanel reveal its text.
         setPresented(menuFlags("about", true));
         if (aboutEl) gsap.set(aboutEl, { clearProps: "opacity,visibility" });
-      }, [], headerOut + boxDuration);
+      }, [], aboutAt + menu.aboutRevealDelay);
       tl.eventCallback("onComplete", () => settle("about"));
       tlRef.current = tl;
       return;
@@ -218,25 +222,22 @@ export function useMenuMorph({
     // about -> links (Back): about text up, shrink, then headers reveal in from top.
     if (from === "about" && target === "links") {
       const { fromD, toD } = measureFromTo(menuFlags("links", true));
-      // Keep ABOUT presentation while its text unreveals (panel stays mounted).
       start(menuFlags("about", true), fromD);
 
       const close = menu.closeSpeedScale;
       const hideDur = aboutPanelRef.current?.hide(true) ?? 0;
-      const boxDuration = menu.aboutDuration * menu.expandScale * close;
-      // Text unreveals fully first, then the box resizes, then headers come in.
+      const boxDuration = menu.boxAbout * close;
       const revealAt = hideDur + boxDuration;
       const tl = gsap.timeline();
       tl.to(surface, { width: toD.width, height: toD.height, duration: boxDuration, ease: menu.boxShrinkEase }, hideDur);
       tl.call(() => {
-        // Text is gone: hand the box back to the links list and drop the about panel.
         setPresented(menuFlags("links", true));
         gsap.set(lines, { yPercent: -120, autoAlpha: 0 });
       }, [], revealAt);
       tl.fromTo(
         lines,
         { yPercent: -120, autoAlpha: 0 },
-        { yPercent: 0, autoAlpha: 1, duration: menu.lineDuration, ease: menu.ease, stagger: menu.lineStagger },
+        { yPercent: 0, autoAlpha: 1, duration: menu.line, ease: menu.ease, stagger: menu.lineStagger },
         revealAt,
       );
       tl.eventCallback("onComplete", () => settle("links"));
@@ -247,13 +248,11 @@ export function useMenuMorph({
     // about -> closed (click outside): about text down, shrink straight to pill.
     if (from === "about" && target === "closed") {
       const { fromD, toD } = measureFromTo(menuFlags("closed"));
-      // Keep ABOUT presentation while its text unreveals.
       start(menuFlags("about", true), fromD);
 
       const close = menu.closeSpeedScale;
       const hideDur = aboutPanelRef.current?.hide(false) ?? 0;
-      const boxDuration = menu.aboutDuration * menu.expandScale * close;
-      // Text unreveals fully first, then the box collapses to the pill.
+      const boxDuration = menu.boxAbout * close;
       const tl = gsap.timeline();
       tl.to(surface, { width: toD.width, height: toD.height, duration: boxDuration, ease: menu.boxShrinkEase }, hideDur);
       tl.eventCallback("onComplete", () => settle("closed"));
@@ -261,7 +260,7 @@ export function useMenuMorph({
       return;
     }
 
-    // Fallback (rapid interrupts, e.g. closed->closed): morph the box, snap content.
+    // Fallback (rapid interrupts): morph the box, snap content.
     const { fromD, toD } = measureFromTo(menuFlags(target, phaseOpen(target)));
     start(menuFlags(target, phaseOpen(target)), fromD);
     if (phaseOpen(target) && !phaseAbout(target)) {
@@ -272,7 +271,7 @@ export function useMenuMorph({
     tl.to(surface, {
       width: toD.width,
       height: toD.height,
-      duration: grow ? menu.openDuration : menu.openDuration * menu.closeSpeedScale,
+      duration: grow ? menu.boxOpen : menu.boxOpen * menu.closeSpeedScale,
       ease: grow ? menu.boxOpenEase : menu.boxShrinkEase,
     }, 0);
     tl.eventCallback("onComplete", () => settle(target));
@@ -286,4 +285,8 @@ export function useMenuMorph({
     bodyVisible: presented.bodyVisible,
     aboutVisible: presented.aboutVisible,
   };
+}
+
+if (import.meta.env.DEV) {
+  console.assert(lineSpan(4, 0.55, 0.07) === 0.76, "menu lineSpan invariant");
 }

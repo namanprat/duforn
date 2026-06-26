@@ -774,8 +774,8 @@ body.menu-open .menu-nav-backdrop {
   position: relative;
   display: flex;
   flex-direction: column;
-  width: max-content;
-  inline-size: max-content;
+  width: var(--menu-surface-w, max-content);
+  height: var(--menu-surface-h, auto);
   max-width: calc(100vw - var(--site--margin) * 2);
   overflow: clip;
   background-color: color-mix(in srgb, #191818 22%, transparent);
@@ -797,14 +797,12 @@ body.menu-open .menu-nav-backdrop {
   overflow: clip;
 }
 
-.menu-nav.is-open .menu-nav__surface {
-  width: min(12.5rem, calc(100vw - var(--site--margin) * 2));
-  inline-size: min(12.5rem, calc(100vw - var(--site--margin) * 2));
+.menu-nav.is-open:not(.is-about) .menu-nav__surface {
+  --menu-surface-w: min(12.5rem, calc(100vw - var(--site--margin) * 2));
 }
 
 .menu-nav.is-about .menu-nav__surface {
-  width: min(34rem, calc(100vw - var(--site--margin) * 2));
-  inline-size: min(34rem, calc(100vw - var(--site--margin) * 2));
+  --menu-surface-w: min(34rem, calc(100vw - var(--site--margin) * 2));
 }
 
 .menu-nav__chrome {
@@ -911,7 +909,7 @@ body.menu-open .menu-nav-backdrop {
 
 @media (max-width: 425px) {
   .menu-nav.is-about .menu-nav__surface {
-    width: calc(100vw - var(--site--margin) * 2);
+    --menu-surface-w: calc(100vw - var(--site--margin) * 2);
   }
 }
 
@@ -1530,6 +1528,16 @@ section {
   /* Clip line sliding animations */
   padding: 0.2em 0;
   margin: -0.2em 0;
+}
+
+/* Hero lead: tight line-height (0.88) + secondary font push descenders (y, p) in
+   "Naman Pratulya" below GSAP's line-mask box, whose inline `overflow: clip`
+   (SplitText mask:"lines", see Reveal.tsx) cuts them off. Grow the mask's bottom
+   clip room — overflow:clip clips at the padding-box edge — and cancel it with an
+   equal negative margin so the flexed gap to the serif title stays unchanged. */
+.home-hero-brand-clip .text-reveal-line-mask {
+  padding-bottom: 0.3em;
+  margin-bottom: -0.3em;
 }
 
 /* Optimize animations */
