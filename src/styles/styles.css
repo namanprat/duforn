@@ -884,11 +884,6 @@ body.menu-open .menu-nav-backdrop {
   width: max-content;
 }
 
-.menu-nav__toggle .nav-link-hover__clip {
-  display: flex;
-  align-items: center;
-}
-
 .menu-nav.is-open .menu-nav__toggle .nav-link-hover__clip,
 .menu-nav.is-about .menu-nav__toggle .nav-link-hover__clip {
   width: 100%;
@@ -959,11 +954,14 @@ body.menu-open .menu-nav-backdrop {
 }
 
 .menu-nav__link .nav-link-hover__clip {
-  display: flex;
-  align-items: center;
   width: max-content;
   max-width: none;
   white-space: nowrap;
+}
+
+.menu-nav__link .nav-link-hover__track {
+  display: flex;
+  align-items: center;
 }
 
 .menu-nav__about-toggle {
