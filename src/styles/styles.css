@@ -759,6 +759,7 @@ body.menu-open .menu-nav-backdrop {
   max-width: var(--container--main);
   --menu-inset: var(--spacing-space-3);
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   pointer-events: none;
 }
@@ -783,7 +784,7 @@ body.menu-open .menu-nav-backdrop {
   -webkit-backdrop-filter: blur(16px) saturate(1.15);
   border: 1px solid color-mix(in srgb, var(--swatch-light) 10%, transparent);
   border-radius: var(--radius-main);
-  transform-origin: top right;
+  transform-origin: center center;
   transition: transform 0.2s ease;
 }
 
@@ -811,6 +812,7 @@ body.menu-open .menu-nav-backdrop {
   align-items: center;
   width: auto;
   box-sizing: border-box;
+  line-height: var(--typography-line-height-medium);
   padding: var(--spacing-space-3);
 }
 
@@ -822,7 +824,9 @@ body.menu-open .menu-nav-backdrop {
 
 .site-header .menu-nav__toggle[data-rotate-hover],
 .site-header .menu-nav__toggle {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
   width: auto;
   box-sizing: border-box;
 }
@@ -863,7 +867,9 @@ body.menu-open .menu-nav-backdrop {
   background: none;
   color: inherit;
   cursor: pointer;
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
   width: auto;
   text-align: right;
   white-space: nowrap;
@@ -878,6 +884,11 @@ body.menu-open .menu-nav-backdrop {
   width: max-content;
 }
 
+.menu-nav__toggle .nav-link-hover__clip {
+  display: flex;
+  align-items: center;
+}
+
 .menu-nav.is-open .menu-nav__toggle .nav-link-hover__clip,
 .menu-nav.is-about .menu-nav__toggle .nav-link-hover__clip {
   width: 100%;
@@ -885,7 +896,13 @@ body.menu-open .menu-nav-backdrop {
 }
 
 .menu-nav__toggle .nav-link-hover__track {
+  display: flex;
+  align-items: center;
   text-align: right;
+}
+
+.menu-nav__toggle .nav-link-hover__track > span {
+  vertical-align: middle;
 }
 
 .menu-nav__body {
@@ -927,18 +944,23 @@ body.menu-open .menu-nav-backdrop {
 }
 
 .menu-nav__line {
-  display: block;
+  display: flex;
+  align-items: center;
   will-change: transform;
 }
 
 .menu-nav__link {
-  display: block;
+  display: flex;
+  align-items: center;
   width: 100%;
+  min-height: 1.25em;
   text-decoration: none;
   color: var(--swatch-light);
 }
 
 .menu-nav__link .nav-link-hover__clip {
+  display: flex;
+  align-items: center;
   width: max-content;
   max-width: none;
   white-space: nowrap;
