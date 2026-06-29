@@ -3,27 +3,6 @@ import { usePostFxControlsStore } from "../store/postFx";
 import { getDeviceTier } from "../lib/deviceTier";
 import { getQualityProfile } from "../lib/qualityProfile";
 
-const TONE_MAPPING_OPTIONS = {
-  ACES_FILMIC: "ACES_FILMIC",
-  AGX: "AGX",
-  NEUTRAL: "NEUTRAL",
-  LINEAR: "LINEAR",
-  REINHARD: "REINHARD",
-  REINHARD2: "REINHARD2",
-  REINHARD2_ADAPTIVE: "REINHARD2_ADAPTIVE",
-  UNCHARTED2: "UNCHARTED2",
-  OPTIMIZED_CINEON: "OPTIMIZED_CINEON",
-  CINEON: "CINEON",
-} as const;
-
-const AO_QUALITY_OPTIONS = {
-  performance: "performance",
-  low: "low",
-  medium: "medium",
-  high: "high",
-  ultra: "ultra",
-} as const;
-
 /**
  * Dev-only Leva panel for the scene post-processing stack.
  */
@@ -43,109 +22,11 @@ export default function ScenePostFXGui() {
         value: fx.enabled,
         onChange: (v) => setControl("enabled", v),
       },
-      AO: folder({
-        aoEnabled: {
-          label: "enabled",
-          value: fx.ao.enabled,
-          onChange: (v) => setControl("ao.enabled", v),
-        },
-        aoIntensity: {
-          label: "intensity",
-          value: fx.ao.intensity,
-          min: 0,
-          max: 4,
-          step: 0.05,
-          onChange: (v) => setControl("ao.intensity", v),
-        },
-        aoRadius: {
-          label: "radius",
-          value: fx.ao.radius,
-          min: 0.5,
-          max: 8,
-          step: 0.1,
-          onChange: (v) => setControl("ao.radius", v),
-        },
-        aoDistanceFalloff: {
-          label: "distance falloff",
-          value: fx.ao.distanceFalloff,
-          min: 0,
-          max: 2,
-          step: 0.01,
-          onChange: (v) => setControl("ao.distanceFalloff", v),
-        },
-        aoSamples: {
-          label: "samples",
-          value: fx.ao.aoSamples,
-          min: 4,
-          max: 32,
-          step: 1,
-          onChange: (v) => setControl("ao.aoSamples", v),
-        },
-        denoiseSamples: {
-          value: fx.ao.denoiseSamples,
-          min: 1,
-          max: 16,
-          step: 1,
-          onChange: (v) => setControl("ao.denoiseSamples", v),
-        },
-        denoiseRadius: {
-          value: fx.ao.denoiseRadius,
-          min: 1,
-          max: 32,
-          step: 1,
-          onChange: (v) => setControl("ao.denoiseRadius", v),
-        },
-        halfRes: {
-          value: fx.ao.halfRes,
-          onChange: (v) => setControl("ao.halfRes", v),
-        },
-        quality: {
-          value: fx.ao.quality,
-          options: AO_QUALITY_OPTIONS,
-          onChange: (v) => setControl("ao.quality", v),
-        },
-      }),
-      DepthOfField: folder({
-        dofEnabled: {
-          label: "enabled",
-          value: fx.dof.enabled,
-          onChange: (v) => setControl("dof.enabled", v),
-        },
-        worldFocusDistance: {
-          label: "focus distance",
-          value: fx.dof.worldFocusDistance,
-          min: 0.5,
-          max: 40,
-          step: 0.1,
-          onChange: (v) => setControl("dof.worldFocusDistance", v),
-        },
-        worldFocusRange: {
-          label: "focus range",
-          value: fx.dof.worldFocusRange,
-          min: 0.5,
-          max: 40,
-          step: 0.1,
-          onChange: (v) => setControl("dof.worldFocusRange", v),
-        },
-        bokehScale: {
-          label: "bokeh scale",
-          value: fx.dof.bokehScale,
-          min: 0,
-          max: 8,
-          step: 0.1,
-          onChange: (v) => setControl("dof.bokehScale", v),
-        },
-      }),
-      ToneMapping: folder({
+      "ACES tone mapping": folder({
         toneEnabled: {
           label: "enabled",
           value: fx.toneMapping.enabled,
           onChange: (v) => setControl("toneMapping.enabled", v),
-        },
-        mode: {
-          value: fx.toneMapping.mode,
-          options: TONE_MAPPING_OPTIONS,
-          onChange: (v) => setControl("toneMapping.mode", v),
         },
       }),
       ChromaticAberration: folder({
@@ -180,31 +61,6 @@ export default function ScenePostFXGui() {
           max: 1,
           step: 0.01,
           onChange: (v) => setControl("chromaticAberration.modulationOffset", v),
-        },
-      }),
-      Vignette: folder({
-        vignetteEnabled: {
-          label: "enabled",
-          value: fx.vignette.enabled,
-          onChange: (v) => setControl("vignette.enabled", v),
-        },
-        offset: {
-          value: fx.vignette.offset,
-          min: 0,
-          max: 1,
-          step: 0.01,
-          onChange: (v) => setControl("vignette.offset", v),
-        },
-        darkness: {
-          value: fx.vignette.darkness,
-          min: 0,
-          max: 1,
-          step: 0.01,
-          onChange: (v) => setControl("vignette.darkness", v),
-        },
-        eskil: {
-          value: fx.vignette.eskil,
-          onChange: (v) => setControl("vignette.eskil", v),
         },
       }),
       Grain: folder({

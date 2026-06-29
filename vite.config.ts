@@ -61,7 +61,7 @@ function archiveMediaPlugin(): Plugin {
 const config = {
   plugins: [react(), archiveMediaPlugin()],
   optimizeDeps: {
-    include: ["three-original", "postprocessing", "n8ao"],
+    include: ["three-original", "postprocessing"],
   },
   resolve: {
     alias: [
