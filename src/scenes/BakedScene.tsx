@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { findObjectByName, meshMatchesName, normalizeModelBounds } from "./sceneUtils";
+import { applySceneGlass, isGlassMesh } from "./sceneGlass";
 import { SCENE_SUN_DIR } from "./lighting/sun";
 import { ensurePoolWaterMesh, applyWaterDebugMaterial } from "./water/createPoolWaterMesh";
 import WaterRipples from "./water/WaterRipples";
@@ -10,7 +11,6 @@ import { getQualityProfile } from "../lib/qualityProfile";
 
 const MODEL_URL = "/main_scene.glb";
 const MODEL_SCALE = 13;
-const GLASS_NAME = "window";
 // The full patio deck/floor — kept lit (MeshStandard) so it receives the sun's
 // cast shadows, while the rest of the scene stays baked-unlit.
 const FLOOR_NAME = "tiles";
@@ -99,17 +99,8 @@ export default function BakedScene({
         return;
       }
 
-      if (meshMatchesName(mesh.name, GLASS_NAME)) {
-        mesh.material = new THREE.MeshPhysicalMaterial({
-          transmission: 1.0,
-          thickness: 0.05,
-          roughness: 0.04,
-          ior: 1.5,
-          metalness: 0,
-          transparent: true,
-          envMapIntensity: 1.0,
-          color: "#ffffff",
-        });
+      if (isGlassMesh(mesh)) {
+        applySceneGlass(mesh, srcMat);
         return;
       }
 
@@ -150,7 +141,7 @@ export default function BakedScene({
             ? src.emissive.clone()
             : (src.color && src.color.clone()) || new THREE.Color("#808080");
       }
-      basic.toneMapped = true;
+      basic.toneMapped = false;
       basic.side = THREE.DoubleSide;
       mesh.material = basic;
       // Still casts into the shadow map (depth pass) so geometry throws shadows

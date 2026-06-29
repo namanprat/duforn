@@ -93,6 +93,12 @@ function createWebGLStripMaterial(textures: THREE.Texture[], stripConfig: Record
     uStripHeight: { value: stripConfig.stripHeight },
     uStripYOffset: { value: stripConfig.stripYOffset },
     uLightDir: { value: SCENE_SUN_DIR.clone() },
+    uExposure: { value: 0 },
+    uLevelsInLow: { value: 0 },
+    uLevelsInHigh: { value: 1 },
+    uLevelsGamma: { value: 1 },
+    uLevelsOutLow: { value: 0 },
+    uLevelsOutHigh: { value: 1 },
     uBrightness: { value: 1 },
     uContrast: { value: 1 },
     uSaturation: { value: 1 },
@@ -185,6 +191,12 @@ function createWebGLStripMaterial(textures: THREE.Texture[], stripConfig: Record
       uniform float uNumUnique;
       uniform float uOpacity;
       uniform vec3 uLightDir;
+      uniform float uExposure;
+      uniform float uLevelsInLow;
+      uniform float uLevelsInHigh;
+      uniform float uLevelsGamma;
+      uniform float uLevelsOutLow;
+      uniform float uLevelsOutHigh;
       uniform float uBrightness;
       uniform float uContrast;
       uniform float uSaturation;
@@ -198,6 +210,13 @@ function createWebGLStripMaterial(textures: THREE.Texture[], stripConfig: Record
       varying vec2 vUv;
       varying float vLooseness;
       varying vec3 vNormal;
+
+      // Photoshop-style levels: input black/white remap -> gamma -> output range.
+      vec3 applyLevels(vec3 c) {
+        c = clamp((c - uLevelsInLow) / max(uLevelsInHigh - uLevelsInLow, 1e-4), 0.0, 1.0);
+        c = pow(c, vec3(1.0 / max(uLevelsGamma, 1e-4)));
+        return mix(vec3(uLevelsOutLow), vec3(uLevelsOutHigh), c);
+      }
 
       vec3 sampleStripTexture(int index, vec2 coord) {
         if (index == 0) return texture2D(uTex0, coord).rgb;
@@ -222,6 +241,8 @@ function createWebGLStripMaterial(textures: THREE.Texture[], stripConfig: Record
         vec2 texCoord = clamp(vec2(texU, vUv.y), vec2(0.001), vec2(0.999));
         int wrappedIndex = int(mod(itemFloor + uNumUnique, uNumUnique));
         vec3 color = sampleStripTexture(wrappedIndex, texCoord);
+        color *= exp2(uExposure);
+        color = applyLevels(color);
         float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
         color = mix(vec3(luma), color, uSaturation);
         color = (color - 0.5) * uContrast + 0.5;
@@ -483,6 +504,12 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
 
     sys.uniforms.uScrollOffset.value = s.current;
     sys.uniforms.uOpacity.value = sc.opacity ?? 1;
+    sys.uniforms.uExposure.value = sc.exposure ?? 0;
+    sys.uniforms.uLevelsInLow.value = sc.levelsInLow ?? 0;
+    sys.uniforms.uLevelsInHigh.value = sc.levelsInHigh ?? 1;
+    sys.uniforms.uLevelsGamma.value = sc.levelsGamma ?? 1;
+    sys.uniforms.uLevelsOutLow.value = sc.levelsOutLow ?? 0;
+    sys.uniforms.uLevelsOutHigh.value = sc.levelsOutHigh ?? 1;
     sys.uniforms.uBrightness.value = sc.brightness ?? 1;
     sys.uniforms.uContrast.value = sc.contrast ?? 1;
     sys.uniforms.uSaturation.value = sc.saturation ?? 1;

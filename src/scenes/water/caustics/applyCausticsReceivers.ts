@@ -46,7 +46,7 @@ function isForcedReceiver(mesh: THREE.Mesh) {
 }
 
 function isExcludedReceiver(mesh: THREE.Mesh) {
-  if (mesh.userData?.isWater) return true;
+  if (mesh.userData?.isWater || mesh.userData?.isGlass) return true;
   if (RECEIVER_EXCLUDE_EXACT.some((n) => meshMatchesName(mesh.name, n))) return true;
   const tokens = meshNameTokens(mesh);
   if (tokens.some((n) => n.includes("window") || n.includes("glass"))) return true;

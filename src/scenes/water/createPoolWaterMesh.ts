@@ -121,7 +121,7 @@ export function applyWaterDebugMaterial(mesh: THREE.Mesh) {
   mesh.material = new THREE.MeshBasicMaterial({
     color: 0xff0000,
     side: THREE.DoubleSide,
-    toneMapped: true,
+    toneMapped: false,
     depthTest: true,
     depthWrite: true,
   });

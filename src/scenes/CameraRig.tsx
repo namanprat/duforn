@@ -10,9 +10,9 @@ import { prefersReducedMotion } from "../lib/prefersReducedMotion";
  * pointer leaves the window.
  */
 const PARALLAX = Object.freeze({
-  angleRange: 0.14,
+  angleRange: 0.098,
   yRange: 0.18,
-  tiltRange: 0.02,
+  tiltRange: 0.014,
   lerp: 0.028,
 });
 

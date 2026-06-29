@@ -80,7 +80,7 @@ function AboutDitherScene() {
           </Center>
         </Float>
       </group>
-      <OrbitControls enableDamping />
+      <OrbitControls enableDamping enableZoom={false} enablePan={false} />
       <Environment resolution={1024} background={false} environmentIntensity={1.5}>
         <Room highlight="#066aff" />
       </Environment>
@@ -93,19 +93,19 @@ function AboutDitherScene() {
 
 export default function AboutDitherCanvas() {
   const profile = getQualityProfile();
-  const useGradePostFx = profile.postFxMode === "grade";
 
   return (
     <Canvas
+      className="about-panel__canvas"
       shadows={{ type: THREE.PCFShadowMap }}
       dpr={[1, profile.maxDpr]}
       camera={{ position: [0, -1, 4], fov: 65 }}
       gl={{ alpha: false }}
       onCreated={({ gl }) => {
         gl.setClearColor(new THREE.Color(BG));
-        gl.toneMapping = useGradePostFx ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping;
+        gl.toneMapping = THREE.NoToneMapping;
+        gl.outputColorSpace = THREE.SRGBColorSpace;
       }}
-      onWheel={(event) => event.stopPropagation()}
     >
       <AboutDitherScene />
     </Canvas>

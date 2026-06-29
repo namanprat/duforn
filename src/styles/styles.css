@@ -1104,12 +1104,21 @@ body.menu-open .menu-nav-backdrop {
   border-radius: var(--radius-small);
   overflow: hidden;
   background: #000;
+  pointer-events: auto;
 }
 
-.about-panel__media canvas {
+.about-panel__media canvas,
+.about-panel__canvas {
   width: 100%;
   height: 100%;
   display: block;
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.about-panel__media canvas:active,
+.about-panel__canvas:active {
+  cursor: grabbing;
 }
 
 .about-panel__section {

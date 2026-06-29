@@ -1,28 +1,28 @@
 import { type ReactNode } from "react";
-import { EffectComposer, wrapEffect } from "@react-three/postprocessing";
+import {
+  ChromaticAberration,
+  EffectComposer,
+  ToneMapping,
+} from "@react-three/postprocessing";
+import { ToneMappingMode } from "postprocessing";
 import { usePostFxControlsStore } from "../store/postFx";
-import { getQualityProfile } from "../lib/qualityProfile";
-import { SceneGradeEffect } from "./sceneGradeEffect";
-
-const Grade = wrapEffect(SceneGradeEffect);
 
 /**
- * Lightweight post stack: one merged grade pass (ACES + CA + grain).
+ * Post stack: chromatic aberration on a linear HDR buffer, then linear → sRGB.
  */
 export default function ScenePostFX({ children }: { children?: ReactNode }) {
-  const fx = usePostFxControlsStore((s) => s.controls);
-  const profile = getQualityProfile();
-
-  if (!fx.enabled || profile.postFxMode === "off") return null;
-
-  const showGrade =
-    fx.toneMapping.enabled || fx.chromaticAberration.enabled || fx.grain.enabled;
-
-  if (!showGrade && !children) return null;
+  const ca = usePostFxControlsStore((s) => s.controls.chromaticAberration);
 
   return (
     <EffectComposer multisampling={0} stencilBuffer={false}>
-      {showGrade ? <Grade /> : null}
+      {ca.enabled ? (
+        <ChromaticAberration
+          offset={[ca.offset, ca.offset]}
+          radialModulation={ca.radialModulation}
+          modulationOffset={ca.modulationOffset}
+        />
+      ) : null}
+      <ToneMapping mode={ToneMappingMode.LINEAR} />
       {children}
     </EffectComposer>
   );

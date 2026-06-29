@@ -31,7 +31,7 @@ useEnvironment.preload({ files: "/main.hdr" });
 
 /**
  * Single persistent canvas for all 3D. Route changes toggle scene subgraphs;
- * ScenePostFX processes the final frame when the device tier supports it.
+ * ScenePostFX processes the final frame (CA + sRGB) on every tier.
  */
 export default function SceneCanvas() {
   const location = useLocation();
@@ -70,8 +70,6 @@ export default function SceneCanvas() {
     return <div className="scene_canvas_wrap scene_canvas_wrap--static" aria-hidden />;
   }
 
-  const useGradePostFx = qualityProfile.postFxMode === "grade";
-
   return (
     <div className={`scene_canvas_wrap${isInteractive ? " scene_canvas_wrap--interactive" : ""}`}>
       <Canvas
@@ -79,12 +77,7 @@ export default function SceneCanvas() {
         gl={{ antialias: true, stencil: false, localClippingEnabled: true }}
         shadows={{ type: THREE.PCFShadowMap }}
         onCreated={({ gl }) => {
-          if (useGradePostFx) {
-            gl.toneMapping = THREE.NoToneMapping;
-          } else {
-            gl.toneMapping = THREE.ACESFilmicToneMapping;
-          }
-          gl.toneMappingExposure = 1.0;
+          gl.toneMapping = THREE.NoToneMapping;
           gl.outputColorSpace = THREE.SRGBColorSpace;
           if (!hasInitialBootCompleted()) {
             bootProgressCleanupRef.current?.();
