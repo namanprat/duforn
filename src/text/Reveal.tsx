@@ -91,6 +91,24 @@ export default function TextRevealLines({
         });
       };
 
+      const applyHeadingDescenderRoom = () => {
+        elements.forEach((element, index) => {
+          const split = splitRefs[index];
+          if (!split?.lines?.length) return;
+
+          const host = element as HTMLElement;
+          const needsDescenderRoom =
+            host.matches("h1, h2") || host.classList.contains("u-text-style-display");
+          if (!needsDescenderRoom) return;
+
+          split.lines.forEach((line) => {
+            const lineEl = line as HTMLElement;
+            lineEl.style.setProperty("leading-trim", "none");
+            lineEl.style.setProperty("text-edge", "auto");
+          });
+        });
+      };
+
       const runRevealImmediate = (extraDelay = 0) => {
         killScrollTriggers();
         gsap.killTweensOf(lineEls);
@@ -181,6 +199,7 @@ export default function TextRevealLines({
         });
 
         applyTextIndentFixes();
+        applyHeadingDescenderRoom();
         return setHidden();
       };
 

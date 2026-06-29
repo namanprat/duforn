@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { POOL_SIM_DEFAULTS, SIM_EDGE_BAND } from "../config/poolWaterDefaults";
+import { halfFloatMinMagFilter } from "../halfFloatTextureFilter";
 
 /**
  * GPU ping-pong shallow-water sim — same wave equation as the CPU reference
@@ -77,12 +78,13 @@ const SIM_FRAG = /* glsl */ `
   }
 `;
 
-function makeStateTarget(nw: number, nh: number) {
+function makeStateTarget(gl: THREE.WebGLRenderer, nw: number, nh: number) {
+  const filter = halfFloatMinMagFilter(gl);
   const target = new THREE.WebGLRenderTarget(nw, nh, {
     type: THREE.HalfFloatType,
     format: THREE.RGBAFormat,
-    minFilter: THREE.LinearFilter,
-    magFilter: THREE.LinearFilter,
+    minFilter: filter,
+    magFilter: filter,
     wrapS: THREE.ClampToEdgeWrapping,
     wrapT: THREE.ClampToEdgeWrapping,
     depthBuffer: false,
@@ -128,8 +130,8 @@ export class PoolShallowWaterSimGPU {
     this.impulseStrength = simOpts.impulseStrength ?? POOL_SIM_DEFAULTS.impulseStrength;
     this.impulseRadius = simOpts.impulseRadius ?? POOL_SIM_DEFAULTS.impulseRadius;
 
-    this.read = makeStateTarget(nw, nh);
-    this.write = makeStateTarget(nw, nh);
+    this.read = makeStateTarget(gl, nw, nh);
+    this.write = makeStateTarget(gl, nw, nh);
 
     this.impulseBuffer = Array.from({ length: MAX_IMPULSES }, () => new THREE.Vector4());
 

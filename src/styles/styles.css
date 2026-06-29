@@ -76,8 +76,8 @@ html {
   --size-10rem: 10rem;
 
   /* ─── Typography: Trim ───────────────────────────────── */
-  --font-primary-trim-top: 0.33em;
-  --font-primary-trim-bottom: 0.38em;
+  /* Room inside GSAP line masks only (overflow:clip) — not on h1/h2 box (adds layout gap). */
+  --heading-descender-room: 0.3em;
 
   /* ─── Typography: Line Heights ───────────────────────── */
   --typography-line-height-0: 0;
@@ -347,8 +347,8 @@ h5,
 h6,
 p,
 a {
-  padding-top: calc(var(--font-primary-trim-top) * -1);
-  padding-bottom: calc(var(--font-primary-trim-bottom) * -1);
+  padding-top: calc(var(--font-primary-trim-top, 0em) * -1);
+  padding-bottom: calc(var(--font-primary-trim-bottom, 0em) * -1);
   leading-trim: both;
   text-edge: cap;
   text-wrap: wrap;
@@ -360,8 +360,6 @@ h1 {
   font-weight: 500;
   line-height: var(--typography-line-height-1);
   letter-spacing: var(--typography-letter-spacing);
-  padding-bottom: calc(var(--font-primary-trim-bottom) * -1 + 0.3em);
-  margin-bottom: -0.3em;
 }
 
 h2 {
@@ -370,8 +368,6 @@ h2 {
   font-weight: 500;
   line-height: var(--typography-line-height-1);
   letter-spacing: var(--typography-letter-spacing);
-  padding-bottom: calc(var(--font-primary-trim-bottom) * -1 + 0.3em);
-  margin-bottom: -0.3em;
 }
 
 h3 {
@@ -628,8 +624,21 @@ html:not(.scene-live) .site-header {
 }
 
 .scene_preload_overlay--revealing {
-  opacity: 0;
+  background: transparent;
   pointer-events: none;
+}
+
+.dissolve_transition_overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  pointer-events: none;
+}
+
+.dissolve_transition_layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
 }
 
 .scene_preload_overlay_inner {
@@ -1626,12 +1635,25 @@ section {
   margin: -0.2em 0;
 }
 
-/* h1/h2 line reveal: room for descenders under GSAP mask:"lines" overflow:clip.
-   padding-bottom grows the mask clip box; negative margin keeps layout gap unchanged. */
+/* h1/h2 line reveal: grow GSAP mask clip box for descenders (see Reveal.tsx).
+   Only the mask — padding on h1 or .text-reveal-line stacks and blows up hero gaps. */
+[data-text-reveal-root]:is(h1, h2) {
+  overflow: visible;
+}
+
 h1 .text-reveal-line-mask,
-h2 .text-reveal-line-mask {
-  padding-bottom: 0.3em;
-  margin-bottom: -0.3em;
+h2 .text-reveal-line-mask,
+.u-text-style-display .text-reveal-line-mask {
+  box-sizing: content-box;
+  padding-bottom: var(--heading-descender-room);
+  margin-bottom: calc(var(--heading-descender-room) * -1);
+}
+
+h1 .text-reveal-line,
+h2 .text-reveal-line,
+.u-text-style-display .text-reveal-line {
+  leading-trim: none;
+  text-edge: auto;
 }
 
 /* Optimize animations */
@@ -1890,7 +1912,8 @@ img {
   max-width: 100%;
   margin-block: 0;
   margin-inline: auto;
-  overflow: hidden;
+  /* ponytail: overflow-x:clip + overflow-y:visible makes y compute to auto and clips descenders */
+  overflow: visible;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -2073,9 +2096,17 @@ img {
 
 /* Mobile overview copy uses h2 scale on small screens */
 
-/* Disable active link hover */
+/* Active route: no hover affordance (cursor + motion). */
 a[aria-current="page"] {
   cursor: not-allowed !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  a[aria-current="page"]:hover,
+  a.button[aria-current="page"]:hover,
+  a[aria-current="page"].button:hover {
+    transform: none;
+  }
 }
 
 /* Z-index scale is defined in the :root block at the top of this file */

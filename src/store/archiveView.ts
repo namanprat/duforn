@@ -22,3 +22,15 @@ export const useArchiveViewStore = create<ArchiveViewState>((set, get) => ({
     requestArchiveMorph(() => set({ isMorphing: false }));
   },
 }));
+
+/** Default orb view — call on archive enter / mount. */
+export function resetArchiveToOrbView(): void {
+  rigState.morph = 0;
+  rigState.morphTarget = 0;
+  rigState.isMorphing = false;
+  rigState.gridPan.x = 0;
+  rigState.gridPan.y = 0;
+  rigState.gridPanTarget.x = 0;
+  rigState.gridPanTarget.y = 0;
+  useArchiveViewStore.setState({ view: "orb", isMorphing: false });
+}

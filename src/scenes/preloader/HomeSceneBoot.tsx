@@ -16,6 +16,7 @@ import {
   reportWaterReady,
 } from "./bootProgress";
 import { getSceneReady, hasInitialBootCompleted, setSceneReady, useSceneBootStore } from "./sceneReady";
+import { runBootDissolveTransition } from "../../store/routeTransition";
 
 type HomeSceneBootProps = {
   activeRoom: RoomNamespace;
@@ -135,11 +136,12 @@ export default function HomeSceneBoot({
       return;
     }
 
+    runBootDissolveTransition(finishReveal);
+
     revealTweenRef.current = gsap.to(cameraBasePoseRef.current, {
       fov: SHARED_FOV,
       duration: BOOT_FOV_DURATION,
       ease: "power3.out",
-      onComplete: finishReveal,
     });
 
     return () => {

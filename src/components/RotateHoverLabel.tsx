@@ -84,11 +84,13 @@ export default function RotateHoverLabel({
     };
 
     const onEnter = () => {
+      if (interactive.getAttribute("aria-current") === "page") return;
       isHoveredRef.current = true;
       tweenTo(-100);
     };
 
     const onLeave = () => {
+      if (interactive.getAttribute("aria-current") === "page") return;
       isHoveredRef.current = false;
       tweenTo(0);
     };

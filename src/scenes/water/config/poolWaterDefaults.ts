@@ -52,20 +52,20 @@ export const POOL_WATER_DEFAULTS = {
   fresnelPower: 5.0,
   fresnelNormalStrength: 0.52,
   normalStrength: 0.65,
-  refractionOffset: 0.085,
+  refractionOffset: 0.05,
   /** Ripple normal offset on planar reflection UV (world-space scale). */
-  reflectionDistortion: 0.04,
+  reflectionDistortion: 0.022,
   envRefractionStrength: 0.08,
   envIntensity: 1.15,
   /** Scales cubemap sky contribution in reflections. */
   hdrBlend: 0.35,
   reflectionCubemapUrl: "/main.hdr",
   /** Perturb cubemap reflection by ripple normals (0 = mirror, 1 = very rough). */
-  reflectionRoughness: 0.18,
+  reflectionRoughness: 0.12,
   /** Cubemap fill weight for upward reflections (sky). */
   planarSkyFill: 0.85,
   /** RGB channel split on refracted backdrop (subtle). */
-  chromaticAberration: 0.32,
+  chromaticAberration: 0.12,
   waterDepth: 1.15,
   waterClarity: 0.38,
   opacity: 0.72,
@@ -76,13 +76,13 @@ export const POOL_WATER_DEFAULTS = {
   sunColor: "#fff4e8",
   /** Sparkle on ripple crests + sun disk in reflections. */
   sunGlintStrength: 0.72,
-  breezeStrength: 0.55,
-  breezeScale: 7.5,
-  breezeSpeed: 0.06,
+  breezeStrength: 0.22,
+  breezeScale: 2.6,
+  breezeSpeed: 0.018,
   breezeDirectionX: 1.0,
   breezeDirectionZ: 0.25,
-  breezeMix: 0.28,
-  breezeMaxSlope: 0.12,
+  breezeMix: 0.26,
+  breezeMaxSlope: 0.045,
 };
 
 export const POOL_WATER_RENDER_ORDER = 10;

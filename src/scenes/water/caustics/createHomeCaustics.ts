@@ -6,6 +6,7 @@
  */
 import * as THREE from "three";
 import { POOL_CAUSTICS_DEFAULTS } from "../config/poolWaterDefaults";
+import { halfFloatMinMagFilter } from "../halfFloatTextureFilter";
 import { SCENE_SUN_DIR } from "../../lighting/sun";
 import type { WaterPlanarBounds } from "../waterPlanarMapping";
 
@@ -100,11 +101,12 @@ export function createHomeCaustics(
 ) {
   const d = POOL_CAUSTICS_DEFAULTS;
 
+  const filter = halfFloatMinMagFilter(renderer);
   const target = new THREE.WebGLRenderTarget(size, size, {
     type: THREE.HalfFloatType,
     format: THREE.RGBAFormat,
-    minFilter: THREE.LinearFilter,
-    magFilter: THREE.LinearFilter,
+    minFilter: filter,
+    magFilter: filter,
     wrapS: THREE.ClampToEdgeWrapping,
     wrapT: THREE.ClampToEdgeWrapping,
     depthBuffer: false,

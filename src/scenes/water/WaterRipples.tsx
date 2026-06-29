@@ -200,7 +200,7 @@ export default function WaterRipples({ mesh, sceneRoot, onReady }: WaterRipplesP
         mesh.material = materialApi.material;
         materialApi.setBackdrop(backdrop.texture);
         materialApi.setPlanarReflection(planar.texture);
-        applyPoolWaterStaticParams(materialApi);
+        applyPoolWaterStaticParams(materialApi, { gl: renderer });
         // Boot gate: shaders exist; cubemap/caustics can finish during compile.
         reportReady();
 
@@ -370,17 +370,17 @@ export default function WaterRipples({ mesh, sceneRoot, onReady }: WaterRipplesP
       if (!frustumRef.current.intersectsSphere(waterSphereRef.current)) return;
     }
 
-    // Amortize both scene-draws: refresh every Nth frame. The surface keeps
-    // sampling the last targets, so ripples animate at full rate while only the
-    // reflected/refracted scene updates at 60/N Hz (masked by ripple distortion).
-    if (passFrameRef.current++ % waterPassInterval !== 0) return;
-
+    // Backdrop (basin-only, half-res) every frame so refraction tracks ripples.
     if (backdrop) {
       backdrop.resize();
       const size = gl.getDrawingBufferSize(drawSizeRef.current);
       materialApiRef.current?.setResolution(size.x, size.y);
       backdrop.render(scene, camera);
     }
+
+    // Planar reflection is heavier — amortize to every Nth frame.
+    if (passFrameRef.current++ % waterPassInterval !== 0) return;
+
     if (planar) {
       planar.resize();
       planar.render(scene, camera, mesh, waterYRef.current);

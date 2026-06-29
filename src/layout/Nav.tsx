@@ -72,12 +72,14 @@ interface NavLinkProps {
 
 function NavLink({ to, className, children, onClick, rotateHover = false }: NavLinkProps) {
   const location = useLocation();
+  const isCurrent = location.pathname === to;
+  const enableRotateHover = rotateHover && !isCurrent;
 
   const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
     onClick?.();
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
-    if (location.pathname !== to) navigateTo(to);
+    if (!isCurrent) navigateTo(to);
   };
 
   return (
@@ -85,8 +87,9 @@ function NavLink({ to, className, children, onClick, rotateHover = false }: NavL
       href={to}
       className={className}
       onClick={handleClick}
-      aria-current={location.pathname === to ? "page" : undefined}
-      data-rotate-hover={rotateHover ? "" : undefined}
+      aria-current={isCurrent ? "page" : undefined}
+      data-rotate-hover={enableRotateHover ? "" : undefined}
+      aria-disabled={isCurrent ? true : undefined}
     >
       {children}
     </a>
@@ -176,8 +179,8 @@ export default function Nav() {
       />
 
       <div className="site-header__inner u-container-main">
-        <NavLink className="link-main site-header__brand" to="/" rotateHover={useRotateHover}>
-          <NavBrand isHome={isHome} useRotateHover={useRotateHover} paused={isMorphing} />
+        <NavLink className="link-main site-header__brand" to="/" rotateHover={useRotateHover && !isHome}>
+          <NavBrand isHome={isHome} useRotateHover={useRotateHover && !isHome} paused={isMorphing} />
         </NavLink>
       </div>
 
@@ -241,7 +244,7 @@ export default function Nav() {
                           onClick={closeAll}
                           rotateHover={useRotateHover}
                         >
-                          {useRotateHover ? (
+                          {useRotateHover && location.pathname !== path ? (
                             <RotateHoverLabel text={label} paused={isMorphing} />
                           ) : (
                             label

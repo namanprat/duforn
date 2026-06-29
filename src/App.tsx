@@ -10,6 +10,10 @@ import { setNavigateHandler } from "./lib/nav";
 import { startWorkTexturePreload } from "./lib/work-preload";
 import { getRouteNamespace } from "./lib/route";
 import { hideAllRegisteredPageText, showAllRegisteredPageText } from "./lib/text";
+import {
+  runArchiveRouteTransition,
+  shouldUseDissolveTransition,
+} from "./store/routeTransition";
 import { destroyLenis, initLenis } from "./lib/lenis-scroll";
 
 const TITLES: Record<string, string> = {
@@ -34,8 +38,12 @@ function AppShell() {
 
       transitionRef.current = true;
       try {
-        await hideAllRegisteredPageText();
-        navigate(nextPath);
+        if (shouldUseDissolveTransition(location.pathname, nextPath)) {
+          await runArchiveRouteTransition(location.pathname, nextPath, navigate);
+        } else {
+          await hideAllRegisteredPageText();
+          navigate(nextPath);
+        }
       } finally {
         transitionRef.current = false;
       }

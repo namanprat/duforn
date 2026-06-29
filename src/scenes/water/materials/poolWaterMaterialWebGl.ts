@@ -3,6 +3,7 @@
  */
 import * as THREE from "three";
 import { POOL_SIM_DEFAULTS, POOL_WATER_DEFAULTS } from "../config/poolWaterDefaults";
+import { rippleNormalScaleForHeightTexture } from "../halfFloatTextureFilter";
 import { SCENE_SUN_DIR } from "../../lighting/sun";
 import type { WaterPlanarBounds } from "../waterPlanarMapping";
 import { POOL_WATER_BREEZE_GLSL, getPoolWaterBreezeWindDir } from "./poolWaterBreeze";
@@ -184,10 +185,16 @@ function createDummyEnvTexture() {
 }
 
 /** Push static tuned values from poolWaterDefaults (called once at material init). */
-export function applyPoolWaterStaticParams(api: PoolWaterMaterialApi, { reducedMotion = false } = {}) {
+export function applyPoolWaterStaticParams(
+  api: PoolWaterMaterialApi,
+  { reducedMotion = false, gl }: { reducedMotion?: boolean; gl?: THREE.WebGLRenderer } = {},
+) {
   const w = POOL_WATER_DEFAULTS;
   const s = POOL_SIM_DEFAULTS;
   const breezeOff = reducedMotion ? 0 : 1;
+  const normalScale = gl
+    ? rippleNormalScaleForHeightTexture(gl, s.normalScale)
+    : s.normalScale;
   api.setParams({
     tintR: w.aboveWaterTint[0],
     tintG: w.aboveWaterTint[1],
@@ -207,7 +214,7 @@ export function applyPoolWaterStaticParams(api: PoolWaterMaterialApi, { reducedM
     reflectionRoughness: w.reflectionRoughness,
     chromaticAberration: w.chromaticAberration,
     sunGlintStrength: w.sunGlintStrength,
-    normalScale: s.normalScale,
+    normalScale,
     maxSlope: s.maxSlope,
     displacementScale: w.displacementScale,
     rippleStrength: w.normalStrength,

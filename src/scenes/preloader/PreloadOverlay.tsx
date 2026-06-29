@@ -16,31 +16,33 @@ export default function PreloadOverlay() {
       className={`scene_preload_overlay${isRevealing ? " scene_preload_overlay--revealing" : ""}`}
       aria-hidden={isRevealing}
     >
-      <div className="scene_preload_overlay_inner">
-        {showProgress ? (
-          <p className="scene_preload_progress" aria-live="polite">
-            {progress}%
-          </p>
-        ) : null}
-        {showEnter ? (
-          <div className="scene_preload_enter">
-            <button
-              type="button"
-              className="button button-primary scene_preload_enter_btn"
-              onClick={() => requestReveal(false)}
-            >
-              Enter
-            </button>
-            <button
-              type="button"
-              className="scene_preload_enter_muted"
-              onClick={() => requestReveal(true)}
-            >
-              Enter without sound
-            </button>
-          </div>
-        ) : null}
-      </div>
+      {!isRevealing ? (
+        <div className="scene_preload_overlay_inner">
+          {showProgress ? (
+            <p className="scene_preload_progress" aria-live="polite">
+              {progress}%
+            </p>
+          ) : null}
+          {showEnter ? (
+            <div className="scene_preload_enter">
+              <button
+                type="button"
+                className="button button-primary scene_preload_enter_btn"
+                onClick={() => requestReveal(false)}
+              >
+                Enter
+              </button>
+              <button
+                type="button"
+                className="scene_preload_enter_muted"
+                onClick={() => requestReveal(true)}
+              >
+                Enter without sound
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

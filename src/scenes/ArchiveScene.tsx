@@ -3,11 +3,13 @@ import ArchiveCameras from "./archive/ArchiveCameras";
 import ArchiveGridScene from "./archive/ArchiveGridScene";
 import ArchivePosterField from "./archive/ArchivePosterField";
 import ArchiveSceneClear from "./archive/ArchiveSceneClear";
+import ArchiveOrbReset from "./archive/ArchiveOrbReset";
 
 /** Single archive scene — orb unwraps into infinite grid via rigState.morph. */
 export default function ArchiveScene() {
   return (
     <>
+      <ArchiveOrbReset />
       <ArchiveSceneClear />
       <ArchiveCameras />
       <ArchiveGridScene />
