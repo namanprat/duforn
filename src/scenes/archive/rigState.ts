@@ -1,12 +1,12 @@
+import * as THREE from "three";
 import { ARCHIVE_CONFIG } from "./archiveConfig";
 import type { CellId, Vec3 } from "./archiveLayout";
 
 export const rigState = {
   zoom: ARCHIVE_CONFIG.globeZoom,
-  yaw: 0,
-  pitch: 0,
-  yawTarget: 0,
-  pitchTarget: 0,
+  /** Arcball orbit orientation — current (damped) and drag/idle target. */
+  orientation: new THREE.Quaternion(),
+  orientationTarget: new THREE.Quaternion(),
   isDragging: false,
 
   morph: 0,

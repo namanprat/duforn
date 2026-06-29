@@ -17,15 +17,10 @@ export type CellBounds = {
   maxCy: number;
 };
 
-const _qYaw = new THREE.Quaternion();
-const _qPitch = new THREE.Quaternion();
-const _qSpin = new THREE.Quaternion();
 const _v = new THREE.Vector3();
 const _from = new THREE.Vector3();
 const _to = new THREE.Vector3(0, 0, 1);
 const _qAlign = new THREE.Quaternion();
-const X_AXIS = new THREE.Vector3(1, 0, 0);
-const Y_AXIS = new THREE.Vector3(0, 1, 0);
 
 /** Even-ish spread of `count` points on a sphere of `radius` (Fibonacci spiral). */
 export function fibonacciSpherePoints(count: number, radius: number): Vec3[] {
@@ -42,27 +37,23 @@ export function fibonacciSpherePoints(count: number, radius: number): Vec3[] {
   return pts;
 }
 
-/** Apply orb yaw/pitch — same order as PosterTile. */
-export function rotateGlobePoint(pos: Vec3, yaw: number, pitch: number): Vec3 {
-  _qYaw.setFromAxisAngle(Y_AXIS, yaw);
-  _qPitch.setFromAxisAngle(X_AXIS, pitch);
-  _qSpin.copy(_qPitch).multiply(_qYaw);
-  _v.set(pos.x, pos.y, pos.z).applyQuaternion(_qSpin);
+/** Apply the orb's arcball orientation — same quaternion PosterTile uses. */
+export function rotateGlobePoint(pos: Vec3, orientation: THREE.Quaternion): Vec3 {
+  _v.set(pos.x, pos.y, pos.z).applyQuaternion(orientation);
   return { x: _v.x, y: _v.y, z: _v.z };
 }
 
 /** Front-facing tile nearest screen center (tie-break: closer to camera). */
 export function findFrontCenterTileIndex(
   globePositions: Vec3[],
-  yaw: number,
-  pitch: number,
+  orientation: THREE.Quaternion,
 ): number {
   let best = 0;
   let bestDist = Infinity;
   let bestZ = -Infinity;
 
   for (let i = 0; i < globePositions.length; i++) {
-    const r = rotateGlobePoint(globePositions[i]!, yaw, pitch);
+    const r = rotateGlobePoint(globePositions[i]!, orientation);
     if (r.z <= 0) continue;
     const dist = Math.hypot(r.x, r.y);
     if (dist < bestDist || (dist === bestDist && r.z > bestZ)) {

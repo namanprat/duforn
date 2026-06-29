@@ -19,14 +19,9 @@ export type TileData = {
   h: number;
 };
 
-const _qYaw = new THREE.Quaternion();
-const _qPitch = new THREE.Quaternion();
-const _qSpin = new THREE.Quaternion();
 const _orb = new THREE.Vector3();
 const _unwrap = new THREE.Vector3();
 const _target = new THREE.Vector3();
-const X_AXIS = new THREE.Vector3(1, 0, 0);
-const Y_AXIS = new THREE.Vector3(0, 1, 0);
 const damp = THREE.MathUtils.damp;
 const lerp = THREE.MathUtils.lerp;
 const smooth = (t: number) => t * t * (3 - 2 * t);
@@ -49,11 +44,7 @@ export default function PosterTile({ data }: PosterTileProps) {
     const m = rigState.morph;
     const eased = smooth(m);
 
-    _qYaw.setFromAxisAngle(Y_AXIS, rigState.yaw);
-    _qPitch.setFromAxisAngle(X_AXIS, rigState.pitch);
-    _qSpin.copy(_qPitch).multiply(_qYaw);
-
-    _orb.set(globePos.x, globePos.y, globePos.z).applyQuaternion(_qSpin);
+    _orb.set(globePos.x, globePos.y, globePos.z).applyQuaternion(rigState.orientation);
     // Grid target = home cell wrapped to the copy nearest the viewport, so the
     // grid loops infinitely in both axes as you pan (camera fixed, images move).
     // Same value drives the morph path and the settle, so the m=0.98 boundary is

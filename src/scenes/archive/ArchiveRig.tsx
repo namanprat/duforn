@@ -7,6 +7,14 @@ import { rigState } from "./rigState";
 const damp = THREE.MathUtils.damp;
 const clamp = THREE.MathUtils.clamp;
 
+/** Arcball orbit damping (slerp lambda) — between the old yaw=4 / pitch=5 feel. */
+const SPIN_DAMP = 4.5;
+const X_AXIS = new THREE.Vector3(1, 0, 0);
+const Y_AXIS = new THREE.Vector3(0, 1, 0);
+const _qDelta = new THREE.Quaternion();
+const _qTmp = new THREE.Quaternion();
+const _qSpin = new THREE.Quaternion();
+
 export default function ArchiveRig() {
   const { camera, gl } = useThree();
 
@@ -15,8 +23,7 @@ export default function ArchiveRig() {
     let down = false;
     let startX = 0;
     let startY = 0;
-    let baseA = 0;
-    let baseB = 0;
+    const baseQuat = new THREE.Quaternion();
     let basePanX = 0;
     let basePanY = 0;
     let maxTravel = 0;
@@ -31,8 +38,7 @@ export default function ArchiveRig() {
       startY = e.clientY;
       maxTravel = 0;
       rigState.isDragging = false;
-      baseA = rigState.yawTarget;
-      baseB = rigState.pitchTarget;
+      baseQuat.copy(rigState.orientationTarget);
       basePanX = rigState.gridPanTarget.x;
       basePanY = rigState.gridPanTarget.y;
       canvas.style.cursor = "grabbing";
@@ -51,8 +57,8 @@ export default function ArchiveRig() {
         const halfFov = (cam.fov * Math.PI) / 360;
         const h = gl.domElement.clientHeight || 1;
         // Grid pan speed per pixel of drag, inverted on both axes. Was 3× a 1:1
-        // grab; reduced by 70% (3 → 0.9) so the grid moves much less per drag.
-        const worldPerPx = (0.9 * camera.position.z * Math.tan(halfFov)) / h;
+        // grab; reduced to 0.9, then bumped 30% (0.9 → 1.17) for a livelier drag.
+        const worldPerPx = (1.17 * camera.position.z * Math.tan(halfFov)) / h;
         rigState.gridPanTarget.x = basePanX + dx * worldPerPx;
         rigState.gridPanTarget.y = basePanY - dy * worldPerPx;
         return;
@@ -63,9 +69,13 @@ export default function ArchiveRig() {
       const threshold = "ontouchstart" in window ? 15 : ARCHIVE_CONFIG.clickThreshold;
       if (maxTravel > threshold) rigState.isDragging = true;
 
-      // Both axes spin freely — top-to-bottom drag rotates the orb infinitely (no clamp).
-      rigState.yawTarget = baseA + dx * ARCHIVE_CONFIG.spinSensitivity;
-      rigState.pitchTarget = baseB + dy * ARCHIVE_CONFIG.spinSensitivity;
+      // Arcball: apply the drag as a rotation around the world (= screen) axes,
+      // pre-multiplied onto the pose at pointer-down. drag-x → yaw about screen-
+      // vertical, drag-y → pitch about screen-horizontal, consistent from any angle.
+      _qDelta.setFromAxisAngle(Y_AXIS, dx * ARCHIVE_CONFIG.spinSensitivity);
+      _qTmp.setFromAxisAngle(X_AXIS, dy * ARCHIVE_CONFIG.spinSensitivity);
+      _qDelta.multiply(_qTmp);
+      rigState.orientationTarget.copy(_qDelta).multiply(baseQuat);
     };
 
     const onUp = () => {
@@ -103,12 +113,12 @@ export default function ArchiveRig() {
 
   useFrame((_, delta) => {
     if (rigState.morph < 0.05 && !rigState.isDragging && !rigState.isMorphing) {
-      rigState.yawTarget += ARCHIVE_CONFIG.globeSpin * delta;
-      rigState.pitchTarget += ARCHIVE_CONFIG.globeSpin * delta;
+      // Gentle idle drift around the screen-vertical axis (horizontal globe spin).
+      _qSpin.setFromAxisAngle(Y_AXIS, ARCHIVE_CONFIG.globeSpin * delta);
+      rigState.orientationTarget.premultiply(_qSpin).normalize();
     }
 
-    rigState.yaw = damp(rigState.yaw, rigState.yawTarget, 4, delta);
-    rigState.pitch = damp(rigState.pitch, rigState.pitchTarget, 5, delta);
+    rigState.orientation.slerp(rigState.orientationTarget, 1 - Math.exp(-SPIN_DAMP * delta));
 
     rigState.gridPan.x = damp(
       rigState.gridPan.x,

@@ -12,7 +12,7 @@ function prepareGridMorph() {
   const positions = rigState.globePositions;
   if (!positions.length) return;
 
-  const anchorIdx = findFrontCenterTileIndex(positions, rigState.yaw, rigState.pitch);
+  const anchorIdx = findFrontCenterTileIndex(positions, rigState.orientation);
 
   rigState.gridAnchorIndex = anchorIdx;
   rigState.gridAnchorTextureIndex = rigState.tileTextureIndices[anchorIdx] ?? 0;

@@ -360,6 +360,8 @@ h1 {
   font-weight: 500;
   line-height: var(--typography-line-height-1);
   letter-spacing: var(--typography-letter-spacing);
+  padding-bottom: calc(var(--font-primary-trim-bottom) * -1 + 0.3em);
+  margin-bottom: -0.3em;
 }
 
 h2 {
@@ -368,6 +370,8 @@ h2 {
   font-weight: 500;
   line-height: var(--typography-line-height-1);
   letter-spacing: var(--typography-letter-spacing);
+  padding-bottom: calc(var(--font-primary-trim-bottom) * -1 + 0.3em);
+  margin-bottom: -0.3em;
 }
 
 h3 {
@@ -1622,12 +1626,10 @@ section {
   margin: -0.2em 0;
 }
 
-/* Hero lead: tight line-height (0.88) + secondary font push descenders (y, p) in
-   "Naman Pratulya" below GSAP's line-mask box, whose inline `overflow: clip`
-   (SplitText mask:"lines", see Reveal.tsx) cuts them off. Grow the mask's bottom
-   clip room — overflow:clip clips at the padding-box edge — and cancel it with an
-   equal negative margin so the flexed gap to the serif title stays unchanged. */
-.home-hero-brand-clip .text-reveal-line-mask {
+/* h1/h2 line reveal: room for descenders under GSAP mask:"lines" overflow:clip.
+   padding-bottom grows the mask clip box; negative margin keeps layout gap unchanged. */
+h1 .text-reveal-line-mask,
+h2 .text-reveal-line-mask {
   padding-bottom: 0.3em;
   margin-bottom: -0.3em;
 }
@@ -1650,8 +1652,8 @@ section {
 }
 
 /* Headings using TextRevealLines: room for line-mask motion (see TextRevealLines.tsx). */
-[data-text-reveal-root]:is(h1, h2, h3, h4, h5, h6),
-[data-text-reveal-root] :is(h1, h2, h3, h4, h5, h6) {
+[data-text-reveal-root]:is(h3, h4, h5, h6),
+[data-text-reveal-root] :is(h3, h4, h5, h6) {
   padding-block: 4px;
 }
 
