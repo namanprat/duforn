@@ -1,7 +1,7 @@
 import { button, folder, useControls } from "leva";
 import { usePostFxControlsStore } from "../store/postFx";
-import { getDeviceTier } from "../../lib/deviceTier";
-import { getQualityProfile } from "../../lib/qualityProfile";
+import { getDeviceTier } from "../lib/deviceTier";
+import { getQualityProfile } from "../lib/qualityProfile";
 
 const TONE_MAPPING_OPTIONS = {
   ACES_FILMIC: "ACES_FILMIC",

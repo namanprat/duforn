@@ -29,8 +29,12 @@ export const ARCHIVE_CONFIG = {
   unwrapScale: 2.8,
 } as const;
 
+// ivypresto-display (the site primary serif, `--text-style-font-primary`), n1 =
+// normal/weight-100 — the only weight the Typekit kit ships and the one the brand
+// text renders in. troika needs a direct font-file URL, so this is the kit's
+// opentype (`/a`) face, not the CSS family name.
 export const ARCHIVE_PRIMARY_FONT =
-  "https://use.typekit.net/af/b78836/00000000000000007735ba66/31/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n4&v=3";
+  "https://use.typekit.net/af/619bdc/00000000000000007735e5a5/31/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n1&v=3";
 
 export const ARCHIVE_GLOBE_HEIGHT =
   ARCHIVE_CONFIG.baseHeight * ARCHIVE_CONFIG.posterScale * ARCHIVE_CONFIG.globeScaleBoost;

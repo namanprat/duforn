@@ -50,8 +50,9 @@ export default function ArchiveRig() {
         const cam = camera as THREE.PerspectiveCamera;
         const halfFov = (cam.fov * Math.PI) / 360;
         const h = gl.domElement.clientHeight || 1;
-        // 1.5× a 1:1 grab — grid moves faster than the cursor. Inverted on both axes.
-        const worldPerPx = (3 * camera.position.z * Math.tan(halfFov)) / h;
+        // Grid pan speed per pixel of drag, inverted on both axes. Was 3× a 1:1
+        // grab; reduced by 70% (3 → 0.9) so the grid moves much less per drag.
+        const worldPerPx = (0.9 * camera.position.z * Math.tan(halfFov)) / h;
         rigState.gridPanTarget.x = basePanX + dx * worldPerPx;
         rigState.gridPanTarget.y = basePanY - dy * worldPerPx;
         return;

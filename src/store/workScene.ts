@@ -31,7 +31,7 @@ export const DEFAULT_WORK_SCENE_CONTROLS = {
     snapEpsilon: 0.0025,
     brightness: 1,
     contrast: 1,
-    saturation: 1.28,
+    saturation: 1.152,
     shadeMin: 0.62,
     shadeMax: 0.96,
     baseLight: 0.6,

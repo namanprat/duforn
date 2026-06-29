@@ -17,6 +17,7 @@ import { MAIN_POSE, poseToCameraPosition } from "./cam/roomPoses";
 import { getRouteNamespace, type RoomNamespace } from "../lib/route";
 import { getDeviceTier } from "../lib/deviceTier";
 import { getQualityProfile } from "../lib/qualityProfile";
+import { useDelayedActive } from "../lib/useDelayedActive";
 
 const DevSceneControls = import.meta.env.DEV
   ? lazy(() => import("./DevSceneControls"))
@@ -39,6 +40,8 @@ export default function SceneCanvas() {
   const activeRoom = (isProject ? "main" : activePage) as RoomNamespace;
   const isInteractive =
     isProject || isArchive || activeRoom === "work" || activeRoom === "main";
+  const enableWater = useDelayedActive(activeRoom === "main");
+  const enableStrip = useDelayedActive(activeRoom === "work");
 
   useEffect(() => {
     const nudge = () => window.dispatchEvent(new Event("resize"));
@@ -96,8 +99,8 @@ export default function SceneCanvas() {
               />
             </Suspense>
             <Suspense fallback={null}>
-              <BakedScene enableWater={activeRoom === "main"} />
-              {activeRoom === "work" ? <WorkClothStripScene activeRoom={activeRoom} /> : null}
+              <BakedScene enableWater={enableWater} />
+              {enableStrip ? <WorkClothStripScene activeRoom={activeRoom} /> : null}
             </Suspense>
           </>
         ) : null}
