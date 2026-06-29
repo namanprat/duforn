@@ -73,6 +73,21 @@ const config = {
     ],
     dedupe: ["three", "postprocessing"],
   },
+  // Lightning CSS (via vite-plus) runs with no targets by default, which made it
+  // drop the standard `backdrop-filter` and keep only `-webkit-` — killing the
+  // menu blur on every non-Safari browser. Give it real targets so it keeps the
+  // unprefixed property AND auto-adds `-webkit-` for older Safari. Versions are
+  // Lightning's encoding: (major << 16) | (minor << 8).
+  css: {
+    lightningcss: {
+      targets: {
+        chrome: 111 << 16,
+        firefox: 111 << 16,
+        safari: (15 << 16) | (4 << 8),
+        edge: 111 << 16,
+      },
+    },
+  },
   build: {
     assetsInclude: [
       "**/*.png",

@@ -6,6 +6,7 @@ import { SCENE_SUN_DIR } from "./lighting/sun";
 import { ensurePoolWaterMesh, applyWaterDebugMaterial } from "./water/createPoolWaterMesh";
 import WaterRipples from "./water/WaterRipples";
 import { WATER_DEBUG_HIGHLIGHT_PLANE } from "./water/config/poolWaterDefaults";
+import { getQualityProfile } from "../lib/qualityProfile";
 
 const MODEL_URL = "/main_scene.glb";
 const MODEL_SCALE = 13;
@@ -65,10 +66,11 @@ function computeShadowSetup(scene: THREE.Object3D, size: THREE.Vector3): ShadowS
   };
 }
 
-export default function BakedScene() {
+export default function BakedScene({ enableWater = true }: { enableWater?: boolean }) {
   const { scene } = useGLTF(MODEL_URL, true);
   const lightRef = useRef<THREE.DirectionalLight>(null);
   const modelRef = useRef<THREE.Group>(null);
+  const shadowMapSize = getQualityProfile().shadowMapSize;
 
   const { root, shadow } = useMemo(() => {
     if (scene.userData.__bakedPrepared) {
@@ -188,7 +190,7 @@ export default function BakedScene() {
         <primitive object={root} />
       </group>
 
-      {waterMesh && !WATER_DEBUG_HIGHLIGHT_PLANE ? (
+      {waterMesh && enableWater && !WATER_DEBUG_HIGHLIGHT_PLANE ? (
         <WaterRipples mesh={waterMesh} sceneRoot={root} />
       ) : null}
 
@@ -198,8 +200,8 @@ export default function BakedScene() {
         intensity={3.6}
         position={shadow.sunPos}
         castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
+        shadow-mapSize-width={shadowMapSize}
+        shadow-mapSize-height={shadowMapSize}
         shadow-bias={-0.0004}
         shadow-normalBias={0.6}
       />

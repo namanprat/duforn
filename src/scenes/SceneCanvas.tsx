@@ -15,34 +15,31 @@ import ProjectCoverScene from "../projectDetail/ProjectCoverScene";
 import MoneyMeStripScene from "../projectDetail/MoneyMeStripScene";
 import { MAIN_POSE, poseToCameraPosition } from "./cam/roomPoses";
 import { getRouteNamespace, type RoomNamespace } from "../lib/route";
+import { getDeviceTier } from "../lib/deviceTier";
+import { getQualityProfile } from "../lib/qualityProfile";
 
 const DevSceneControls = import.meta.env.DEV
   ? lazy(() => import("./DevSceneControls"))
   : () => null;
 
 const MAIN_CAMERA = poseToCameraPosition(MAIN_POSE);
+const deviceTier = getDeviceTier();
+const qualityProfile = getQualityProfile(deviceTier);
 
 /**
  * Single persistent canvas for all 3D. Route changes toggle scene subgraphs;
- * ScenePostFX always processes the final frame.
+ * ScenePostFX processes the final frame when the device tier supports it.
  */
 export default function SceneCanvas() {
   const location = useLocation();
   const activePage = getRouteNamespace(location.pathname);
   const isArchive = activePage === "archive";
   const isProject = activePage === "projectDetail";
-  // Archive gets its own globe scene + camera, so it's no longer a "room".
   const isRoom = !isProject && !isArchive;
   const activeRoom = (isProject ? "main" : activePage) as RoomNamespace;
   const isInteractive =
     isProject || isArchive || activeRoom === "work" || activeRoom === "main";
 
-  // R3F sizes its renderer from a ResizeObserver on its container. Under React
-  // StrictMode the observer can be torn down and re-attached on the dev
-  // double-mount without delivering an initial measurement, leaving the canvas
-  // stuck at the 300x150 default until the next window resize. Nudge a resize a
-  // few times after mount (the observer may attach a frame or two later) so the
-  // renderer picks up the real container size.
   useEffect(() => {
     const nudge = () => window.dispatchEvent(new Event("resize"));
     const rafs = [
@@ -56,19 +53,24 @@ export default function SceneCanvas() {
     };
   }, []);
 
+  if (deviceTier === 0) {
+    return <div className="scene_canvas_wrap scene_canvas_wrap--static" aria-hidden />;
+  }
+
+  const useGradePostFx = qualityProfile.postFxMode === "grade";
+
   return (
     <div className={`scene_canvas_wrap${isInteractive ? " scene_canvas_wrap--interactive" : ""}`}>
       <Canvas
-        // DPR back to native 2: the water's two full-scene passes that dropped
-        // the context at DPR 2 are now a basin-only backdrop + every-other-frame
-        // refresh (see WaterRipples / WaterBackdrop), so the fillrate headroom is
-        // there. Device-independent, no tiers.
-        dpr={[1, 2]}
+        dpr={[1, qualityProfile.maxDpr]}
         gl={{ antialias: true, stencil: false, localClippingEnabled: true }}
         shadows={{ type: THREE.PCFShadowMap }}
         onCreated={({ gl }) => {
-          // ScenePostFX owns tonemapping via EffectComposer — avoid double application.
-          gl.toneMapping = THREE.NoToneMapping;
+          if (useGradePostFx) {
+            gl.toneMapping = THREE.NoToneMapping;
+          } else {
+            gl.toneMapping = THREE.ACESFilmicToneMapping;
+          }
           gl.toneMappingExposure = 1.0;
           gl.outputColorSpace = THREE.SRGBColorSpace;
         }}
@@ -94,8 +96,8 @@ export default function SceneCanvas() {
               />
             </Suspense>
             <Suspense fallback={null}>
-              <BakedScene />
-              <WorkClothStripScene activeRoom={activeRoom} />
+              <BakedScene enableWater={activeRoom === "main"} />
+              {activeRoom === "work" ? <WorkClothStripScene activeRoom={activeRoom} /> : null}
             </Suspense>
           </>
         ) : null}

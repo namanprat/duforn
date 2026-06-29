@@ -1,5 +1,4 @@
-// Quality is a single device-independent config now (no tiers). The fixed sim /
-// caustics resolutions live in poolWaterDefaults (SIM_RES, CAUSTICS_SIZE).
+// Sim / caustics resolutions come from getWaterQuality() in poolWaterDefaults.
 
 export function uvToSimGrid(
   uv: { x: number; y: number },

@@ -1,5 +1,7 @@
 import { button, folder, useControls } from "leva";
 import { usePostFxControlsStore } from "../store/postFx";
+import { getDeviceTier } from "../../lib/deviceTier";
+import { getQualityProfile } from "../../lib/qualityProfile";
 
 const TONE_MAPPING_OPTIONS = {
   ACES_FILMIC: "ACES_FILMIC",
@@ -33,6 +35,10 @@ export default function ScenePostFXGui() {
   useControls(
     "Post FX",
     {
+      deviceTier: {
+        value: `tier ${getDeviceTier()} (max DPR ${getQualityProfile().maxDpr})`,
+        editable: false,
+      },
       enabled: {
         value: fx.enabled,
         onChange: (v) => setControl("enabled", v),

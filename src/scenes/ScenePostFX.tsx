@@ -1,45 +1,28 @@
-import { useMemo, type ReactNode } from "react";
-import {
-  ChromaticAberration,
-  DepthOfField,
-  EffectComposer,
-  Noise,
-  ToneMapping,
-  Vignette,
-} from "@react-three/postprocessing";
-import { ToneMappingMode } from "postprocessing";
-import { Vector2 } from "three";
+import { type ReactNode } from "react";
+import { wrapEffect } from "@react-three/postprocessing";
+import { DepthOfField, EffectComposer, Vignette } from "@react-three/postprocessing";
 import { usePostFxControlsStore } from "../store/postFx";
+import { getQualityProfile } from "../lib/qualityProfile";
 import SceneN8AOPass from "./SceneN8AOPass";
+import { SceneGradeEffect } from "./sceneGradeEffect";
 
-const TONE_MAPPING_MODES: Record<string, ToneMappingMode> = {
-  LINEAR: ToneMappingMode.LINEAR,
-  REINHARD: ToneMappingMode.REINHARD,
-  REINHARD2: ToneMappingMode.REINHARD2,
-  REINHARD2_ADAPTIVE: ToneMappingMode.REINHARD2_ADAPTIVE,
-  UNCHARTED2: ToneMappingMode.UNCHARTED2,
-  OPTIMIZED_CINEON: ToneMappingMode.OPTIMIZED_CINEON,
-  CINEON: ToneMappingMode.CINEON,
-  ACES_FILMIC: ToneMappingMode.ACES_FILMIC,
-  AGX: ToneMappingMode.AGX,
-  NEUTRAL: ToneMappingMode.NEUTRAL,
-};
+const Grade = wrapEffect(SceneGradeEffect);
 
 /**
- * Subtle realism stack: AO, ACES tonemapping, edge-weighted chromatic aberration,
- * restrained vignette, and film grain.
+ * Lightweight post stack: one merged grade pass (ACES + CA + grain) plus optional
+ * heavy passes (AO, DOF, vignette) when dev-toggled on.
  */
 export default function ScenePostFX({ children }: { children?: ReactNode }) {
   const fx = usePostFxControlsStore((s) => s.controls);
+  const profile = getQualityProfile();
 
-  const chromaticOffset = useMemo(
-    () => new Vector2(fx.chromaticAberration.offsetX, fx.chromaticAberration.offsetY),
-    [fx.chromaticAberration.offsetX, fx.chromaticAberration.offsetY],
-  );
+  if (!fx.enabled || profile.postFxMode === "off") return null;
 
-  if (!fx.enabled) return null;
+  const showGrade =
+    fx.toneMapping.enabled || fx.chromaticAberration.enabled || fx.grain.enabled;
+  const showHeavy = fx.ao.enabled || fx.dof.enabled || fx.vignette.enabled;
 
-  const toneMode = TONE_MAPPING_MODES[fx.toneMapping.mode] ?? ToneMappingMode.ACES_FILMIC;
+  if (!showGrade && !showHeavy && !children) return null;
 
   return (
     <EffectComposer multisampling={0} stencilBuffer={false}>
@@ -55,19 +38,12 @@ export default function ScenePostFX({ children }: { children?: ReactNode }) {
           quality={fx.ao.quality}
         />
       ) : null}
-      {fx.toneMapping.enabled ? <ToneMapping mode={toneMode} /> : null}
+      {showGrade ? <Grade /> : null}
       {fx.dof.enabled ? (
         <DepthOfField
           worldFocusDistance={fx.dof.worldFocusDistance}
           worldFocusRange={fx.dof.worldFocusRange}
           bokehScale={fx.dof.bokehScale}
-        />
-      ) : null}
-      {fx.chromaticAberration.enabled ? (
-        <ChromaticAberration
-          offset={chromaticOffset}
-          radialModulation={fx.chromaticAberration.radialModulation}
-          modulationOffset={fx.chromaticAberration.modulationOffset}
         />
       ) : null}
       {fx.vignette.enabled ? (
@@ -77,7 +53,6 @@ export default function ScenePostFX({ children }: { children?: ReactNode }) {
           darkness={fx.vignette.darkness}
         />
       ) : null}
-      {fx.grain.enabled ? <Noise opacity={fx.grain.opacity} /> : null}
       {children}
     </EffectComposer>
   );

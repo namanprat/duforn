@@ -15,14 +15,12 @@ import { loadWaterReflectionCubemap } from "./materials/poolWaterReflection";
 import { boxToPlanarBounds, type WaterPlanarBounds } from "./waterPlanarMapping";
 import { planeAlignmentSnapshot, syncPoolWaterPlane } from "./createPoolWaterMesh";
 import {
-  CAUSTICS_SIZE,
+  getWaterQuality,
   POOL_CAUSTICS_DEFAULTS,
   POOL_SIM_DEFAULTS,
   POOL_WATER_DEFAULTS,
   POOL_WATER_RENDER_ORDER,
-  SIM_RES,
   WATER_BASIN_LAYER,
-  WATER_PASS_INTERVAL,
   WATER_DEBUG_HIGHLIGHT_PLANE,
 } from "./config/poolWaterDefaults";
 import { uvToSimGrid } from "./waterSimUtils";
@@ -88,7 +86,10 @@ export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
   const basinMeshesRef = useRef<THREE.Object3D[]>([]);
   const passFrameRef = useRef(0);
 
-  const gridSize = SIM_RES;
+  const waterQuality = getWaterQuality();
+  const gridSize = waterQuality.simRes;
+  const causticsSize = waterQuality.causticsSize;
+  const waterPassInterval = waterQuality.passInterval;
   const nwRef = useRef(gridSize);
   const nhRef = useRef(gridSize);
 
@@ -204,11 +205,11 @@ export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
           rm.traverse((o) => o.layers.enable(WATER_BASIN_LAYER));
         }
         basinMeshesRef.current = receiverMeshes;
-        if (receiverMeshes.length > 0) {
+        if (receiverMeshes.length > 0 && causticsSize > 0) {
           const caustics = createHomeCaustics(renderer, {
             sim,
             bounds,
-            size: CAUSTICS_SIZE,
+            size: causticsSize,
           });
           if (cancelled) {
             caustics.dispose();
@@ -355,7 +356,7 @@ export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
     // Amortize both scene-draws: refresh every Nth frame. The surface keeps
     // sampling the last targets, so ripples animate at full rate while only the
     // reflected/refracted scene updates at 60/N Hz (masked by ripple distortion).
-    if (passFrameRef.current++ % WATER_PASS_INTERVAL !== 0) return;
+    if (passFrameRef.current++ % waterPassInterval !== 0) return;
 
     if (backdrop) {
       backdrop.resize();

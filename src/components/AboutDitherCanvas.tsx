@@ -4,6 +4,7 @@ import { wrapEffect } from "@react-three/postprocessing";
 import * as THREE from "three";
 import ScenePostFX from "../scenes/ScenePostFX";
 import { DitheringEffect } from "./aboutDitherEffect";
+import { getQualityProfile } from "../lib/qualityProfile";
 
 const HELMET_URL = "/jousting_helmet-transformed.glb";
 const BG = "#000000";
@@ -91,16 +92,18 @@ function AboutDitherScene() {
 }
 
 export default function AboutDitherCanvas() {
+  const profile = getQualityProfile();
+  const useGradePostFx = profile.postFxMode === "grade";
+
   return (
     <Canvas
       shadows={{ type: THREE.PCFShadowMap }}
-      dpr={[1, 2]}
+      dpr={[1, profile.maxDpr]}
       camera={{ position: [0, -1, 4], fov: 65 }}
       gl={{ alpha: false }}
       onCreated={({ gl }) => {
         gl.setClearColor(new THREE.Color(BG));
-        // ponytail: ScenePostFX owns tonemapping — same as main SceneCanvas
-        gl.toneMapping = THREE.NoToneMapping;
+        gl.toneMapping = useGradePostFx ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping;
       }}
       onWheel={(event) => event.stopPropagation()}
     >
