@@ -605,6 +605,75 @@ body.page-wrap:has([data-page-namespace="archive"]) {
   flex: 1;
 }
 
+html:not(.scene-live) .site_content,
+html:not(.scene-live) .site-header {
+  visibility: hidden;
+}
+
+.scene_preload_overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--swatch-dark);
+  color: var(--swatch-light);
+  pointer-events: auto;
+  transition: opacity 0.8s ease;
+}
+
+.scene_preload_overlay--revealing {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.scene_preload_overlay_inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--size-2rem);
+}
+
+.scene_preload_progress {
+  font-family: var(--text-style-font-tertiary);
+  font-size: var(--typography-font-size-body-small);
+  letter-spacing: var(--typography-letter-spacing);
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.scene_preload_enter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--size-1-5rem);
+}
+
+.scene_preload_enter_btn {
+  text-transform: uppercase;
+}
+
+.scene_preload_enter_muted {
+  font-family: var(--text-style-font-tertiary);
+  font-size: var(--typography-font-size-body-small);
+  letter-spacing: var(--typography-letter-spacing);
+  text-transform: uppercase;
+  color: var(--swatch-light);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scene_preload_overlay {
+    transition: none;
+  }
+}
+
 body.page-wrap.page-wrap--scrollable:has([data-page-namespace="projectDetail"]) {
   background-color: transparent !important;
 }

@@ -57,9 +57,10 @@ function meshWorldBox(mesh: THREE.Mesh) {
 type WaterRipplesProps = {
   mesh: THREE.Mesh;
   sceneRoot: THREE.Object3D;
+  onReady?: () => void;
 };
 
-export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
+export default function WaterRipples({ mesh, sceneRoot, onReady }: WaterRipplesProps) {
   const { gl, camera, scene } = useThree();
 
   const simRef = useRef<PoolWaterSim | null>(null);
@@ -85,6 +86,13 @@ export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
   const planeSnapshotRef = useRef(planeAlignmentSnapshot());
   const basinMeshesRef = useRef<THREE.Object3D[]>([]);
   const passFrameRef = useRef(0);
+  const readyReportedRef = useRef(false);
+
+  const reportReady = () => {
+    if (readyReportedRef.current) return;
+    readyReportedRef.current = true;
+    onReady?.();
+  };
 
   const waterQuality = getWaterQuality();
   const gridSize = waterQuality.simRes;
@@ -147,10 +155,16 @@ export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
     mesh.renderOrder = POOL_WATER_RENDER_ORDER;
     mesh.userData.isWater = true;
 
-    if (WATER_DEBUG_HIGHLIGHT_PLANE) return undefined;
+    if (WATER_DEBUG_HIGHLIGHT_PLANE) {
+      reportReady();
+      return undefined;
+    }
 
     const bounds = refreshBounds();
-    if (!bounds) return undefined;
+    if (!bounds) {
+      reportReady();
+      return undefined;
+    }
 
     const waterY = meshWorldBox(mesh).max.y;
     const { nw, nh } = simDimsFromBounds(bounds, gridSize);
@@ -187,6 +201,8 @@ export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
         materialApi.setBackdrop(backdrop.texture);
         materialApi.setPlanarReflection(planar.texture);
         applyPoolWaterStaticParams(materialApi);
+        // Boot gate: shaders exist; cubemap/caustics can finish during compile.
+        reportReady();
 
         const reflectionCube = await loadWaterReflectionCubemap(renderer);
         if (cancelled) {
@@ -249,6 +265,7 @@ export default function WaterRipples({ mesh, sceneRoot }: WaterRipplesProps) {
         if (import.meta.env.DEV) {
           console.error("[WaterRipples] failed to build pool water", err);
         }
+        reportReady();
       }
     })();
 

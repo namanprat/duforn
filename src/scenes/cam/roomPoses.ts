@@ -32,7 +32,9 @@ export function poseToCameraPosition(pose: CameraPose): { x: number; y: number; 
  * scene at MODEL_SCALE = 13. Tune live via RoomCameraGui (dev) and commit here.
  */
 // Main pose uses shared fov / center Y; work and contact override per-room.
-const SHARED_FOV = 70;
+export const SHARED_FOV = 70;
+export const BOOT_FOV = 85;
+export const BOOT_FOV_DURATION = 1.6;
 const SHARED_CENTER_Y = 19.6;
 
 export const MAIN_POSE: CameraPose = Object.freeze({

@@ -8,6 +8,7 @@ import {
   prefersReducedMotion,
   resolveMotionTokens,
   waitForCamera as waitForCameraGate,
+  waitForSceneAndCamera,
 } from "./useRevealGate";
 import { armScrollLineReveal, type ScrollLineRevealController } from "./scrollLineReveal";
 
@@ -31,6 +32,7 @@ interface TextRevealLinesProps {
   delay?: number;
   scope?: string;
   waitForCamera?: boolean;
+  waitForScene?: boolean;
   layoutKey?: number;
 }
 
@@ -41,6 +43,7 @@ export default function TextRevealLines({
   delay = 0,
   scope = "page",
   waitForCamera = false,
+  waitForScene = false,
   layoutKey = 0,
 }: TextRevealLinesProps) {
   const containerRef = useRef<HTMLElement | null>(null);
@@ -138,6 +141,10 @@ export default function TextRevealLines({
           return;
         }
         const fire = () => runRevealImmediate(0);
+        if (waitForCamera && waitForScene) {
+          disposeCamera = waitForSceneAndCamera(root, fire);
+          return;
+        }
         if (waitForCamera) {
           disposeCamera = waitForCameraGate(root, fire);
           return;
@@ -286,7 +293,7 @@ export default function TextRevealLines({
     },
     {
       scope: containerRef,
-      dependencies: [animateOnScroll, animate, delay, scope, waitForCamera, layoutKey],
+      dependencies: [animateOnScroll, animate, delay, scope, waitForCamera, waitForScene, layoutKey],
     },
   );
 

@@ -1,23 +1,23 @@
-import { Suspense, lazy, useEffect } from "react";
+import { Suspense, lazy, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { Canvas } from "@react-three/fiber";
-import { PerspectiveCamera } from "@react-three/drei";
+import { PerspectiveCamera, useEnvironment } from "@react-three/drei";
 import * as THREE from "three";
-import BakedScene from "./BakedScene";
 import CameraRig from "./CameraRig";
 import RoomCam from "./RoomCam";
-import Env from "./Env";
-import { WorkClothStripScene } from "../work/ClothStrip";
 import ScenePostFX from "./ScenePostFX";
 import ArchiveScene from "./ArchiveScene";
 import ProjectDetailScene from "../projectDetail/ProjectDetailScene";
 import ProjectCoverScene from "../projectDetail/ProjectCoverScene";
 import MoneyMeStripScene from "../projectDetail/MoneyMeStripScene";
-import { MAIN_POSE, poseToCameraPosition } from "./cam/roomPoses";
+import HomeSceneBoot from "./preloader/HomeSceneBoot";
+import { BOOT_FOV, MAIN_POSE, poseToCameraPosition } from "./cam/roomPoses";
 import { getRouteNamespace, type RoomNamespace } from "../lib/route";
 import { getDeviceTier } from "../lib/deviceTier";
 import { getQualityProfile } from "../lib/qualityProfile";
 import { useDelayedActive } from "../lib/useDelayedActive";
+import { installBootProgressTracking } from "./preloader/bootProgress";
+import { getSceneReady, hasInitialBootCompleted, setSceneReady, useSceneBootStore } from "./preloader/sceneReady";
 
 const DevSceneControls = import.meta.env.DEV
   ? lazy(() => import("./DevSceneControls"))
@@ -26,6 +26,8 @@ const DevSceneControls = import.meta.env.DEV
 const MAIN_CAMERA = poseToCameraPosition(MAIN_POSE);
 const deviceTier = getDeviceTier();
 const qualityProfile = getQualityProfile(deviceTier);
+
+useEnvironment.preload({ files: "/main.hdr" });
 
 /**
  * Single persistent canvas for all 3D. Route changes toggle scene subgraphs;
@@ -42,6 +44,14 @@ export default function SceneCanvas() {
     isProject || isArchive || activeRoom === "work" || activeRoom === "main";
   const enableWater = useDelayedActive(activeRoom === "main");
   const enableStrip = useDelayedActive(activeRoom === "work");
+  const setProgress = useSceneBootStore((s) => s.setProgress);
+  const bootProgressCleanupRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    if (deviceTier === 0 || !isRoom) {
+      setSceneReady(true);
+    }
+  }, [isRoom]);
 
   useEffect(() => {
     const nudge = () => window.dispatchEvent(new Event("resize"));
@@ -76,6 +86,10 @@ export default function SceneCanvas() {
           }
           gl.toneMappingExposure = 1.0;
           gl.outputColorSpace = THREE.SRGBColorSpace;
+          if (!hasInitialBootCompleted()) {
+            bootProgressCleanupRef.current?.();
+            bootProgressCleanupRef.current = installBootProgressTracking(setProgress);
+          }
         }}
       >
         {isRoom ? (
@@ -83,24 +97,18 @@ export default function SceneCanvas() {
             <PerspectiveCamera
               makeDefault
               position={[MAIN_CAMERA.x, MAIN_CAMERA.y, MAIN_CAMERA.z]}
-              fov={MAIN_POSE.fov}
+              fov={hasInitialBootCompleted() ? MAIN_POSE.fov : BOOT_FOV}
               near={0.1}
               far={1000}
             />
             <RoomCam activeRoom={activeRoom} />
             <CameraRig />
             <Suspense fallback={null}>
-              <Env
-                hdrFiles="/main.hdr"
-                showHdriBackground
-                fogColor={0x000000}
-                fogDensity={0}
-                showShadowCatcher={false}
+              <HomeSceneBoot
+                activeRoom={activeRoom}
+                enableWater={enableWater}
+                enableStrip={enableStrip}
               />
-            </Suspense>
-            <Suspense fallback={null}>
-              <BakedScene enableWater={enableWater} />
-              {enableStrip ? <WorkClothStripScene activeRoom={activeRoom} /> : null}
             </Suspense>
           </>
         ) : null}

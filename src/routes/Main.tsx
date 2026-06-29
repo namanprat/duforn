@@ -57,14 +57,14 @@ export default function MainPage() {
     >
       <div className="hero_contain u-container-main">
         <div className="hero_stack">
-          <CameraRevealGroup waitForCamera>
+          <CameraRevealGroup waitForCamera waitForScene>
             <p className="hero_eyebrow">{HERO_EYEBROW}</p>
           </CameraRevealGroup>
           <div className="home-hero-brand-clip">
-            <TextRevealLines animateOnScroll={false} waitForCamera>
+            <TextRevealLines animateOnScroll={false} waitForCamera waitForScene>
               <h1 className="hero_title_lead">{HERO_TITLE_LEAD}</h1>
             </TextRevealLines>
-            <TextRevealLines animateOnScroll={false} waitForCamera delay={0.06}>
+            <TextRevealLines animateOnScroll={false} waitForCamera waitForScene delay={0.06}>
               <p className="hero_title_serif">{HERO_TITLE_SERIF}</p>
             </TextRevealLines>
           </div>
@@ -73,11 +73,11 @@ export default function MainPage() {
               className="hero-stage__copy-rail"
               style={ctaWidthPx ? { width: ctaWidthPx } : undefined}
             >
-              <TextRevealLines animateOnScroll={false} waitForCamera delay={0.12}>
+              <TextRevealLines animateOnScroll={false} waitForCamera waitForScene delay={0.12}>
                 <p className="hero_text">{STUDIO_INTRO_COPY}</p>
               </TextRevealLines>
             </div>
-            <CameraRevealGroup waitForCamera delay={0.18}>
+            <CameraRevealGroup waitForCamera waitForScene delay={0.18}>
               <div className="hero_actions">
                 <a
                   ref={pillRef}

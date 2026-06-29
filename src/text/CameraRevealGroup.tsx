@@ -7,6 +7,7 @@ import {
   prefersReducedMotion,
   resolveMotionTokens,
   waitForCamera as waitForCameraGate,
+  waitForSceneAndCamera,
 } from "./useRevealGate";
 
 interface CameraRevealGroupProps {
@@ -14,6 +15,7 @@ interface CameraRevealGroupProps {
   delay?: number;
   yOffset?: number;
   waitForCamera?: boolean;
+  waitForScene?: boolean;
 }
 
 /** Fade + slide reveal for buttons and grouped UI, gated on camera arrival. */
@@ -22,6 +24,7 @@ export default function CameraRevealGroup({
   delay = 0,
   yOffset = 28,
   waitForCamera = true,
+  waitForScene = false,
 }: CameraRevealGroupProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -56,7 +59,9 @@ export default function CameraRevealGroup({
         });
       };
 
-      if (waitForCamera) {
+      if (waitForCamera && waitForScene) {
+        disposeCamera = waitForSceneAndCamera(root, runReveal);
+      } else if (waitForCamera) {
         disposeCamera = waitForCameraGate(root, runReveal);
       } else {
         runReveal();
@@ -111,7 +116,7 @@ export default function CameraRevealGroup({
     },
     {
       scope: containerRef,
-      dependencies: [delay, yOffset, waitForCamera],
+      dependencies: [delay, yOffset, waitForCamera, waitForScene],
     },
   );
 

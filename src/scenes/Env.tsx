@@ -1,3 +1,5 @@
+import { useEffect, useRef } from "react";
+import { useFrame, useThree } from "@react-three/fiber";
 import { Environment } from "@react-three/drei";
 
 interface EnvProps {
@@ -7,6 +9,24 @@ interface EnvProps {
   fogColor?: number | string;
   fogDensity?: number;
   showShadowCatcher?: boolean;
+  onEnvironmentReady?: () => void;
+}
+
+function EnvironmentReadyProbe({ onReady }: { onReady?: () => void }) {
+  const scene = useThree((s) => s.scene);
+  const reportedRef = useRef(false);
+
+  useFrame(() => {
+    if (reportedRef.current || !scene.environment) return;
+    reportedRef.current = true;
+    onReady?.();
+  });
+
+  useEffect(() => {
+    reportedRef.current = false;
+  }, [scene]);
+
+  return null;
 }
 
 /**
@@ -19,10 +39,12 @@ export default function Env({
   fogColor = 0xe6e4dc,
   fogDensity = 0.0165,
   showShadowCatcher = true,
+  onEnvironmentReady,
 }: EnvProps) {
   return (
     <>
       <Environment files={hdrFiles} background={showHdriBackground} resolution={512} />
+      <EnvironmentReadyProbe onReady={onEnvironmentReady} />
       {!showHdriBackground ? <color attach="background" args={[backgroundColor]} /> : null}
       {fogDensity > 1e-6 ? <fogExp2 attach="fog" color={fogColor} density={fogDensity} /> : null}
       {showShadowCatcher ? (

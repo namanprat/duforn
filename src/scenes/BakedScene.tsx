@@ -66,7 +66,17 @@ function computeShadowSetup(scene: THREE.Object3D, size: THREE.Vector3): ShadowS
   };
 }
 
-export default function BakedScene({ enableWater = true }: { enableWater?: boolean }) {
+export default function BakedScene({
+  enableWater = true,
+  visible = true,
+  onScenePrepared,
+  onWaterReady,
+}: {
+  enableWater?: boolean;
+  visible?: boolean;
+  onScenePrepared?: () => void;
+  onWaterReady?: () => void;
+}) {
   const { scene } = useGLTF(MODEL_URL, true);
   const lightRef = useRef<THREE.DirectionalLight>(null);
   const modelRef = useRef<THREE.Group>(null);
@@ -184,14 +194,25 @@ export default function BakedScene({ enableWater = true }: { enableWater?: boole
     cam.updateProjectionMatrix();
   }, [shadow]);
 
+  useEffect(() => {
+    onScenePrepared?.();
+  }, [onScenePrepared, root]);
+
+  useEffect(() => {
+    if (!onWaterReady) return;
+    if (!enableWater || !waterMesh || WATER_DEBUG_HIGHLIGHT_PLANE) {
+      onWaterReady();
+    }
+  }, [enableWater, onWaterReady, waterMesh]);
+
   return (
-    <>
+    <group visible={visible}>
       <group ref={modelRef} scale={MODEL_SCALE}>
         <primitive object={root} />
       </group>
 
       {waterMesh && enableWater && !WATER_DEBUG_HIGHLIGHT_PLANE ? (
-        <WaterRipples mesh={waterMesh} sceneRoot={root} />
+        <WaterRipples mesh={waterMesh} sceneRoot={root} onReady={onWaterReady} />
       ) : null}
 
       {/* Low raking sun: lights the deck and casts the long shadows onto it. */}
@@ -205,7 +226,7 @@ export default function BakedScene({ enableWater = true }: { enableWater?: boole
         shadow-bias={-0.0004}
         shadow-normalBias={0.6}
       />
-    </>
+    </group>
   );
 }
 

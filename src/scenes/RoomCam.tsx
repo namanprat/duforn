@@ -5,17 +5,19 @@ import { prefersReducedMotion } from "../lib/prefersReducedMotion";
 import {
   ROOM_POSES,
   ROOM_TRANSITION_SECONDS,
+  BOOT_FOV,
   posesEqual,
   type RoomNamespace,
 } from "./cam/roomPoses";
 import { setArrivedRoom } from "../lib/cam/arrival";
+import { getSceneBootPhase, hasInitialBootCompleted } from "./preloader/sceneReady";
 
 const ARRIVAL_LEAD_SECONDS = 0.2;
 Object.assign(cameraBasePoseRef.current, ROOM_POSES.main);
 
-function snapTo(target: (typeof ROOM_POSES)[RoomNamespace]) {
+function snapTo(target: (typeof ROOM_POSES)[RoomNamespace], fov = target.fov) {
   for (const key of POSE_KEYS) {
-    cameraBasePoseRef.current[key] = target[key];
+    cameraBasePoseRef.current[key] = key === "fov" ? fov : target[key];
   }
 }
 
@@ -48,9 +50,12 @@ export default function RoomCam({ activeRoom }: { activeRoom: RoomNamespace }) {
 
     if (prev == null || prefersReducedMotion() || samePose) {
       cameraTransitionRef.current = false;
-      snapTo(targetPose);
+      const useBootFov = prev == null && !hasInitialBootCompleted();
+      snapTo(targetPose, useBootFov ? BOOT_FOV : targetPose.fov);
       prevRoomRef.current = next;
-      setArrivedRoom(next);
+      if (getSceneBootPhase() === "live" || hasInitialBootCompleted()) {
+        setArrivedRoom(next);
+      }
       return;
     }
 

@@ -1,0 +1,212 @@
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useThree } from "@react-three/fiber";
+import gsap from "gsap";
+import BakedScene from "../BakedScene";
+import Env from "../Env";
+import { WorkClothStripScene } from "../../work/ClothStrip";
+import { cameraBasePoseRef } from "../cam/pose";
+import { BOOT_FOV_DURATION, SHARED_FOV } from "../cam/roomPoses";
+import type { RoomNamespace } from "../../lib/route";
+import { setArrivedRoom } from "../../lib/cam/arrival";
+import { prefersReducedMotion } from "../../lib/prefersReducedMotion";
+import {
+  markGlbGeometryReady,
+  reportCompileProgress,
+  reportHdrReady,
+  reportWaterReady,
+} from "./bootProgress";
+import { getSceneReady, hasInitialBootCompleted, setSceneReady, useSceneBootStore } from "./sceneReady";
+
+type HomeSceneBootProps = {
+  activeRoom: RoomNamespace;
+  enableWater: boolean;
+  enableStrip: boolean;
+};
+
+export default function HomeSceneBoot({
+  activeRoom,
+  enableWater,
+  enableStrip,
+}: HomeSceneBootProps) {
+  const skipBoot = hasInitialBootCompleted();
+  const phase = useSceneBootStore((s) => s.phase);
+  const revealNonce = useSceneBootStore((s) => s.revealNonce);
+  const setPhase = useSceneBootStore((s) => s.setPhase);
+  const setProgress = useSceneBootStore((s) => s.setProgress);
+
+  const [glbReady, setGlbReady] = useState(false);
+  const [hdrReady, setHdrReady] = useState(false);
+  const [waterReady, setWaterReady] = useState(!enableWater);
+  const compileStartedRef = useRef(false);
+  const revealTweenRef = useRef<gsap.core.Tween | null>(null);
+
+  const { gl, scene, camera } = useThree();
+
+  useEffect(() => {
+    if (!skipBoot) return;
+    cameraBasePoseRef.current.fov = SHARED_FOV;
+    if (!getSceneReady()) setSceneReady(true);
+    setArrivedRoom(activeRoom);
+  }, [activeRoom, skipBoot]);
+
+  useEffect(() => {
+    if (skipBoot) return;
+    setWaterReady(!enableWater);
+  }, [enableWater, skipBoot]);
+
+  // ponytail: don't block boot forever if water GPU init stalls
+  useEffect(() => {
+    if (skipBoot) return undefined;
+    if (!enableWater || waterReady) return undefined;
+    const timer = window.setTimeout(() => {
+      reportWaterReady();
+      setWaterReady(true);
+    }, 10_000);
+    return () => window.clearTimeout(timer);
+  }, [enableWater, skipBoot, waterReady]);
+
+  useEffect(() => {
+    if (skipBoot) return undefined;
+    if (hdrReady) return undefined;
+    const timer = window.setTimeout(() => {
+      reportHdrReady();
+      setHdrReady(true);
+    }, 10_000);
+    return () => window.clearTimeout(timer);
+  }, [hdrReady, skipBoot]);
+
+  useEffect(() => {
+    if (skipBoot) return;
+    if (compileStartedRef.current) return;
+    if (!glbReady) return;
+    if (!hdrReady) return;
+    if (enableWater && !waterReady) return;
+
+    compileStartedRef.current = true;
+    setPhase("compiling");
+
+    let cancelled = false;
+    (async () => {
+      const finish = () => {
+        if (cancelled) return;
+        reportCompileProgress(1);
+        setProgress(100);
+        setPhase("ready");
+      };
+
+      try {
+        reportCompileProgress(0.25);
+        // ponytail: race compile — full scene + post-FX can stall; boot must not hang
+        await Promise.race([
+          gl.compileAsync(scene, camera),
+          new Promise<void>((resolve) => window.setTimeout(resolve, 12_000)),
+        ]);
+        if (cancelled) return;
+        reportCompileProgress(0.75);
+        gl.render(scene, camera);
+        gl.render(scene, camera);
+        finish();
+      } catch {
+        finish();
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [camera, enableWater, gl, glbReady, hdrReady, scene, setPhase, setProgress, skipBoot, waterReady]);
+
+  useEffect(() => {
+    if (skipBoot) return;
+    if (revealNonce === 0) return;
+
+    revealTweenRef.current?.kill();
+    setPhase("revealing");
+
+    const finishReveal = () => {
+      cameraBasePoseRef.current.fov = SHARED_FOV;
+      setPhase("live");
+      setSceneReady(true);
+      setArrivedRoom(activeRoom);
+    };
+
+    if (prefersReducedMotion()) {
+      finishReveal();
+      return;
+    }
+
+    revealTweenRef.current = gsap.to(cameraBasePoseRef.current, {
+      fov: SHARED_FOV,
+      duration: BOOT_FOV_DURATION,
+      ease: "power3.out",
+      onComplete: finishReveal,
+    });
+
+    return () => {
+      revealTweenRef.current?.kill();
+      revealTweenRef.current = null;
+    };
+  }, [activeRoom, revealNonce, setPhase, skipBoot]);
+
+  const handleGlbReady = useCallback(() => {
+    markGlbGeometryReady();
+    setGlbReady(true);
+  }, []);
+
+  const handleWaterReady = useCallback(() => {
+    reportWaterReady();
+    setWaterReady(true);
+  }, []);
+
+  const handleHdrReady = useCallback(() => {
+    reportHdrReady();
+    setHdrReady(true);
+  }, []);
+
+  // Keep geometry in the graph (and visible to WebGL) while the overlay hides it.
+  const sceneVisible = phase !== "fetching";
+
+  if (skipBoot) {
+    return (
+      <>
+        <Suspense fallback={null}>
+          <Env
+            hdrFiles="/main.hdr"
+            showHdriBackground
+            fogColor={0x000000}
+            fogDensity={0}
+            showShadowCatcher={false}
+          />
+        </Suspense>
+        <Suspense fallback={null}>
+          <BakedScene enableWater={enableWater} />
+          {enableStrip ? <WorkClothStripScene activeRoom={activeRoom} /> : null}
+        </Suspense>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Suspense fallback={null}>
+        <Env
+          hdrFiles="/main.hdr"
+          showHdriBackground
+          fogColor={0x000000}
+          fogDensity={0}
+          showShadowCatcher={false}
+          onEnvironmentReady={handleHdrReady}
+        />
+      </Suspense>
+      <Suspense fallback={null}>
+        <BakedScene
+          enableWater={enableWater}
+          visible={sceneVisible}
+          onScenePrepared={handleGlbReady}
+          onWaterReady={handleWaterReady}
+        />
+        {enableStrip ? <WorkClothStripScene activeRoom={activeRoom} /> : null}
+      </Suspense>
+    </>
+  );
+}
