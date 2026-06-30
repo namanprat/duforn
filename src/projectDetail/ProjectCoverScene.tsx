@@ -1,7 +1,9 @@
 import { useMemo, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
+import { getCaseStudy } from "../content/projects";
 import { useProjectCanvasAnchor } from "./ProjectCanvasAnchor";
 import {
   applyClipping,
@@ -11,14 +13,15 @@ import {
   updateClipPlanes,
 } from "./domAnchorUtils";
 
-const COVER_URL = "/media/money-me/money-cover.webp";
 const COVER_Z = -5;
 
 /** Hero cover image rendered into the unified canvas, tracking the DOM anchor
  *  reserved by ProjectCoverAnchor — same screen-to-world approach as the strips. */
 export default function ProjectCoverScene() {
+  const { pathname } = useLocation();
+  const coverSrc = getCaseStudy(pathname)?.coverSrc ?? "";
   const { getAnchor } = useProjectCanvasAnchor("cover");
-  const texture = useTexture(COVER_URL);
+  const texture = useTexture(coverSrc);
   const { size } = useThree();
   const rootRef = useRef<THREE.Group>(null);
   const meshRef = useRef<THREE.Mesh>(null);
@@ -44,7 +47,7 @@ export default function ProjectCoverScene() {
     const root = rootRef.current;
     const mesh = meshRef.current;
     if (!root || !mesh) return;
-    if (!anchor) {
+    if (!anchor || !coverSrc) {
       root.visible = false;
       return;
     }

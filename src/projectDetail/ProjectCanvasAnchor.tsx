@@ -101,7 +101,7 @@ export function ProjectCoverAnchor({ src }: { src: string }) {
 /** Layout hole for the scroll-linked strip section. */
 export function ProjectStripsAnchor() {
   const { setRef } = useRegisterAnchor("strips");
-  return <div ref={setRef} data-money-me-strip="true" />;
+  return <div ref={setRef} data-project-strip="true" />;
 }
 
 /** @deprecated Use ProjectStripsAnchor */

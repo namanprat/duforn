@@ -9,7 +9,7 @@ import ScenePostFX from "./ScenePostFX";
 import ArchiveScene from "./ArchiveScene";
 import ProjectDetailScene from "../projectDetail/ProjectDetailScene";
 import ProjectCoverScene from "../projectDetail/ProjectCoverScene";
-import MoneyMeStripScene from "../projectDetail/MoneyMeStripScene";
+import ProjectStripSceneGate from "../projectDetail/ProjectStripSceneGate";
 import HomeSceneBoot from "./preloader/HomeSceneBoot";
 import { BOOT_FOV, MAIN_POSE, poseToCameraPosition } from "./cam/roomPoses";
 import { getRouteNamespace, type RoomNamespace } from "../lib/route";
@@ -114,7 +114,7 @@ export default function SceneCanvas() {
               <ProjectCoverScene />
             </Suspense>
             <Suspense fallback={null}>
-              <MoneyMeStripScene />
+              <ProjectStripSceneGate />
             </Suspense>
           </>
         ) : null}

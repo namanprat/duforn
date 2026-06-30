@@ -4,7 +4,8 @@ import SiteLayout from "./layout/Site";
 import MainPage from "./routes/Main";
 import WorkPage from "./routes/Work";
 import ContactPage from "./routes/Contact";
-import ProjectDetailPage from "./projectDetail/PageShell";
+import CaseStudyPage from "./projectDetail/CaseStudyPage";
+import { getCaseStudyTitle } from "./content/projects";
 import ArchivePage from "./routes/Archive";
 import { setNavigateHandler } from "./lib/nav";
 import { startWorkTexturePreload } from "./lib/work-preload";
@@ -21,7 +22,6 @@ const TITLES: Record<string, string> = {
   work: "Naman Pratulya | Work",
   contact: "Naman Pratulya | Contact",
   archive: "Naman Pratulya | Archive",
-  projectDetail: "Naman Pratulya | money.me",
 };
 
 function AppShell() {
@@ -52,7 +52,11 @@ function AppShell() {
   }, [navigate, location.pathname]);
 
   useLayoutEffect(() => {
-    document.title = TITLES[namespace] ?? TITLES.main;
+    const projectTitle = getCaseStudyTitle(location.pathname);
+    document.title =
+      projectTitle != null
+        ? `Naman Pratulya | ${projectTitle}`
+        : (TITLES[namespace] ?? TITLES.main);
     document.body.classList.add("page-wrap");
     document.body.classList.toggle("page-wrap--scrollable", namespace === "projectDetail");
 
@@ -66,7 +70,7 @@ function AppShell() {
       document.body.classList.remove("page-wrap--scrollable");
       destroyLenis();
     };
-  }, [namespace]);
+  }, [namespace, location.pathname]);
 
   useEffect(() => {
     if (namespace !== "projectDetail") return undefined;
@@ -93,7 +97,8 @@ export default function App() {
         <Route path="/work" element={<WorkPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/archive" element={<ArchivePage />} />
-        <Route path="/money-me" element={<ProjectDetailPage />} />
+        <Route path="/money-me" element={<CaseStudyPage />} />
+        <Route path="/haptic" element={<CaseStudyPage />} />
         <Route path="*" element={<MainPage />} />
       </Route>
     </Routes>

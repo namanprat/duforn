@@ -7,6 +7,7 @@ const PATH_TO_NAMESPACE: Record<string, AppNamespace> = {
   "/contact": "contact",
   "/archive": "archive",
   "/money-me": "projectDetail",
+  "/haptic": "projectDetail",
 };
 
 export function getRouteNamespace(pathname: string): AppNamespace {
