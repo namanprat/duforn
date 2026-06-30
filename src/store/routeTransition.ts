@@ -2,8 +2,8 @@ import { create } from "zustand";
 import gsap from "gsap";
 import { cameraBasePoseRef } from "../scenes/cam/pose";
 import { BOOT_FOV, BOOT_FOV_DURATION, SHARED_FOV } from "../scenes/cam/roomPoses";
-import { hidePageChrome, showPageChrome } from "../lib/pageChrome";
-import { hideAllRegisteredPageText, showAllRegisteredPageText } from "../lib/text";
+import { snapHidePageChrome, snapShowPageChrome } from "../lib/pageChrome";
+import { showAllRegisteredPageText, snapHideAllRegisteredPageText } from "../lib/text";
 import { getDeviceTier } from "../lib/deviceTier";
 import { prefersReducedMotion } from "../lib/prefersReducedMotion";
 import { resetArchiveToOrbView } from "./archiveView";
@@ -123,29 +123,25 @@ export async function runArchiveRouteTransition(
 ): Promise<void> {
   const toArchive = toPath === "/archive";
 
-  await Promise.all([hideAllRegisteredPageText(), hidePageChrome()]);
-  await waitFrames(1);
-
   if (!canRunDissolve()) {
     if (toArchive) resetArchiveToOrbView();
     navigate(toPath);
-    await waitFrames();
-    await showPageChrome(toArchive);
+    snapShowPageChrome(toArchive);
     if (!toArchive) await showAllRegisteredPageText();
     return;
   }
 
-  // Live center-pierce over the persistent canvas — a single open from centre, with the
-  // FOV punch, both entering and leaving the archive.
   await playDissolve({
-    fov: true,
+    fov: !toArchive,
     swap: () => {
+      snapHidePageChrome();
+      snapHideAllRegisteredPageText();
       if (toArchive) resetArchiveToOrbView();
       navigate(toPath);
     },
   });
 
-  await showPageChrome(toArchive);
+  snapShowPageChrome(toArchive);
   if (!toArchive) await showAllRegisteredPageText();
 }
 

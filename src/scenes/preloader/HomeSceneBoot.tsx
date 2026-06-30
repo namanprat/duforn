@@ -45,7 +45,8 @@ export default function HomeSceneBoot({
     if (!skipBoot) return;
     cameraBasePoseRef.current.fov = SHARED_FOV;
     if (!getSceneReady()) setSceneReady(true);
-    setArrivedRoom(activeRoom);
+    // ponytail: arrival is owned by RoomCam — don't fire here on route change or copy
+    // reveals before the camera tween's 200ms lead.
   }, [activeRoom, skipBoot]);
 
   useEffect(() => {

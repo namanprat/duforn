@@ -15,6 +15,7 @@ import { armScrollLineReveal, type ScrollLineRevealController } from "./scrollLi
 gsap.registerPlugin(SplitText);
 
 const LINE_CLASS = "text-reveal-line";
+const HIDDEN_Y = `${MOTION_TOKENS.textReveal.revealOvershootPercent}%`;
 
 function mergeRefs<T>(...refs: Array<React.Ref<T> | undefined>) {
   return (node: T | null) => {
@@ -173,7 +174,7 @@ export default function TextRevealLines({
       const setHidden = () => {
         collectLines();
         if (!lineEls.length) return false;
-        gsap.set(lineEls, { y: reduce ? "0%" : "100%" });
+        gsap.set(lineEls, { y: reduce ? "0%" : HIDDEN_Y });
         return true;
       };
 
@@ -236,6 +237,16 @@ export default function TextRevealLines({
 
       void start();
 
+      const snapHide = () => {
+        killScrollTriggers();
+        disposeCamera?.();
+        disposeCamera = null;
+        collectLines();
+        gsap.killTweensOf(lineEls);
+        if (!lineEls.length) return;
+        gsap.set(lineEls, { y: HIDDEN_Y });
+      };
+
       const hide = () =>
         new Promise<void>((resolve) => {
           killScrollTriggers();
@@ -248,12 +259,12 @@ export default function TextRevealLines({
             return;
           }
           if (reduce) {
-            gsap.set(lineEls, { y: "100%" });
+            gsap.set(lineEls, { y: HIDDEN_Y });
             resolve();
             return;
           }
           gsap.to(lineEls, {
-            y: "100%",
+            y: HIDDEN_Y,
             duration: hideDuration,
             stagger: hideStagger,
             ease: MOTION_TOKENS.textReveal.hideEase,
@@ -261,12 +272,19 @@ export default function TextRevealLines({
           });
         });
 
+      const isShown = () =>
+        lineEls.length > 0 && gsap.getProperty(lineEls[0], "y") === "0%";
+
       const show = () =>
         new Promise<void>((resolve) => {
           killScrollTriggers();
           disposeCamera?.();
           disposeCamera = null;
           collectLines();
+          if (isShown()) {
+            resolve();
+            return;
+          }
           gsap.killTweensOf(lineEls);
           if (!lineEls.length) {
             resolve();
@@ -278,7 +296,7 @@ export default function TextRevealLines({
             return;
           }
           if (animateOnScroll && scope === "page") {
-            gsap.set(lineEls, { y: "100%" });
+            gsap.set(lineEls, { y: HIDDEN_Y });
             runRevealScroll();
             resolve();
             return;
@@ -293,7 +311,7 @@ export default function TextRevealLines({
           });
         });
 
-      const unregister = registerPageTextReveal({ hide, show });
+      const unregister = registerPageTextReveal({ hide, show, snapHide });
 
       return () => {
         cancelled = true;

@@ -41,7 +41,10 @@ function AppShell() {
         if (shouldUseDissolveTransition(location.pathname, nextPath)) {
           await runArchiveRouteTransition(location.pathname, nextPath, navigate);
         } else {
-          await hideAllRegisteredPageText();
+          await Promise.race([
+            hideAllRegisteredPageText(),
+            new Promise<void>((resolve) => window.setTimeout(resolve, 1200)),
+          ]);
           navigate(nextPath);
         }
       } finally {
@@ -59,6 +62,9 @@ function AppShell() {
         : (TITLES[namespace] ?? TITLES.main);
     document.body.classList.add("page-wrap");
     document.body.classList.toggle("page-wrap--scrollable", namespace === "projectDetail");
+
+    const themeColor = document.querySelector('meta[name="theme-color"]');
+    themeColor?.setAttribute("content", namespace === "projectDetail" ? "#c3c3c3" : "#000000");
 
     if (namespace === "projectDetail") {
       initLenis();

@@ -55,11 +55,11 @@ export const ROOM_POSES: Record<RoomNamespace, CameraPose> = Object.freeze({
   work: Object.freeze({
     ...DEFAULT_CAMERA_BASE_POSE,
     orbitCenterX: 37,
-    orbitCenterY: 18.9,
+    orbitCenterY: 20,
     orbitCenterZ: -2,
     orbitRadius: 5,
     cameraHeight: 0,
-    fov: SHARED_FOV,
+    fov: 69,
     orbitAngleDeg: 90,
     lookAtYawDeg: 0,
     lookAtPitchDeg: 0,
@@ -81,3 +81,6 @@ export const ROOM_POSES: Record<RoomNamespace, CameraPose> = Object.freeze({
 
 /** Seconds per directed route transition. */
 export const ROOM_TRANSITION_SECONDS = 1.8;
+
+/** Mount water/strip after this delay on room change (not initial boot). */
+export const SUBGRAPH_ACTIVATE_SECONDS = 0.55;

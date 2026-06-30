@@ -1,14 +1,15 @@
 import {
   forwardRef,
+  useEffect,
   useImperativeHandle,
   useLayoutEffect,
   useRef,
+  useState,
 } from "react";
 import gsap from "gsap";
 import { SplitText } from "gsap/SplitText";
-import { ABOUT_CLIENTS, ABOUT_INTRO_PARAGRAPHS } from "../content/studio";
+import { ABOUT_CLIENTS, ABOUT_INTRO_PARAGRAPHS, ABOUT_SERVICES } from "../content/studio";
 import AboutDitherCanvas from "./AboutDitherCanvas";
-import Lenis from "lenis";
 import { MOTION_TOKENS } from "../lib/animation/motionTokens";
 import { prefersReducedMotion } from "../lib/prefersReducedMotion";
 
@@ -28,14 +29,16 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
   { active },
   ref,
 ) {
-  const wrapperRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const mediaRef = useRef<HTMLDivElement | null>(null);
   const linesRef = useRef<HTMLElement[]>([]);
   const splitsRef = useRef<SplitText[]>([]);
   const revealTweenRef = useRef<gsap.core.Tween | null>(null);
   const hideTweenRef = useRef<gsap.core.Tween | null>(null);
-  const rafRef = useRef(0);
+  // ponytail: the helmet Canvas does heavy synchronous Three.js init (env map, GLTF,
+  // postFX). Mounting it on the same frame as the reveal froze the line tween until init
+  // finished. Defer it until the reveal has played, then dissolve it in.
+  const [mountCanvas, setMountCanvas] = useState(false);
 
   const runHide = (up: boolean) => {
     revealTweenRef.current?.kill();
@@ -50,8 +53,10 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
     const stag = hideStagger * close;
     const total = dur + stag * Math.max(lines.length - 1, 0);
 
+    const overshoot = MOTION_TOKENS.textReveal.revealOvershootPercent;
+
     hideTweenRef.current = gsap.to(lines, {
-      yPercent: up ? -100 : 100,
+      yPercent: up ? -overshoot : overshoot,
       duration: dur,
       stagger: { each: stag, from: "end" },
       ease: hideEase,
@@ -70,12 +75,17 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
   }));
 
   useLayoutEffect(() => {
-    const wrapper = wrapperRef.current;
     const content = contentRef.current;
-    if (!active || !wrapper || !content) return;
+    if (!active || !content) return;
+
+    if (mediaRef.current) {
+      gsap.set(mediaRef.current, { clearProps: "opacity,visibility" });
+    }
 
     if (prefersReducedMotion()) {
       gsap.set(content, { clearProps: "opacity,visibility" });
+      if (mediaRef.current) gsap.set(mediaRef.current, { autoAlpha: 1 });
+      setMountCanvas(true);
       return;
     }
 
@@ -97,7 +107,7 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
     splitsRef.current = splits;
     const allLines = splits.flatMap((split) => split.lines) as HTMLElement[];
     linesRef.current = allLines;
-    gsap.set(allLines, { yPercent: 100 });
+    gsap.set(allLines, { yPercent: MOTION_TOKENS.textReveal.revealOvershootPercent });
     gsap.set(content, { autoAlpha: 1 });
 
     const { revealDuration, revealStagger, revealEase } = MOTION_TOKENS.textReveal;
@@ -108,37 +118,17 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
       ease: revealEase,
     });
 
-    // Dissolve the 3D canvas in, in parallel over the full text-reveal span.
+    // Mount helmet early in the reveal so init overlaps text (preload handles GLTF).
     const revealSpan = revealDuration + revealStagger * Math.max(allLines.length - 1, 0);
-    if (mediaRef.current) {
-      gsap.fromTo(
-        mediaRef.current,
-        { autoAlpha: 0 },
-        { autoAlpha: 1, duration: revealSpan, ease: revealEase },
-      );
-    }
-
-    const lenis = new Lenis({
-      wrapper,
-      content,
-      lerp: 0.1,
-      smoothWheel: true,
-      wheelMultiplier: 0.8,
-    });
-    lenis.scrollTo(0, { immediate: true });
-    lenis.resize();
-
-    const raf = (time: number) => {
-      lenis.raf(time);
-      rafRef.current = requestAnimationFrame(raf);
-    };
-    rafRef.current = requestAnimationFrame(raf);
-
-    const resizeId = requestAnimationFrame(() => lenis.resize());
+    const canvasDelayMs = Math.min(
+      MOTION_TOKENS.menu.aboutHelmetMountMaxMs,
+      revealSpan * 1000 * 0.2,
+    );
+    const canvasTimer = window.setTimeout(() => setMountCanvas(true), canvasDelayMs);
 
     return () => {
-      cancelAnimationFrame(rafRef.current);
-      cancelAnimationFrame(resizeId);
+      window.clearTimeout(canvasTimer);
+      setMountCanvas(false);
       revealTweenRef.current?.kill();
       hideTweenRef.current?.kill();
       splits.forEach((split) => {
@@ -150,13 +140,22 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
       });
       splitsRef.current = [];
       linesRef.current = [];
-      lenis.destroy();
       gsap.set(content, { clearProps: "opacity,visibility" });
     };
   }, [active]);
 
+  // Dissolve the helmet canvas in once it mounts (after the text reveal).
+  useEffect(() => {
+    if (!mountCanvas || !mediaRef.current || prefersReducedMotion()) return;
+    gsap.fromTo(
+      mediaRef.current,
+      { autoAlpha: 0 },
+      { autoAlpha: 1, duration: MOTION_TOKENS.menu.aboutHelmetFadeIn, ease: MOTION_TOKENS.textReveal.revealEase },
+    );
+  }, [mountCanvas]);
+
   return (
-    <div className="about-panel__scroll" ref={wrapperRef} data-lenis-prevent="true">
+    <div className="about-panel__scroll">
       <div className="about-panel__content" ref={contentRef}>
         {ABOUT_INTRO_PARAGRAPHS.map((paragraph) => (
           <p key={paragraph} className="about-panel__text" data-reveal>
@@ -165,21 +164,36 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
         ))}
 
         <div className="about-panel__media" ref={mediaRef}>
-          {active && <AboutDitherCanvas />}
+          {mountCanvas && <AboutDitherCanvas />}
         </div>
 
-        <section className="about-panel__section">
-          <p className="about-panel__label" data-reveal>
-            Clients
-          </p>
-          <div className="about-panel__list">
-            {ABOUT_CLIENTS.map((client) => (
-              <p key={client} className="about-panel__item" data-reveal>
-                {client}
-              </p>
-            ))}
-          </div>
-        </section>
+        <div className="about-panel__columns">
+          <section className="about-panel__col">
+            <p className="about-panel__label" data-reveal>
+              Services
+            </p>
+            <div className="about-panel__list">
+              {ABOUT_SERVICES.map((service) => (
+                <p key={service} className="about-panel__item" data-reveal>
+                  {service}
+                </p>
+              ))}
+            </div>
+          </section>
+
+          <section className="about-panel__col">
+            <p className="about-panel__label" data-reveal>
+              Clients
+            </p>
+            <div className="about-panel__list about-panel__list--clients">
+              {ABOUT_CLIENTS.map((client) => (
+                <p key={client} className="about-panel__item" data-reveal>
+                  {client}
+                </p>
+              ))}
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   );

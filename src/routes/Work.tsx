@@ -2,12 +2,24 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { workItems } from "../content/work-items";
 import { navigateTo } from "../lib/nav";
 import TextRevealLines from "../text/Reveal";
+import { getActiveStripItemIndex } from "../work/math";
+import { DEFAULT_GAP_SIZE, getStripVisibleItems, NUM_UNIQUE_FALLBACK } from "../work/config";
+
+function workTitleAtScrollZero() {
+  const idx = getActiveStripItemIndex(
+    0,
+    getStripVisibleItems(),
+    DEFAULT_GAP_SIZE,
+    NUM_UNIQUE_FALLBACK,
+  );
+  return workItems[idx]?.title ?? "Work";
+}
 
 export default function WorkPage() {
-  const initialTitle = workItems[0]?.title ?? "Work";
-  const [title, setTitle] = useState<string>(initialTitle);
+  const [title, setTitle] = useState(workTitleAtScrollZero);
+  // First mount reveals (camera-gated); later title swaps remount via key={title} into the
+  // no-animate branch. Effect-based so StrictMode's double render doesn't kill the reveal.
   const revealedRef = useRef(false);
-  // ponytail: ref gates first reveal only; strip title changes remount via key without re-animating
 
   useEffect(() => {
     revealedRef.current = true;
@@ -59,6 +71,7 @@ export default function WorkPage() {
         <h1
           className="u-container-full u-text-align-center u-text-style-display work-page__title u-color-light"
           data-work-strip-title
+          data-no-strip-drag
           role="link"
           tabIndex={0}
           onClick={handleTitleActivate}

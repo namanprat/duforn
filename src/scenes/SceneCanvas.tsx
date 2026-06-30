@@ -11,7 +11,7 @@ import ProjectDetailScene from "../projectDetail/ProjectDetailScene";
 import ProjectCoverScene from "../projectDetail/ProjectCoverScene";
 import ProjectStripSceneGate from "../projectDetail/ProjectStripSceneGate";
 import HomeSceneBoot from "./preloader/HomeSceneBoot";
-import { BOOT_FOV, MAIN_POSE, poseToCameraPosition } from "./cam/roomPoses";
+import { BOOT_FOV, MAIN_POSE, SUBGRAPH_ACTIVATE_SECONDS, poseToCameraPosition } from "./cam/roomPoses";
 import { getRouteNamespace, type RoomNamespace } from "../lib/route";
 import { getDeviceTier } from "../lib/deviceTier";
 import { getQualityProfile } from "../lib/qualityProfile";
@@ -42,8 +42,13 @@ export default function SceneCanvas() {
   const activeRoom = (isProject ? "main" : activePage) as RoomNamespace;
   const isInteractive =
     isProject || isArchive || activeRoom === "work" || activeRoom === "main";
-  const enableWater = useDelayedActive(activeRoom === "main");
-  const enableStrip = useDelayedActive(activeRoom === "work");
+  // Defer mounting these heavy subgraphs until the room transition has settled, so their
+  // Three.js init lands after the camera move instead of stuttering it. Initial boot is
+  // unaffected (useDelayedActive seeds the first-render active state without delay).
+  const subgraphActivateDelayMs = SUBGRAPH_ACTIVATE_SECONDS * 1000;
+  const subgraphDeloadDelayMs = 1000;
+  const enableWater = useDelayedActive(activeRoom === "main", subgraphDeloadDelayMs, subgraphActivateDelayMs);
+  const enableStrip = useDelayedActive(activeRoom === "work", subgraphDeloadDelayMs, subgraphActivateDelayMs);
   const setProgress = useSceneBootStore((s) => s.setProgress);
   const bootProgressCleanupRef = useRef<(() => void) | null>(null);
 

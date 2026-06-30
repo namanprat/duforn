@@ -67,6 +67,13 @@ export default function CameraRevealGroup({
         runReveal();
       }
 
+      const snapHide = () => {
+        disposeCamera?.();
+        disposeCamera = null;
+        gsap.killTweensOf(items);
+        gsap.set(items, { y: yOffset, opacity: 0 });
+      };
+
       const hide = () =>
         new Promise<void>((resolve) => {
           disposeCamera?.();
@@ -87,8 +94,17 @@ export default function CameraRevealGroup({
           });
         });
 
+      const isShown = () =>
+        items.length > 0 &&
+        gsap.getProperty(items[0], "opacity") === 1 &&
+        gsap.getProperty(items[0], "y") === 0;
+
       const show = () =>
         new Promise<void>((resolve) => {
+          if (isShown()) {
+            resolve();
+            return;
+          }
           gsap.killTweensOf(items);
           if (reduce) {
             gsap.set(items, { y: 0, opacity: 1 });
@@ -106,7 +122,7 @@ export default function CameraRevealGroup({
           });
         });
 
-      const unregister = registerPageTextReveal({ hide, show });
+      const unregister = registerPageTextReveal({ hide, show, snapHide });
 
       return () => {
         unregister();

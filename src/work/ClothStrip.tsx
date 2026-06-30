@@ -10,15 +10,31 @@ import {
   COLS,
   DEFAULT_GAP_SIZE,
   DEFAULT_VISIBLE_ITEMS,
+  MOBILE_STRIP_MQ,
+  MOBILE_VISIBLE_ITEMS,
   NUM_UNIQUE_FALLBACK as NUM_UNIQUE,
   ROWS,
 } from "./config";
-import { getActiveStripItemIndex, resolveVisibleSlotAtUv } from "./math";
+import { getActiveStripItemIndex, getScrollToCenterSlot, resolveVisibleSlotAtUv } from "./math";
 import { SCENE_SUN_DIR } from "../scenes/lighting/sun";
 
 const GRAB_SCALE = 0.96;
 const GRAB_SCALE_LERP = 0.14;
 const DRAG_THRESHOLD_PX = 8;
+
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(query).matches,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const onChange = () => setMatches(mq.matches);
+    setMatches(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [query]);
+  return matches;
+}
 
 function loadTextureAssets(urls: string[], options = {}) {
   return Promise.all(urls.map((url) => loadTextureAsset(url, options)));
@@ -273,13 +289,17 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
   const onWorkRef = useRef(false);
   onWorkRef.current = activeRoom === "work";
   const stripControls = useWorkSceneControlsStore((state) => state.controls.strip);
-  const visibleItems = Math.max(1, stripControls.visibleItems ?? DEFAULT_VISIBLE_ITEMS);
+  const isMobileStrip = useMediaQuery(MOBILE_STRIP_MQ);
+  const visibleItems = Math.max(
+    1,
+    isMobileStrip ? MOBILE_VISIBLE_ITEMS : DEFAULT_VISIBLE_ITEMS,
+  );
   const gapSize = stripControls.gapSize ?? DEFAULT_GAP_SIZE;
   const scrollConfig = {
     wheelSensitivity: stripControls.wheelSensitivity,
-    dragSensitivity: stripControls.dragSensitivity,
+    dragSensitivity: stripControls.dragSensitivity * (isMobileStrip ? 1.5 : 1),
     dragVelocityScale: stripControls.dragVelocityScale,
-    scrollLerp: stripControls.scrollLerp,
+    scrollLerp: isMobileStrip ? 0.15 : stripControls.scrollLerp,
     scrollDamping: stripControls.scrollDamping,
     scrollDraggingDamping: stripControls.scrollDraggingDamping,
     snapVelocityThreshold: stripControls.snapVelocityThreshold,
@@ -301,11 +321,11 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
     dragDist: 0,
   });
   const hoverStripRef = useRef(false);
-  // Seed with the first item's title so the opening frame doesn't dispatch a
-  // redundant title event — WorkPage already renders this title, and a spurious
-  // dispatch remounts the title's reveal (key={title}) into its no-animate branch,
-  // killing the camera-gated first reveal.
-  const currentTitleRef = useRef(workItems[0]?.title ?? "");
+  // ponytail: seed with the actually-centered item (not workItems[0]) so the opening
+  // frame matches WorkPage's title and dispatches no redundant event.
+  const currentTitleRef = useRef(
+    workItems[getActiveStripItemIndex(0, visibleItems, gapSize, NUM_UNIQUE)]?.title ?? "",
+  );
   const grabScaleRef = useRef(1);
 
   const updateStripCursor = () => {
@@ -356,6 +376,14 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
       scrollRef.current.target += delta * scrollConfig.wheelSensitivity;
       scrollRef.current.velocity += delta * scrollConfig.wheelSensitivity * 0.24;
     };
+    const onPointerDown = (e: PointerEvent) => {
+      if (!canInteract()) return;
+      const target = e.target;
+      if (target instanceof Element && target.closest("[data-no-strip-drag]")) {
+        return;
+      }
+      beginStripDrag(e.clientX, e.pointerId);
+    };
     const onPointerMove = (e: PointerEvent) => {
       if (!inputRef.current.isDown || !inputRef.current.startedOnStrip) return;
       const dx = e.clientX - inputRef.current.lastX;
@@ -373,11 +401,13 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
     };
 
     window.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onPointerUp);
     window.addEventListener("pointercancel", onPointerUp);
     return () => {
       window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerUp);
@@ -388,6 +418,7 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
     scrollConfig.dragSensitivity,
     scrollConfig.dragVelocityScale,
     scrollConfig.wheelSensitivity,
+    scrollConfig.scrollLerp,
   ]);
 
   useEffect(() => {
@@ -533,7 +564,7 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
       sys.uniforms.uGravityScale.value = sc.gravityScale ?? 1.2;
     }
 
-    const vi = Math.max(1, sc.visibleItems ?? DEFAULT_VISIBLE_ITEMS);
+    const vi = visibleItems;
     const gs = sc.gapSize ?? DEFAULT_GAP_SIZE;
     const centerIdx = getActiveStripItemIndex(s.current, vi, gs, NUM_UNIQUE);
     const newTitle = workItems[centerIdx]?.title || "";
@@ -576,9 +607,20 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
       NUM_UNIQUE,
     );
     if (!resolvedSlot) return;
-    const href = workItems[resolvedSlot.itemIndex]?.href;
-    if (!href) return;
-    navigateTo(href);
+    const centerIdx = getActiveStripItemIndex(
+      scrollRef.current.current,
+      visibleItems,
+      gapSize,
+      NUM_UNIQUE,
+    );
+    if (resolvedSlot.itemIndex === centerIdx) {
+      const href = workItems[resolvedSlot.itemIndex]?.href;
+      if (href) navigateTo(href); // already centered → open
+      return;
+    }
+    // off-center → glide it to center; useFrame's dispatch updates the title.
+    scrollRef.current.target = getScrollToCenterSlot(resolvedSlot.slotIndex, visibleItems);
+    scrollRef.current.velocity = 0;
   };
 
   return (

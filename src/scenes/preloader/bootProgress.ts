@@ -40,6 +40,7 @@ export function installBootProgressTracking(onProgress: (progress: number) => vo
 
   manager.onProgress = (url, loaded, total) => {
     prevOnProgress?.(url, loaded, total);
+    if (typeof url !== "string") return;
     if (url.includes("main_scene.glb") && total > 0) {
       segmentState.glb = loaded / total;
       publish();
@@ -52,6 +53,8 @@ export function installBootProgressTracking(onProgress: (progress: number) => vo
 
   manager.onLoad = (url) => {
     prevOnLoad?.(url);
+    // ponytail: Three.js calls onLoad with no url when the whole queue finishes
+    if (typeof url !== "string") return;
     if (url.includes("main_scene.glb")) {
       segmentState.glb = 1;
       publish();

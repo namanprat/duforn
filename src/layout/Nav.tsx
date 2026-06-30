@@ -149,7 +149,7 @@ export default function Nav() {
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [closeAll, isAbout, isOpen]);
 
-  const handleSurfaceKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+  const handleToggleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (shellOpen || isMorphing) return;
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
@@ -166,7 +166,7 @@ export default function Nav() {
     toggleLabel === "Menu" ? "Open menu" : toggleLabel === "Back" ? "Back to menu" : "Close menu";
 
   return (
-    <header className={`site-header${isOpen ? " site-header--menu-open" : ""}`}>
+    <header className={`site-header${isOpen ? " site-header--menu-open" : ""}`} data-no-strip-drag>
       <button
         type="button"
         className="menu-nav-backdrop"
@@ -194,32 +194,18 @@ export default function Nav() {
             aria-modal={isOpen ? true : undefined}
             aria-label={isOpen ? "Site menu" : undefined}
           >
-            <div
-              ref={surfaceRef}
-              className="menu-nav__surface"
-              {...(!shellOpen && !isMorphing
-                ? {
-                    role: "button",
-                    tabIndex: 0,
-                    "aria-label": "Open menu",
-                    "data-rotate-hover": useRotateHover ? "" : undefined,
-                    onClick: openMenu,
-                    onKeyDown: handleSurfaceKeyDown,
-                  }
-                : {})}
-            >
+            <div ref={surfaceRef} className="menu-nav__surface">
               <div className="menu-nav__chrome">
                 <button
                   type="button"
                   className="menu-nav__toggle link-main"
-                  aria-label={shellOpen ? toggleAriaLabel : undefined}
+                  aria-label={shellOpen ? toggleAriaLabel : "Open menu"}
                   aria-expanded={isOpen}
                   aria-controls="site-menu-body"
-                  aria-hidden={!shellOpen}
-                  tabIndex={shellOpen ? 0 : -1}
+                  tabIndex={0}
                   data-rotate-hover={useRotateHover ? "" : undefined}
-                  onClick={shellOpen ? handleToggleClick : undefined}
-                  style={!shellOpen ? { pointerEvents: "none" } : undefined}
+                  onClick={shellOpen ? handleToggleClick : openMenu}
+                  onKeyDown={!shellOpen ? handleToggleKeyDown : undefined}
                 >
                   {useRotateHover ? (
                     <RotateHoverLabel

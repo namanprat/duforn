@@ -1,10 +1,14 @@
 import { OrbitControls, Center, Environment, Float, Lightformer, useGLTF } from "@react-three/drei";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { wrapEffect } from "@react-three/postprocessing";
+import { useEffect } from "react";
 import * as THREE from "three";
-import ScenePostFX from "../scenes/ScenePostFX";
+import AboutPostFX from "./AboutPostFX";
 import { DitheringEffect } from "./aboutDitherEffect";
+import { AboutDistortionEffect, aboutDistortionState } from "./aboutDistortionEffect";
 import { getQualityProfile } from "../lib/qualityProfile";
+import { hasFinePointerHover } from "../lib/link-hover";
+import { prefersReducedMotion } from "../lib/prefersReducedMotion";
 
 const HELMET_URL = "/jousting_helmet-transformed.glb";
 const BG = "#000000";
@@ -15,6 +19,8 @@ const Dither = wrapEffect(DitheringEffect, {
   pixelSizeRatio: 1,
   grayscaleOnly: true,
 });
+
+const Distortion = wrapEffect(AboutDistortionEffect);
 
 useGLTF.preload(HELMET_URL);
 
@@ -70,6 +76,73 @@ function Helmet() {
   );
 }
 
+function isInsideRect(event: PointerEvent, rect: DOMRect): boolean {
+  return (
+    event.clientX >= rect.left &&
+    event.clientX <= rect.right &&
+    event.clientY >= rect.top &&
+    event.clientY <= rect.bottom
+  );
+}
+
+function AboutDistortionHover() {
+  const { gl } = useThree();
+
+  useEffect(() => {
+    if (!hasFinePointerHover() || prefersReducedMotion()) return;
+
+    const el = gl.domElement;
+    const hitTarget = el.closest(".about-panel__media") ?? el;
+
+    const syncPointer = (event: PointerEvent) => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      aboutDistortionState.pointer.set(
+        (event.clientX - rect.left) / rect.width,
+        1 - (event.clientY - rect.top) / rect.height,
+      );
+    };
+
+    const onPointerMove = (event: PointerEvent) => {
+      const rect = hitTarget.getBoundingClientRect();
+      if (!isInsideRect(event, rect)) {
+        aboutDistortionState.strengthTarget = 0;
+        return;
+      }
+      syncPointer(event);
+      aboutDistortionState.strengthTarget = 1;
+    };
+
+    const onPointerLeave = (event: PointerEvent) => {
+      if (event.relatedTarget instanceof Node && hitTarget.contains(event.relatedTarget)) return;
+      aboutDistortionState.strengthTarget = 0;
+    };
+
+    const onBlur = () => {
+      aboutDistortionState.strengthTarget = 0;
+    };
+
+    hitTarget.addEventListener("pointermove", onPointerMove, { passive: true });
+    hitTarget.addEventListener("pointerleave", onPointerLeave);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      hitTarget.removeEventListener("pointermove", onPointerMove);
+      hitTarget.removeEventListener("pointerleave", onPointerLeave);
+      window.removeEventListener("blur", onBlur);
+      aboutDistortionState.strength = 0;
+      aboutDistortionState.strengthTarget = 0;
+    };
+  }, [gl]);
+
+  useFrame((_, delta) => {
+    const lerp = 1 - Math.exp(-delta * 10);
+    aboutDistortionState.strength +=
+      (aboutDistortionState.strengthTarget - aboutDistortionState.strength) * lerp;
+  });
+
+  return null;
+}
+
 function AboutDitherScene() {
   return (
     <>
@@ -84,9 +157,11 @@ function AboutDitherScene() {
       <Environment resolution={1024} background={false} environmentIntensity={1.5}>
         <Room highlight="#066aff" />
       </Environment>
-      <ScenePostFX>
+      <AboutDistortionHover />
+      <AboutPostFX>
+        <Distortion />
         <Dither />
-      </ScenePostFX>
+      </AboutPostFX>
     </>
   );
 }

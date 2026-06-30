@@ -9,6 +9,8 @@ import {
   waitForCamera as waitForCameraGate,
 } from "./useRevealGate";
 
+const HIDDEN_Y = `${MOTION_TOKENS.textReveal.revealOvershootPercent}%`;
+
 interface MaskRevealProps {
   children: React.ReactNode;
   delay?: number;
@@ -35,7 +37,7 @@ export default function MaskReveal({
       const reduce = prefersReducedMotion();
       const { revealDuration, hideDuration } = resolveMotionTokens(reduce);
 
-      gsap.set(inner, { y: reduce ? "0%" : "100%" });
+      gsap.set(inner, { y: reduce ? "0%" : HIDDEN_Y });
 
       let disposeCamera: (() => void) | null = null;
 
@@ -59,26 +61,39 @@ export default function MaskReveal({
         runReveal();
       }
 
+      const snapHide = () => {
+        disposeCamera?.();
+        disposeCamera = null;
+        gsap.killTweensOf(inner);
+        gsap.set(inner, { y: HIDDEN_Y });
+      };
+
       const hide = () =>
         new Promise<void>((resolve) => {
           disposeCamera?.();
           disposeCamera = null;
           gsap.killTweensOf(inner);
           if (reduce) {
-            gsap.set(inner, { y: "100%" });
+            gsap.set(inner, { y: HIDDEN_Y });
             resolve();
             return;
           }
           gsap.to(inner, {
-            y: "100%",
+            y: HIDDEN_Y,
             duration: hideDuration,
             ease: MOTION_TOKENS.textReveal.hideEase,
             onComplete: () => resolve(),
           });
         });
 
+      const isShown = () => gsap.getProperty(inner, "y") === "0%";
+
       const show = () =>
         new Promise<void>((resolve) => {
+          if (isShown()) {
+            resolve();
+            return;
+          }
           gsap.killTweensOf(inner);
           if (reduce) {
             gsap.set(inner, { y: "0%" });
@@ -94,7 +109,7 @@ export default function MaskReveal({
           });
         });
 
-      const unregister = registerPageTextReveal({ hide, show });
+      const unregister = registerPageTextReveal({ hide, show, snapHide });
 
       return () => {
         unregister();

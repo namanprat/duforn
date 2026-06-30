@@ -1,7 +1,14 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import type { PerspectiveCamera } from "three";
-import { cameraBasePoseRef, cameraRigControlsRef, cameraTransitionRef } from "./cam/pose";
+import {
+  cameraBasePoseRef,
+  cameraFovOffsetRef,
+  cameraRigControlsRef,
+  cameraTransitionRef,
+} from "./cam/pose";
+import { mapDeviceOrientationToParallax, tryEnableGyroParallax } from "../lib/deviceOrientation";
+import { hasFinePointerHover } from "../lib/link-hover";
 import { prefersReducedMotion } from "../lib/prefersReducedMotion";
 
 /**
@@ -28,9 +35,13 @@ const HANDHELD_DRIFT = Object.freeze({
   yFreq2: 1.1,
   zAmp: 0.013,
   zFreq: 0.6,
-  rollAmp: 0.0035,
-  rollFreq: 0.82,
 });
+
+interface ParallaxOffset {
+  angle: number;
+  y: number;
+  tilt: number;
+}
 
 interface CameraRigProps {
   parallaxScale?: number;
@@ -49,9 +60,28 @@ function normalizePoint(clientX: number, clientY: number): { x: number; y: numbe
   };
 }
 
+function zeroOffset(target: ParallaxOffset) {
+  target.angle = 0;
+  target.y = 0;
+  target.tilt = 0;
+}
+
+function applyParallaxInput(
+  target: ParallaxOffset,
+  x: number,
+  y: number,
+  parallaxScale: number,
+  parallaxAngleScale: number,
+  gyroYScale = 1,
+) {
+  target.angle = x * PARALLAX.angleRange * parallaxScale * parallaxAngleScale;
+  target.y = y * PARALLAX.yRange * parallaxScale * gyroYScale;
+  target.tilt = x * PARALLAX.tiltRange * parallaxScale * parallaxAngleScale;
+}
+
 /**
  * Orbital parallax camera. RoomCam drives the base orbit pose
- * (`cameraBasePoseRef`); pointer movement adds a smooth wobble on top.
+ * (`cameraBasePoseRef`); pointer or gyro movement adds a smooth wobble on top.
  */
 export default function CameraRig({
   parallaxScale = 1,
@@ -60,34 +90,28 @@ export default function CameraRig({
   locked = false,
 }: CameraRigProps) {
   const { camera } = useThree();
+  const usePointerParallax = hasFinePointerHover();
 
-  const current = useRef({ angle: 0, y: 0, tilt: 0 });
-  const pointerTarget = useRef({ angle: 0, y: 0, tilt: 0 });
+  const current = useRef<ParallaxOffset>({ angle: 0, y: 0, tilt: 0 });
+  const pointerTarget = useRef<ParallaxOffset>({ angle: 0, y: 0, tilt: 0 });
+  const gyroTarget = useRef<ParallaxOffset>({ angle: 0, y: 0, tilt: 0 });
   const smoothedDeltaRef = useRef(1 / 60);
   const lastFovRef = useRef<number | null>(null);
 
   useEffect(() => {
+    if (!usePointerParallax) return;
+
     const onPointerMove = (event: PointerEvent) => {
       if (!cameraRigControlsRef.current.parallaxEnabled) {
-        const t = pointerTarget.current;
-        t.angle = 0;
-        t.y = 0;
-        t.tilt = 0;
+        zeroOffset(pointerTarget.current);
         return;
       }
       const { x, y } = normalizePoint(event.clientX, event.clientY);
-      const t = pointerTarget.current;
-      t.angle = x * PARALLAX.angleRange * parallaxScale * parallaxAngleScale;
-      t.y = y * PARALLAX.yRange * parallaxScale;
-      t.tilt = x * PARALLAX.tiltRange * parallaxScale * parallaxAngleScale;
+      applyParallaxInput(pointerTarget.current, x, y, parallaxScale, parallaxAngleScale);
     };
 
-    // Ease back to center when the pointer leaves the window or focus is lost.
     const recenter = () => {
-      const t = pointerTarget.current;
-      t.angle = 0;
-      t.y = 0;
-      t.tilt = 0;
+      zeroOffset(pointerTarget.current);
     };
 
     window.addEventListener("pointermove", onPointerMove, { passive: true });
@@ -98,17 +122,63 @@ export default function CameraRig({
       document.removeEventListener("mouseleave", recenter);
       window.removeEventListener("blur", recenter);
     };
-  }, [parallaxScale, parallaxAngleScale]);
+  }, [parallaxScale, parallaxAngleScale, usePointerParallax]);
+
+  useEffect(() => {
+    if (usePointerParallax || prefersReducedMotion()) return;
+
+    const onDeviceOrientation = (event: DeviceOrientationEvent) => {
+      if (!cameraRigControlsRef.current.gyroEnabled) {
+        zeroOffset(gyroTarget.current);
+        return;
+      }
+      const mapped = mapDeviceOrientationToParallax(event);
+      if (!mapped) return;
+      applyParallaxInput(
+        gyroTarget.current,
+        mapped.x,
+        mapped.y,
+        parallaxScale,
+        parallaxAngleScale,
+        1.1,
+      );
+    };
+
+    window.addEventListener("deviceorientation", onDeviceOrientation, { passive: true });
+    return () => {
+      window.removeEventListener("deviceorientation", onDeviceOrientation);
+    };
+  }, [parallaxScale, parallaxAngleScale, usePointerParallax]);
+
+  // ponytail: one-shot fallback for return visits that skip the preloader Enter flow (iOS needs gesture)
+  useEffect(() => {
+    if (usePointerParallax || prefersReducedMotion()) return undefined;
+
+    const onPointerDown = () => {
+      if (cameraRigControlsRef.current.gyroEnabled) return;
+      void tryEnableGyroParallax().then((allowed) => {
+        cameraRigControlsRef.current.gyroEnabled = allowed;
+      });
+    };
+
+    const wrap = document.querySelector(".scene_canvas_wrap--interactive");
+    wrap?.addEventListener("pointerdown", onPointerDown, { once: true, passive: true });
+    return () => {
+      wrap?.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [usePointerParallax]);
 
   useFrame((state, delta) => {
     if (locked) return;
 
     const base = cameraBasePoseRef.current;
-    const target = pointerTarget.current;
+    const activeTarget = usePointerParallax ? pointerTarget.current : gyroTarget.current;
+
     if (!cameraRigControlsRef.current.parallaxEnabled) {
-      target.angle = 0;
-      target.y = 0;
-      target.tilt = 0;
+      zeroOffset(activeTarget);
+    }
+    if (!usePointerParallax && !cameraRigControlsRef.current.gyroEnabled) {
+      zeroOffset(gyroTarget.current);
     }
 
     const rawDelta = Math.min(Math.max(delta, 1 / 120), 0.1);
@@ -118,9 +188,9 @@ export default function CameraRig({
     const lerpFactor = Math.min(PARALLAX.lerp * fpsFactor, 1.0);
 
     const cur = current.current;
-    cur.angle += (target.angle - cur.angle) * lerpFactor;
-    cur.y += (target.y - cur.y) * lerpFactor;
-    cur.tilt += (target.tilt - cur.tilt) * lerpFactor;
+    cur.angle += (activeTarget.angle - cur.angle) * lerpFactor;
+    cur.y += (activeTarget.y - cur.y) * lerpFactor;
+    cur.tilt += (activeTarget.tilt - cur.tilt) * lerpFactor;
 
     const cx = base.orbitCenterX;
     const cy = base.orbitCenterY;
@@ -135,7 +205,6 @@ export default function CameraRig({
 
     const driftEnabled =
       handheldDriftScale > 0 && !prefersReducedMotion() && !cameraTransitionRef.current;
-    let rollDrift = 0;
     if (driftEnabled) {
       const dt = state.clock.elapsedTime;
       const hd = handheldDriftScale;
@@ -143,14 +212,14 @@ export default function CameraRig({
       camX += (Math.sin(dt * d.xFreq1) * d.xAmp1 + Math.sin(dt * d.xFreq2) * d.xAmp2) * hd;
       camY += (Math.sin(dt * d.yFreq1) * d.yAmp1 + Math.cos(dt * d.yFreq2) * d.yAmp2) * hd;
       camZ += Math.cos(dt * d.zFreq) * d.zAmp * hd;
-      rollDrift = Math.sin(dt * d.rollFreq) * d.rollAmp * hd;
     }
 
     const cam = camera as PerspectiveCamera;
-    if (lastFovRef.current !== base.fov) {
-      cam.fov = base.fov;
+    const fov = base.fov + cameraFovOffsetRef.current;
+    if (lastFovRef.current !== fov) {
+      cam.fov = fov;
       cam.updateProjectionMatrix();
-      lastFovRef.current = base.fov;
+      lastFovRef.current = fov;
     }
 
     const lookYaw = ((base.lookAtYawDeg ?? 0) * Math.PI) / 180;
@@ -165,7 +234,7 @@ export default function CameraRig({
 
     cam.position.set(camX, camY, camZ);
     cam.lookAt(lookTargetX, lookTargetY, lookTargetZ);
-    cam.rotation.z += cur.tilt + rollDrift;
+    cam.rotation.z += cur.tilt;
   }, -1);
 
   return null;

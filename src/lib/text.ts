@@ -1,6 +1,7 @@
 export type TextRevealControl = {
   hide: () => Promise<void>;
   show: () => Promise<void>;
+  snapHide: () => void;
 };
 
 const pageControls = new Set<TextRevealControl>();
@@ -14,6 +15,12 @@ export function registerPageTextReveal(control: TextRevealControl) {
 
 export async function hideAllRegisteredPageText() {
   await Promise.all([...pageControls].map((c) => c.hide()));
+}
+
+export function snapHideAllRegisteredPageText() {
+  for (const control of pageControls) {
+    control.snapHide();
+  }
 }
 
 export async function showAllRegisteredPageText() {

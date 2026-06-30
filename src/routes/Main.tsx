@@ -1,9 +1,12 @@
 import { useLayoutEffect, useRef, useState } from "react";
+import gsap from "gsap";
 import { navigateTo } from "../lib/nav";
+import { cameraFovOffsetRef } from "../scenes/cam/pose";
+import { ROOM_TRANSITION_SECONDS } from "../scenes/cam/roomPoses";
 import TextRevealLines from "../text/Reveal";
 import CameraRevealGroup from "../text/CameraRevealGroup";
 import RotateHoverLabel from "../components/RotateHoverLabel";
-import { shouldUseNavRotateHover } from "../lib/link-hover";
+import { shouldUseNavRotateHover, hasFinePointerHover } from "../lib/link-hover";
 import {
   STUDIO_INTRO_COPY,
   HERO_EYEBROW,
@@ -14,6 +17,7 @@ import {
 export default function MainPage() {
   const pillRef = useRef<HTMLAnchorElement | null>(null);
   const useRotateHover = shouldUseNavRotateHover();
+  const usePillFovHover = hasFinePointerHover();
   // Width of the centered pill. The copy rail is sized to this so the
   // left-aligned paragraph shares the button's left edge (per Figma), while the
   // text overflows to the right.
@@ -50,6 +54,28 @@ export default function MainPage() {
     navigateTo(path);
   };
 
+  // Hovering "View Work" gently eases the camera FOV -1 (and back on leave).
+  const onPillEnter = () =>
+    gsap.to(cameraFovOffsetRef, { current: -1, duration: 0.2, ease: "sine.inOut", overwrite: true });
+  const onPillLeave = () =>
+    gsap.to(cameraFovOffsetRef, { current: 0, duration: 0.2, ease: "sine.inOut", overwrite: true });
+
+  // On unmount (e.g. navigating to Work) ease the hover offset back to 0 over the same
+  // curve the room transition uses for fov, so base.fov + offset stays monotonic and
+  // doesn't flicker. useLayoutEffect so it starts in the same commit as RoomCam's fov
+  // tween (a passive effect would start a frame late and desync the cancellation).
+  useLayoutEffect(
+    () => () => {
+      gsap.to(cameraFovOffsetRef, {
+        current: 0,
+        duration: ROOM_TRANSITION_SECONDS,
+        ease: "power3.inOut",
+        overwrite: true,
+      });
+    },
+    [],
+  );
+
   return (
     <main
       className="hero_wrap u-min-height-screen u-color-light u-background-transparent"
@@ -83,13 +109,24 @@ export default function MainPage() {
                   ref={pillRef}
                   className="button button-primary hero_pill"
                   href="/work"
+                  data-no-strip-drag
                   data-rotate-hover={useRotateHover ? "" : undefined}
                   onClick={(e) => go(e, "/work")}
+                  {...(usePillFovHover
+                    ? {
+                        onMouseEnter: onPillEnter,
+                        onMouseLeave: onPillLeave,
+                        onFocus: onPillEnter,
+                        onBlur: onPillLeave,
+                      }
+                    : {})}
                 >
                   <span className="hero_pill_text">
                     {useRotateHover ? <RotateHoverLabel text="View Work" /> : "View Work"}
                   </span>
-                  <span className="hero_pill_dot" aria-hidden="true" />
+                  <span className="hero_pill_arrow" aria-hidden="true">
+                    ↗
+                  </span>
                 </a>
               </div>
             </CameraRevealGroup>

@@ -32,11 +32,20 @@ export function getActiveStripItemIndex(
   return getWrappedItemIndex(centeredSlot, itemCount);
 }
 
+// Inverse of getActiveStripItemIndex: the scroll that centers an absolute slot.
+export function getScrollToCenterSlot(slotIndex: number, visibleItems: number) {
+  return slotIndex - visibleItems * 0.5 + 0.5;
+}
+
 // ponytail: self-check — fails in devtools if center slot drifts from shader uv=0.5.
 (() => {
   for (const scroll of [0, 1, -1]) {
     const center = getActiveStripItemIndex(scroll, 7, 0.04, 6);
     const hit = resolveVisibleSlotAtUv(0.5, scroll, 7, 0.04, 6);
     console.assert(hit?.itemIndex === center, "work strip center slot at uv=0.5");
+  }
+  for (const slot of [0, 3, 8]) {
+    const roundTrip = getActiveStripItemIndex(getScrollToCenterSlot(slot, 7), 7, 0.04, 6);
+    console.assert(roundTrip === ((slot % 6) + 6) % 6, "work strip center slot round-trip");
   }
 })();

@@ -1,5 +1,6 @@
 import { MOTION_TOKENS } from "../lib/animation/motionTokens";
 import { CAMERA_ARRIVED_EVENT, getArrivedRoom } from "../lib/cam/arrival";
+import { cameraTransitionRef } from "../scenes/cam/pose";
 import { getSceneReady, SCENE_READY_EVENT } from "../scenes/preloader/sceneReady";
 import { ROOM_TRANSITION_SECONDS } from "../scenes/cam/roomPoses";
 
@@ -9,6 +10,12 @@ import { ROOM_TRANSITION_SECONDS } from "../scenes/cam/roomPoses";
 // Ceiling: a fixed timeout — if room transitions ever exceed this, bump it or
 // switch to a "transition settled" signal instead of a timer.
 const CAMERA_GATE_FALLBACK_MS = ROOM_TRANSITION_SECONDS * 1000 + 300;
+
+function isCameraReadyForRoom(expectedRoom: string | null): boolean {
+  if (cameraTransitionRef.current) return false;
+  if (expectedRoom) return getArrivedRoom() === expectedRoom;
+  return getArrivedRoom() != null;
+}
 
 export { prefersReducedMotion } from "../lib/prefersReducedMotion";
 
@@ -25,8 +32,7 @@ export function resolveMotionTokens(reduce: boolean) {
 export function waitForCamera(root: Element | null, onReady: () => void): () => void {
   const host = root?.closest?.("[data-page-namespace]") ?? null;
   const expectedRoom = host?.getAttribute("data-page-namespace") ?? null;
-  const isReady = expectedRoom ? getArrivedRoom() === expectedRoom : getArrivedRoom() != null;
-  if (isReady) {
+  if (isCameraReadyForRoom(expectedRoom)) {
     onReady();
     return () => {};
   }
@@ -60,6 +66,7 @@ export function waitForSceneAndCamera(root: Element | null, onReady: () => void)
   const expectedRoom = host?.getAttribute("data-page-namespace") ?? null;
 
   const check = () => {
+    if (cameraTransitionRef.current) return false;
     const cameraOk = expectedRoom ? getArrivedRoom() === expectedRoom : getArrivedRoom() != null;
     return cameraOk && getSceneReady();
   };

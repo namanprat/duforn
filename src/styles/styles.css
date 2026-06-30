@@ -13,9 +13,16 @@ html,
 body {
   width: 100%;
   height: 100%;
-  background-color: transparent;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  background-color: var(--swatch-dark);
+}
+
+body {
+  background-color: transparent;
 }
 
 /* Prevent font scaling on mobile landscape */
@@ -37,6 +44,8 @@ html {
 
   --swatch-light: #f6f6f6;
   --swatch-dark: #000000;
+
+  --project-overscroll-bg: #c3c3c3;
 
   --swatch-light-o20: color-mix(in srgb, var(--swatch-light) 20%, transparent);
   --swatch-dark-o20: color-mix(in srgb, var(--swatch-dark) 20%, transparent);
@@ -174,6 +183,8 @@ html {
   --spacing-section-space-medium: clamp(3.6rem, 3.1111rem + 2.2222vw, 6rem);
   --spacing-section-space-large: clamp(5.5rem, 4.5rem + 5vw, 10rem);
   --spacing-section-space-page-top: clamp(10rem, 9.1111rem + 4.4444vw, 14rem);
+  --button-pad-block: 0.7rem;
+  --button-pad-inline: 1.25rem;
   --spacing-space-1: clamp(
     0.375 * 1rem,
     (
@@ -415,7 +426,7 @@ a.button {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-  padding: 0.7rem 1.25rem;
+  padding: var(--button-pad-block) var(--button-pad-inline);
   border: 1px solid color-mix(in srgb, var(--swatch-light) 72%, transparent);
   border-radius: var(--radius-round);
   gap: var(--spacing-space-2);
@@ -474,8 +485,8 @@ a.button {
   background-color: transparent !important;
 }
 
-html:has(.page-wrap--scrollable) {
-  background-color: transparent !important;
+html:has([data-page-namespace="projectDetail"]) {
+  background-color: var(--project-overscroll-bg);
 }
 
 /* Home / work / contact / archive are single-screen routes — lock the document
@@ -843,7 +854,7 @@ body.menu-open .menu-nav-backdrop {
   margin-right: auto;
   width: calc(100% - var(--site--margin) * 2);
   max-width: var(--container--main);
-  --menu-inset: var(--spacing-space-3);
+  --menu-inset: var(--button-pad-inline);
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -869,27 +880,37 @@ body.menu-open .menu-nav-backdrop {
   /* -webkit- prefix is added at build time by Lightning CSS (see vite.config.ts). */
   backdrop-filter: blur(16px) saturate(1.15);
   border: 1px solid color-mix(in srgb, var(--swatch-light) 10%, transparent);
-  border-radius: var(--radius-main);
+  /* Collapsed = a true pill (radius caps at half its height). The expanded box
+     reuses that same corner curvature as a fixed radius below, so it stays round
+     without going full-stadium like --radius-round (100vw) would on a tall box. */
+  border-radius: var(--radius-round);
   transform-origin: center center;
   transition: transform 0.2s ease;
 }
 
 .menu-nav.is-open:not(.is-about) .menu-nav__surface {
-  --menu-surface-w: min(12.5rem, calc(100vw - var(--site--margin) * 2));
+  --menu-surface-w: min(16rem, calc(100vw - var(--site--margin) * 2));
 }
 
 .menu-nav.is-about .menu-nav__surface {
-  --menu-surface-w: min(34rem, calc(100vw - var(--site--margin) * 2));
+  --menu-surface-w: min(39rem, calc(100vw - var(--site--margin) * 2));
+}
+
+.menu-nav.is-open .menu-nav__surface,
+.menu-nav.is-about .menu-nav__surface {
+  border-radius: 1.75rem;
 }
 
 .menu-nav__chrome {
   display: inline-flex;
   justify-content: flex-end;
-  align-items: center;
+  align-items: stretch;
   width: auto;
   box-sizing: border-box;
   line-height: var(--typography-line-height-medium);
-  padding: var(--spacing-space-3);
+  padding: 0;
+  position: relative;
+  z-index: 2;
 }
 
 .menu-nav.is-open .menu-nav__chrome,
@@ -903,21 +924,38 @@ body.menu-open .menu-nav-backdrop {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
-  width: auto;
   box-sizing: border-box;
 }
 
-.menu-nav:not(.is-open):not(.is-about) .menu-nav__surface[role="button"] {
+.menu-nav__toggle {
+  margin: 0;
+  padding: var(--button-pad-block) var(--button-pad-inline);
+  border: none;
+  background: none;
+  color: inherit;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: auto;
+  text-align: right;
+  white-space: nowrap;
+  min-height: calc(var(--button-pad-block) * 2 + 1em);
+  transition: transform 0.2s ease;
 }
 
-.menu-nav:not(.is-open) .menu-nav__surface[role="button"]:focus-visible {
+.menu-nav.is-open .menu-nav__toggle,
+.menu-nav.is-about .menu-nav__toggle {
+  width: 100%;
+}
+
+.menu-nav:not(.is-open) .menu-nav__toggle:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 4px;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .menu-nav:not(.is-open):not(.is-about) .menu-nav__surface[role="button"]:hover {
+  .menu-nav__toggle[data-rotate-hover]:hover {
     transform: scale(0.98);
   }
 }
@@ -936,26 +974,6 @@ body.menu-open .menu-nav-backdrop {
   line-height: var(--typography-line-height-medium);
 }
 
-.menu-nav__toggle {
-  margin: 0;
-  padding: 0;
-  border: none;
-  background: none;
-  color: inherit;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-  width: auto;
-  text-align: right;
-  white-space: nowrap;
-}
-
-.menu-nav.is-open .menu-nav__toggle,
-.menu-nav.is-about .menu-nav__toggle {
-  width: 100%;
-}
-
 .menu-nav:not(.is-open):not(.is-about) .menu-nav__toggle .nav-link-hover__clip {
   width: max-content;
 }
@@ -969,6 +987,7 @@ body.menu-open .menu-nav-backdrop {
 .menu-nav__toggle .nav-link-hover__track {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   text-align: right;
 }
 
@@ -988,16 +1007,26 @@ body.menu-open .menu-nav-backdrop {
 .menu-nav.is-about.is-body-visible .menu-nav__body {
   display: block;
   pointer-events: auto;
-  padding: 0 var(--spacing-space-3) var(--spacing-space-3);
+  padding: 0 var(--button-pad-inline) var(--button-pad-inline);
 }
 
 .menu-nav.is-about .menu-nav__links {
   display: none;
 }
 
-@media (max-width: 425px) {
+@media (max-width: 768px) {
+  .menu-nav {
+    width: 100%;
+  }
+
+  .menu-nav.is-open:not(.is-about) .menu-nav__surface,
   .menu-nav.is-about .menu-nav__surface {
-    --menu-surface-w: calc(100vw - var(--site--margin) * 2);
+    --menu-surface-w: 100%;
+    max-width: 100%;
+  }
+
+  .site-header__brand {
+    padding-inline-start: var(--button-pad-inline);
   }
 }
 
@@ -1079,17 +1108,12 @@ body.menu-open .menu-nav-backdrop {
 
 .about-panel__scroll {
   --about-muted: #938f8a;
-  height: min(68svh, 56rem);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: none;
-}
-
-.about-panel__scroll::-webkit-scrollbar {
-  display: none;
 }
 
 .about-panel__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-space-3);
   padding-top: 0;
 }
 
@@ -1099,21 +1123,16 @@ body.menu-open .menu-nav-backdrop {
 }
 
 .about-panel__item,
-.about-panel__text {
+.about-panel__text,
+.about-panel__label {
   font-weight: 400;
-  letter-spacing: var(--typography-letter-spacing-title);
-  font-size: var(--typography-font-size-h5);
   color: var(--swatch-light);
-}
-
-.about-panel__text:last-child {
-  margin-bottom: 0;
 }
 
 .about-panel__media {
   position: relative;
-  margin-top: var(--spacing-space-4);
-  height: clamp(22rem, 50vw, 40rem);
+  aspect-ratio: 1 / 1;
+  width: 100%;
   border-radius: var(--radius-small);
   overflow: hidden;
   background: #000;
@@ -1134,36 +1153,38 @@ body.menu-open .menu-nav-backdrop {
   cursor: grabbing;
 }
 
-.about-panel__section {
+.about-panel__columns {
   display: flex;
-  gap: var(--spacing-space-4);
-  margin-top: var(--spacing-space-4);
+  align-items: flex-start;
+  gap: var(--spacing-space-3);
+}
+
+.about-panel__col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-space-3);
+  flex: 1;
+  min-width: 0;
 }
 
 .about-panel__label {
-  flex: 0 0 10rem;
   margin: 0;
-  font-family: var(--text-style-font-primary);
-  font-size: var(--typography-font-size-h6);
-  letter-spacing: var(--typography-letter-spacing-title);
-  color: var(--swatch-light);
 }
 
 .about-panel__list {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-space-1);
-  flex: 1;
+}
+
+.about-panel__list--clients {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
 }
 
 @media (max-width: 640px) {
-  .about-panel__section {
+  .about-panel__columns {
     flex-direction: column;
-    gap: var(--spacing-space-2);
-  }
-
-  .about-panel__label {
-    flex-basis: auto;
+    gap: var(--spacing-space-3);
   }
 }
 
@@ -1283,11 +1304,9 @@ body.menu-open .menu-nav-backdrop {
   color: currentColor;
 }
 
-.hero_pill_dot {
-  width: 0.93em;
-  aspect-ratio: 1 / 1;
-  border-radius: 50%;
-  border: var(--border-width--main) solid currentColor;
+.hero_pill_arrow {
+  color: currentColor;
+  line-height: 1;
   flex-shrink: 0;
 }
 
@@ -1537,6 +1556,11 @@ body.menu-open .menu-nav-backdrop {
     height: 100dvh;
     overflow: hidden;
     overscroll-behavior: none;
+  }
+
+  body.page-wrap:has([data-page-namespace="work"]) {
+    /* ponytail: stop iOS edge-swipe / rubber-band stealing horizontal drags */
+    touch-action: none;
   }
 }
 
@@ -1849,6 +1873,17 @@ h2 .text-reveal-line,
     margin-inline: auto;
     text-align: center;
   }
+
+  html:has([data-page-namespace="projectDetail"]),
+  body.page-wrap.page-wrap--scrollable:has([data-page-namespace="projectDetail"]) {
+    overflow-x: clip;
+    overscroll-behavior-x: none;
+  }
+
+  .project-details-page {
+    overflow-x: clip;
+    max-width: 100%;
+  }
 }
 
 /* --- HOME STYLES --- */
@@ -1928,6 +1963,12 @@ img {
     width: min(100%, 12ch);
     white-space: normal;
     text-wrap: balance;
+  }
+
+  .work-page__title.u-text-style-display {
+    font-size: var(--typography-font-size-h1);
+    line-height: var(--typography-line-height-1);
+    letter-spacing: var(--typography-letter-spacing);
   }
 
   .work-page__title-line {

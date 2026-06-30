@@ -12,6 +12,7 @@ import {
 import { setArrivedRoom } from "../lib/cam/arrival";
 import { getSceneBootPhase, hasInitialBootCompleted } from "./preloader/sceneReady";
 
+/** Text reveal lead — fire arrival this many seconds before the camera tween ends. */
 const ARRIVAL_LEAD_SECONDS = 0.2;
 Object.assign(cameraBasePoseRef.current, ROOM_POSES.main);
 

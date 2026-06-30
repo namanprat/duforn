@@ -26,6 +26,13 @@ export const ABOUT_INTRO_PARAGRAPHS: string[] = [
   "I'm a digital designer with a simple goal: make things look good and work even better. I spend most of my time designing websites, obsessing over details, and figuring out how to turn ideas into experiences that feel clear, intuitive, and visually compelling. I enjoy the process as much as the outcome—understanding what's important, stripping away what's not, and creating work that feels effortless. For me, good design isn't about adding more; it's about knowing what to leave out.",
 ];
 
+export const ABOUT_SERVICES: string[] = [
+  "Brand identity",
+  "Motion design",
+  "Website design",
+  "Low-code web dev",
+];
+
 export const ABOUT_CLIENTS: string[] = [
   "Animal",
   "November",

@@ -8,6 +8,7 @@ export const MOTION_TOKENS = {
     hideEase: "power3.in",
     showDurationScale: 0.75,
     showStaggerScale: 0.8,
+    revealOvershootPercent: 115,
   },
   navHover: {
     staggerAmount: 0.161,
@@ -28,13 +29,15 @@ export const MOTION_TOKENS = {
     line: 0.55,
     lineStagger: 0.07,
     lineFlipScale: 0.75,
-    // Closing animations run 20% faster than their open counterparts.
+    // Closing line animations run 20% faster; box shrink keeps open duration for symmetry.
     closeSpeedScale: 0.8,
-    // Softer spring: closer to line power3 motion, less post-settle overshoot.
     boxOpenEase: "back.out(1.04)",
-    boxShrinkEase: "back.in(1.04)",
+    // ponytail: back.out undershoots past the pill size then settles — mirrors expand bounce
+    boxShrinkEase: "back.out(1.1)",
     ease: "power3.out",
     closeEase: "power3.in",
     aboutRevealDelay: 0.1,
+    aboutHelmetMountMaxMs: 320,
+    aboutHelmetFadeIn: 0.45,
   },
 } as const;

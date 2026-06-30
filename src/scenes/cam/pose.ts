@@ -35,9 +35,13 @@ export const cameraBasePoseRef: { current: CameraPose } = {
 /** True while RoomCam GSAP is tweening between room poses. */
 export const cameraTransitionRef = { current: false };
 
+/** Hover-driven additive FOV offset (e.g. the home "View Work" pill). Added on top of base.fov. */
+export const cameraFovOffsetRef = { current: 0 };
+
 export const cameraRigControlsRef = {
   current: {
     parallaxEnabled: true,
+    gyroEnabled: false,
   },
 };
 

@@ -176,7 +176,7 @@ export function useMenuMorph({
       gsap.set(lines, { yPercent: 0, autoAlpha: 1 });
 
       const close = menu.closeSpeedScale;
-      const boxDuration = menu.boxOpen * close;
+      const boxDuration = menu.boxOpen;
       const lineDur = menu.line * close;
       const lineStag = menu.lineStagger * close;
       const headerOut = lineSpan(lineCount, lineDur, lineStag);
@@ -226,7 +226,7 @@ export function useMenuMorph({
 
       const close = menu.closeSpeedScale;
       const hideDur = aboutPanelRef.current?.hide(true) ?? 0;
-      const boxDuration = menu.boxAbout * close;
+      const boxDuration = menu.boxAbout;
       const revealAt = hideDur + boxDuration;
       const tl = gsap.timeline();
       tl.to(surface, { width: toD.width, height: toD.height, duration: boxDuration, ease: menu.boxShrinkEase }, hideDur);
@@ -250,9 +250,8 @@ export function useMenuMorph({
       const { fromD, toD } = measureFromTo(menuFlags("closed"));
       start(menuFlags("about", true), fromD);
 
-      const close = menu.closeSpeedScale;
       const hideDur = aboutPanelRef.current?.hide(false) ?? 0;
-      const boxDuration = menu.boxAbout * close;
+      const boxDuration = menu.boxAbout;
       const tl = gsap.timeline();
       tl.to(surface, { width: toD.width, height: toD.height, duration: boxDuration, ease: menu.boxShrinkEase }, hideDur);
       tl.eventCallback("onComplete", () => settle("closed"));
@@ -271,7 +270,7 @@ export function useMenuMorph({
     tl.to(surface, {
       width: toD.width,
       height: toD.height,
-      duration: grow ? menu.boxOpen : menu.boxOpen * menu.closeSpeedScale,
+      duration: grow ? menu.boxOpen : menu.boxAbout,
       ease: grow ? menu.boxOpenEase : menu.boxShrinkEase,
     }, 0);
     tl.eventCallback("onComplete", () => settle(target));

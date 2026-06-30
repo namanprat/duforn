@@ -1,4 +1,8 @@
 import { hasInitialBootCompleted, useSceneBootStore } from "./sceneReady";
+import { cameraRigControlsRef } from "../cam/pose";
+import { tryEnableGyroParallax } from "../../lib/deviceOrientation";
+import { hasFinePointerHover } from "../../lib/link-hover";
+import { prefersReducedMotion } from "../../lib/prefersReducedMotion";
 
 export default function PreloadOverlay() {
   const phase = useSceneBootStore((s) => s.phase);
@@ -11,9 +15,19 @@ export default function PreloadOverlay() {
   const showEnter = phase === "ready";
   const isRevealing = phase === "revealing";
 
+  const handleEnter = (muted: boolean) => {
+    if (!hasFinePointerHover() && !prefersReducedMotion()) {
+      void tryEnableGyroParallax().then((allowed) => {
+        cameraRigControlsRef.current.gyroEnabled = allowed;
+      });
+    }
+    requestReveal(muted);
+  };
+
   return (
     <div
       className={`scene_preload_overlay${isRevealing ? " scene_preload_overlay--revealing" : ""}`}
+      data-no-strip-drag
       aria-hidden={isRevealing}
     >
       {!isRevealing ? (
@@ -28,14 +42,14 @@ export default function PreloadOverlay() {
               <button
                 type="button"
                 className="button button-primary scene_preload_enter_btn"
-                onClick={() => requestReveal(false)}
+                onClick={() => handleEnter(false)}
               >
                 Enter
               </button>
               <button
                 type="button"
                 className="scene_preload_enter_muted"
-                onClick={() => requestReveal(true)}
+                onClick={() => handleEnter(true)}
               >
                 Enter without sound
               </button>
