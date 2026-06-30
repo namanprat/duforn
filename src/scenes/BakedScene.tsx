@@ -48,21 +48,36 @@ function computeShadowSetup(scene: THREE.Object3D, size: THREE.Vector3): ShadowS
   }
   const catcherY = deckLocalTop * MODEL_SCALE + 0.05;
 
-  const span = Math.max(w, d);
+  // Tight ortho frustum around the deck receiver — not the full scene span.
+  let deckHalfX = w * 0.45;
+  let deckHalfZ = d * 0.45;
+  const tiles = findObjectByName(scene, FLOOR_NAME);
+  if (tiles) {
+    const deckBox = new THREE.Box3().setFromObject(tiles);
+    if (Number.isFinite(deckBox.max.x)) {
+      deckHalfX = ((deckBox.max.x - deckBox.min.x) * MODEL_SCALE) * 0.5;
+      deckHalfZ = ((deckBox.max.z - deckBox.min.z) * MODEL_SCALE) * 0.5;
+    }
+  }
+  const deckHalf = Math.max(deckHalfX, deckHalfZ);
   const target = new THREE.Vector3(0, catcherY, 0);
-  // Low sun → place it far out so the whole footprint is inside the frustum.
-  const dist = span * 1.6 + h;
+
+  const span = Math.max(w, d);
+  const dist = span * 1.2 + h;
   const sunPos = target.clone().add(SHADOW_SUN_DIR.clone().multiplyScalar(dist));
+
+  // Deck footprint + rim casters + raking shadow stretch from the low sun.
+  const rakingPad = h * 0.5;
+  const orthoHalf = deckHalf * 1.2 + rakingPad;
 
   return {
     sunPos,
     target,
-    // Wide ortho frustum so long raking shadows aren't clipped.
-    orthoHalf: span * 1.05,
-    shadowFar: dist + span * 1.6,
+    orthoHalf,
+    shadowFar: dist + orthoHalf * 2.2,
     catcherY,
-    catcherW: w * 1.4,
-    catcherD: d * 1.4,
+    catcherW: deckHalfX * 2,
+    catcherD: deckHalfZ * 2,
   };
 }
 
@@ -169,7 +184,7 @@ export default function BakedScene({
     };
   }, [waterMesh]);
 
-  // Aim the sun at the deck center; size its ortho shadow frustum to the scene.
+  // Aim the sun at the deck center; size its ortho shadow frustum to the deck.
   useEffect(() => {
     const light = lightRef.current;
     if (!light) return;
@@ -183,6 +198,9 @@ export default function BakedScene({
     cam.near = 0.5;
     cam.far = shadow.shadowFar;
     cam.updateProjectionMatrix();
+    light.shadow.radius = 2.5;
+    light.shadow.bias = -0.00025;
+    light.shadow.normalBias = 0.35;
   }, [shadow]);
 
   useEffect(() => {
@@ -214,8 +232,9 @@ export default function BakedScene({
         castShadow
         shadow-mapSize-width={shadowMapSize}
         shadow-mapSize-height={shadowMapSize}
-        shadow-bias={-0.0004}
-        shadow-normalBias={0.6}
+        shadow-radius={2.5}
+        shadow-bias={-0.00025}
+        shadow-normalBias={0.35}
       />
     </group>
   );

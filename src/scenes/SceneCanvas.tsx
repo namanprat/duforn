@@ -18,7 +18,6 @@ import { getQualityProfile } from "../lib/qualityProfile";
 import { useDelayedActive } from "../lib/useDelayedActive";
 import { installBootProgressTracking } from "./preloader/bootProgress";
 import { getSceneReady, hasInitialBootCompleted, setSceneReady, useSceneBootStore } from "./preloader/sceneReady";
-import SceneCaptureBridge from "./transition/SceneCaptureBridge";
 
 const DevSceneControls = import.meta.env.DEV
   ? lazy(() => import("./DevSceneControls"))
@@ -76,7 +75,7 @@ export default function SceneCanvas() {
       <Canvas
         dpr={[1, qualityProfile.maxDpr]}
         gl={{ antialias: true, stencil: false, localClippingEnabled: true, preserveDrawingBuffer: true }}
-        shadows={{ type: THREE.PCFShadowMap }}
+        shadows={{ type: THREE.PCFSoftShadowMap }}
         onCreated={({ gl }) => {
           gl.toneMapping = THREE.NoToneMapping;
           gl.outputColorSpace = THREE.SRGBColorSpace;
@@ -125,7 +124,6 @@ export default function SceneCanvas() {
           </Suspense>
         ) : null}
         <ScenePostFX />
-        <SceneCaptureBridge />
         {import.meta.env.DEV ? (
           <Suspense fallback={null}>
             <DevSceneControls isRoom={isRoom} activeRoom={activeRoom} />

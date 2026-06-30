@@ -1,6 +1,14 @@
 import { MOTION_TOKENS } from "../lib/animation/motionTokens";
 import { CAMERA_ARRIVED_EVENT, getArrivedRoom } from "../lib/cam/arrival";
 import { getSceneReady, SCENE_READY_EVENT } from "../scenes/preloader/sceneReady";
+import { ROOM_TRANSITION_SECONDS } from "../scenes/cam/roomPoses";
+
+// ponytail: the arrival event is a one-shot; if a consumer mounts and never sees
+// it (missed dispatch, no camera move for the target room), the text would stay
+// hidden forever. Reveal anyway once the longest possible camera move is over.
+// Ceiling: a fixed timeout — if room transitions ever exceed this, bump it or
+// switch to a "transition settled" signal instead of a timer.
+const CAMERA_GATE_FALLBACK_MS = ROOM_TRANSITION_SECONDS * 1000 + 300;
 
 export { prefersReducedMotion } from "../lib/prefersReducedMotion";
 
@@ -22,14 +30,29 @@ export function waitForCamera(root: Element | null, onReady: () => void): () => 
     onReady();
     return () => {};
   }
+  let done = false;
+  let fallback: ReturnType<typeof setTimeout>;
   const handler = (e: Event) => {
     const detail = (e as CustomEvent<{ room?: string }>).detail;
     if (expectedRoom && detail?.room !== expectedRoom) return;
+    finish();
+  };
+  const cleanup = () => {
     window.removeEventListener(CAMERA_ARRIVED_EVENT, handler);
+    clearTimeout(fallback);
+  };
+  const finish = () => {
+    if (done) return;
+    done = true;
+    cleanup();
     onReady();
   };
   window.addEventListener(CAMERA_ARRIVED_EVENT, handler);
-  return () => window.removeEventListener(CAMERA_ARRIVED_EVENT, handler);
+  fallback = setTimeout(finish, CAMERA_GATE_FALLBACK_MS);
+  return () => {
+    done = true;
+    cleanup();
+  };
 }
 
 export function waitForSceneAndCamera(root: Element | null, onReady: () => void): () => void {

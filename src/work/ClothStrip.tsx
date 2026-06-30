@@ -301,7 +301,11 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
     dragDist: 0,
   });
   const hoverStripRef = useRef(false);
-  const currentTitleRef = useRef("");
+  // Seed with the first item's title so the opening frame doesn't dispatch a
+  // redundant title event — WorkPage already renders this title, and a spurious
+  // dispatch remounts the title's reveal (key={title}) into its no-animate branch,
+  // killing the camera-gated first reveal.
+  const currentTitleRef = useRef(workItems[0]?.title ?? "");
   const grabScaleRef = useRef(1);
 
   const updateStripCursor = () => {

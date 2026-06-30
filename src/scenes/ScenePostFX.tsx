@@ -6,6 +6,7 @@ import {
 } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
 import { usePostFxControlsStore } from "../store/postFx";
+import DissolveTransition from "./transition/DissolveEffect";
 
 /**
  * Post stack: chromatic aberration on a linear HDR buffer, then linear → sRGB.
@@ -24,6 +25,8 @@ export default function ScenePostFX({ children }: { children?: ReactNode }) {
       ) : null}
       <ToneMapping mode={ToneMappingMode.LINEAR} />
       {children}
+      {/* Live route dissolve — stylizes the final frame in-place when active. */}
+      <DissolveTransition />
     </EffectComposer>
   );
 }

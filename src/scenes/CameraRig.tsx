@@ -10,24 +10,26 @@ import { prefersReducedMotion } from "../lib/prefersReducedMotion";
  * pointer leaves the window.
  */
 const PARALLAX = Object.freeze({
-  angleRange: 0.098,
-  yRange: 0.18,
-  tiltRange: 0.014,
+  angleRange: 0.118,
+  yRange: 0.22,
+  tiltRange: 0.017,
   lerp: 0.028,
 });
 
 /** Subtle idle sinusoidal drift (ported from v1 handheld feel). */
 const HANDHELD_DRIFT = Object.freeze({
-  xAmp1: 0.015,
+  xAmp1: 0.02,
   xFreq1: 0.7,
-  xAmp2: 0.01,
+  xAmp2: 0.013,
   xFreq2: 1.3,
-  yAmp1: 0.015,
+  yAmp1: 0.02,
   yFreq1: 0.5,
-  yAmp2: 0.01,
+  yAmp2: 0.013,
   yFreq2: 1.1,
-  zAmp: 0.01,
+  zAmp: 0.013,
   zFreq: 0.6,
+  rollAmp: 0.0035,
+  rollFreq: 0.82,
 });
 
 interface CameraRigProps {
@@ -133,6 +135,7 @@ export default function CameraRig({
 
     const driftEnabled =
       handheldDriftScale > 0 && !prefersReducedMotion() && !cameraTransitionRef.current;
+    let rollDrift = 0;
     if (driftEnabled) {
       const dt = state.clock.elapsedTime;
       const hd = handheldDriftScale;
@@ -140,6 +143,7 @@ export default function CameraRig({
       camX += (Math.sin(dt * d.xFreq1) * d.xAmp1 + Math.sin(dt * d.xFreq2) * d.xAmp2) * hd;
       camY += (Math.sin(dt * d.yFreq1) * d.yAmp1 + Math.cos(dt * d.yFreq2) * d.yAmp2) * hd;
       camZ += Math.cos(dt * d.zFreq) * d.zAmp * hd;
+      rollDrift = Math.sin(dt * d.rollFreq) * d.rollAmp * hd;
     }
 
     const cam = camera as PerspectiveCamera;
@@ -161,7 +165,7 @@ export default function CameraRig({
 
     cam.position.set(camX, camY, camZ);
     cam.lookAt(lookTargetX, lookTargetY, lookTargetZ);
-    cam.rotation.z += cur.tilt;
+    cam.rotation.z += cur.tilt + rollDrift;
   }, -1);
 
   return null;

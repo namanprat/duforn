@@ -1,11 +1,10 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useThree } from "@react-three/fiber";
-import gsap from "gsap";
 import BakedScene from "../BakedScene";
 import Env from "../Env";
 import { WorkClothStripScene } from "../../work/ClothStrip";
 import { cameraBasePoseRef } from "../cam/pose";
-import { BOOT_FOV_DURATION, SHARED_FOV } from "../cam/roomPoses";
+import { SHARED_FOV } from "../cam/roomPoses";
 import type { RoomNamespace } from "../../lib/route";
 import { setArrivedRoom } from "../../lib/cam/arrival";
 import { prefersReducedMotion } from "../../lib/prefersReducedMotion";
@@ -39,7 +38,6 @@ export default function HomeSceneBoot({
   const [hdrReady, setHdrReady] = useState(false);
   const [waterReady, setWaterReady] = useState(!enableWater);
   const compileStartedRef = useRef(false);
-  const revealTweenRef = useRef<gsap.core.Tween | null>(null);
 
   const { gl, scene, camera } = useThree();
 
@@ -121,33 +119,23 @@ export default function HomeSceneBoot({
     if (skipBoot) return;
     if (revealNonce === 0) return;
 
-    revealTweenRef.current?.kill();
     setPhase("revealing");
 
     const finishReveal = () => {
-      cameraBasePoseRef.current.fov = SHARED_FOV;
+      // FOV is owned by the boot dissolve's punch (playDissolve), which outlasts the
+      // open and keeps settling — so do NOT snap fov here or the punch gets cut short.
       setPhase("live");
       setSceneReady(true);
       setArrivedRoom(activeRoom);
     };
 
     if (prefersReducedMotion()) {
+      cameraBasePoseRef.current.fov = SHARED_FOV; // no punch under reduced motion
       finishReveal();
       return;
     }
 
     runBootDissolveTransition(finishReveal);
-
-    revealTweenRef.current = gsap.to(cameraBasePoseRef.current, {
-      fov: SHARED_FOV,
-      duration: BOOT_FOV_DURATION,
-      ease: "power3.out",
-    });
-
-    return () => {
-      revealTweenRef.current?.kill();
-      revealTweenRef.current = null;
-    };
   }, [activeRoom, revealNonce, setPhase, skipBoot]);
 
   const handleGlbReady = useCallback(() => {
