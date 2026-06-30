@@ -39,6 +39,10 @@ function isMobile(): boolean {
   return navigator.maxTouchPoints > 1 && !/Macintosh/i.test(navigator.userAgent);
 }
 
+export function isMobileDevice(): boolean {
+  return isMobile();
+}
+
 export function resolveDeviceTier(): DeviceTier {
   const override = readDevTierOverride();
   if (override !== null) return override;

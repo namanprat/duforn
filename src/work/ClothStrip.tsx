@@ -11,7 +11,6 @@ import {
   DEFAULT_GAP_SIZE,
   DEFAULT_VISIBLE_ITEMS,
   MOBILE_STRIP_MQ,
-  MOBILE_VISIBLE_ITEMS,
   NUM_UNIQUE_FALLBACK as NUM_UNIQUE,
   ROWS,
 } from "./config";
@@ -290,10 +289,7 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
   onWorkRef.current = activeRoom === "work";
   const stripControls = useWorkSceneControlsStore((state) => state.controls.strip);
   const isMobileStrip = useMediaQuery(MOBILE_STRIP_MQ);
-  const visibleItems = Math.max(
-    1,
-    isMobileStrip ? MOBILE_VISIBLE_ITEMS : DEFAULT_VISIBLE_ITEMS,
-  );
+  const visibleItems = DEFAULT_VISIBLE_ITEMS;
   const gapSize = stripControls.gapSize ?? DEFAULT_GAP_SIZE;
   const scrollConfig = {
     wheelSensitivity: stripControls.wheelSensitivity,
@@ -302,8 +298,8 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
     scrollLerp: isMobileStrip ? 0.15 : stripControls.scrollLerp,
     scrollDamping: stripControls.scrollDamping,
     scrollDraggingDamping: stripControls.scrollDraggingDamping,
-    snapVelocityThreshold: stripControls.snapVelocityThreshold,
-    snapLerp: stripControls.snapLerp,
+    snapVelocityThreshold: stripControls.snapVelocityThreshold * (isMobileStrip ? 1.35 : 1),
+    snapLerp: stripControls.snapLerp * (isMobileStrip ? 0.55 : 1),
     snapEpsilon: stripControls.snapEpsilon,
   };
   const arcConfig = {

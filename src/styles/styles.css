@@ -1015,8 +1015,46 @@ body.menu-open .menu-nav-backdrop {
 }
 
 @media (max-width: 768px) {
+  .site-header {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+
+  .site-header .site-header__inner {
+    grid-area: 1 / 1;
+    align-self: start;
+  }
+
+  .menu-nav-wrap {
+    grid-area: 1 / 1;
+    margin-top: 0;
+    align-self: start;
+  }
+
+  .menu-nav-track {
+    align-items: flex-start;
+  }
+
   .menu-nav {
+    display: flex;
+    justify-content: flex-end;
     width: 100%;
+  }
+
+  .menu-nav__surface {
+    margin-left: auto;
+    transform-origin: top right;
+  }
+
+  .menu-nav.is-open .menu-nav__surface,
+  .menu-nav.is-about .menu-nav__surface {
+    border-radius: var(--radius-round);
+  }
+
+  .menu-nav.is-open.is-body-visible .menu-nav__surface,
+  .menu-nav.is-about.is-body-visible .menu-nav__surface {
+    border-radius: 1.75rem;
   }
 
   .menu-nav.is-open:not(.is-about) .menu-nav__surface,
@@ -1027,6 +1065,26 @@ body.menu-open .menu-nav-backdrop {
 
   .site-header__brand {
     padding-inline-start: var(--button-pad-inline);
+  }
+
+  .site-header--menu-open .site-header__inner {
+    position: fixed;
+    top: calc(var(--spacing-space-5) + var(--site--safe-area-top));
+    left: var(--site--margin);
+    z-index: calc(var(--z-menu) + 1);
+    display: flex;
+    align-items: center;
+    min-height: calc(var(--button-pad-block) * 2 + 1em);
+    padding-inline-start: var(--button-pad-inline);
+    padding-inline-end: 0;
+    padding-block: var(--button-pad-block);
+    color: var(--swatch-light);
+    pointer-events: auto;
+  }
+
+  .site-header--menu-open .site-header__brand {
+    color: var(--swatch-light);
+    padding-inline-start: 0;
   }
 }
 
@@ -1958,17 +2016,16 @@ img {
 }
 
 @media (max-width: 768px) {
+  :root {
+    --typography-font-size-display: clamp(3rem, 5.5rem + 4.45vw, 5rem);
+    --spacing-section-space-medium: clamp(5.5rem, 4.5rem + 5vw, 10rem);
+  }
+
   .work-page__title {
     /* ponytail: 12ch caps width so long names wrap to two lines on phone */
     width: min(100%, 12ch);
     white-space: normal;
     text-wrap: balance;
-  }
-
-  .work-page__title.u-text-style-display {
-    font-size: var(--typography-font-size-h1);
-    line-height: var(--typography-line-height-1);
-    letter-spacing: var(--typography-letter-spacing);
   }
 
   .work-page__title-line {

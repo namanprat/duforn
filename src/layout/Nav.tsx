@@ -43,18 +43,24 @@ function NavBrand({
   isHome,
   useRotateHover,
   paused = false,
+  showName,
 }: {
   isHome: boolean;
   useRotateHover: boolean;
   paused?: boolean;
+  showName?: boolean;
 }) {
   const time = useISTTime();
-  const brandText = isHome ? `${time} IST` : "Naman Pratulya";
+  const brandText = isHome && !showName ? `${time} IST` : "Naman Pratulya";
 
   return (
     <span className="nav-brand__clip">
       {useRotateHover ? (
-        <RotateHoverLabel text={brandText} changeKey={isHome ? "home" : "brand"} paused={paused} />
+        <RotateHoverLabel
+          text={brandText}
+          changeKey={showName ? "brand" : "home"}
+          paused={paused}
+        />
       ) : (
         brandText
       )}
@@ -99,8 +105,19 @@ function NavLink({ to, className, children, onClick, rotateHover = false }: NavL
 export default function Nav() {
   const location = useLocation();
   const [phase, setPhase] = useState<MenuPhase>("closed");
+  const [isMobileNav, setIsMobileNav] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches,
+  );
   const useRotateHover = shouldUseNavRotateHover();
   const isHome = location.pathname === "/";
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const onChange = () => setIsMobileNav(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
   const scopeRef = useRef<HTMLDivElement | null>(null);
   const menuNavRef = useRef<HTMLDivElement | null>(null);
@@ -112,6 +129,7 @@ export default function Nav() {
 
   const isOpen = phase !== "closed";
   const isAbout = phase === "about";
+  const showBrandName = !isHome || (isMobileNav && isOpen);
   const toggleLabel = isAbout ? "Back" : isOpen ? "Close" : "Menu";
 
   const closeAll = useCallback(() => setPhase("closed"), []);
@@ -180,7 +198,12 @@ export default function Nav() {
 
       <div className="site-header__inner u-container-main">
         <NavLink className="link-main site-header__brand" to="/" rotateHover={useRotateHover && !isHome}>
-          <NavBrand isHome={isHome} useRotateHover={useRotateHover && !isHome} paused={isMorphing} />
+          <NavBrand
+            isHome={isHome}
+            useRotateHover={useRotateHover && !isHome}
+            paused={isMorphing}
+            showName={showBrandName}
+          />
         </NavLink>
       </div>
 

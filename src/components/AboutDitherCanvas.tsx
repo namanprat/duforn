@@ -62,12 +62,15 @@ function Helmet() {
     nodes: Record<string, THREE.Mesh>;
     materials: Record<string, THREE.MeshStandardMaterial>;
   };
+  const geometry = nodes.Object_2?.geometry;
+  const material = materials.model_Material_u1_v1;
+  if (!geometry || !material) return null;
 
   return (
     <mesh
       castShadow
-      geometry={nodes.Object_2.geometry}
-      material={materials.model_Material_u1_v1}
+      geometry={geometry}
+      material={material}
       material-roughness={0.15}
       position={[-2.016, -0.06, 1.381]}
       rotation={[-1.601, 0.068, 2.296]}

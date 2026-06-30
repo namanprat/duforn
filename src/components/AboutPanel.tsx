@@ -11,9 +11,17 @@ import { SplitText } from "gsap/SplitText";
 import { ABOUT_CLIENTS, ABOUT_INTRO_PARAGRAPHS, ABOUT_SERVICES } from "../content/studio";
 import AboutDitherCanvas from "./AboutDitherCanvas";
 import { MOTION_TOKENS } from "../lib/animation/motionTokens";
+import { getDeviceTier } from "../lib/deviceTier";
+import { hasFinePointerHover } from "../lib/link-hover";
 import { prefersReducedMotion } from "../lib/prefersReducedMotion";
 
 gsap.registerPlugin(SplitText);
+
+/** ponytail: mobile already runs the main scene WebGL; a second About canvas crashes iOS Safari */
+function shouldMountAboutHelmet(): boolean {
+  if (getDeviceTier() === 0) return false;
+  return hasFinePointerHover();
+}
 
 export type AboutPanelHandle = {
   /** Unreveal lines (up = exit through the top); returns total duration in seconds. */
@@ -85,7 +93,7 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
     if (prefersReducedMotion()) {
       gsap.set(content, { clearProps: "opacity,visibility" });
       if (mediaRef.current) gsap.set(mediaRef.current, { autoAlpha: 1 });
-      setMountCanvas(true);
+      if (shouldMountAboutHelmet()) setMountCanvas(true);
       return;
     }
 
@@ -93,19 +101,32 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
 
     const blocks = Array.from(content.querySelectorAll<HTMLElement>("[data-reveal]"));
     const splits: SplitText[] = [];
+    let allLines: HTMLElement[] = [];
 
-    blocks.forEach((block) => {
-      if (block.querySelector(".about-reveal-line")) return;
-      const split = SplitText.create(block, {
-        type: "lines",
-        mask: "lines",
-        linesClass: "about-reveal-line",
+    try {
+      blocks.forEach((block) => {
+        if (block.querySelector(".about-reveal-line")) return;
+        const split = SplitText.create(block, {
+          type: "lines",
+          mask: "lines",
+          linesClass: "about-reveal-line",
+        });
+        splits.push(split);
       });
-      splits.push(split);
-    });
+      allLines = splits.flatMap((split) => split.lines) as HTMLElement[];
+    } catch {
+      gsap.set(content, { autoAlpha: 1 });
+      if (shouldMountAboutHelmet()) setMountCanvas(true);
+      return;
+    }
+
+    if (!allLines.length) {
+      gsap.set(content, { autoAlpha: 1 });
+      if (shouldMountAboutHelmet()) setMountCanvas(true);
+      return;
+    }
 
     splitsRef.current = splits;
-    const allLines = splits.flatMap((split) => split.lines) as HTMLElement[];
     linesRef.current = allLines;
     gsap.set(allLines, { yPercent: MOTION_TOKENS.textReveal.revealOvershootPercent });
     gsap.set(content, { autoAlpha: 1 });
@@ -124,10 +145,12 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
       MOTION_TOKENS.menu.aboutHelmetMountMaxMs,
       revealSpan * 1000 * 0.2,
     );
-    const canvasTimer = window.setTimeout(() => setMountCanvas(true), canvasDelayMs);
+    const canvasTimer = shouldMountAboutHelmet()
+      ? window.setTimeout(() => setMountCanvas(true), canvasDelayMs)
+      : undefined;
 
     return () => {
-      window.clearTimeout(canvasTimer);
+      if (canvasTimer !== undefined) window.clearTimeout(canvasTimer);
       setMountCanvas(false);
       revealTweenRef.current?.kill();
       hideTweenRef.current?.kill();
