@@ -642,7 +642,6 @@ html:not(.scene-live) .site-header {
   background: var(--swatch-dark);
   color: var(--swatch-light);
   pointer-events: auto;
-  transition: opacity 2.04s ease;
 }
 
 .scene_preload_overlay--revealing {
@@ -650,24 +649,16 @@ html:not(.scene-live) .site-header {
   pointer-events: none;
 }
 
-.dissolve_transition_overlay {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-overlay);
-  pointer-events: none;
-}
-
-.dissolve_transition_layer {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-}
-
 .scene_preload_overlay_inner {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--size-2rem);
+  transition: opacity 0.2s ease;
+}
+
+.scene_preload_overlay_inner--exit {
+  opacity: 0;
 }
 
 .scene_preload_progress {
@@ -715,7 +706,7 @@ html:not(.scene-live) .site-header {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .scene_preload_overlay {
+  .scene_preload_overlay_inner {
     transition: none;
   }
 }

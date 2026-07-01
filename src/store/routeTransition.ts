@@ -1,13 +1,17 @@
 import { create } from "zustand";
 import type * as THREE from "three";
-import gsap from "gsap";
 import { ROOM_POSES, SHARED_FOV } from "../scenes/cam/roomPoses";
+import { ARCHIVE_FOV } from "../scenes/cam/transitionFov";
 import {
-  ARCHIVE_FOV,
-  killTransitionFovTweens,
-  runTransitionFovPunch,
-} from "../scenes/cam/transitionFov";
-import { requestDepartingHoldout } from "../scenes/transition/departingHoldout";
+  getBlackHoldoutTexture,
+  requestDepartingHoldout,
+} from "../scenes/transition/departingHoldout";
+import {
+  killDissolveProgressTweens,
+  runPierceCloseTimeline,
+  runPierceTimeline,
+  setDissolveCover,
+} from "../scenes/preloader/bootRevealTimeline";
 import {
   hidePageChrome,
   showPageChrome,
@@ -26,20 +30,6 @@ import { resetArchiveToOrbView } from "./archiveView";
 import { useArchiveReturnStore, getArchiveReturnRoom } from "./archiveReturn";
 import { preloadArchiveReturnRoom } from "../lib/roomReturnPreload";
 
-const OPEN_DUR = 1.715;
-const OPEN_EASE = "power4.out";
-const FOV_EASE = "power3.out";
-/** 90% through iris pierce (open 1→0) before FOV + reveal fire. */
-const PIERCE_REVEAL_THRESHOLD = 0.1;
-
-const progressTweenProxy = { value: 0 };
-// ponytail: per-frame progress lives outside zustand — DissolveEffect reads this in update()
-let dissolveProgress = 0;
-
-export function getDissolveProgress(): number {
-  return dissolveProgress;
-}
-
 type DissolveTransitionState = {
   active: boolean;
   useHoldout: boolean;
@@ -55,17 +45,11 @@ export const useDissolveTransitionStore = create<DissolveTransitionState>((set, 
   active: false,
   useHoldout: false,
   holdout: null,
-  start: () => {
-    dissolveProgress = 0;
-    set({ active: true });
-  },
+  start: () => set({ active: true }),
   setHoldout: (holdout) => set({ holdout }),
   setUseHoldout: (useHoldout) => set({ useHoldout }),
   finish: () => get().reset(),
-  reset: () => {
-    dissolveProgress = 0;
-    set({ active: false, useHoldout: false, holdout: null });
-  },
+  reset: () => set({ active: false, useHoldout: false, holdout: null }),
 }));
 
 export function shouldUseDissolveTransition(fromPath: string, toPath: string): boolean {
@@ -76,53 +60,46 @@ function canRunDissolve(): boolean {
   return getDeviceTier() > 0 && !prefersReducedMotion();
 }
 
-function killDissolveTweens(): void {
-  gsap.killTweensOf(progressTweenProxy);
-  killTransitionFovTweens();
-}
-
-function setCover(progress: number): void {
-  dissolveProgress = Math.min(1, Math.max(0, progress));
-}
-
-function waitFrame(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
-}
-
-function tweenCoverOpen(onPierceReveal?: () => void): Promise<void> {
+function waitFrames(count: number): Promise<void> {
   return new Promise((resolve) => {
-    if (!useDissolveTransitionStore.getState().active) return resolve();
-
-    setCover(1);
-    progressTweenProxy.value = 1;
-    let revealFired = false;
-
-    gsap.to(progressTweenProxy, {
-      value: 0,
-      duration: OPEN_DUR,
-      ease: OPEN_EASE,
-      onUpdate: () => {
-        setCover(progressTweenProxy.value);
-        if (!revealFired && dissolveProgress <= PIERCE_REVEAL_THRESHOLD) {
-          revealFired = true;
-          onPierceReveal?.();
-        }
-      },
-      onComplete: () => {
-        if (!revealFired) onPierceReveal?.();
-        resolve();
-      },
-    });
+    let remaining = count;
+    const step = () => {
+      remaining -= 1;
+      if (remaining <= 0) resolve();
+      else requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
   });
+}
+
+async function armDepartingHoldout(
+  store: Pick<DissolveTransitionState, "setUseHoldout" | "setHoldout">,
+): Promise<void> {
+  store.setUseHoldout(true);
+  store.setHoldout(getBlackHoldoutTexture());
+  const texture = await requestDepartingHoldout();
+  store.setHoldout(texture);
 }
 
 type DissolveOpts = {
   fov?: boolean;
   targetFov?: number;
-  holdout?: boolean;
+  holdout?: "black" | "departing";
+  /** When to run swap — archive delays until gather beat ends (live canvas). */
+  swapAt?: "pre" | "hold";
   swap?: () => void;
   beforeDissolve?: () => void | Promise<void>;
   onPierceReveal?: () => void;
+};
+
+type DissolveCloseOpts = {
+  fov?: boolean;
+  fromFov?: number;
+  targetFov?: number;
+  holdout?: "departing";
+  swap?: () => void;
+  beforeDissolve?: () => void | Promise<void>;
+  onComplete?: () => void;
 };
 
 function targetFovForPath(path: string): number {
@@ -137,35 +114,78 @@ function targetFovForPath(path: string): number {
 export async function playDissolve({
   fov = false,
   targetFov = SHARED_FOV,
-  holdout = false,
+  holdout,
+  swapAt = "pre",
   swap,
   beforeDissolve,
   onPierceReveal,
 }: DissolveOpts = {}): Promise<void> {
-  killDissolveTweens();
+  killDissolveProgressTweens();
   const store = useDissolveTransitionStore.getState();
 
   try {
     await beforeDissolve?.();
 
-    if (holdout) {
+    if (holdout === "black") {
       store.setUseHoldout(true);
-      await requestDepartingHoldout();
+      store.setHoldout(getBlackHoldoutTexture());
+    } else if (holdout === "departing") {
+      await armDepartingHoldout(store);
+    } else {
+      store.setUseHoldout(false);
     }
 
     store.start();
-    setCover(1);
+    setDissolveCover(1);
+    if (swapAt === "pre") swap?.();
+    await waitFrames(2);
+
+    await runPierceTimeline({
+      fov,
+      targetFov,
+      onSwap: swapAt === "hold" ? swap : undefined,
+      onPierceReveal,
+    });
+  } finally {
+    store.finish();
+  }
+}
+
+/** Exact reverse of playDissolve: capture → close → hold → swap → hold → open. */
+export async function playDissolveClose({
+  fov = false,
+  fromFov = ARCHIVE_FOV,
+  targetFov = SHARED_FOV,
+  holdout,
+  swap,
+  beforeDissolve,
+  onComplete,
+}: DissolveCloseOpts = {}): Promise<void> {
+  killDissolveProgressTweens();
+  const store = useDissolveTransitionStore.getState();
+
+  try {
+    await beforeDissolve?.();
+
+    if (holdout === "departing") {
+      await armDepartingHoldout(store);
+    } else {
+      store.setUseHoldout(false);
+    }
+
+    store.start();
+    setDissolveCover(0);
+    await waitFrames(2);
+
+    await runPierceCloseTimeline({ fov, fromFov });
+
     swap?.();
-    await waitFrame();
 
-    const pierceReveal = fov
-      ? () => {
-          runTransitionFovPunch(targetFov, FOV_EASE);
-          onPierceReveal?.();
-        }
-      : onPierceReveal;
-
-    await tweenCoverOpen(pierceReveal);
+    await runPierceTimeline({
+      fov,
+      targetFov,
+      onPierceReveal: onComplete,
+    });
   } finally {
     store.finish();
   }
@@ -179,43 +199,91 @@ export async function runArchiveRouteTransition(
   const toArchive = toPath === "/archive";
   const fromArchive = fromPath === "/archive";
 
-  if (!canRunDissolve()) {
-    if (toArchive) resetArchiveToOrbView();
-    navigate(toPath);
-    snapShowPageChrome(toArchive);
-    if (!toArchive) await showAllRegisteredPageText();
+  if (fromArchive) {
+    void preloadArchiveReturnRoom(getArchiveReturnRoom());
+
+    if (!canRunDissolve()) {
+      await hidePageChrome();
+      snapHidePageChrome();
+      snapHideAllRegisteredPageText();
+      navigate(toPath);
+      await showAllRegisteredPageText();
+      void showPageChrome(false);
+      return;
+    }
+
+    const targetFov = targetFovForPath(toPath);
+
+    await playDissolveClose({
+      fov: true,
+      fromFov: ARCHIVE_FOV,
+      targetFov,
+      holdout: "departing",
+      beforeDissolve: () => Promise.all([hideAllRegisteredPageText(), hidePageChrome()]),
+      swap: () => {
+        snapHidePageChrome();
+        snapHideAllRegisteredPageText();
+        navigate(toPath);
+      },
+      onComplete: () => {
+        void showAllRegisteredPageText();
+        void showPageChrome(false);
+      },
+    });
     return;
   }
 
-  if (fromArchive) void preloadArchiveReturnRoom(getArchiveReturnRoom());
-  if (toArchive) useArchiveReturnStore.getState().setOriginFromPath(fromPath);
+  if (!canRunDissolve()) {
+    resetArchiveToOrbView();
+    navigate(toPath);
+    snapShowPageChrome(true);
+    return;
+  }
+
+  useArchiveReturnStore.getState().setOriginFromPath(fromPath);
 
   const targetFov = targetFovForPath(toPath);
 
   await playDissolve({
     fov: true,
     targetFov,
-    holdout: true,
-    beforeDissolve: toArchive
-      ? () => Promise.all([hideAllRegisteredPageText(), hidePageChrome()])
-      : () => hidePageChrome(),
+    holdout: "departing",
+    swapAt: "pre",
+    beforeDissolve: () => Promise.all([hideAllRegisteredPageText(), hidePageChrome()]),
     swap: () => {
       snapHidePageChrome();
       snapHideAllRegisteredPageText();
-      if (toArchive) resetArchiveToOrbView();
+      resetArchiveToOrbView();
       navigate(toPath);
     },
     onPierceReveal: () => {
-      if (toArchive) void showPageChrome(true);
-      else void Promise.all([showAllRegisteredPageText(), showPageChrome(false)]);
+      void showPageChrome(true);
     },
   });
 }
 
-export function runBootDissolveTransition(onComplete: () => void, targetFov = SHARED_FOV): void {
+export function runBootDissolveTransition(
+  onComplete: () => void,
+  targetFov = SHARED_FOV,
+  {
+    swap,
+    beforeDissolve,
+  }: {
+    swap?: () => void;
+    beforeDissolve?: () => void | Promise<void>;
+  } = {},
+): void {
   if (!canRunDissolve()) {
     onComplete();
     return;
   }
-  void playDissolve({ fov: true, targetFov, onPierceReveal: onComplete });
+
+  void playDissolve({
+    fov: true,
+    targetFov,
+    holdout: "black",
+    beforeDissolve,
+    swap,
+    onPierceReveal: onComplete,
+  });
 }

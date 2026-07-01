@@ -37,7 +37,6 @@ export const SHARED_FOV = 70;
 // value (Main.tsx eases the offset to WORK_FOV - SHARED_FOV), so hover ↔ arrival never drift.
 export const WORK_FOV = 69;
 export const BOOT_FOV = 92;
-export const BOOT_FOV_DURATION = 3.08;
 const SHARED_CENTER_Y = 19.6;
 
 export const MAIN_POSE: CameraPose = Object.freeze({

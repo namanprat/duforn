@@ -55,4 +55,15 @@ export const MOTION_TOKENS = {
     textRevealDelay: 0.15,
     bgReadyTimeoutMs: 1500,
   },
+  bootReveal: {
+    /** Full-cover hold before iris opens — star gather beat. */
+    holdDuration: 0.28,
+    openDuration: 1.715,
+    openEase: "power3.inOut",
+    fovDuration: 3.08,
+    fovEase: "power3.out",
+    /** Normalized position within the open tween when burst peaks and hero copy may reveal. */
+    pierceRevealAt: 0.48,
+    enterFadeDuration: 0.2,
+  },
 } as const;

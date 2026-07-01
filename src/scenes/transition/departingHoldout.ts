@@ -7,6 +7,11 @@ const HOLDOUT_FALLBACK = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1
 HOLDOUT_FALLBACK.needsUpdate = true;
 HOLDOUT_FALLBACK.colorSpace = THREE.SRGBColorSpace;
 
+/** Solid black holdout — boot preloader departs from the overlay, not the live scene. */
+export function getBlackHoldoutTexture(): THREE.Texture {
+  return HOLDOUT_FALLBACK;
+}
+
 // ponytail: if the main canvas frameloop is paused, capture may never fire — timeout
 // falls back to black; upgrade path is forcing frameloop during active dissolve.
 const HOLDOUT_TIMEOUT_MS = 500;

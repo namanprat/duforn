@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { hasInitialBootCompleted, useSceneBootStore } from "./sceneReady";
 import { cameraRigControlsRef } from "../cam/pose";
 import { tryEnableGyroParallax } from "../../lib/deviceOrientation";
@@ -9,19 +10,24 @@ export default function PreloadOverlay() {
   const phase = useSceneBootStore((s) => s.phase);
   const progress = useSceneBootStore((s) => s.progress);
   const requestReveal = useSceneBootStore((s) => s.requestReveal);
+  const [exiting, setExiting] = useState(false);
 
   if (hasInitialBootCompleted() || phase === "live") return null;
 
   const showProgress = phase === "fetching" || phase === "compiling";
-  const showEnter = phase === "ready";
+  const showEnter = phase === "ready" && !exiting;
   const isRevealing = phase === "revealing";
 
   const handleEnter = (muted: boolean) => {
+    if (exiting || isRevealing) return;
+    setExiting(true);
+
     if (!hasFinePointerHover() && !prefersReducedMotion()) {
       void tryEnableGyroParallax().then((allowed) => {
         cameraRigControlsRef.current.gyroEnabled = allowed;
       });
     }
+
     requestReveal(muted);
   };
 
@@ -32,7 +38,9 @@ export default function PreloadOverlay() {
       aria-hidden={isRevealing}
     >
       {!isRevealing ? (
-        <div className="scene_preload_overlay_inner">
+        <div
+          className={`scene_preload_overlay_inner${exiting ? " scene_preload_overlay_inner--exit" : ""}`}
+        >
           {showProgress ? (
             <p className="scene_preload_progress" aria-live="polite">
               {progress}%

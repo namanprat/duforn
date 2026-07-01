@@ -11,10 +11,5 @@ export const workItems: WorkItem[] = [
   { id: "notice", title: "Notice", image: "/media/work/13.webp", href: "https://wearenotice.com" },
   { id: "project-qaafi", title: "Project Qaafi", image: "/media/work/1.webp", href: "#" },
   { id: "t-bonk", title: "t.Bonk", image: "/media/work/12.webp", href: "https://wearenotice.co" },
-  {
-    id: "perception-pod",
-    title: "Perception Pod",
-    image: "/media/work/perception-pod.webp",
-    href: "https://perceptionpod.com",
-  },
+  { id: "perception-pod", title: "Perception Pod", image: "/media/work/perception-pod.webp", href: "https://perceptionpod.com" },
 ];

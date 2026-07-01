@@ -16,6 +16,7 @@ import {
 } from "./bootProgress";
 import { getSceneReady, hasInitialBootCompleted, setSceneReady, useSceneBootStore } from "./sceneReady";
 import { SWATCH_DARK_NUM } from "../../lib/siteColors";
+import { MOTION_TOKENS } from "../../lib/animation/motionTokens";
 import { runBootDissolveTransition } from "../../store/routeTransition";
 
 type HomeSceneBootProps = {
@@ -122,12 +123,8 @@ export default function HomeSceneBoot({
     if (skipBoot) return;
     if (revealNonce === 0) return;
 
-    setPhase("revealing");
-
     const finishReveal = () => {
-      // FOV is owned by the boot dissolve's punch (playDissolve), which outlasts the
-      // open and keeps settling — so do NOT snap fov here or the punch gets cut short.
-      // Scene + copy reveal is gated on sceneReady/arrival; both fire at 50% pierce with FOV.
+      // Same beat as archive open onPierceReveal — burst peak, not pierce end.
       setPhase("live");
       setSceneReady(true);
       setArrivedRoom(activeRoom);
@@ -135,11 +132,18 @@ export default function HomeSceneBoot({
 
     if (prefersReducedMotion()) {
       cameraBasePoseRef.current.fov = ROOM_POSES[activeRoom].fov; // no punch under reduced motion
+      setPhase("revealing");
       finishReveal();
       return;
     }
 
-    runBootDissolveTransition(finishReveal, ROOM_POSES[activeRoom].fov);
+    runBootDissolveTransition(finishReveal, ROOM_POSES[activeRoom].fov, {
+      beforeDissolve: () =>
+        new Promise<void>((resolve) =>
+          window.setTimeout(resolve, MOTION_TOKENS.bootReveal.enterFadeDuration * 1000),
+        ),
+      swap: () => setPhase("revealing"),
+    });
   }, [activeRoom, revealNonce, setPhase, skipBoot]);
 
   const handleGlbReady = useCallback(() => {
