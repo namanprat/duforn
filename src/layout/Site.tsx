@@ -2,6 +2,7 @@ import { Outlet } from "react-router-dom";
 import SceneCanvas from "../scenes/SceneCanvas";
 import Nav from "./Nav";
 import PreloadOverlay from "../scenes/preloader/PreloadOverlay";
+import RouteTransitionOverlay from "../components/RouteTransitionOverlay";
 import { ProjectCanvasAnchorProvider } from "../projectDetail/ProjectCanvasAnchor";
 
 /**
@@ -15,6 +16,7 @@ export default function SiteLayout() {
       <div className="site_wrap">
         <SceneCanvas />
         <PreloadOverlay />
+        <RouteTransitionOverlay />
         <Nav />
         <div className="site_content">
           <Outlet />

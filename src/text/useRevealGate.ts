@@ -3,6 +3,10 @@ import { CAMERA_ARRIVED_EVENT, getArrivedRoom } from "../lib/cam/arrival";
 import { cameraTransitionRef } from "../scenes/cam/pose";
 import { getSceneReady, SCENE_READY_EVENT } from "../scenes/preloader/sceneReady";
 import { ROOM_TRANSITION_SECONDS } from "../scenes/cam/roomPoses";
+import {
+  PROJECT_DETAIL_ARRIVED_EVENT,
+  useWorkProjectTransitionStore,
+} from "../store/workProjectTransition";
 
 // ponytail: the arrival event is a one-shot; if a consumer mounts and never sees
 // it (missed dispatch, no camera move for the target room), the text would stay
@@ -100,4 +104,27 @@ export function waitForSceneAndCamera(root: Element | null, onReady: () => void)
   window.addEventListener(CAMERA_ARRIVED_EVENT, onCamera);
   window.addEventListener(SCENE_READY_EVENT, onScene);
   return cleanup;
+}
+
+export function waitForProjectArrival(onReady: () => void): () => void {
+  const { active, overlayOpacity } = useWorkProjectTransitionStore.getState();
+  if (!active && overlayOpacity <= 0) {
+    onReady();
+    return () => {};
+  }
+
+  let done = false;
+  const handler = () => finish();
+  const finish = () => {
+    if (done) return;
+    done = true;
+    window.removeEventListener(PROJECT_DETAIL_ARRIVED_EVENT, handler);
+    onReady();
+  };
+
+  window.addEventListener(PROJECT_DETAIL_ARRIVED_EVENT, handler);
+  return () => {
+    done = true;
+    window.removeEventListener(PROJECT_DETAIL_ARRIVED_EVENT, handler);
+  };
 }

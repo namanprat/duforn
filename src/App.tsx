@@ -14,8 +14,13 @@ import {
   runArchiveRouteTransition,
   shouldUseDissolveTransition,
 } from "./store/routeTransition";
+import {
+  isWorkProjectTransitionActive,
+  runWorkToProjectTransition,
+  shouldUseWorkProjectTransition,
+} from "./store/workProjectTransition";
 import { destroyLenis, initLenis } from "./lib/lenis-scroll";
-import { SWATCH_DARK } from "./lib/siteColors";
+import { PROJECT_DETAIL_SWATCH, SWATCH_DARK } from "./lib/siteColors";
 
 const TITLES: Record<string, string> = {
   main: "Naman Pratulya",
@@ -40,6 +45,8 @@ function AppShell() {
       try {
         if (shouldUseDissolveTransition(location.pathname, nextPath)) {
           await runArchiveRouteTransition(location.pathname, nextPath, navigate);
+        } else if (shouldUseWorkProjectTransition(location.pathname, nextPath)) {
+          await runWorkToProjectTransition(nextPath, navigate);
         } else {
           await Promise.race([
             hideAllRegisteredPageText(),
@@ -61,25 +68,35 @@ function AppShell() {
         ? `Naman Pratulya | ${projectTitle}`
         : (TITLES[namespace] ?? TITLES.main);
     document.body.classList.add("page-wrap");
-    document.body.classList.toggle("page-wrap--scrollable", namespace === "projectDetail");
 
-    const themeColor = document.querySelector('meta[name="theme-color"]');
-    themeColor?.setAttribute("content", namespace === "projectDetail" ? "#c3c3c3" : SWATCH_DARK);
+    const transitionActive = isWorkProjectTransitionActive();
+    if (!transitionActive) {
+      document.body.classList.toggle("page-wrap--scrollable", namespace === "projectDetail");
 
-    if (namespace === "projectDetail") {
-      initLenis();
-    } else {
-      destroyLenis();
+      const themeColor = document.querySelector('meta[name="theme-color"]');
+      themeColor?.setAttribute(
+        "content",
+        namespace === "projectDetail" ? PROJECT_DETAIL_SWATCH : SWATCH_DARK,
+      );
+
+      if (namespace === "projectDetail") {
+        initLenis();
+      } else {
+        destroyLenis();
+      }
     }
 
     return () => {
-      document.body.classList.remove("page-wrap--scrollable");
-      destroyLenis();
+      if (!isWorkProjectTransitionActive()) {
+        document.body.classList.remove("page-wrap--scrollable");
+        destroyLenis();
+      }
     };
   }, [namespace, location.pathname]);
 
   useEffect(() => {
     if (namespace !== "projectDetail") return undefined;
+    if (isWorkProjectTransitionActive()) return undefined;
     const id = requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         void showAllRegisteredPageText();

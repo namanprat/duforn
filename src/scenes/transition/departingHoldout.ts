@@ -3,6 +3,14 @@ import * as THREE from "three";
 let holdoutTarget: THREE.WebGLRenderTarget | null = null;
 let pendingResolve: ((texture: THREE.Texture) => void) | null = null;
 
+const HOLDOUT_FALLBACK = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1);
+HOLDOUT_FALLBACK.needsUpdate = true;
+HOLDOUT_FALLBACK.colorSpace = THREE.SRGBColorSpace;
+
+// ponytail: if the main canvas frameloop is paused, capture may never fire — timeout
+// falls back to black; upgrade path is forcing frameloop during active dissolve.
+const HOLDOUT_TIMEOUT_MS = 500;
+
 const blitScene = new THREE.Scene();
 const blitCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 const blitMaterial = new THREE.MeshBasicMaterial({ toneMapped: false });
@@ -40,7 +48,19 @@ function copyRenderTarget(
 /** Resolve on the next composed frame (old route still mounted). */
 export function requestDepartingHoldout(): Promise<THREE.Texture> {
   return new Promise((resolve) => {
-    pendingResolve = resolve;
+    let settled = false;
+
+    const finish = (texture: THREE.Texture) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      pendingResolve = null;
+      resolve(texture);
+    };
+
+    const timeoutId = window.setTimeout(() => finish(HOLDOUT_FALLBACK), HOLDOUT_TIMEOUT_MS);
+
+    pendingResolve = (texture) => finish(texture);
   });
 }
 

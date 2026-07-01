@@ -3,6 +3,7 @@ import { OrthographicCamera } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
 import ProjectBg from "./ProjectBg";
 import ProjectBackground from "./ProjectBackground";
+import { useWorkProjectTransitionStore } from "../store/workProjectTransition";
 
 function ProjectDetailCamera() {
   const { size } = useThree();
@@ -24,13 +25,19 @@ function ProjectDetailCamera() {
 
 export default function ProjectDetailScene() {
   const [bgReady, setBgReady] = useState(false);
+  const setProjectBgReady = useWorkProjectTransitionStore((s) => s.setProjectBgReady);
+
+  const handleBgReady = (ready: boolean) => {
+    setBgReady(ready);
+    setProjectBgReady(ready);
+  };
 
   return (
     <>
       <ProjectDetailCamera />
       {!bgReady ? <ProjectBackground /> : null}
       <Suspense fallback={null}>
-        <ProjectBg onReady={setBgReady} />
+        <ProjectBg onReady={handleBgReady} />
       </Suspense>
     </>
   );

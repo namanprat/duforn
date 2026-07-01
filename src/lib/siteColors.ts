@@ -11,3 +11,6 @@ export const SWATCH_LIGHT_RGBA = (alpha: number) =>
   `rgba(${SWATCH_LIGHT_RGB[0]}, ${SWATCH_LIGHT_RGB[1]}, ${SWATCH_LIGHT_RGB[2]}, ${alpha})`;
 
 export const SWATCH_DARK_RGBA = (alpha: number) => `rgba(0, 0, 0, ${alpha})`;
+
+/** Project detail page overscroll / transition swatch — keep in sync with --project-overscroll-bg */
+export const PROJECT_DETAIL_SWATCH = "#c3c3c3";

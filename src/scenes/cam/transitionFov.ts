@@ -15,6 +15,11 @@ export function unregisterTransitionCamera(camera: PerspectiveCamera): void {
   if (activeCamera === camera) activeCamera = null;
 }
 
+export function killTransitionFovTweens(): void {
+  gsap.killTweensOf(cameraBasePoseRef.current, "fov");
+  if (activeCamera) gsap.killTweensOf(activeCamera, "fov");
+}
+
 /** Wide → target FOV punch on the active canvas camera (room rig + archive). */
 export function runTransitionFovPunch(targetFov: number, ease: string): void {
   gsap.killTweensOf(cameraBasePoseRef.current, "fov");

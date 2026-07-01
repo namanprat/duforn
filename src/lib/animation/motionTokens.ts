@@ -43,4 +43,15 @@ export const MOTION_TOKENS = {
     aboutHelmetMountMaxMs: 320,
     aboutHelmetFadeIn: 0.45,
   },
+  workProjectTransition: {
+    stripFadeDuration: 0.6,
+    stripFadeEase: "power3.in",
+    cameraDownDuration: 0.9,
+    cameraDownEase: "power3.in",
+    overlayInDuration: 0.55,
+    overlayInEase: "power2.inOut",
+    overlayOutDuration: 0.85,
+    overlayOutEase: "power2.out",
+    bgReadyTimeoutMs: 1500,
+  },
 } as const;

@@ -112,7 +112,7 @@ export default function CaseStudyPage() {
       <section className="u-margin-top-0">
         <div className="u-container-main">
           <div className="u-section-spacer-medium" />
-          <TextRevealLines animateOnScroll={false}>
+          <TextRevealLines animateOnScroll={false} waitForProjectArrival>
             <h1 className="u-container-full u-text-align-center u-text-style-display work-page__title">
               {title}
             </h1>
@@ -120,21 +120,26 @@ export default function CaseStudyPage() {
 
           <div className="project-details-hero-info u-grid-autofit u-align-items-start">
             <article className="project-details-overview u-column-span-9">
-              <TextRevealLines animateOnScroll={false}>
+              <TextRevealLines animateOnScroll={false} waitForProjectArrival>
                 <h5>Project Overview</h5>
               </TextRevealLines>
-              <TextRevealLines animateOnScroll={false} delay={0.05}>
+              <TextRevealLines animateOnScroll={false} delay={0.05} waitForProjectArrival>
                 <h2 className="project-details-overview-copy">{overview}</h2>
               </TextRevealLines>
             </article>
 
             <div className="project-details-services u-column-span-3">
-              <TextRevealLines animateOnScroll={false}>
+              <TextRevealLines animateOnScroll={false} waitForProjectArrival>
                 <h5>Services</h5>
               </TextRevealLines>
               <div className="u-display-grid">
                 {services.map((service) => (
-                  <TextRevealLines key={service} animateOnScroll={false} delay={0.02}>
+                  <TextRevealLines
+                    key={service}
+                    animateOnScroll={false}
+                    delay={0.02}
+                    waitForProjectArrival
+                  >
                     <h4>{service}</h4>
                   </TextRevealLines>
                 ))}

@@ -2,20 +2,39 @@ import { create } from "zustand";
 import type * as THREE from "three";
 import gsap from "gsap";
 import { ROOM_POSES, SHARED_FOV } from "../scenes/cam/roomPoses";
-import { ARCHIVE_FOV, runTransitionFovPunch } from "../scenes/cam/transitionFov";
+import {
+  ARCHIVE_FOV,
+  killTransitionFovTweens,
+  runTransitionFovPunch,
+} from "../scenes/cam/transitionFov";
 import { requestDepartingHoldout } from "../scenes/transition/departingHoldout";
-import { snapHidePageChrome, snapShowPageChrome } from "../lib/pageChrome";
-import { showAllRegisteredPageText, snapHideAllRegisteredPageText } from "../lib/text";
+import {
+  hidePageChrome,
+  showPageChrome,
+  snapHidePageChrome,
+  snapShowPageChrome,
+} from "../lib/pageChrome";
+import {
+  hideAllRegisteredPageText,
+  showAllRegisteredPageText,
+  snapHideAllRegisteredPageText,
+} from "../lib/text";
 import { getDeviceTier } from "../lib/deviceTier";
 import { prefersReducedMotion } from "../lib/prefersReducedMotion";
 import { getRouteNamespace, type RoomNamespace } from "../lib/route";
 import { resetArchiveToOrbView } from "./archiveView";
 import { useArchiveReturnStore, getArchiveReturnRoom } from "./archiveReturn";
-import { preloadArchiveReturnRoom, scheduleArchiveReturnPreload } from "../lib/roomReturnPreload";
+import { preloadArchiveReturnRoom } from "../lib/roomReturnPreload";
 
 const OPEN_DUR = 1.715;
+const CLOSE_DUR = OPEN_DUR;
 const OPEN_EASE = "power4.out";
+const CLOSE_EASE = "power4.in";
 const FOV_EASE = "power3.out";
+/** 70% through iris open (1→0) before FOV punch fires. */
+const FOV_LEAVE_THRESHOLD = 0.3;
+
+const progressTweenProxy = { value: 0 };
 
 type DissolveTransitionState = {
   active: boolean;
@@ -56,6 +75,11 @@ function canRunDissolve(): boolean {
   return getDeviceTier() > 0 && !prefersReducedMotion();
 }
 
+function killDissolveTweens(): void {
+  gsap.killTweensOf(progressTweenProxy);
+  killTransitionFovTweens();
+}
+
 function waitFrames(count = 2): Promise<void> {
   return new Promise((resolve) => {
     let remaining = count;
@@ -68,16 +92,25 @@ function waitFrames(count = 2): Promise<void> {
   });
 }
 
-function tweenCover(from: number, to: number, duration: number, ease: string): Promise<void> {
+function tweenCover(
+  from: number,
+  to: number,
+  duration: number,
+  ease: string,
+  onUpdate?: (value: number) => void,
+): Promise<void> {
   return new Promise((resolve) => {
     const store = useDissolveTransitionStore.getState();
     store.setProgress(from);
-    const c = { value: from };
-    gsap.to(c, {
+    progressTweenProxy.value = from;
+    gsap.to(progressTweenProxy, {
       value: to,
       duration,
       ease,
-      onUpdate: () => store.setProgress(c.value),
+      onUpdate: () => {
+        store.setProgress(progressTweenProxy.value);
+        onUpdate?.(progressTweenProxy.value);
+      },
       onComplete: () => resolve(),
     });
   });
@@ -105,25 +138,91 @@ export async function playDissolve({
   holdout = false,
   swap,
 }: DissolveOpts = {}): Promise<void> {
+  killDissolveTweens();
   const store = useDissolveTransitionStore.getState();
 
-  if (holdout) {
+  try {
+    if (holdout) {
+      store.setUseHoldout(true);
+      await requestDepartingHoldout();
+    }
+
+    store.start();
+    store.setProgress(1);
+
+    swap?.();
+    await waitFrames(2);
+
+    if (fov) {
+      runTransitionFovPunch(targetFov, FOV_EASE);
+    }
+
+    await tweenCover(1, 0, OPEN_DUR, OPEN_EASE);
+  } finally {
+    store.finish();
+  }
+}
+
+type ArchiveDissolveOpts = {
+  targetFov: number;
+  swap: () => void;
+};
+
+/** Archive → room: unreveal text/chrome, iris open, FOV at 70%. */
+async function playDissolveLeaveArchive({ targetFov, swap }: ArchiveDissolveOpts): Promise<void> {
+  killDissolveTweens();
+  const store = useDissolveTransitionStore.getState();
+
+  try {
+    await Promise.all([hideAllRegisteredPageText(), hidePageChrome()]);
+
     store.setUseHoldout(true);
     await requestDepartingHoldout();
+
+    store.start();
+    store.setProgress(1);
+    swap();
+    await waitFrames(2);
+
+    let fovFired = false;
+    await tweenCover(1, 0, OPEN_DUR, OPEN_EASE, (value) => {
+      if (!fovFired && value <= FOV_LEAVE_THRESHOLD) {
+        fovFired = true;
+        runTransitionFovPunch(targetFov, FOV_EASE);
+      }
+    });
+  } finally {
+    store.finish();
   }
+}
 
-  store.start();
-  store.setProgress(1);
+type ArchiveEnterOpts = {
+  swap: () => void;
+};
 
-  swap?.();
-  await waitFrames(2);
+/** Room → archive: FOV punch, iris close, swap, chrome reveal. */
+async function playDissolveEnterArchive({ swap }: ArchiveEnterOpts): Promise<void> {
+  killDissolveTweens();
+  const store = useDissolveTransitionStore.getState();
 
-  if (fov) {
-    runTransitionFovPunch(targetFov, FOV_EASE);
+  try {
+    runTransitionFovPunch(ARCHIVE_FOV, FOV_EASE);
+
+    store.setUseHoldout(true);
+    await requestDepartingHoldout();
+
+    store.start();
+    await tweenCover(0, 1, CLOSE_DUR, CLOSE_EASE);
+
+    snapHidePageChrome();
+    snapHideAllRegisteredPageText();
+    swap();
+    await waitFrames(2);
+
+    store.setProgress(0);
+  } finally {
+    store.finish();
   }
-
-  await tweenCover(1, 0, OPEN_DUR, OPEN_EASE);
-  store.finish();
 }
 
 export async function runArchiveRouteTransition(
@@ -142,28 +241,30 @@ export async function runArchiveRouteTransition(
     return;
   }
 
-  if (toArchive) {
-    useArchiveReturnStore.getState().setOriginFromPath(fromPath);
-  }
-
   if (fromArchive) {
     void preloadArchiveReturnRoom(getArchiveReturnRoom());
+    await playDissolveLeaveArchive({
+      targetFov: targetFovForPath(toPath),
+      swap: () => {
+        snapHidePageChrome();
+        snapHideAllRegisteredPageText();
+        navigate(toPath);
+      },
+    });
+    snapShowPageChrome(false);
+    await showAllRegisteredPageText();
+    return;
   }
 
-  await playDissolve({
-    fov: true,
-    targetFov: targetFovForPath(toPath),
-    holdout: true,
+  useArchiveReturnStore.getState().setOriginFromPath(fromPath);
+
+  await playDissolveEnterArchive({
     swap: () => {
-      snapHidePageChrome();
-      snapHideAllRegisteredPageText();
-      if (toArchive) resetArchiveToOrbView();
+      resetArchiveToOrbView();
       navigate(toPath);
     },
   });
-
-  snapShowPageChrome(toArchive);
-  if (!toArchive) await showAllRegisteredPageText();
+  await showPageChrome(true);
 }
 
 export function runBootDissolveTransition(onComplete: () => void, targetFov = SHARED_FOV): void {

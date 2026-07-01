@@ -73,13 +73,13 @@ const fragmentShader = /* glsl */ `
     for (int i = -2; i <= 2; i++) {
       for (int j = -2; j <= 2; j++) {
         vec2 off = vec2(float(i), float(j)) * texelSize * 3.0;
-        spread += white + sampleInside(uv + off) * 0.15;
+        spread += white + sampleInside(uv + off) * 0.22;
       }
     }
     spread /= 25.0;
     vec3 hot = max(white, vec3(0.0));
-    vec3 bloom = hot * hot * 4.0 + spread * edgeMask * 2.8;
-    bloom += vec3(edgeMask * 0.85);
+    vec3 bloom = hot * hot * 8.0 + spread * edgeMask * 4.5;
+    bloom += vec3(edgeMask * 1.4);
     return bloom;
   }
 
@@ -98,21 +98,21 @@ const fragmentShader = /* glsl */ `
 
     float threshold = (1.0 - cover) * 1.28;
     float mask = smoothstep(threshold - 0.06, threshold + 0.025, normDist);
-    float tailFade = smoothstep(0.0, 0.12, cover);
+    float tailFade = smoothstep(0.0, 0.04, cover);
 
-    float ringWidth = 0.12;
+    float ringWidth = 0.14;
     float ring = smoothstep(threshold - ringWidth, threshold, normDist) *
                  smoothstep(threshold + ringWidth * 0.65, threshold, normDist);
     float sparkle = hash(floor(uv * resolution / 1.5)) * ring;
-    vec3 frontGlow = vec3(sparkle * 5.0 * cover);
+    vec3 frontGlow = vec3(sparkle * 10.0 * cover);
 
     float rim = smoothstep(threshold - ringWidth * 0.85, threshold, normDist) *
                 (1.0 - smoothstep(threshold, threshold + ringWidth * 0.45, normDist));
-    vec3 rimGlow = vec3(1.0) * rim * 0.55 * cover;
+    vec3 rimGlow = vec3(1.0) * rim * 1.2 * cover;
 
-    vec3 white = (frontGlow + rimGlow) * tailFade;
-    float edgeMask = max(ring, rim) * cover * tailFade;
-    vec2 caDir = normalize(c + 0.0001) * edgeMask * 0.022;
+    float edgeMask = max(ring, rim) * max(cover * tailFade, cover * 0.65);
+    vec3 white = (frontGlow + rimGlow) * max(tailFade, edgeMask * 0.35 + 0.25);
+    vec2 caDir = normalize(c + 0.0001) * edgeMask * 0.065;
 
     vec3 baseMix = chromaMix(uv, caDir, mask);
     vec3 bloom = bloomWhites(uv, white, edgeMask);

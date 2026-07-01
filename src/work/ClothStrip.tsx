@@ -6,6 +6,7 @@ import { getPreloadedTextures } from "../lib/work-preload";
 import { workItems } from "../content/work-items";
 import { navigateTo, isNavigableHref } from "../lib/nav";
 import { useWorkSceneControlsStore } from "../store/workScene";
+import { useWorkProjectTransitionStore } from "../store/workProjectTransition";
 import {
   COLS,
   DEFAULT_GAP_SIZE,
@@ -308,6 +309,8 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
   const onWorkRef = useRef(false);
   onWorkRef.current = activeRoom === "work";
   const stripControls = useWorkSceneControlsStore((state) => state.controls.strip);
+  const transitionActive = useWorkProjectTransitionStore((state) => state.active);
+  const transitionStripOpacity = useWorkProjectTransitionStore((state) => state.stripOpacity);
   const isMobileStrip = useMediaQuery(MOBILE_STRIP_MQ);
   const visibleItems = DEFAULT_VISIBLE_ITEMS;
   const gapSize = stripControls.gapSize ?? DEFAULT_GAP_SIZE;
@@ -352,7 +355,11 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
 
   const updateStripCursor = () => {
     const canvas = gl.domElement as HTMLElement;
-    if (!onWorkRef.current || document.body.classList.contains("menu-open")) {
+    if (
+      !onWorkRef.current ||
+      document.body.classList.contains("menu-open") ||
+      transitionActive
+    ) {
       canvas.style.cursor = "";
       return;
     }
@@ -390,7 +397,10 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
     // wrappers (`.site_wrap` / `.site_content`, z-index 1) which would otherwise
     // swallow wheel/drag before they reached the canvas. Skip while the menu/about
     // overlay is open so its own scroll keeps working.
-    const canInteract = () => onWorkRef.current && !document.body.classList.contains("menu-open");
+    const canInteract = () =>
+      onWorkRef.current &&
+      !document.body.classList.contains("menu-open") &&
+      !useWorkProjectTransitionStore.getState().active;
     const onWheel = (e: WheelEvent) => {
       if (!canInteract()) return;
       e.preventDefault();
@@ -589,7 +599,7 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
     }
 
     sys.uniforms.uScrollOffset.value = s.current;
-    sys.uniforms.uOpacity.value = sc.opacity ?? 1;
+    sys.uniforms.uOpacity.value = transitionActive ? transitionStripOpacity : (sc.opacity ?? 1);
     sys.uniforms.uExposure.value = sc.exposure ?? 0;
     sys.uniforms.uLevelsInLow.value = sc.levelsInLow ?? 0;
     sys.uniforms.uLevelsInHigh.value = sc.levelsInHigh ?? 1;
@@ -630,7 +640,8 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
   if (!activeTextures || !stripMaterial) return null;
 
   const handleStripPointerDown = (e: ThreeEvent<PointerEvent>) => {
-    if (!onWorkRef.current || document.body.classList.contains("menu-open")) return;
+    if (!onWorkRef.current || transitionActive || document.body.classList.contains("menu-open"))
+      return;
     e.stopPropagation();
     beginStripDrag(e.clientX, e.pointerId);
   };
@@ -642,7 +653,8 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
   };
 
   const handleStripPointerMove = (e: ThreeEvent<PointerEvent>) => {
-    if (!onWorkRef.current || document.body.classList.contains("menu-open")) return;
+    if (!onWorkRef.current || transitionActive || document.body.classList.contains("menu-open"))
+      return;
     if (inputRef.current.isDown && inputRef.current.startedOnStrip) {
       hoverSlotRef.current = -1;
       return;
@@ -668,7 +680,7 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
   };
 
   const handleStripClick = (e: any) => {
-    if (!onWorkRef.current) return;
+    if (!onWorkRef.current || transitionActive) return;
     if (inputRef.current.dragDist > DRAG_THRESHOLD_PX || !e.uv) return;
     e.stopPropagation();
     const resolvedSlot = resolveVisibleSlotAtUv(
