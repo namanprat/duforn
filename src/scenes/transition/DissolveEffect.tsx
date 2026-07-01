@@ -72,7 +72,7 @@ const fragmentShader = /* glsl */ `
     vec3 spread = vec3(0.0);
     for (int i = -2; i <= 2; i++) {
       for (int j = -2; j <= 2; j++) {
-        vec2 off = vec2(float(i), float(j)) * texelSize * 5.5;
+        vec2 off = vec2(float(i), float(j)) * texelSize * 3.0;
         spread += white + sampleInside(uv + off) * 0.15;
       }
     }
@@ -91,7 +91,7 @@ const fragmentShader = /* glsl */ `
     c.x *= aspect;
     float dist = length(c);
     float angle = atan(c.y, c.x);
-    float blockNoise = fbm(floor(uv * resolution / 5.0) * 5.0 / resolution * 100.0) * ${NOISE_AMP.toFixed(3)};
+    float blockNoise = fbm(floor(uv * resolution / 2.0) * 2.0 / resolution * 100.0) * ${NOISE_AMP.toFixed(3)};
     float angularNoise = fbm(vec2(angle * 6.0, 0.0)) * ${NOISE_AMP.toFixed(3)};
     float maxDist = length(vec2(aspect * 0.5, 0.5));
     float normDist = (dist + blockNoise + angularNoise) / maxDist;
@@ -102,7 +102,7 @@ const fragmentShader = /* glsl */ `
     float ringWidth = 0.12;
     float ring = smoothstep(threshold - ringWidth, threshold, normDist) *
                  smoothstep(threshold + ringWidth * 0.65, threshold, normDist);
-    float sparkle = hash(floor(uv * resolution / 3.0)) * ring;
+    float sparkle = hash(floor(uv * resolution / 1.5)) * ring;
     vec3 frontGlow = vec3(sparkle * 5.0 * cover);
 
     float rim = smoothstep(threshold - ringWidth * 0.85, threshold, normDist) *

@@ -2,8 +2,8 @@ import { getQualityProfile } from "../../../lib/qualityProfile";
 
 /** Wave-equation pool ripple + ocean-style surface defaults. */
 
-/** Planar reflection + backdrop render targets at half drawing-buffer res. */
-export const REFLECTION_SCALE = 0.5;
+/** Planar reflection + backdrop render targets (fraction of drawing-buffer res). */
+export const REFLECTION_SCALE = 0.65;
 /** Layer holding the basin (caustics-receiver) meshes — the only geometry the
  *  backdrop refraction pass needs to draw. */
 export const WATER_BASIN_LAYER = 1;
