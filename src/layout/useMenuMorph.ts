@@ -19,6 +19,19 @@ const SURFACE_DIM_PROPS = "width,height";
 const lineSpan = (n: number, dur: number, stagger: number) =>
   dur + stagger * Math.max(n - 1, 0);
 
+// ponytail: --menu-pad-inline is only set at the mobile breakpoint. Measure it in px
+// (0 on desktop) by probing a var-width element, so the gsap-driven brand indent
+// matches the CSS token exactly without hard-coding a value.
+function readMenuPadInlinePx(anchor: HTMLElement): number {
+  const probe = document.createElement("span");
+  probe.style.cssText =
+    "position:absolute;left:0;top:0;height:0;visibility:hidden;pointer-events:none;width:var(--menu-pad-inline,0px)";
+  anchor.appendChild(probe);
+  const w = probe.getBoundingClientRect().width;
+  probe.remove();
+  return w;
+}
+
 function phaseOpen(phase: MenuPhase) {
   return phase !== "closed";
 }
@@ -92,6 +105,12 @@ export function useMenuMorph({
     const surface = surfaceRef.current;
     if (!scope || !menuNav || !surface) return;
 
+    // Brand ("Naman Pratulya" / clock) lives outside the menu subtree; move it in
+    // unison with the box grow/shrink so it never leads the morph. 0px on desktop.
+    const brand =
+      scope.closest(".site-header")?.querySelector<HTMLElement>(".site-header__brand") ?? null;
+    const brandIndent = brand ? readMenuPadInlinePx(brand) : 0;
+
     const lines = scope.querySelectorAll<HTMLElement>(".menu-nav__line");
     const aboutEl = scope.querySelector<HTMLElement>(".menu-nav__about");
     const { menu } = MOTION_TOKENS;
@@ -138,6 +157,7 @@ export function useMenuMorph({
         autoAlpha: phaseOpen(target) && !phaseAbout(target) ? 1 : 0,
       });
       gsap.set(surface, { clearProps: SURFACE_DIM_PROPS });
+      if (brand) gsap.set(brand, { x: phaseAbout(target) ? brandIndent : 0 });
       settle(target);
       return;
     }
@@ -187,6 +207,8 @@ export function useMenuMorph({
         0,
       );
       tl.to(surface, { width: toD.width, height: toD.height, duration: boxDuration, ease: menu.boxShrinkEase }, headerOut);
+      // Safety: if About was mid-open when this fired, ease the brand back in unison.
+      if (brand) tl.to(brand, { x: 0, duration: boxDuration, ease: menu.boxShrinkEase }, headerOut);
       tl.eventCallback("onComplete", () => settle("closed"));
       tlRef.current = tl;
       return;
@@ -209,6 +231,7 @@ export function useMenuMorph({
         0,
       );
       tl.to(surface, { width: toD.width, height: toD.height, duration: menu.boxAbout, ease: menu.boxOpenEase }, headerOut);
+      if (brand) tl.to(brand, { x: brandIndent, duration: menu.boxAbout, ease: menu.boxOpenEase }, headerOut);
       tl.to({}, { duration: menu.aboutRevealDelay }, aboutAt);
       tl.call(() => {
         setPresented(menuFlags("about", true));
@@ -230,6 +253,7 @@ export function useMenuMorph({
       const revealAt = hideDur + boxDuration;
       const tl = gsap.timeline();
       tl.to(surface, { width: toD.width, height: toD.height, duration: boxDuration, ease: menu.boxShrinkEase }, hideDur);
+      if (brand) tl.to(brand, { x: 0, duration: boxDuration, ease: menu.boxShrinkEase }, hideDur);
       tl.call(() => {
         setPresented(menuFlags("links", true));
         gsap.set(lines, { yPercent: -120, autoAlpha: 0 });
@@ -254,6 +278,7 @@ export function useMenuMorph({
       const boxDuration = menu.boxAbout;
       const tl = gsap.timeline();
       tl.to(surface, { width: toD.width, height: toD.height, duration: boxDuration, ease: menu.boxShrinkEase }, hideDur);
+      if (brand) tl.to(brand, { x: 0, duration: boxDuration, ease: menu.boxShrinkEase }, hideDur);
       tl.eventCallback("onComplete", () => settle("closed"));
       tlRef.current = tl;
       return;
@@ -270,6 +295,11 @@ export function useMenuMorph({
     tl.to(surface, {
       width: toD.width,
       height: toD.height,
+      duration: grow ? menu.boxOpen : menu.boxAbout,
+      ease: grow ? menu.boxOpenEase : menu.boxShrinkEase,
+    }, 0);
+    if (brand) tl.to(brand, {
+      x: phaseAbout(target) ? brandIndent : 0,
       duration: grow ? menu.boxOpen : menu.boxAbout,
       ease: grow ? menu.boxOpenEase : menu.boxShrinkEase,
     }, 0);

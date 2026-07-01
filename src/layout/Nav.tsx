@@ -41,29 +41,25 @@ function useISTTime() {
 
 function NavBrand({
   isHome,
-  useRotateHover,
   paused = false,
   showName,
 }: {
   isHome: boolean;
-  useRotateHover: boolean;
   paused?: boolean;
   showName?: boolean;
 }) {
   const time = useISTTime();
   const brandText = isHome && !showName ? `${time} IST` : "Naman Pratulya";
 
+  // Always rendered (not gated to fine-pointer) so the clock ↔ "Naman Pratulya"
+  // swap rolls in on page changes and menu state changes on touch devices too.
   return (
     <span className="nav-brand__clip">
-      {useRotateHover ? (
-        <RotateHoverLabel
-          text={brandText}
-          changeKey={showName ? "brand" : "home"}
-          paused={paused}
-        />
-      ) : (
-        brandText
-      )}
+      <RotateHoverLabel
+        text={brandText}
+        changeKey={showName ? "brand" : "home"}
+        paused={paused}
+      />
     </span>
   );
 }
@@ -184,7 +180,10 @@ export default function Nav() {
     toggleLabel === "Menu" ? "Open menu" : toggleLabel === "Back" ? "Back to menu" : "Close menu";
 
   return (
-    <header className={`site-header${isOpen ? " site-header--menu-open" : ""}`} data-no-strip-drag>
+    <header
+      className={`site-header${isOpen ? " site-header--menu-open" : ""}${isAbout ? " site-header--menu-about" : ""}`}
+      data-no-strip-drag
+    >
       <button
         type="button"
         className="menu-nav-backdrop"
@@ -196,14 +195,9 @@ export default function Nav() {
         }}
       />
 
-      <div className="site-header__inner u-container-main">
+      <div className="site-header__inner">
         <NavLink className="link-main site-header__brand" to="/" rotateHover={useRotateHover && !isHome}>
-          <NavBrand
-            isHome={isHome}
-            useRotateHover={useRotateHover && !isHome}
-            paused={isMorphing}
-            showName={showBrandName}
-          />
+          <NavBrand isHome={isHome} paused={isMorphing} showName={showBrandName} />
         </NavLink>
       </div>
 

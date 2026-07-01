@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { SWATCH_LIGHT_NUM } from "../../lib/siteColors";
 import { findObjectByName } from "../sceneUtils";
 import { POOL_PLANE_DEFAULTS } from "./config/poolWaterDefaults";
 import { findWaterMesh } from "./findWaterMesh";
@@ -48,7 +49,7 @@ function createGeneratedWaterMesh(root: THREE.Object3D): THREE.Mesh | null {
 
   const mesh = new THREE.Mesh(
     geometry,
-    new THREE.MeshBasicMaterial({ color: 0xffffff, visible: true }),
+    new THREE.MeshBasicMaterial({ color: SWATCH_LIGHT_NUM, visible: true }),
   );
   mesh.name = WATER_EXACT_NAME;
   mesh.userData.isWater = true;

@@ -19,7 +19,14 @@ import { SCENE_SUN_DIR } from "../scenes/lighting/sun";
 
 const GRAB_SCALE = 0.96;
 const GRAB_SCALE_LERP = 0.14;
+const HOVER_SCALE = 1.04;
+const HOVER_SCALE_DURATION = 0.5;
 const DRAG_THRESHOLD_PX = 8;
+
+function easeOutCubic(t: number) {
+  const x = Math.min(Math.max(t, 0), 1);
+  return 1 - (1 - x) ** 3;
+}
 
 function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(
@@ -124,6 +131,10 @@ function createWebGLStripMaterial(textures: THREE.Texture[], stripConfig: Record
     uCenterLight: { value: 0.08 },
     uRimStrength: { value: 0.05 },
     uEdgeFade: { value: 0.06 },
+    uHoverSlot: { value: -1 },
+    uHoverScale: { value: 1 },
+    uHoverSlotPrev: { value: -1 },
+    uHoverScalePrev: { value: 1 },
     uTex0: { value: textures[0] },
     uTex1: { value: textures[1] },
     uTex2: { value: textures[2] },
@@ -222,6 +233,10 @@ function createWebGLStripMaterial(textures: THREE.Texture[], stripConfig: Record
       uniform float uCenterLight;
       uniform float uRimStrength;
       uniform float uEdgeFade;
+      uniform float uHoverSlot;
+      uniform float uHoverScale;
+      uniform float uHoverSlotPrev;
+      uniform float uHoverScalePrev;
       varying vec2 vUv;
       varying float vLooseness;
       varying vec3 vNormal;
@@ -253,7 +268,12 @@ function createWebGLStripMaterial(textures: THREE.Texture[], stripConfig: Record
         }
 
         float texU = (itemFract - halfGap) / max(1.0 - uGapSize, 0.0001);
-        vec2 texCoord = clamp(vec2(texU, vUv.y), vec2(0.001), vec2(0.999));
+        float cellScale = 1.0;
+        if (uHoverSlot >= 0.0 && itemFloor == uHoverSlot) cellScale = uHoverScale;
+        else if (uHoverSlotPrev >= 0.0 && itemFloor == uHoverSlotPrev) cellScale = uHoverScalePrev;
+        texU = (texU - 0.5) / cellScale + 0.5;
+        float texV = (vUv.y - 0.5) / cellScale + 0.5;
+        vec2 texCoord = clamp(vec2(texU, texV), vec2(0.001), vec2(0.999));
         int wrappedIndex = int(mod(itemFloor + uNumUnique, uNumUnique));
         vec3 color = sampleStripTexture(wrappedIndex, texCoord);
         color *= exp2(uExposure);
@@ -317,6 +337,12 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
     dragDist: 0,
   });
   const hoverStripRef = useRef(false);
+  const hoverSlotRef = useRef(-1);
+  // Two independent scale channels so moving A→B eases B up while A eases back down.
+  const hoverAnimRef = useRef({
+    curr: { slot: -1, value: 1, from: 1, to: 1, startTime: 0 },
+    prev: { slot: -1, value: 1, from: 1, to: 1, startTime: 0 },
+  });
   // ponytail: seed with the actually-centered item (not workItems[0]) so the opening
   // frame matches WorkPage's title and dispatches no redundant event.
   const currentTitleRef = useRef(
@@ -422,6 +448,11 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
     inputRef.current.isDown = false;
     inputRef.current.startedOnStrip = false;
     hoverStripRef.current = false;
+    hoverSlotRef.current = -1;
+    hoverAnimRef.current = {
+      curr: { slot: -1, value: 1, from: 1, to: 1, startTime: 0 },
+      prev: { slot: -1, value: 1, from: 1, to: 1, startTime: 0 },
+    };
     gl.domElement.style.cursor = "";
   }, [activeRoom, gl]);
 
@@ -512,6 +543,30 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
     const grabTarget = isGrabScaling ? GRAB_SCALE : 1;
     grabScaleRef.current += (grabTarget - grabScaleRef.current) * GRAB_SCALE_LERP;
 
+    const targetSlot =
+      hoverSlotRef.current >= 0 && !isDraggingStrip ? hoverSlotRef.current : -1;
+    const anim = hoverAnimRef.current;
+    const now = state.clock.getElapsedTime();
+    const stepChannel = (ch: (typeof anim)["curr"]) => {
+      const t = Math.min((now - ch.startTime) / HOVER_SCALE_DURATION, 1);
+      ch.value = ch.from + (ch.to - ch.from) * easeOutCubic(t);
+    };
+    if (targetSlot !== anim.curr.slot) {
+      // Hand the outgoing slot to the prev channel so it keeps easing back to 1
+      // from wherever it currently is, while curr eases the new slot up.
+      anim.prev = { ...anim.curr, from: anim.curr.value, to: 1, startTime: now };
+      anim.curr =
+        targetSlot >= 0
+          ? { slot: targetSlot, value: 1, from: 1, to: HOVER_SCALE, startTime: now }
+          : { slot: -1, value: 1, from: 1, to: 1, startTime: now };
+    }
+    stepChannel(anim.curr);
+    stepChannel(anim.prev);
+    sys.uniforms.uHoverSlot.value = anim.curr.slot;
+    sys.uniforms.uHoverScale.value = anim.curr.value;
+    sys.uniforms.uHoverSlotPrev.value = anim.prev.slot;
+    sys.uniforms.uHoverScalePrev.value = anim.prev.value;
+
     if (group) {
       const baseScale = sc.scale ?? 1;
       const grabScale = grabScaleRef.current;
@@ -586,8 +641,29 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
     updateStripCursor();
   };
 
+  const handleStripPointerMove = (e: ThreeEvent<PointerEvent>) => {
+    if (!onWorkRef.current || document.body.classList.contains("menu-open")) return;
+    if (inputRef.current.isDown && inputRef.current.startedOnStrip) {
+      hoverSlotRef.current = -1;
+      return;
+    }
+    if (!e.uv) {
+      hoverSlotRef.current = -1;
+      return;
+    }
+    const resolvedSlot = resolveVisibleSlotAtUv(
+      e.uv.x,
+      scrollRef.current.current,
+      visibleItems,
+      gapSize,
+      NUM_UNIQUE,
+    );
+    hoverSlotRef.current = resolvedSlot?.slotIndex ?? -1;
+  };
+
   const handleStripPointerOut = () => {
     hoverStripRef.current = false;
+    hoverSlotRef.current = -1;
     updateStripCursor();
   };
 
@@ -627,6 +703,7 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
         frustumCulled={false}
         onPointerDown={handleStripPointerDown}
         onPointerOver={handleStripPointerOver}
+        onPointerMove={handleStripPointerMove}
         onPointerOut={handleStripPointerOut}
         onClick={handleStripClick}
       />

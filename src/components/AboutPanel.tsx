@@ -12,15 +12,20 @@ import { ABOUT_CLIENTS, ABOUT_INTRO_PARAGRAPHS, ABOUT_SERVICES } from "../conten
 import AboutDitherCanvas from "./AboutDitherCanvas";
 import { MOTION_TOKENS } from "../lib/animation/motionTokens";
 import { getDeviceTier } from "../lib/deviceTier";
-import { hasFinePointerHover } from "../lib/link-hover";
 import { prefersReducedMotion } from "../lib/prefersReducedMotion";
+import { useWebGLOverlayStore } from "../store/webglOverlay";
 
 gsap.registerPlugin(SplitText);
 
-/** ponytail: mobile already runs the main scene WebGL; a second About canvas crashes iOS Safari */
+const CLIENT_COLS = [
+  ABOUT_CLIENTS.filter((_, i) => i % 2 === 0),
+  ABOUT_CLIENTS.filter((_, i) => i % 2 === 1),
+] as const;
+
+/** ponytail: skip tier-0 / reduced-motion; distortion hover stays fine-pointer-only */
 function shouldMountAboutHelmet(): boolean {
   if (getDeviceTier() === 0) return false;
-  return hasFinePointerHover();
+  return !prefersReducedMotion();
 }
 
 export type AboutPanelHandle = {
@@ -47,6 +52,7 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
   // postFX). Mounting it on the same frame as the reveal froze the line tween until init
   // finished. Defer it until the reveal has played, then dissolve it in.
   const [mountCanvas, setMountCanvas] = useState(false);
+  const setOverlayWebGLActive = useWebGLOverlayStore((s) => s.setActive);
 
   const runHide = (up: boolean) => {
     revealTweenRef.current?.kill();
@@ -140,18 +146,12 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
     });
 
     // Mount helmet early in the reveal so init overlaps text (preload handles GLTF).
-    const revealSpan = revealDuration + revealStagger * Math.max(allLines.length - 1, 0);
-    const canvasDelayMs = Math.min(
-      MOTION_TOKENS.menu.aboutHelmetMountMaxMs,
-      revealSpan * 1000 * 0.2,
-    );
-    const canvasTimer = shouldMountAboutHelmet()
-      ? window.setTimeout(() => setMountCanvas(true), canvasDelayMs)
+    const canvasRaf = shouldMountAboutHelmet()
+      ? requestAnimationFrame(() => setMountCanvas(true))
       : undefined;
 
     return () => {
-      if (canvasTimer !== undefined) window.clearTimeout(canvasTimer);
-      setMountCanvas(false);
+      if (canvasRaf !== undefined) cancelAnimationFrame(canvasRaf);
       revealTweenRef.current?.kill();
       hideTweenRef.current?.kill();
       splits.forEach((split) => {
@@ -166,6 +166,15 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
       gsap.set(content, { clearProps: "opacity,visibility" });
     };
   }, [active]);
+
+  useEffect(() => {
+    if (!active) setMountCanvas(false);
+  }, [active]);
+
+  useEffect(() => {
+    setOverlayWebGLActive(mountCanvas);
+    return () => setOverlayWebGLActive(false);
+  }, [mountCanvas, setOverlayWebGLActive]);
 
   // Dissolve the helmet canvas in once it mounts (after the text reveal).
   useEffect(() => {
@@ -187,7 +196,7 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
         ))}
 
         <div className="about-panel__media" ref={mediaRef}>
-          {mountCanvas && <AboutDitherCanvas />}
+          {mountCanvas && <AboutDitherCanvas eventSource={mediaRef} />}
         </div>
 
         <div className="about-panel__columns">
@@ -208,11 +217,15 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
             <p className="about-panel__label" data-reveal>
               Clients
             </p>
-            <div className="about-panel__list about-panel__list--clients">
-              {ABOUT_CLIENTS.map((client) => (
-                <p key={client} className="about-panel__item" data-reveal>
-                  {client}
-                </p>
+            <div className="about-panel__clients-cols">
+              {CLIENT_COLS.map((col, colIdx) => (
+                <div key={colIdx} className="about-panel__list">
+                  {col.map((client) => (
+                    <p key={client} className="about-panel__item" data-reveal>
+                      {client}
+                    </p>
+                  ))}
+                </div>
               ))}
             </div>
           </section>

@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { SWATCH_LIGHT_RGB } from "./siteColors";
 import { isKtx2Ready, ktx2UrlFor, loadKtx2Texture } from "./ktx2";
 
 export interface TextureOptions {
@@ -40,7 +41,7 @@ export function configureTexture(texture: THREE.Texture, options: TextureOptions
 }
 
 export function createColorFallbackTexture(options: TextureOptions & { rgba?: number[] } = {}) {
-  const { rgba = [220, 218, 210, 255], ...textureOptions } = options;
+  const { rgba = [...SWATCH_LIGHT_RGB, 255], ...textureOptions } = options;
   const texture = new THREE.DataTexture(new Uint8Array(rgba), 1, 1, THREE.RGBAFormat);
   texture.premultiplyAlpha = false;
   return configureTexture(texture, {

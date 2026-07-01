@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { SWATCH_LIGHT_FOG_NUM, SWATCH_LIGHT_NUM } from "../lib/siteColors";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Environment } from "@react-three/drei";
 
@@ -35,8 +36,8 @@ function EnvironmentReadyProbe({ onReady }: { onReady?: () => void }) {
 export default function Env({
   hdrFiles = "/main.hdr",
   showHdriBackground = true,
-  backgroundColor = 0xe8e6de,
-  fogColor = 0xe6e4dc,
+  backgroundColor = SWATCH_LIGHT_NUM,
+  fogColor = SWATCH_LIGHT_FOG_NUM,
   fogDensity = 0.0165,
   showShadowCatcher = true,
   onEnvironmentReady,

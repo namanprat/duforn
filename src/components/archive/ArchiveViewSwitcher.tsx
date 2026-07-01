@@ -1,4 +1,5 @@
 import { useArchiveViewStore, type ArchiveView } from "../../store/archiveView";
+import { SWATCH_DARK, SWATCH_DARK_RGBA, SWATCH_LIGHT, SWATCH_LIGHT_RGBA } from "../../lib/siteColors";
 
 const VIEWS: { id: ArchiveView; label: string }[] = [
   { id: "orb", label: "Orb" },
@@ -26,9 +27,9 @@ export default function ArchiveViewSwitcher() {
         gap: 4,
         padding: 5,
         borderRadius: 999,
-        background: "rgba(0,0,0,0.4)",
+        background: SWATCH_DARK_RGBA(0.4),
         backdropFilter: "blur(10px)",
-        border: "1px solid rgba(255,255,255,0.2)",
+        border: `1px solid ${SWATCH_LIGHT_RGBA(0.2)}`,
         pointerEvents: "auto",
         zIndex: 100,
         opacity: morphing ? 0.55 : 1,
@@ -53,8 +54,8 @@ export default function ArchiveViewSwitcher() {
               fontSize: 13,
               letterSpacing: "0.08em",
               textTransform: "uppercase",
-              color: active ? "#000" : "rgba(255,255,255,0.7)",
-              background: active ? "#fff" : "transparent",
+              color: active ? SWATCH_DARK : SWATCH_LIGHT_RGBA(0.7),
+              background: active ? SWATCH_LIGHT : "transparent",
               transition: "color 0.2s, background 0.2s",
               opacity: morphing && !active ? 0.5 : 1,
             }}

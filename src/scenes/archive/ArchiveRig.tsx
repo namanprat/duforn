@@ -38,6 +38,7 @@ export default function ArchiveRig() {
       startY = e.clientY;
       maxTravel = 0;
       rigState.isDragging = false;
+      rigState.isGridPanning = gridMode();
       baseQuat.copy(rigState.orientationTarget);
       basePanX = rigState.gridPanTarget.x;
       basePanY = rigState.gridPanTarget.y;
@@ -52,13 +53,11 @@ export default function ArchiveRig() {
 
       if (gridMode()) {
         rigState.isDragging = maxTravel > ARCHIVE_CONFIG.clickThreshold;
-        // 1:1 grab — convert pixel drag to world pan at the live camera distance.
+        // 1:1 grab feel — world units per screen pixel at the live camera distance.
         const cam = camera as THREE.PerspectiveCamera;
         const halfFov = (cam.fov * Math.PI) / 360;
         const h = gl.domElement.clientHeight || 1;
-        // Grid pan speed per pixel of drag, inverted on both axes. Was 3× a 1:1
-        // grab; reduced to 0.9, then bumped 30% (0.9 → 1.17) for a livelier drag.
-        const worldPerPx = (1.17 * camera.position.z * Math.tan(halfFov)) / h;
+        const worldPerPx = (2.5 * camera.position.z * Math.tan(halfFov)) / h;
         rigState.gridPanTarget.x = basePanX + dx * worldPerPx;
         rigState.gridPanTarget.y = basePanY - dy * worldPerPx;
         return;
@@ -82,6 +81,7 @@ export default function ArchiveRig() {
       if (!down) return;
       down = false;
       rigState.isDragging = false;
+      rigState.isGridPanning = false;
       canvas.style.cursor = gridMode() || orbMode() ? "grab" : "default";
     };
 
@@ -120,18 +120,13 @@ export default function ArchiveRig() {
 
     rigState.orientation.slerp(rigState.orientationTarget, 1 - Math.exp(-SPIN_DAMP * delta));
 
-    rigState.gridPan.x = damp(
-      rigState.gridPan.x,
-      rigState.gridPanTarget.x,
-      8,
-      delta,
-    );
-    rigState.gridPan.y = damp(
-      rigState.gridPan.y,
-      rigState.gridPanTarget.y,
-      8,
-      delta,
-    );
+    if (rigState.isGridPanning) {
+      rigState.gridPan.x = rigState.gridPanTarget.x;
+      rigState.gridPan.y = rigState.gridPanTarget.y;
+    } else {
+      rigState.gridPan.x = damp(rigState.gridPan.x, rigState.gridPanTarget.x, 8, delta);
+      rigState.gridPan.y = damp(rigState.gridPan.y, rigState.gridPanTarget.y, 8, delta);
+    }
 
     // Camera keeps the orb zoom in every mode — entering grid no longer dollies,
     // so the grid renders at whatever size the user had in orb.

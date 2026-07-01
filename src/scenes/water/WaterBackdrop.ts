@@ -7,10 +7,11 @@
  * target each frame and hand its texture to the water material.
  */
 import * as THREE from "three";
+import { SWATCH_LIGHT_NUM } from "../../lib/siteColors";
 import { REFLECTION_SCALE, WATER_BASIN_LAYER } from "./config/poolWaterDefaults";
 
 /** Matches Env fallback — keeps refracted pool reads as basin, not raw HDRI sky. */
-const BACKDROP_CLEAR = new THREE.Color(0xe8e6de);
+const BACKDROP_CLEAR = new THREE.Color(SWATCH_LIGHT_NUM);
 
 /** Scale a drawing-buffer dimension down to the backdrop render-target size. */
 const rtDim = (px: number) => Math.max(1, Math.floor(px * REFLECTION_SCALE));

@@ -15,6 +15,7 @@ export const rigState = {
 
   gridPan: { x: 0, y: 0 },
   gridPanTarget: { x: 0, y: 0 },
+  isGridPanning: false,
 
   /** Virtual cell per mesh slot — filled each frame in grid mode. */
   gridSlots: [] as CellId[],
@@ -34,6 +35,7 @@ export function resetRigToOrb() {
   rigState.gridPan.y = 0;
   rigState.gridPanTarget.x = 0;
   rigState.gridPanTarget.y = 0;
+  rigState.isGridPanning = false;
   rigState.gridAnchorIndex = -1;
   rigState.gridAnchorTextureIndex = 0;
   rigState.tileGridCells = [];

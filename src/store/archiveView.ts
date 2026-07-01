@@ -32,5 +32,6 @@ export function resetArchiveToOrbView(): void {
   rigState.gridPan.y = 0;
   rigState.gridPanTarget.x = 0;
   rigState.gridPanTarget.y = 0;
+  rigState.isGridPanning = false;
   useArchiveViewStore.setState({ view: "orb", isMorphing: false });
 }

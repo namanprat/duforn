@@ -22,6 +22,7 @@ import { initKtx2Support } from "../lib/ktx2";
 import { startWorkTexturePreload } from "../lib/work-preload";
 import { useArchiveReturnStore } from "../store/archiveReturn";
 import { hasInitialBootCompleted, setSceneReady, useSceneBootStore } from "./preloader/sceneReady";
+import { useWebGLOverlayStore } from "../store/webglOverlay";
 
 const DevSceneControls = import.meta.env.DEV
   ? lazy(() => import("./DevSceneControls"))
@@ -65,6 +66,7 @@ export default function SceneCanvas() {
   );
   const setProgress = useSceneBootStore((s) => s.setProgress);
   const bootProgressCleanupRef = useRef<(() => void) | null>(null);
+  const overlayWebGLActive = useWebGLOverlayStore((s) => s.active);
 
   useEffect(() => {
     if (!skipSubgraphDelay || !isRoom) return;
@@ -100,9 +102,10 @@ export default function SceneCanvas() {
     <div className={`scene_canvas_wrap${isInteractive ? " scene_canvas_wrap--interactive" : ""}`}>
       <Canvas
         dpr={[1, qualityProfile.maxDpr]}
+        frameloop={overlayWebGLActive ? "never" : "always"}
         gl={{ antialias: true, stencil: false, localClippingEnabled: true, preserveDrawingBuffer: true }}
         shadows={{ type: THREE.PCFShadowMap }}
-        onCreated={({ gl }) => {
+        onCreated={({ gl, setFrameloop }) => {
           gl.toneMapping = THREE.NoToneMapping;
           gl.outputColorSpace = THREE.SRGBColorSpace;
           initKtx2Support(gl);
@@ -111,6 +114,14 @@ export default function SceneCanvas() {
             bootProgressCleanupRef.current?.();
             bootProgressCleanupRef.current = installBootProgressTracking(setProgress);
           }
+          gl.domElement.addEventListener(
+            "webglcontextlost",
+            (event) => {
+              event.preventDefault();
+              setFrameloop("never");
+            },
+            { once: true },
+          );
         }}
       >
         {isRoom ? (

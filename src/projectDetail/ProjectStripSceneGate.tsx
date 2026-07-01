@@ -1,4 +1,5 @@
 import { useLocation } from "react-router-dom";
+import { SWATCH_DARK } from "../lib/siteColors";
 import { getCaseStudy } from "../content/projects";
 import ProjectStripScene from "./ProjectStripScene";
 
@@ -10,5 +11,5 @@ export default function ProjectStripSceneGate() {
 
   if (!stripPaths?.length) return null;
 
-  return <ProjectStripScene stripPaths={stripPaths} stripBg={caseStudy.stripBg ?? "#000000"} />;
+  return <ProjectStripScene stripPaths={stripPaths} stripBg={caseStudy.stripBg ?? SWATCH_DARK} />;
 }

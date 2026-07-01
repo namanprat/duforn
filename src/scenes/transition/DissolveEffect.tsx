@@ -98,6 +98,7 @@ const fragmentShader = /* glsl */ `
 
     float threshold = (1.0 - cover) * 1.28;
     float mask = smoothstep(threshold - 0.06, threshold + 0.025, normDist);
+    float tailFade = smoothstep(0.0, 0.12, cover);
 
     float ringWidth = 0.12;
     float ring = smoothstep(threshold - ringWidth, threshold, normDist) *
@@ -109,8 +110,8 @@ const fragmentShader = /* glsl */ `
                 (1.0 - smoothstep(threshold, threshold + ringWidth * 0.45, normDist));
     vec3 rimGlow = vec3(1.0) * rim * 0.55 * cover;
 
-    vec3 white = frontGlow + rimGlow;
-    float edgeMask = max(ring, rim) * cover;
+    vec3 white = (frontGlow + rimGlow) * tailFade;
+    float edgeMask = max(ring, rim) * cover * tailFade;
     vec2 caDir = normalize(c + 0.0001) * edgeMask * 0.022;
 
     vec3 baseMix = chromaMix(uv, caDir, mask);

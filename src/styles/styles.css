@@ -39,10 +39,10 @@ html {
 
 
   /* ─── Colours ────────────────────────────────────────── */
-  --theme-accent: #f6f6f6;
-  --theme-primary: #f6f6f6;
+  --theme-accent: #EAE9E4;
+  --theme-primary: #EAE9E4;
 
-  --swatch-light: #f6f6f6;
+  --swatch-light: #EAE9E4;
   --swatch-dark: #000000;
 
   --project-overscroll-bg: #c3c3c3;
@@ -169,10 +169,11 @@ html {
 
   --typography-font-size-text-small: clamp(0.875rem, 0.8393rem + 0.1786vw, 1.0625rem);
   --typography-font-size-body-small: var(--typography-font-size-text-small);
-  --typography-font-size-text-main: clamp(0.9375rem, 0.85rem + 0.1786vw, 1.46875rem);
+  /* Fixed (non-fluid) so p / a / h5 / h6 / button read identically on every screen size. */
+  --typography-font-size-text-main: 1rem;
   --typography-font-size-large: clamp(1.125rem, 1.0893rem + 0.1786vw, 1.3125rem);
-  --typography-font-size-h6: clamp(1.25rem, 1.3472rem + 0.1389vw, 1.25rem);
-  --typography-font-size-h5: clamp(1.375rem, 1.3472rem + 0.1389vw, 1.5rem);
+  --typography-font-size-h6: var(--typography-font-size-text-main);
+  --typography-font-size-h5: var(--typography-font-size-text-main);
   --typography-font-size-h4: clamp(1.75rem, 1.6944rem + 0.2778vw, 2rem);
   --typography-font-size-h3: clamp(2rem, 2.5rem + 0.8333vw, 2.5rem);
   --typography-font-size-h2: clamp(2.5rem, 2.1667rem + 1.6667vw, 4rem);
@@ -398,22 +399,32 @@ h4 {
 button,
 a.button,
 a,
-h5 {
+h5,
+h6 {
   font-family: var(--text-style-font-tertiary);
   text-decoration: none;
-  font-size: var(--typography-font-size-body-small);
   line-height: var(--typography-line-height-medium);
   letter-spacing: var(--typography-letter-spacing);
 }
+
 h5,
+h6,
+p,
+a,
 button,
-a.button{
+a.button {
+  font-size: var(--typography-font-size-text-main);
+}
+
+h5,
+h6,
+button,
+a.button {
   text-transform: uppercase;
 }
 
 p {
   font-family: var(--text-style-font-secondary);
-  font-size: var(--typography-font-size-text-main);
   letter-spacing: var(--typography-letter-spacing);
   font-weight: 400;
   font-style: normal;
@@ -566,7 +577,7 @@ body.page-wrap:has([data-page-namespace="archive"])
 /* Archive: solid black backdrop behind the (transparent) orb canvas. */
 html:has([data-page-namespace="archive"]),
 body.page-wrap:has([data-page-namespace="archive"]) {
-  background-color: #000;
+  background-color: var(--swatch-dark);
 }
 
 /* Dev-only debug GUI — make sure every descendant stays interactive even when
@@ -605,7 +616,7 @@ body.page-wrap:has([data-page-namespace="archive"]) {
 }
 
 .scene_canvas_wrap--static {
-  background: #000;
+  background: var(--swatch-dark);
 }
 
 .site_content {
@@ -760,6 +771,7 @@ body.menu-open .site-header .menu-nav-backdrop {
   display: flex;
   align-items: center;
   justify-content: flex-start;
+  padding-inline-start: var(--site--margin);
 }
 
 .site-header__brand {
@@ -767,9 +779,14 @@ body.menu-open .site-header .menu-nav-backdrop {
   align-items: center;
   white-space: nowrap;
   line-height: var(--typography-line-height-medium);
-  transition:
-    transform 0.35s ease,
-    color 0.35s ease;
+  transition: color 0.4s ease;
+}
+
+/* About view: brand turns light (colour fades via the transition above). Its
+   horizontal move (indent) is driven by gsap in useMenuMorph so it stays in
+   unison with the box grow/shrink instead of firing at class-toggle time. */
+.site-header--menu-about .site-header__brand {
+  color: var(--swatch-light);
 }
 
 .link-main {
@@ -849,13 +866,14 @@ button.button .nav-link-hover__clip {
 .menu-nav-backdrop {
   position: fixed;
   inset: 0;
-  z-index: -1;
+  z-index: 0;
   margin: 0;
   padding: 0;
   border: none;
   background: transparent;
   cursor: default;
   opacity: 0;
+  touch-action: manipulation;
 }
 
 .menu-nav-wrap {
@@ -890,7 +908,7 @@ button.button .nav-link-hover__clip {
   height: var(--menu-surface-h, auto);
   max-width: calc(100vw - var(--site--margin) * 2);
   overflow: clip;
-  background-color: color-mix(in srgb, #191818 22%, transparent);
+  background-color: color-mix(in srgb, var(--swatch-dark) 22%, transparent);
   /* -webkit- prefix is added at build time by Lightning CSS (see vite.config.ts). */
   backdrop-filter: blur(16px) saturate(1.15);
   border: 1px solid color-mix(in srgb, var(--swatch-light) 10%, transparent);
@@ -903,7 +921,7 @@ button.button .nav-link-hover__clip {
 }
 
 .menu-nav.is-open:not(.is-about) .menu-nav__surface {
-  --menu-surface-w: min(16rem, calc(100vw - var(--site--margin) * 2));
+  --menu-surface-w: min(16.72rem, calc((100vw - var(--site--margin) * 2) * 1.045));
 }
 
 .menu-nav.is-about .menu-nav__surface {
@@ -1033,13 +1051,44 @@ button.button .nav-link-hover__clip {
     display: grid;
     grid-template-columns: 1fr;
     grid-template-rows: auto;
+    --menu-pad-block: 0.63rem;
+    --menu-pad-inline: 1.125rem;
   }
 
   .site-header .site-header__inner {
     grid-area: 1 / 1;
     align-self: start;
-    z-index: 1;
+    align-items: center;
+    min-height: calc(var(--menu-pad-block) * 2 + 1em);
+    padding-block: var(--menu-pad-block);
+    z-index: calc(var(--z-menu) + 1);
   }
+
+  .nav-brand__clip {
+    min-width: 15ch;
+  }
+
+  /* Pin brand to viewport top whenever menu or about is open (scrollable project pages). */
+  body.menu-open .site-header .site-header__inner,
+  .site-header--menu-open .site-header__inner,
+  .site-header--menu-about .site-header__inner {
+    position: fixed;
+    top: calc(var(--spacing-space-5) + var(--site--safe-area-top));
+    left: var(--site--margin);
+    z-index: calc(var(--z-menu) + 2);
+    display: flex;
+    align-items: center;
+    margin: 0;
+    width: max-content;
+    max-width: calc(100vw - var(--site--margin) * 2);
+    height: auto;
+    min-height: calc(var(--menu-pad-block) * 2 + 1em);
+    padding-inline-start: 0;
+    padding-inline-end: 0;
+    padding-block: var(--menu-pad-block);
+    pointer-events: auto;
+  }
+
 
   .menu-nav-wrap {
     grid-area: 1 / 1;
@@ -1055,17 +1104,40 @@ button.button .nav-link-hover__clip {
     z-index: 1;
   }
 
-  body.menu-open .site-header .menu-nav-backdrop {
-    pointer-events: none;
-  }
-
   .menu-nav-track {
     align-items: flex-start;
+    width: calc((100vw - var(--site--margin) * 2) * 1.265);
+    max-width: calc(100vw - var(--site--margin));
+    margin-left: auto;
+    margin-right: var(--site--margin);
+    --menu-inset: var(--menu-pad-inline);
+  }
+
+  /* About: full content width with symmetric site margins. */
+  .menu-nav.is-about {
+    justify-content: center;
+  }
+
+  .menu-nav.is-about .menu-nav-track {
+    width: calc(100vw - var(--site--margin) * 2);
+    max-width: calc(100vw - var(--site--margin) * 2);
+    margin-left: var(--site--margin);
+    margin-right: var(--site--margin);
   }
 
   .menu-nav {
     display: flex;
     justify-content: flex-end;
+  }
+
+  .menu-nav__toggle {
+    padding: var(--menu-pad-block) var(--menu-pad-inline);
+    min-height: calc(var(--menu-pad-block) * 2 + 1em);
+  }
+
+  .menu-nav.is-open.is-body-visible .menu-nav__body,
+  .menu-nav.is-about.is-body-visible .menu-nav__body {
+    padding: 0 var(--menu-pad-inline) var(--menu-pad-inline);
   }
 
   .menu-nav.is-open .menu-nav__surface,
@@ -1078,33 +1150,15 @@ button.button .nav-link-hover__clip {
     border-radius: 1.75rem;
   }
 
-  .menu-nav.is-open:not(.is-about) .menu-nav__surface,
+  .menu-nav.is-open:not(.is-about) .menu-nav__surface {
+    --menu-surface-w: min(16.72rem, calc(100vw - var(--site--margin) * 2));
+    max-width: calc(100vw - var(--site--margin) * 2);
+  }
+
   .menu-nav.is-about .menu-nav__surface {
-    --menu-surface-w: 100%;
-    max-width: 100%;
-  }
-
-  .site-header__brand {
-    padding-inline-start: var(--button-pad-inline);
-  }
-
-  .site-header--menu-open .site-header__inner {
-    position: fixed;
-    top: calc(var(--spacing-space-5) + var(--site--safe-area-top));
-    left: var(--site--margin);
-    z-index: calc(var(--z-menu) + 1);
-    display: flex;
-    align-items: center;
-    min-height: calc(var(--button-pad-block) * 2 + 1em);
-    padding-inline-start: var(--button-pad-inline);
-    padding-inline-end: 0;
-    padding-block: var(--button-pad-block);
-    color: var(--swatch-light);
-  }
-
-  .site-header--menu-open .site-header__brand {
-    color: var(--swatch-light);
-    padding-inline-start: 0;
+    --menu-surface-w: calc(100vw - var(--site--margin) * 2);
+    width: calc(100vw - var(--site--margin) * 2);
+    max-width: calc(100vw - var(--site--margin) * 2);
   }
 }
 
@@ -1192,7 +1246,7 @@ button.button .nav-link-hover__clip {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-space-3);
-  padding-top: 0;
+  padding-top: var(--spacing-space-5);
 }
 
 .about-reveal-line {
@@ -1213,7 +1267,7 @@ button.button .nav-link-hover__clip {
   width: 100%;
   border-radius: var(--radius-small);
   overflow: hidden;
-  background: #000;
+  background: var(--swatch-dark);
   pointer-events: auto;
 }
 
@@ -1234,7 +1288,7 @@ button.button .nav-link-hover__clip {
 .about-panel__columns {
   display: flex;
   align-items: flex-start;
-  gap: var(--spacing-space-3);
+  gap: var(--spacing-space-5);
 }
 
 .about-panel__col {
@@ -1254,15 +1308,25 @@ button.button .nav-link-hover__clip {
   flex-direction: column;
 }
 
-.about-panel__list--clients {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.about-panel__clients-cols {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-space-3);
 }
 
-@media (max-width: 640px) {
+.about-panel__clients-cols .about-panel__list {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 768px) {
   .about-panel__columns {
-    flex-direction: column;
-    gap: var(--spacing-space-3);
+    justify-content: space-between;
+    gap: 0;
+  }
+
+  .about-panel__col {
+    flex: 0 0 auto;
+    width: auto;
   }
 }
 
@@ -1322,7 +1386,6 @@ button.button .nav-link-hover__clip {
 
 .hero_eyebrow {
   font-family: var(--text-style-font-tertiary);
-  font-size: var(--typography-font-size-body-small);
   text-transform: uppercase;
   letter-spacing: var(--typography-letter-spacing-eyebrow);
   /* keep the wide-tracked label optically centered (trailing space overhangs right) */
@@ -1359,7 +1422,6 @@ button.button .nav-link-hover__clip {
   max-width: min(46ch, 80vw);
   text-align: left;
   font-family: var(--text-style-font-tertiary);
-  font-size: var(--typography-font-size-body-small);
   text-transform: uppercase;
   letter-spacing: -0.05em;
 }
@@ -1447,7 +1509,6 @@ button.button .nav-link-hover__clip {
   margin-left: auto;
   text-align: right;
   font-family: var(--text-style-font-tertiary);
-  font-size: var(--typography-font-size-body-small);
   line-height: var(--typography-line-height-medium);
   letter-spacing: -0.05em;
   text-transform: uppercase;
@@ -1524,7 +1585,8 @@ button.button .nav-link-hover__clip {
   }
 
   .contact_title_svg {
-    width: 100%;
+    /* 3/4 of the buttons' width (buttons fill the container on mobile). */
+    width: 75%;
     height: auto;
     margin-inline: auto;
   }
@@ -1550,6 +1612,8 @@ button.button .nav-link-hover__clip {
     align-items: center;
     width: 100%;
     max-width: 22rem;
+    /* Container so the email below can size itself to the buttons' width via cqi. */
+    container-type: inline-size;
   }
 
   .contact_email {
@@ -1559,6 +1623,13 @@ button.button .nav-link-hover__clip {
   .contact_email_link_wrap {
     width: 100%;
     min-width: 0;
+  }
+
+  /* ponytail: no CSS text-fit exists, so this multiplier is hand-tuned to make the
+     single-line email span the buttons' width (cqi = % of .contact_actions_wrap).
+     Retune if CONTACT_EMAIL changes length. Higher specificity beats .u-text-style-h2. */
+  .contact_email .contact_email_link_wrap {
+    font-size: 11cqi;
   }
 }
 
@@ -1584,7 +1655,7 @@ button.button .nav-link-hover__clip {
   }
 
   .contact_title_svg {
-    width: 100%;
+    width: 75%;
     height: auto;
     margin-inline: auto;
   }
@@ -2207,13 +2278,13 @@ img {
     width: 100%;
   }
 
-  /* Overview spans the full row; services + facts sit side-by-side beneath it. */
+  /* Overview then services — full width; no side-by-side squeeze on service names. */
   .project-details-hero-info {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     grid-template-areas:
-      "overview overview"
-      "services facts";
-    column-gap: var(--spacing-space-5);
+      "overview"
+      "services";
+    column-gap: 0;
   }
 
   .project-details-hero-info > .project-details-overview {
@@ -2223,7 +2294,11 @@ img {
 
   .project-details-hero-info > .project-details-services {
     grid-area: services;
-    grid-column: 1 / 2;
+    grid-column: 1 / -1;
+  }
+
+  .project-details-services h4 {
+    white-space: nowrap;
   }
 }
 
@@ -2260,8 +2335,8 @@ a[aria-current="page"] {
 
   body,
   .page-wrap {
-    background: white !important;
-    color: black !important;
+    background: var(--swatch-light) !important;
+    color: var(--swatch-dark) !important;
   }
 
   main {
@@ -2291,11 +2366,11 @@ a[aria-current="page"] {
 /* --- @supports FALLBACKS for color-mix() --- */
 @supports not (color: color-mix(in srgb, red, blue)) {
   :root {
-    --swatch-light-o20: rgba(226, 226, 226, 0.2);
+    --swatch-light-o20: rgba(234, 233, 228, 0.2);
     --swatch-dark-o20: rgba(0, 0, 0, 0.2);
-    --swatch-brand-100: #f5f5f5;
-    --swatch-brand-200: #ebebeb;
-    --swatch-brand-300: #f6f6f6;
+    --swatch-brand-100: #f7f6f3;
+    --swatch-brand-200: #f3f2ee;
+    --swatch-brand-300: #efede8;
     --swatch-brand-400: #d9d9d9;
     --swatch-brand-600: #b5b5b5;
     --swatch-brand-700: #8a8a8a;

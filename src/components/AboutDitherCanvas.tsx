@@ -1,17 +1,18 @@
 import { OrbitControls, Center, Environment, Float, Lightformer, useGLTF } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { wrapEffect } from "@react-three/postprocessing";
-import { useEffect } from "react";
+import { Suspense, useEffect, type RefObject } from "react";
 import * as THREE from "three";
 import AboutPostFX from "./AboutPostFX";
 import { DitheringEffect } from "./aboutDitherEffect";
 import { AboutDistortionEffect, aboutDistortionState } from "./aboutDistortionEffect";
+import { SWATCH_DARK, SWATCH_LIGHT_NUM } from "../lib/siteColors";
 import { getQualityProfile } from "../lib/qualityProfile";
 import { hasFinePointerHover } from "../lib/link-hover";
 import { prefersReducedMotion } from "../lib/prefersReducedMotion";
 
 const HELMET_URL = "/jousting_helmet-transformed.glb";
-const BG = "#000000";
+const BG = SWATCH_DARK;
 
 // ponytail: wrapEffect once; tune gridSize/pixelSizeRatio/grayscaleOnly here
 const Dither = wrapEffect(DitheringEffect, {
@@ -25,7 +26,7 @@ const Distortion = wrapEffect(AboutDistortionEffect);
 useGLTF.preload(HELMET_URL);
 
 const boxGeometry = new THREE.BoxGeometry();
-const whiteMaterial = new THREE.MeshStandardMaterial({ color: new THREE.Color(1, 1, 1) });
+const whiteMaterial = new THREE.MeshStandardMaterial({ color: SWATCH_LIGHT_NUM });
 
 function Room({ highlight }: { highlight: string }) {
   return (
@@ -169,23 +170,39 @@ function AboutDitherScene() {
   );
 }
 
-export default function AboutDitherCanvas() {
+type AboutDitherCanvasProps = {
+  /** Stable pointer target; avoids R3F connect(null) when the canvas wrapper unmounts mid-init. */
+  eventSource?: RefObject<HTMLElement | null>;
+};
+
+export default function AboutDitherCanvas({ eventSource }: AboutDitherCanvasProps) {
   const profile = getQualityProfile();
 
   return (
     <Canvas
       className="about-panel__canvas"
+      eventSource={eventSource}
       shadows={{ type: THREE.PCFShadowMap }}
       dpr={[1, profile.maxDpr]}
       camera={{ position: [0, -1, 4], fov: 65 }}
       gl={{ alpha: false }}
-      onCreated={({ gl }) => {
+      onCreated={({ gl, setFrameloop }) => {
         gl.setClearColor(new THREE.Color(BG));
         gl.toneMapping = THREE.NoToneMapping;
         gl.outputColorSpace = THREE.SRGBColorSpace;
+        gl.domElement.addEventListener(
+          "webglcontextlost",
+          (event) => {
+            event.preventDefault();
+            setFrameloop("never");
+          },
+          { once: true },
+        );
       }}
     >
-      <AboutDitherScene />
+      <Suspense fallback={null}>
+        <AboutDitherScene />
+      </Suspense>
     </Canvas>
   );
 }

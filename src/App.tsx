@@ -15,6 +15,7 @@ import {
   shouldUseDissolveTransition,
 } from "./store/routeTransition";
 import { destroyLenis, initLenis } from "./lib/lenis-scroll";
+import { SWATCH_DARK } from "./lib/siteColors";
 
 const TITLES: Record<string, string> = {
   main: "Naman Pratulya",
@@ -63,7 +64,7 @@ function AppShell() {
     document.body.classList.toggle("page-wrap--scrollable", namespace === "projectDetail");
 
     const themeColor = document.querySelector('meta[name="theme-color"]');
-    themeColor?.setAttribute("content", namespace === "projectDetail" ? "#c3c3c3" : "#000000");
+    themeColor?.setAttribute("content", namespace === "projectDetail" ? "#c3c3c3" : SWATCH_DARK);
 
     if (namespace === "projectDetail") {
       initLenis();

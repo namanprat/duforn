@@ -1,4 +1,5 @@
 import { useMemo, useRef } from "react";
+import { SWATCH_LIGHT } from "../../lib/siteColors";
 import { Text } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import ArchiveRig from "./ArchiveRig";
@@ -52,7 +53,7 @@ export default function ArchivePosterField() {
         Archive
         <meshBasicMaterial
           ref={textMat}
-          color="#f6f6f6"
+          color={SWATCH_LIGHT}
           transparent
           opacity={1}
           depthTest

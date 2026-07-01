@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import gsap from "gsap";
+import { CustomEase } from "gsap/CustomEase";
 import { navigateTo } from "../lib/nav";
 import { cameraFovOffsetRef } from "../scenes/cam/pose";
 import { ROOM_TRANSITION_SECONDS, SHARED_FOV, ROOM_POSES } from "../scenes/cam/roomPoses";
@@ -13,6 +14,12 @@ import {
   HERO_TITLE_LEAD,
   HERO_TITLE_SERIF,
 } from "../content/studio";
+
+gsap.registerPlugin(CustomEase);
+CustomEase.create("custom", "M0,0 C0.103,0.204 0.493,0.561 1,0.561");
+
+const VIEW_WORK_FOV_EASE = "custom";
+const VIEW_WORK_FOV_DURATION = 0.5;
 
 export default function MainPage() {
   const pillRef = useRef<HTMLAnchorElement | null>(null);
@@ -60,12 +67,17 @@ export default function MainPage() {
   const onPillEnter = () =>
     gsap.to(cameraFovOffsetRef, {
       current: ROOM_POSES.work.fov - SHARED_FOV,
-      duration: 0.2,
-      ease: "sine.inOut",
+      duration: VIEW_WORK_FOV_DURATION,
+      ease: VIEW_WORK_FOV_EASE,
       overwrite: true,
     });
   const onPillLeave = () =>
-    gsap.to(cameraFovOffsetRef, { current: 0, duration: 0.2, ease: "sine.inOut", overwrite: true });
+    gsap.to(cameraFovOffsetRef, {
+      current: 0,
+      duration: VIEW_WORK_FOV_DURATION,
+      ease: VIEW_WORK_FOV_EASE,
+      overwrite: true,
+    });
 
   // On unmount (e.g. navigating to Work) ease the hover offset back to 0 over the same
   // curve the room transition uses for fov, so base.fov + offset stays monotonic and

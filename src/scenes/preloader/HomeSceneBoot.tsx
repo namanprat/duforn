@@ -15,6 +15,7 @@ import {
   reportWaterReady,
 } from "./bootProgress";
 import { getSceneReady, hasInitialBootCompleted, setSceneReady, useSceneBootStore } from "./sceneReady";
+import { SWATCH_DARK_NUM } from "../../lib/siteColors";
 import { runBootDissolveTransition } from "../../store/routeTransition";
 
 type HomeSceneBootProps = {
@@ -165,7 +166,7 @@ export default function HomeSceneBoot({
           <Env
             hdrFiles="/main.hdr"
             showHdriBackground
-            fogColor={0x000000}
+            fogColor={SWATCH_DARK_NUM}
             fogDensity={0}
             showShadowCatcher={false}
           />
@@ -184,7 +185,7 @@ export default function HomeSceneBoot({
         <Env
           hdrFiles="/main.hdr"
           showHdriBackground
-          fogColor={0x000000}
+          fogColor={SWATCH_DARK_NUM}
           fogDensity={0}
           showShadowCatcher={false}
           onEnvironmentReady={handleHdrReady}
