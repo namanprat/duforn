@@ -104,6 +104,7 @@ function createWebGLStripMaterial(textures: THREE.Texture[], stripConfig: Record
     uItemsOnStrip: { value: stripConfig.itemsOnStrip },
     uNumUnique: { value: stripConfig.numUnique },
     uOpacity: { value: 1.0 },
+    uDissolve: { value: 0.0 },
     uTime: { value: 0 },
     uWindStrength: { value: 0.8 },
     uWaveAmplitude: { value: 0.05 },
@@ -217,6 +218,7 @@ function createWebGLStripMaterial(textures: THREE.Texture[], stripConfig: Record
       uniform float uItemsOnStrip;
       uniform float uNumUnique;
       uniform float uOpacity;
+      uniform float uDissolve;
       uniform vec3 uLightDir;
       uniform float uExposure;
       uniform float uLevelsInLow;
@@ -241,6 +243,19 @@ function createWebGLStripMaterial(textures: THREE.Texture[], stripConfig: Record
       varying vec2 vUv;
       varying float vLooseness;
       varying vec3 vNormal;
+
+      float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+
+      float dissolveNoise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        float a = hash(i);
+        float b = hash(i + vec2(1.0, 0.0));
+        float c = hash(i + vec2(0.0, 1.0));
+        float d = hash(i + vec2(1.0, 1.0));
+        return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+      }
 
       // Photoshop-style levels: input black/white remap -> gamma -> output range.
       vec3 applyLevels(vec3 c) {
@@ -291,7 +306,9 @@ function createWebGLStripMaterial(textures: THREE.Texture[], stripConfig: Record
         float light = (uBaseLight + vLooseness * uLoosenessLight + center * uCenterLight) * shade;
         float rim = pow(center, 2.0) * uRimStrength;
         float edgeFade = smoothstep(0.0, uEdgeFade, vUv.x) * smoothstep(0.0, uEdgeFade, 1.0 - vUv.x);
-        gl_FragColor = vec4(color * light + rim, edgeFade * uOpacity);
+        float dissolve = smoothstep(uDissolve - 0.08, uDissolve + 0.02, dissolveNoise(vUv * 12.0));
+        if (dissolve < 0.5) discard;
+        gl_FragColor = vec4(color * light + rim, edgeFade * uOpacity * dissolve);
       }
     `,
   });
@@ -310,7 +327,7 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
   onWorkRef.current = activeRoom === "work";
   const stripControls = useWorkSceneControlsStore((state) => state.controls.strip);
   const transitionActive = useWorkProjectTransitionStore((state) => state.active);
-  const transitionStripOpacity = useWorkProjectTransitionStore((state) => state.stripOpacity);
+  const transitionStripDissolve = useWorkProjectTransitionStore((state) => state.stripDissolve);
   const isMobileStrip = useMediaQuery(MOBILE_STRIP_MQ);
   const visibleItems = DEFAULT_VISIBLE_ITEMS;
   const gapSize = stripControls.gapSize ?? DEFAULT_GAP_SIZE;
@@ -599,7 +616,8 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
     }
 
     sys.uniforms.uScrollOffset.value = s.current;
-    sys.uniforms.uOpacity.value = transitionActive ? transitionStripOpacity : (sc.opacity ?? 1);
+    sys.uniforms.uOpacity.value = sc.opacity ?? 1;
+    sys.uniforms.uDissolve.value = transitionActive ? transitionStripDissolve : 0;
     sys.uniforms.uExposure.value = sc.exposure ?? 0;
     sys.uniforms.uLevelsInLow.value = sc.levelsInLow ?? 0;
     sys.uniforms.uLevelsInHigh.value = sc.levelsInHigh ?? 1;

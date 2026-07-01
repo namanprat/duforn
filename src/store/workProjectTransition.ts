@@ -12,62 +12,98 @@ import {
 import { snapHidePageChrome, snapShowPageChrome } from "../lib/pageChrome";
 import { cameraBasePoseRef, cameraTransitionRef } from "../scenes/cam/pose";
 import { ROOM_POSES } from "../scenes/cam/roomPoses";
-import { PROJECT_DETAIL_SWATCH } from "../lib/siteColors";
-import { initLenis } from "../lib/lenis-scroll";
+import { PROJECT_DETAIL_SWATCH, SWATCH_DARK } from "../lib/siteColors";
+import { destroyLenis, initLenis } from "../lib/lenis-scroll";
+import { setArrivedRoom } from "../lib/cam/arrival";
 
 export { PROJECT_DETAIL_SWATCH };
 
 export const PROJECT_DETAIL_ARRIVED_EVENT = "duforn:project-detail-arrived";
+export const WORK_ARRIVED_EVENT = "duforn:work-arrived";
 
-type Phase = "idle" | "departing" | "covered" | "arriving";
+export type TransitionDirection = "toProject" | "toWork";
+export type TransitionPhase = "idle" | "stripDissolve" | "cameraBridge" | "swap" | "textReveal";
 
 type WorkProjectTransitionState = {
   active: boolean;
-  phase: Phase;
-  stripOpacity: number;
-  overlayOpacity: number;
+  direction: TransitionDirection | null;
+  phase: TransitionPhase;
+  stripDissolve: number;
+  riseOffset: number;
+  mountProjectLayer: boolean;
   projectBgReady: boolean;
-  begin: () => void;
-  setPhase: (phase: Phase) => void;
-  setStripOpacity: (value: number) => void;
-  setOverlayOpacity: (value: number) => void;
+  departedOrbitCenterY: number | null;
+  targetPath: string | null;
+  setPhase: (phase: TransitionPhase) => void;
+  setStripDissolve: (value: number) => void;
+  setRiseOffset: (value: number) => void;
+  setMountProjectLayer: (mount: boolean) => void;
   setProjectBgReady: (ready: boolean) => void;
+  beginToProject: (targetPath: string) => void;
+  beginToWork: () => void;
   reset: () => void;
 };
 
 const TOKENS = MOTION_TOKENS.workProjectTransition;
-const CAMERA_DEPARTURE_HEIGHT = -2.5;
+const WORK_PATH = "/work";
 
-export const useWorkProjectTransitionStore = create<WorkProjectTransitionState>((set) => ({
+const IDLE_STATE = {
   active: false,
-  phase: "idle",
-  stripOpacity: 1,
-  overlayOpacity: 0,
+  direction: null as TransitionDirection | null,
+  phase: "idle" as TransitionPhase,
+  stripDissolve: 0,
+  riseOffset: 0,
+  mountProjectLayer: false,
   projectBgReady: false,
-  begin: () =>
+  targetPath: null as string | null,
+};
+
+export const useWorkProjectTransitionStore = create<WorkProjectTransitionState>((set, get) => ({
+  ...IDLE_STATE,
+  departedOrbitCenterY: null,
+  setPhase: (phase) => set({ phase }),
+  setStripDissolve: (stripDissolve) => set({ stripDissolve }),
+  setRiseOffset: (riseOffset) => set({ riseOffset }),
+  setMountProjectLayer: (mountProjectLayer) => set({ mountProjectLayer }),
+  setProjectBgReady: (projectBgReady) => set({ projectBgReady }),
+  beginToProject: (targetPath) =>
     set({
       active: true,
-      phase: "departing",
-      stripOpacity: 1,
-      overlayOpacity: 0,
+      direction: "toProject",
+      phase: "stripDissolve",
+      stripDissolve: 0,
+      riseOffset: 1,
+      mountProjectLayer: true,
       projectBgReady: false,
+      targetPath,
     }),
-  setPhase: (phase) => set({ phase }),
-  setStripOpacity: (stripOpacity) => set({ stripOpacity }),
-  setOverlayOpacity: (overlayOpacity) => set({ overlayOpacity }),
-  setProjectBgReady: (projectBgReady) => set({ projectBgReady }),
-  reset: () =>
+  beginToWork: () =>
     set({
-      active: false,
-      phase: "idle",
-      stripOpacity: 1,
-      overlayOpacity: 0,
-      projectBgReady: false,
+      active: true,
+      direction: "toWork",
+      phase: "cameraBridge",
+      stripDissolve: 1,
+      riseOffset: 0,
+      mountProjectLayer: false,
+      targetPath: WORK_PATH,
     }),
+  reset: () => {
+    const { departedOrbitCenterY } = get();
+    set({ ...IDLE_STATE, departedOrbitCenterY });
+  },
 }));
 
+/** @deprecated use shouldUseProjectWorkTransition */
 export function shouldUseWorkProjectTransition(fromPath: string, toPath: string): boolean {
-  return fromPath === "/work" && getRouteNamespace(toPath) === "projectDetail";
+  return shouldUseProjectWorkTransition(fromPath, toPath);
+}
+
+export function shouldUseProjectWorkTransition(fromPath: string, toPath: string): boolean {
+  const fromWork = fromPath === WORK_PATH;
+  const toWork = toPath === WORK_PATH;
+  const fromProject = getRouteNamespace(fromPath) === "projectDetail";
+  const toProject = getRouteNamespace(toPath) === "projectDetail";
+  return (fromWork && toProject) || (fromProject && toWork);
 }
 
 export function isWorkProjectTransitionActive(): boolean {
@@ -88,6 +124,10 @@ function waitFrames(count = 2): Promise<void> {
     };
     requestAnimationFrame(step);
   });
+}
+
+function delay(seconds: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, seconds * 1000));
 }
 
 function tweenValue(
@@ -128,6 +168,14 @@ function waitForProjectBgReady(timeoutMs: number): Promise<void> {
   });
 }
 
+function workOrbitY(): number {
+  return ROOM_POSES.work.orbitCenterY;
+}
+
+function departedOrbitY(): number {
+  return workOrbitY() - TOKENS.cameraYDelta;
+}
+
 export function applyProjectDetailSideEffects(): void {
   document.body.classList.add("page-wrap--scrollable");
   const themeColor = document.querySelector('meta[name="theme-color"]');
@@ -135,12 +183,30 @@ export function applyProjectDetailSideEffects(): void {
   initLenis();
 }
 
+export function applyWorkSideEffects(): void {
+  document.body.classList.remove("page-wrap--scrollable");
+  const themeColor = document.querySelector('meta[name="theme-color"]');
+  themeColor?.setAttribute("content", SWATCH_DARK);
+  destroyLenis();
+}
+
+async function tweenOrbitCenterY(from: number, to: number): Promise<void> {
+  cameraTransitionRef.current = true;
+  try {
+    await tweenValue(from, to, TOKENS.cameraYDuration, TOKENS.cameraYEase, (value) => {
+      cameraBasePoseRef.current.orbitCenterY = value;
+    });
+  } finally {
+    cameraTransitionRef.current = false;
+  }
+}
+
 export async function runWorkToProjectTransition(
   toPath: string,
   navigate: (path: string) => void,
 ): Promise<void> {
   const store = useWorkProjectTransitionStore.getState();
-  const workPose = ROOM_POSES.work;
+  const departedY = departedOrbitY();
 
   if (!canRunTransition()) {
     snapHidePageChrome();
@@ -150,53 +216,90 @@ export async function runWorkToProjectTransition(
     await waitFrames(2);
     snapShowPageChrome(false);
     await showAllRegisteredPageText();
+    useWorkProjectTransitionStore.setState({ departedOrbitCenterY: departedY });
     window.dispatchEvent(new CustomEvent(PROJECT_DETAIL_ARRIVED_EVENT));
     return;
   }
 
-  const startCameraHeight = cameraBasePoseRef.current.cameraHeight;
+  store.beginToProject(toPath);
+  snapHidePageChrome();
 
-  store.begin();
+  await tweenValue(0, 1, TOKENS.stripDissolveDuration, TOKENS.stripDissolveEase, store.setStripDissolve);
+
+  if (TOKENS.titleHideDelay > 0) await delay(TOKENS.titleHideDelay);
+  await hideAllRegisteredPageText();
+
+  store.setPhase("cameraBridge");
+  cameraBasePoseRef.current.orbitCenterY = workOrbitY();
 
   await Promise.all([
-    tweenValue(1, 0, TOKENS.stripFadeDuration, TOKENS.stripFadeEase, store.setStripOpacity),
-    hideAllRegisteredPageText(),
-    (async () => {
-      cameraTransitionRef.current = true;
-      try {
-        await tweenValue(
-          startCameraHeight,
-          CAMERA_DEPARTURE_HEIGHT,
-          TOKENS.cameraDownDuration,
-          TOKENS.cameraDownEase,
-          (value) => {
-            cameraBasePoseRef.current.cameraHeight = value;
-          },
-        );
-      } finally {
-        cameraTransitionRef.current = false;
-      }
-    })(),
+    tweenOrbitCenterY(workOrbitY(), departedY),
+    tweenValue(1, 0, TOKENS.bgRiseDuration, TOKENS.bgRiseEase, store.setRiseOffset),
+    waitForProjectBgReady(TOKENS.bgReadyTimeoutMs),
   ]);
 
-  store.setPhase("covered");
-  await tweenValue(0, 1, TOKENS.overlayInDuration, TOKENS.overlayInEase, store.setOverlayOpacity);
-
-  snapHidePageChrome();
-  snapHideAllRegisteredPageText();
-  store.setProjectBgReady(false);
+  store.setPhase("swap");
+  useWorkProjectTransitionStore.setState({
+    departedOrbitCenterY: departedY,
+    mountProjectLayer: false,
+    riseOffset: 0,
+  });
   navigate(toPath);
   applyProjectDetailSideEffects();
   await waitFrames(2);
 
-  await waitForProjectBgReady(TOKENS.bgReadyTimeoutMs);
-
-  store.setPhase("arriving");
-  await tweenValue(1, 0, TOKENS.overlayOutDuration, TOKENS.overlayOutEase, store.setOverlayOpacity);
-
-  cameraBasePoseRef.current.cameraHeight = workPose.cameraHeight;
+  store.setPhase("textReveal");
+  if (TOKENS.textRevealDelay > 0) await delay(TOKENS.textRevealDelay);
+  await showAllRegisteredPageText();
   snapShowPageChrome(false);
   window.dispatchEvent(new CustomEvent(PROJECT_DETAIL_ARRIVED_EVENT));
+  useWorkProjectTransitionStore.getState().reset();
+}
+
+export async function runProjectToWorkTransition(
+  _fromPath: string,
+  navigate: (path: string) => void,
+): Promise<void> {
+  const store = useWorkProjectTransitionStore.getState();
+  const workY = workOrbitY();
+  const startY = store.departedOrbitCenterY ?? departedOrbitY();
+
+  if (!canRunTransition()) {
+    snapHidePageChrome();
+    snapHideAllRegisteredPageText();
+    navigate(WORK_PATH);
+    applyWorkSideEffects();
+    await waitFrames(2);
+    snapShowPageChrome(false);
+    await showAllRegisteredPageText();
+    cameraBasePoseRef.current.orbitCenterY = workY;
+    window.dispatchEvent(new CustomEvent(WORK_ARRIVED_EVENT));
+    return;
+  }
+
+  store.beginToWork();
+  snapHidePageChrome();
+  await hideAllRegisteredPageText();
+
+  await tweenValue(0, 1, TOKENS.bgRiseDuration, TOKENS.bgRiseEase, store.setRiseOffset);
+
+  store.setPhase("swap");
+  cameraBasePoseRef.current.orbitCenterY = startY;
+  navigate(WORK_PATH);
+  applyWorkSideEffects();
+  await waitFrames(2);
+
+  store.setPhase("cameraBridge");
+  await tweenOrbitCenterY(startY, workY);
+
+  store.setPhase("stripDissolve");
+  await tweenValue(1, 0, TOKENS.stripDissolveDuration, TOKENS.stripDissolveEase, store.setStripDissolve);
+
+  store.setPhase("textReveal");
+  if (TOKENS.textRevealDelay > 0) await delay(TOKENS.textRevealDelay);
   await showAllRegisteredPageText();
-  store.reset();
+  snapShowPageChrome(false);
+  setArrivedRoom("work");
+  window.dispatchEvent(new CustomEvent(WORK_ARRIVED_EVENT));
+  useWorkProjectTransitionStore.getState().reset();
 }

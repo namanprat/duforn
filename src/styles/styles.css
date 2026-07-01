@@ -663,10 +663,6 @@ html:not(.scene-live) .site-header {
   overflow: hidden;
 }
 
-.route_transition_layer {
-  background: var(--project-overscroll-bg);
-}
-
 .scene_preload_overlay_inner {
   display: flex;
   flex-direction: column;

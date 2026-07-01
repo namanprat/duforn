@@ -13,6 +13,10 @@ export const ARCHIVE_CONFIG = {
   zoomDamp: 0.25,
   globeSpin: 0.06,
   spinSensitivity: 0.005,
+  /** Desktop grid pan — 44% lighter than base (0.7 × 0.8 of pointer travel). */
+  gridPanDesktopScale: 0.56,
+  /** Desktop grid drag smoothing while panning (higher = tighter follow). */
+  gridPanDragLerp: 11,
 
   sphereRadius: 5,
   baseHeight: 0.6,

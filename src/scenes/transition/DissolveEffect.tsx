@@ -2,7 +2,7 @@ import { Uniform } from "three";
 import * as THREE from "three";
 import { Effect } from "postprocessing";
 import { wrapEffect } from "@react-three/postprocessing";
-import { useDissolveTransitionStore } from "../../store/routeTransition";
+import { useDissolveTransitionStore, getDissolveProgress } from "../../store/routeTransition";
 import { tryCaptureDepartingHoldout } from "./departingHoldout";
 
 const HOLDOUT_FALLBACK = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1);
@@ -38,7 +38,8 @@ const fragmentShader = /* glsl */ `
     float v = 0.0;
     float amp = 0.5;
     float freq = 1.0;
-    for (int i = 0; i < 5; i++) {
+    // ponytail: 3 octaves — 5 was stalling the pierce on mid-tier GPUs
+    for (int i = 0; i < 3; i++) {
       v += amp * noise(p * freq);
       amp *= 0.5;
       freq *= 2.0;
@@ -70,13 +71,13 @@ const fragmentShader = /* glsl */ `
 
   vec3 bloomWhites(vec2 uv, vec3 white, float edgeMask) {
     vec3 spread = vec3(0.0);
-    for (int i = -2; i <= 2; i++) {
-      for (int j = -2; j <= 2; j++) {
+    for (int i = -1; i <= 1; i++) {
+      for (int j = -1; j <= 1; j++) {
         vec2 off = vec2(float(i), float(j)) * texelSize * 3.0;
         spread += white + sampleInside(uv + off) * 0.22;
       }
     }
-    spread /= 25.0;
+    spread /= 9.0;
     vec3 hot = max(white, vec3(0.0));
     vec3 bloom = hot * hot * 8.0 + spread * edgeMask * 4.5;
     bloom += vec3(edgeMask * 1.4);
@@ -101,8 +102,9 @@ const fragmentShader = /* glsl */ `
     float tailFade = smoothstep(0.0, 0.04, cover);
 
     float ringWidth = 0.14;
-    float ring = smoothstep(threshold - ringWidth, threshold, normDist) *
-                 smoothstep(threshold + ringWidth * 0.65, threshold, normDist);
+    float ringInner = smoothstep(threshold - ringWidth, threshold, normDist);
+    float ringOuter = 1.0 - smoothstep(threshold, threshold + ringWidth * 0.65, normDist);
+    float ring = ringInner * ringOuter;
     float sparkle = hash(floor(uv * resolution / 1.5)) * ring;
     vec3 frontGlow = vec3(sparkle * 10.0 * cover);
 
@@ -146,9 +148,9 @@ class DissolveEffectImpl extends Effect {
     const captured = tryCaptureDepartingHoldout(renderer, inputBuffer);
     if (captured) useDissolveTransitionStore.getState().setHoldout(captured);
 
-    const { progress, holdout, useHoldout } = useDissolveTransitionStore.getState();
+    const { holdout, useHoldout, active } = useDissolveTransitionStore.getState();
     const uProgress = this.uniforms.get("uProgress");
-    if (uProgress) uProgress.value = progress;
+    if (uProgress) uProgress.value = active ? getDissolveProgress() : 0;
     this.uUseHoldout.value = useHoldout ? 1 : 0;
     if (holdout) this.uHoldout.value = holdout;
   }

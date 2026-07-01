@@ -11,6 +11,7 @@ import {
 } from "./cam/roomPoses";
 import { setArrivedRoom } from "../lib/cam/arrival";
 import { getSceneBootPhase, hasInitialBootCompleted } from "./preloader/sceneReady";
+import { useWorkProjectTransitionStore } from "../store/workProjectTransition";
 
 /** Text reveal lead — fire arrival this many seconds before the camera tween ends. */
 const ARRIVAL_LEAD_SECONDS = 0.2;
@@ -45,6 +46,12 @@ export default function RoomCam({ activeRoom }: { activeRoom: RoomNamespace }) {
 
     if (prev === next) return;
 
+    const transition = useWorkProjectTransitionStore.getState();
+    if (transition.active && transition.direction === "toProject") {
+      prevRoomRef.current = next;
+      return;
+    }
+
     setArrivedRoom(null);
 
     const samePose = prevPose != null && posesEqual(prevPose, targetPose);
@@ -52,9 +59,20 @@ export default function RoomCam({ activeRoom }: { activeRoom: RoomNamespace }) {
     if (prev == null || prefersReducedMotion() || samePose) {
       cameraTransitionRef.current = false;
       const useBootFov = prev == null && !hasInitialBootCompleted();
-      snapTo(targetPose, useBootFov ? BOOT_FOV : targetPose.fov);
+      if (
+        transition.active &&
+        transition.direction === "toWork" &&
+        transition.departedOrbitCenterY != null
+      ) {
+        snapTo({ ...targetPose, orbitCenterY: transition.departedOrbitCenterY }, targetPose.fov);
+      } else {
+        snapTo(targetPose, useBootFov ? BOOT_FOV : targetPose.fov);
+      }
       prevRoomRef.current = next;
-      if (getSceneBootPhase() === "live" || hasInitialBootCompleted()) {
+      if (
+        !transition.active &&
+        (getSceneBootPhase() === "live" || hasInitialBootCompleted())
+      ) {
         setArrivedRoom(next);
       }
       return;

@@ -13,8 +13,6 @@ import AboutDitherCanvas from "./AboutDitherCanvas";
 import { MOTION_TOKENS } from "../lib/animation/motionTokens";
 import { getDeviceTier } from "../lib/deviceTier";
 import { prefersReducedMotion } from "../lib/prefersReducedMotion";
-import { useWebGLOverlayStore } from "../store/webglOverlay";
-
 gsap.registerPlugin(SplitText);
 
 const CLIENT_COLS = [
@@ -52,7 +50,6 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
   // postFX). Mounting it on the same frame as the reveal froze the line tween until init
   // finished. Defer it until the reveal has played, then dissolve it in.
   const [mountCanvas, setMountCanvas] = useState(false);
-  const setOverlayWebGLActive = useWebGLOverlayStore((s) => s.setActive);
 
   const runHide = (up: boolean) => {
     revealTweenRef.current?.kill();
@@ -170,11 +167,6 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
   useEffect(() => {
     if (!active) setMountCanvas(false);
   }, [active]);
-
-  useEffect(() => {
-    setOverlayWebGLActive(mountCanvas);
-    return () => setOverlayWebGLActive(false);
-  }, [mountCanvas, setOverlayWebGLActive]);
 
   // Dissolve the helmet canvas in once it mounts (after the text reveal).
   useEffect(() => {

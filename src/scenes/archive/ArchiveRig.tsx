@@ -15,6 +15,8 @@ const _qDelta = new THREE.Quaternion();
 const _qTmp = new THREE.Quaternion();
 const _qSpin = new THREE.Quaternion();
 
+const isTouchDevice = () => "ontouchstart" in window;
+
 export default function ArchiveRig() {
   const { camera, gl } = useThree();
 
@@ -58,14 +60,15 @@ export default function ArchiveRig() {
         const halfFov = (cam.fov * Math.PI) / 360;
         const h = gl.domElement.clientHeight || 1;
         const worldPerPx = (2.5 * camera.position.z * Math.tan(halfFov)) / h;
-        rigState.gridPanTarget.x = basePanX + dx * worldPerPx;
-        rigState.gridPanTarget.y = basePanY - dy * worldPerPx;
+        const panScale = isTouchDevice() ? 1 : ARCHIVE_CONFIG.gridPanDesktopScale;
+        rigState.gridPanTarget.x = basePanX + dx * worldPerPx * panScale;
+        rigState.gridPanTarget.y = basePanY - dy * worldPerPx * panScale;
         return;
       }
 
       if (!orbMode()) return;
 
-      const threshold = "ontouchstart" in window ? 15 : ARCHIVE_CONFIG.clickThreshold;
+      const threshold = isTouchDevice() ? 15 : ARCHIVE_CONFIG.clickThreshold;
       if (maxTravel > threshold) rigState.isDragging = true;
 
       // Arcball: apply the drag as a rotation around the world (= screen) axes,
@@ -120,7 +123,20 @@ export default function ArchiveRig() {
 
     rigState.orientation.slerp(rigState.orientationTarget, 1 - Math.exp(-SPIN_DAMP * delta));
 
-    if (rigState.isGridPanning) {
+    if (rigState.isGridPanning && !isTouchDevice()) {
+      rigState.gridPan.x = damp(
+        rigState.gridPan.x,
+        rigState.gridPanTarget.x,
+        ARCHIVE_CONFIG.gridPanDragLerp,
+        delta,
+      );
+      rigState.gridPan.y = damp(
+        rigState.gridPan.y,
+        rigState.gridPanTarget.y,
+        ARCHIVE_CONFIG.gridPanDragLerp,
+        delta,
+      );
+    } else if (rigState.isGridPanning) {
       rigState.gridPan.x = rigState.gridPanTarget.x;
       rigState.gridPan.y = rigState.gridPanTarget.y;
     } else {

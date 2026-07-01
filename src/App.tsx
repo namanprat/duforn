@@ -16,8 +16,9 @@ import {
 } from "./store/routeTransition";
 import {
   isWorkProjectTransitionActive,
+  runProjectToWorkTransition,
   runWorkToProjectTransition,
-  shouldUseWorkProjectTransition,
+  shouldUseProjectWorkTransition,
 } from "./store/workProjectTransition";
 import { destroyLenis, initLenis } from "./lib/lenis-scroll";
 import { PROJECT_DETAIL_SWATCH, SWATCH_DARK } from "./lib/siteColors";
@@ -45,8 +46,12 @@ function AppShell() {
       try {
         if (shouldUseDissolveTransition(location.pathname, nextPath)) {
           await runArchiveRouteTransition(location.pathname, nextPath, navigate);
-        } else if (shouldUseWorkProjectTransition(location.pathname, nextPath)) {
-          await runWorkToProjectTransition(nextPath, navigate);
+        } else if (shouldUseProjectWorkTransition(location.pathname, nextPath)) {
+          if (getRouteNamespace(nextPath) === "projectDetail") {
+            await runWorkToProjectTransition(nextPath, navigate);
+          } else {
+            await runProjectToWorkTransition(location.pathname, navigate);
+          }
         } else {
           await Promise.race([
             hideAllRegisteredPageText(),

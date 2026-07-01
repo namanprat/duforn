@@ -107,8 +107,7 @@ export function waitForSceneAndCamera(root: Element | null, onReady: () => void)
 }
 
 export function waitForProjectArrival(onReady: () => void): () => void {
-  const { active, overlayOpacity } = useWorkProjectTransitionStore.getState();
-  if (!active && overlayOpacity <= 0) {
+  if (!useWorkProjectTransitionStore.getState().active) {
     onReady();
     return () => {};
   }

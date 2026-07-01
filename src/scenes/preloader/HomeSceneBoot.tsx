@@ -127,6 +127,7 @@ export default function HomeSceneBoot({
     const finishReveal = () => {
       // FOV is owned by the boot dissolve's punch (playDissolve), which outlasts the
       // open and keeps settling — so do NOT snap fov here or the punch gets cut short.
+      // Scene + copy reveal is gated on sceneReady/arrival; both fire at 50% pierce with FOV.
       setPhase("live");
       setSceneReady(true);
       setArrivedRoom(activeRoom);

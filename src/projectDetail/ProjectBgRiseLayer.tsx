@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { useGLTF } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
@@ -12,30 +12,25 @@ import {
 } from "./projectBgPipeline";
 import { useWorkProjectTransitionStore } from "../store/workProjectTransition";
 
-type ProjectBgProps = {
-  onReady?: (ready: boolean) => void;
-};
-
-export default function ProjectBg({ onReady }: ProjectBgProps) {
-  const { gl, size } = useThree();
+/** Rising project bg on the work camera during work→project bridge. */
+export default function ProjectBgRiseLayer() {
+  const { gl, camera, size } = useThree();
   const { scene: gltfScene } = useGLTF(PROJECT_BG_MODEL_URL);
   const { pointerRef, step } = usePointerField();
   const riseOffset = useWorkProjectTransitionStore((s) => s.riseOffset);
-  const transitionActive = useWorkProjectTransitionStore((s) => s.active);
-  const direction = useWorkProjectTransitionStore((s) => s.direction);
+  const setProjectBgReady = useWorkProjectTransitionStore((s) => s.setProjectBgReady);
 
   const pipelineRef = useRef<ProjectBgPipeline | null>(null);
-  const meshRef = useRef<THREE.Mesh | null>(null);
+  const groupRef = useRef<THREE.Group>(null);
+  const meshRef = useRef<THREE.Mesh>(null);
   const materialRef = useRef<THREE.MeshBasicMaterial | null>(null);
   const [ready, setReady] = useState(false);
-  const onReadyRef = useRef(onReady);
-  onReadyRef.current = onReady;
 
   useEffect(() => {
     const pipeline = createProjectBgPipeline(gltfScene);
     pipelineRef.current = pipeline;
     setReady(true);
-    onReadyRef.current?.(true);
+    setProjectBgReady(true);
 
     const onPointerMove = () => {
       pipeline.pointerActive = true;
@@ -50,13 +45,15 @@ export default function ProjectBg({ onReady }: ProjectBgProps) {
         pipelineRef.current = null;
       }
       setReady(false);
-      onReadyRef.current?.(false);
+      setProjectBgReady(false);
     };
-  }, [gltfScene]);
+  }, [gltfScene, setProjectBgReady]);
 
   useFrame((state, delta) => {
     const pipeline = pipelineRef.current;
-    if (!ready || !pipeline) return;
+    const group = groupRef.current;
+    const mesh = meshRef.current;
+    if (!ready || !pipeline || !group || !mesh) return;
 
     tickProjectBgPipeline(pipeline, {
       gl,
@@ -71,27 +68,51 @@ export default function ProjectBg({ onReady }: ProjectBgProps) {
     const mat = materialRef.current;
     if (mat && mat.map !== pipeline.renderTarget.texture) {
       mat.map = pipeline.renderTarget.texture;
-      mat.opacity = 1;
       mat.needsUpdate = true;
     }
 
-    const mesh = meshRef.current;
-    if (!mesh) return;
+    camera.updateMatrixWorld();
+    group.position.copy(camera.position);
+    group.quaternion.copy(camera.quaternion);
 
-    const slideY =
-      transitionActive && direction === "toWork" ? -riseOffset * size.height : 0;
-    mesh.position.set(0, slideY, -25);
-    mesh.scale.set(size.width, size.height, 1);
+    const dist = Math.abs(camera.position.z) || 10;
+    const vFov = THREE.MathUtils.degToRad(
+      (camera as THREE.PerspectiveCamera).fov ?? 70,
+    );
+    const planeH = 2 * Math.tan(vFov / 2) * dist;
+    const planeW = planeH * (size.width / Math.max(size.height, 1));
+
+    mesh.position.set(0, -riseOffset * planeH, -dist);
+    mesh.scale.set(planeW, planeH, 1);
   });
 
   if (!ready) return null;
 
   return (
-    <mesh ref={meshRef} renderOrder={-5}>
-      <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial ref={materialRef} transparent depthWrite={false} depthTest={false} />
-    </mesh>
+    <group ref={groupRef} renderOrder={-4}>
+      <mesh ref={meshRef}>
+        <planeGeometry args={[1, 1]} />
+        <meshBasicMaterial
+          ref={materialRef}
+          transparent
+          depthWrite={false}
+          depthTest={false}
+        />
+      </mesh>
+    </group>
   );
 }
 
 useGLTF.preload(PROJECT_BG_MODEL_URL);
+
+export function ProjectBgRiseLayerGate() {
+  const mount = useWorkProjectTransitionStore(
+    (s) => s.mountProjectLayer && s.direction === "toProject",
+  );
+  if (!mount) return null;
+  return (
+    <Suspense fallback={null}>
+      <ProjectBgRiseLayer />
+    </Suspense>
+  );
+}
