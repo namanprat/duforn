@@ -10,6 +10,8 @@ import { getDeviceTier } from "../lib/deviceTier";
 import { prefersReducedMotion } from "../lib/prefersReducedMotion";
 import { getRouteNamespace, type RoomNamespace } from "../lib/route";
 import { resetArchiveToOrbView } from "./archiveView";
+import { useArchiveReturnStore, getArchiveReturnRoom } from "./archiveReturn";
+import { preloadArchiveReturnRoom, scheduleArchiveReturnPreload } from "../lib/roomReturnPreload";
 
 const OPEN_DUR = 1.715;
 const OPEN_EASE = "power4.out";
@@ -125,11 +127,12 @@ export async function playDissolve({
 }
 
 export async function runArchiveRouteTransition(
-  _fromPath: string,
+  fromPath: string,
   toPath: string,
   navigate: (path: string) => void,
 ): Promise<void> {
   const toArchive = toPath === "/archive";
+  const fromArchive = fromPath === "/archive";
 
   if (!canRunDissolve()) {
     if (toArchive) resetArchiveToOrbView();
@@ -137,6 +140,14 @@ export async function runArchiveRouteTransition(
     snapShowPageChrome(toArchive);
     if (!toArchive) await showAllRegisteredPageText();
     return;
+  }
+
+  if (toArchive) {
+    useArchiveReturnStore.getState().setOriginFromPath(fromPath);
+  }
+
+  if (fromArchive) {
+    void preloadArchiveReturnRoom(getArchiveReturnRoom());
   }
 
   await playDissolve({

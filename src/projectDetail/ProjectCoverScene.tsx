@@ -1,9 +1,9 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useFrame, useThree } from "@react-three/fiber";
-import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import { getCaseStudy } from "../content/projects";
+import { configureTexture, createColorFallbackTexture, loadTextureAsset } from "../lib/assets";
 import { useProjectCanvasAnchor } from "./ProjectCanvasAnchor";
 import {
   applyClipping,
@@ -15,32 +15,54 @@ import {
 
 const COVER_Z = -5;
 
+const coverTextureOptions = {
+  colorSpace: THREE.SRGBColorSpace,
+  minFilter: THREE.LinearFilter,
+  magFilter: THREE.LinearFilter,
+  generateMipmaps: false,
+  anisotropy: 4,
+} as const;
+
 /** Hero cover image rendered into the unified canvas, tracking the DOM anchor
  *  reserved by ProjectCoverAnchor — same screen-to-world approach as the strips. */
 export default function ProjectCoverScene() {
   const { pathname } = useLocation();
   const coverSrc = getCaseStudy(pathname)?.coverSrc ?? "";
   const { getAnchor } = useProjectCanvasAnchor("cover");
-  const texture = useTexture(coverSrc);
+  const fallbackTexture = useMemo(
+    () => createColorFallbackTexture(coverTextureOptions),
+    [],
+  );
+  const [texture, setTexture] = useState<THREE.Texture | null>(null);
+  const activeTexture = texture ?? fallbackTexture;
   const { size } = useThree();
   const rootRef = useRef<THREE.Group>(null);
   const meshRef = useRef<THREE.Mesh>(null);
   const clipPlanes = useMemo(() => createClipPlanes(), []);
 
-  useMemo(() => {
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.minFilter = THREE.LinearFilter;
-    texture.magFilter = THREE.LinearFilter;
-    texture.anisotropy = 4;
-  }, [texture]);
+  useEffect(() => {
+    if (!coverSrc) {
+      setTexture(null);
+      return;
+    }
+    let cancelled = false;
+    loadTextureAsset(coverSrc, coverTextureOptions)
+      .then((loaded) => {
+        if (!cancelled) setTexture(configureTexture(loaded, coverTextureOptions));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [coverSrc]);
 
   const imageSize = useMemo(() => {
-    const img = texture.image as HTMLImageElement | undefined;
+    const img = activeTexture.image as HTMLImageElement | undefined;
     return {
       w: img?.naturalWidth ?? img?.width ?? 1,
       h: img?.naturalHeight ?? img?.height ?? 1,
     };
-  }, [texture]);
+  }, [activeTexture]);
 
   useFrame(() => {
     const anchor = getAnchor();
@@ -69,7 +91,7 @@ export default function ProjectCoverScene() {
     <group ref={rootRef} renderOrder={1}>
       <mesh ref={meshRef} position={[0, 0, COVER_Z]} renderOrder={2}>
         <planeGeometry args={[1, 1]} />
-        <meshBasicMaterial map={texture} transparent />
+        <meshBasicMaterial map={activeTexture} transparent />
       </mesh>
     </group>
   );

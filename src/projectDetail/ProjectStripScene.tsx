@@ -1,7 +1,7 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
+import { configureTexture, createColorFallbackTexture, loadTextureAsset } from "../lib/assets";
 import { readCssLengthPx } from "../lib/css-length";
 import { useProjectCanvasAnchor } from "./ProjectCanvasAnchor";
 import { applyClipping, createClipPlanes, screenToWorld, updateClipPlanes } from "./domAnchorUtils";
@@ -9,6 +9,14 @@ import { applyClipping, createClipPlanes, screenToWorld, updateClipPlanes } from
 const ROTATION_DEG = 30;
 const STRIP_Z = -5;
 const BG_Z = -6;
+
+const stripTextureOptions = {
+  colorSpace: THREE.SRGBColorSpace,
+  minFilter: THREE.LinearFilter,
+  magFilter: THREE.LinearFilter,
+  generateMipmaps: false,
+  anisotropy: 4,
+} as const;
 
 function computeLayout(anchorWidth: number, stripCount: number, stripW = 540) {
   const theta = THREE.MathUtils.degToRad(ROTATION_DEG);
@@ -29,31 +37,45 @@ type ProjectStripSceneProps = {
 
 export default function ProjectStripScene({ stripPaths, stripBg }: ProjectStripSceneProps) {
   const { getAnchor } = useProjectCanvasAnchor("strips");
-  const textures = useTexture([...stripPaths]);
+  const fallbackTextures = useMemo(
+    () => stripPaths.map(() => createColorFallbackTexture(stripTextureOptions)),
+    [stripPaths],
+  );
+  const [textures, setTextures] = useState<THREE.Texture[] | null>(null);
+  const activeTextures = textures ?? fallbackTextures;
   const { size } = useThree();
   const rootRef = useRef<THREE.Group>(null);
   const bgRef = useRef<THREE.Mesh>(null);
   const meshRefs = useRef<THREE.Mesh[]>([]);
   const clipPlanes = useMemo(() => createClipPlanes(), []);
 
-  useMemo(() => {
-    textures.forEach((t) => {
-      t.colorSpace = THREE.SRGBColorSpace;
-      t.minFilter = THREE.LinearFilter;
-      t.magFilter = THREE.LinearFilter;
-      t.anisotropy = 4;
-    });
-  }, [textures]);
+  useEffect(() => {
+    if (stripPaths.length === 0) {
+      setTextures(null);
+      return;
+    }
+    let cancelled = false;
+    Promise.all(stripPaths.map((url) => loadTextureAsset(url, stripTextureOptions)))
+      .then((loaded) => {
+        if (!cancelled) {
+          setTextures(loaded.map((t) => configureTexture(t, stripTextureOptions)));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [stripPaths]);
 
   const stripDims = useMemo(
     () =>
-      textures.map((t) => {
+      activeTextures.map((t) => {
         const img = t.image as HTMLImageElement | undefined;
         const w = img?.naturalWidth ?? img?.width ?? 540;
         const h = img?.naturalHeight ?? img?.height ?? 3596;
         return { w, h };
       }),
-    [textures],
+    [activeTextures],
   );
 
   const applyClippingToMeshes = () => {
@@ -115,7 +137,7 @@ export default function ProjectStripScene({ stripPaths, stripBg }: ProjectStripS
         <meshBasicMaterial color={stripBg} />
       </mesh>
       <group position={[0, 0, STRIP_Z]} renderOrder={2}>
-        {textures.map((tex, i) => {
+        {activeTextures.map((tex, i) => {
           const { w, h } = stripDims[i];
           const x = (i - (stripPaths.length - 1) / 2) * initialSpacing;
           return (

@@ -13,7 +13,11 @@ export function startWorkTexturePreload() {
   const uniqueImages = [...new Set(workItems.map((item) => item.image).filter(Boolean))];
   return Promise.all(
     uniqueImages.map((src) => {
-      if (workTextureCache.has(src)) return Promise.resolve();
+      if (workTextureCache.has(src)) {
+        const cached = workTextureCache.get(src)!;
+        if (cached.userData?.ktx2) return Promise.resolve();
+        workTextureCache.delete(src);
+      }
       return loadTextureAsset(src, {
         wrapS: THREE.MirroredRepeatWrapping,
         wrapT: THREE.MirroredRepeatWrapping,

@@ -1,6 +1,7 @@
 import * as THREE from "three";
+import { isKtx2Ready, ktx2UrlFor, loadKtx2Texture } from "./ktx2";
 
-interface TextureOptions {
+export interface TextureOptions {
   colorSpace?: THREE.ColorSpace;
   minFilter?: THREE.TextureFilter;
   magFilter?: THREE.TextureFilter;
@@ -63,6 +64,30 @@ export function loadTextureAsset(
     ...textureOptions
   } = options;
 
+  const ktx2Url = ktx2UrlFor(url);
+  if (ktx2Url && isKtx2Ready()) {
+    return loadKtx2Texture(ktx2Url)
+      .then((texture) => {
+        texture.userData.ktx2 = true;
+        return configureTexture(texture, {
+          generateMipmaps: false,
+          minFilter: THREE.LinearFilter,
+          magFilter: THREE.LinearFilter,
+          ...textureOptions,
+        });
+      })
+      .catch(() => loadTextureWithLoader(url, loader, onErrorTexture, textureOptions));
+  }
+
+  return loadTextureWithLoader(url, loader, onErrorTexture, textureOptions);
+}
+
+function loadTextureWithLoader(
+  url: string,
+  loader: THREE.TextureLoader,
+  onErrorTexture: THREE.Texture | (() => THREE.Texture),
+  textureOptions: TextureOptions,
+) {
   return new Promise<THREE.Texture>((resolve) => {
     loader.load(
       url,

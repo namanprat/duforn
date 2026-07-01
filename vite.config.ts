@@ -94,6 +94,7 @@ const config = {
       "**/*.jpg",
       "**/*.jpeg",
       "**/*.webp",
+      "**/*.ktx2",
       "**/*.webm",
       "**/*.svg",
       "**/*.glb",

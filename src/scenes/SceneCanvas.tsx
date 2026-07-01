@@ -18,7 +18,10 @@ import { getDeviceTier } from "../lib/deviceTier";
 import { getQualityProfile } from "../lib/qualityProfile";
 import { useDelayedActive } from "../lib/useDelayedActive";
 import { installBootProgressTracking } from "./preloader/bootProgress";
-import { getSceneReady, hasInitialBootCompleted, setSceneReady, useSceneBootStore } from "./preloader/sceneReady";
+import { initKtx2Support } from "../lib/ktx2";
+import { startWorkTexturePreload } from "../lib/work-preload";
+import { useArchiveReturnStore } from "../store/archiveReturn";
+import { hasInitialBootCompleted, setSceneReady, useSceneBootStore } from "./preloader/sceneReady";
 
 const DevSceneControls = import.meta.env.DEV
   ? lazy(() => import("./DevSceneControls"))
@@ -48,10 +51,27 @@ export default function SceneCanvas() {
   // unaffected (useDelayedActive seeds the first-render active state without delay).
   const subgraphActivateDelayMs = SUBGRAPH_ACTIVATE_SECONDS * 1000;
   const subgraphDeloadDelayMs = 1000;
-  const enableWater = useDelayedActive(activeRoom === "main", subgraphDeloadDelayMs, subgraphActivateDelayMs);
-  const enableStrip = useDelayedActive(activeRoom === "work", subgraphDeloadDelayMs, subgraphActivateDelayMs);
+  const skipSubgraphDelay = useArchiveReturnStore((s) => s.shouldSkipSubgraphDelay(activeRoom));
+  const subgraphActivateDelay = skipSubgraphDelay ? 0 : subgraphActivateDelayMs;
+  const enableWater = useDelayedActive(
+    activeRoom === "main",
+    subgraphDeloadDelayMs,
+    subgraphActivateDelay,
+  );
+  const enableStrip = useDelayedActive(
+    activeRoom === "work",
+    subgraphDeloadDelayMs,
+    subgraphActivateDelay,
+  );
   const setProgress = useSceneBootStore((s) => s.setProgress);
   const bootProgressCleanupRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    if (!skipSubgraphDelay || !isRoom) return;
+    const ready =
+      (activeRoom === "main" && enableWater) || (activeRoom === "work" && enableStrip);
+    if (ready) useArchiveReturnStore.getState().clearSubgraphDelaySkip();
+  }, [skipSubgraphDelay, isRoom, activeRoom, enableWater, enableStrip]);
 
   useEffect(() => {
     if (deviceTier === 0 || !isRoom) {
@@ -81,10 +101,12 @@ export default function SceneCanvas() {
       <Canvas
         dpr={[1, qualityProfile.maxDpr]}
         gl={{ antialias: true, stencil: false, localClippingEnabled: true, preserveDrawingBuffer: true }}
-        shadows={{ type: THREE.PCFSoftShadowMap }}
+        shadows={{ type: THREE.PCFShadowMap }}
         onCreated={({ gl }) => {
           gl.toneMapping = THREE.NoToneMapping;
           gl.outputColorSpace = THREE.SRGBColorSpace;
+          initKtx2Support(gl);
+          startWorkTexturePreload().catch(() => {});
           if (!hasInitialBootCompleted()) {
             bootProgressCleanupRef.current?.();
             bootProgressCleanupRef.current = installBootProgressTracking(setProgress);

@@ -4,7 +4,7 @@ import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { createColorFallbackTexture, loadTextureAsset } from "../lib/assets";
 import { getPreloadedTextures } from "../lib/work-preload";
 import { workItems } from "../content/work-items";
-import { navigateTo } from "../lib/nav";
+import { navigateTo, isNavigableHref } from "../lib/nav";
 import { useWorkSceneControlsStore } from "../store/workScene";
 import {
   COLS,
@@ -611,7 +611,7 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
     );
     if (resolvedSlot.itemIndex === centerIdx) {
       const href = workItems[resolvedSlot.itemIndex]?.href;
-      if (href) navigateTo(href); // already centered → open
+      if (isNavigableHref(href)) navigateTo(href);
       return;
     }
     // off-center → glide it to center; useFrame's dispatch updates the title.

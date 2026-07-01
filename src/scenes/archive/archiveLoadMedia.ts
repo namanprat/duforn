@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { loadTextureAsset } from "../../lib/assets";
 
 export function configureArchiveTexture(texture: THREE.Texture) {
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -49,7 +50,7 @@ export function loadArchiveMediaSource(url: string): Promise<ArchiveMediaSource>
     });
   }
 
-  return new THREE.TextureLoader().loadAsync(url).then((texture) => {
+  return loadTextureAsset(url, { generateMipmaps: false }).then((texture) => {
     configureArchiveTexture(texture);
     const img = texture.image as { width: number; height: number };
     return {

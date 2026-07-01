@@ -2031,6 +2031,10 @@ img {
   cursor: pointer;
 }
 
+.work-page__title--static {
+  cursor: default;
+}
+
 .work-page__title-line {
   display: inline;
 }

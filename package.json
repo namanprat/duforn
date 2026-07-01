@@ -8,7 +8,8 @@
     "dev": "vp dev --configLoader runner",
     "host": "vp dev --host --configLoader runner",
     "build": "vp build --configLoader runner",
-    "preview": "vp preview --configLoader runner"
+    "preview": "vp preview --configLoader runner",
+    "textures:ktx2": "node scripts/encode-textures-ktx2.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
@@ -25,10 +26,14 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@gltf-transform/core": "^4.4.0",
+    "@gltf-transform/functions": "^4.4.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "ktx2-encoder": "^0.5.3",
     "leva": "^0.10.1",
+    "sharp": "^0.35.2",
     "typescript": "^5.9.3",
     "vite": "npm:@voidzero-dev/vite-plus-core@0.1.20",
     "vite-plus": "0.1.20"

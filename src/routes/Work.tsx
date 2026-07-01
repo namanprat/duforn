@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { workItems } from "../content/work-items";
-import { navigateTo } from "../lib/nav";
+import { navigateTo, isNavigableHref } from "../lib/nav";
 import TextRevealLines from "../text/Reveal";
 import { getActiveStripItemIndex } from "../work/math";
 import { DEFAULT_GAP_SIZE, getStripVisibleItems, NUM_UNIQUE_FALLBACK } from "../work/config";
@@ -34,10 +34,9 @@ export default function WorkPage() {
     return () => window.removeEventListener("duforn:work-strip-title", onTitle as EventListener);
   }, []);
 
-  const activeHref = useMemo(
-    () => workItems.find((item) => item.title === title)?.href || workItems[0]?.href || "/",
-    [title],
-  );
+  const activeItem = useMemo(() => workItems.find((item) => item.title === title), [title]);
+  const activeHref = activeItem?.href ?? workItems[0]?.href ?? "/";
+  const canNavigate = isNavigableHref(activeHref);
 
   const { firstLine, secondLine } = useMemo(() => {
     const words = String(title).trim().split(/\s+/).filter(Boolean);
@@ -46,7 +45,7 @@ export default function WorkPage() {
   }, [title]);
 
   const handleTitleActivate = () => {
-    if (!activeHref) return;
+    if (!canNavigate) return;
     navigateTo(activeHref);
   };
 
@@ -69,14 +68,14 @@ export default function WorkPage() {
         waitForCamera
       >
         <h1
-          className="u-container-full u-text-align-center u-text-style-display work-page__title u-color-light"
+          className={`u-container-full u-text-align-center u-text-style-display work-page__title u-color-light${canNavigate ? "" : " work-page__title--static"}`}
           data-work-strip-title
           data-no-strip-drag
-          role="link"
-          tabIndex={0}
-          onClick={handleTitleActivate}
-          onKeyDown={handleTitleKeyDown}
-          data-href={activeHref}
+          role={canNavigate ? "link" : undefined}
+          tabIndex={canNavigate ? 0 : undefined}
+          onClick={canNavigate ? handleTitleActivate : undefined}
+          onKeyDown={canNavigate ? handleTitleKeyDown : undefined}
+          data-href={canNavigate ? activeHref : undefined}
         >
           <span className="work-page__title-line">{firstLine}</span>
           {secondLine ? " " : null}

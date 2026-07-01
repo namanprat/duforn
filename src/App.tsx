@@ -8,7 +8,6 @@ import CaseStudyPage from "./projectDetail/CaseStudyPage";
 import { getCaseStudyTitle } from "./content/projects";
 import ArchivePage from "./routes/Archive";
 import { setNavigateHandler } from "./lib/nav";
-import { startWorkTexturePreload } from "./lib/work-preload";
 import { getRouteNamespace } from "./lib/route";
 import { hideAllRegisteredPageText, showAllRegisteredPageText } from "./lib/text";
 import {
@@ -87,10 +86,6 @@ function AppShell() {
     });
     return () => cancelAnimationFrame(id);
   }, [namespace]);
-
-  useEffect(() => {
-    startWorkTexturePreload().catch(() => {});
-  }, []);
 
   return <SiteLayout />;
 }
