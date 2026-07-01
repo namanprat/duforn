@@ -166,7 +166,7 @@ function registerScrollLines(
     gsap.set(lines, { y: "0%" });
     lines.forEach((line) => revealed.add(line));
   } else {
-    gsap.set(lines, { y: `${MOTION_TOKENS.textReveal.revealOvershootPercent}%` });
+    gsap.set(lines, { y: `${MOTION_TOKENS.textReveal.revealHiddenPercent}%` });
   }
 
   rebuildOrderedLines();

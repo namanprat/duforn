@@ -631,7 +631,7 @@ html:not(.scene-live) .site-header {
   background: var(--swatch-dark);
   color: var(--swatch-light);
   pointer-events: auto;
-  transition: opacity 0.8s ease;
+  transition: opacity 2.04s ease;
 }
 
 .scene_preload_overlay--revealing {
@@ -690,6 +690,17 @@ html:not(.scene-live) .site-header {
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 0.2em;
+  opacity: 0.7;
+  transition:
+    opacity 0.2s ease,
+    text-underline-offset 0.2s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .scene_preload_enter_muted:hover {
+    opacity: 1;
+    text-underline-offset: 0.32em;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -713,6 +724,7 @@ body.page-wrap.page-wrap--scrollable:has([data-page-namespace="projectDetail"])
 }
 
 /* --- Site header ---------------------------------------------------------- */
+/* ponytail: header shell is click-through; only brand + menu surface (+ backdrop when open) receive hits */
 .site-header {
   position: fixed;
   top: 0;
@@ -725,7 +737,20 @@ body.page-wrap.page-wrap--scrollable:has([data-page-namespace="projectDetail"])
   pointer-events: none;
 }
 
-.site-header * {
+.site-header__brand,
+.menu-nav__surface {
+  pointer-events: auto;
+}
+
+.site-header .site-header__inner,
+.menu-nav-wrap,
+.menu-nav-track,
+.menu-nav,
+.site-header .menu-nav-backdrop {
+  pointer-events: none;
+}
+
+body.menu-open .site-header .menu-nav-backdrop {
   pointer-events: auto;
 }
 
@@ -754,20 +779,10 @@ body.page-wrap.page-wrap--scrollable:has([data-page-namespace="projectDetail"])
   color: inherit;
 }
 
-.site-header a[data-rotate-hover],
-.site-header button[data-rotate-hover],
-.menu-nav__toggle[data-rotate-hover],
-.menu-nav__link[data-rotate-hover],
-.contact_contain a[data-rotate-hover] {
+[data-rotate-hover] {
   --hover-line-height: var(--typography-line-height-medium);
   line-height: var(--hover-line-height);
   overflow: visible;
-}
-
-a.button[data-rotate-hover],
-button.button[data-rotate-hover] {
-  --hover-line-height: var(--typography-line-height-medium);
-  line-height: var(--hover-line-height);
 }
 
 .nav-link-hover__clip {
@@ -794,6 +809,16 @@ button.button .nav-link-hover__clip {
   padding: 0;
   line-height: var(--hover-line-height, 1);
   white-space: nowrap;
+}
+
+/* The second (duplicate) track sits exactly one clip-height below, out of flow, so the clip is
+   naturally one line tall — no JS height measurement needed. yPercent:-100 rolls it up into view.
+   Only position props: the flex/align overrides for menu toggle & links still apply. */
+.nav-link-hover__track + .nav-link-hover__track {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
 }
 
 .nav-link-hover__track > span {
@@ -830,22 +855,12 @@ button.button .nav-link-hover__clip {
   border: none;
   background: transparent;
   cursor: default;
-  pointer-events: none;
   opacity: 0;
-}
-
-body.menu-open .menu-nav-backdrop {
-  pointer-events: auto;
 }
 
 .menu-nav-wrap {
   position: relative;
   margin-top: calc(-1 * (var(--spacing-space-5) + var(--site--safe-area-top)));
-  pointer-events: none;
-}
-
-.menu-nav-wrap * {
-  pointer-events: auto;
 }
 
 .menu-nav-track {
@@ -858,7 +873,6 @@ body.menu-open .menu-nav-backdrop {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  pointer-events: none;
 }
 
 .menu-nav {
@@ -1024,12 +1038,25 @@ body.menu-open .menu-nav-backdrop {
   .site-header .site-header__inner {
     grid-area: 1 / 1;
     align-self: start;
+    z-index: 1;
   }
 
   .menu-nav-wrap {
     grid-area: 1 / 1;
     margin-top: 0;
     align-self: start;
+    z-index: 2;
+  }
+
+  .menu-nav__surface {
+    margin-left: auto;
+    transform-origin: top right;
+    position: relative;
+    z-index: 1;
+  }
+
+  body.menu-open .site-header .menu-nav-backdrop {
+    pointer-events: none;
   }
 
   .menu-nav-track {
@@ -1039,12 +1066,6 @@ body.menu-open .menu-nav-backdrop {
   .menu-nav {
     display: flex;
     justify-content: flex-end;
-    width: 100%;
-  }
-
-  .menu-nav__surface {
-    margin-left: auto;
-    transform-origin: top right;
   }
 
   .menu-nav.is-open .menu-nav__surface,
@@ -1079,7 +1100,6 @@ body.menu-open .menu-nav-backdrop {
     padding-inline-end: 0;
     padding-block: var(--button-pad-block);
     color: var(--swatch-light);
-    pointer-events: auto;
   }
 
   .site-header--menu-open .site-header__brand {

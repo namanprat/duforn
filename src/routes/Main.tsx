@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { navigateTo } from "../lib/nav";
 import { cameraFovOffsetRef } from "../scenes/cam/pose";
-import { ROOM_TRANSITION_SECONDS } from "../scenes/cam/roomPoses";
+import { ROOM_TRANSITION_SECONDS, SHARED_FOV, ROOM_POSES } from "../scenes/cam/roomPoses";
 import TextRevealLines from "../text/Reveal";
 import CameraRevealGroup from "../text/CameraRevealGroup";
 import RotateHoverLabel from "../components/RotateHoverLabel";
@@ -54,9 +54,16 @@ export default function MainPage() {
     navigateTo(path);
   };
 
-  // Hovering "View Work" gently eases the camera FOV -1 (and back on leave).
+  // Hovering "View Work" eases the camera FOV to the work room's exact resting FOV (and back
+  // on leave), so the hover previews the destination and the home→work move has zero FOV drift.
+  // Derived from the work pose so it always tracks whatever work fov is tuned in roomPoses.
   const onPillEnter = () =>
-    gsap.to(cameraFovOffsetRef, { current: -1, duration: 0.2, ease: "sine.inOut", overwrite: true });
+    gsap.to(cameraFovOffsetRef, {
+      current: ROOM_POSES.work.fov - SHARED_FOV,
+      duration: 0.2,
+      ease: "sine.inOut",
+      overwrite: true,
+    });
   const onPillLeave = () =>
     gsap.to(cameraFovOffsetRef, { current: 0, duration: 0.2, ease: "sine.inOut", overwrite: true });
 

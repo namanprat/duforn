@@ -61,7 +61,7 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
     const stag = hideStagger * close;
     const total = dur + stag * Math.max(lines.length - 1, 0);
 
-    const overshoot = MOTION_TOKENS.textReveal.revealOvershootPercent;
+    const overshoot = MOTION_TOKENS.textReveal.revealHiddenPercent;
 
     hideTweenRef.current = gsap.to(lines, {
       yPercent: up ? -overshoot : overshoot,
@@ -128,7 +128,7 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
 
     splitsRef.current = splits;
     linesRef.current = allLines;
-    gsap.set(allLines, { yPercent: MOTION_TOKENS.textReveal.revealOvershootPercent });
+    gsap.set(allLines, { yPercent: MOTION_TOKENS.textReveal.revealHiddenPercent });
     gsap.set(content, { autoAlpha: 1 });
 
     const { revealDuration, revealStagger, revealEase } = MOTION_TOKENS.textReveal;

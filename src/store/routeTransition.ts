@@ -1,42 +1,47 @@
 import { create } from "zustand";
+import type * as THREE from "three";
 import gsap from "gsap";
-import { cameraBasePoseRef } from "../scenes/cam/pose";
-import { BOOT_FOV, BOOT_FOV_DURATION, SHARED_FOV } from "../scenes/cam/roomPoses";
+import { ROOM_POSES, SHARED_FOV } from "../scenes/cam/roomPoses";
+import { ARCHIVE_FOV, runTransitionFovPunch } from "../scenes/cam/transitionFov";
+import { requestDepartingHoldout } from "../scenes/transition/departingHoldout";
 import { snapHidePageChrome, snapShowPageChrome } from "../lib/pageChrome";
 import { showAllRegisteredPageText, snapHideAllRegisteredPageText } from "../lib/text";
 import { getDeviceTier } from "../lib/deviceTier";
 import { prefersReducedMotion } from "../lib/prefersReducedMotion";
+import { getRouteNamespace, type RoomNamespace } from "../lib/route";
 import { resetArchiveToOrbView } from "./archiveView";
 
-// Single open-from-centre. The iris starts fully covered (cover = 1) so the route swap
-// is hidden, then opens (cover → 0). The open is deliberately faster than the FOV punch
-// so the FOV keeps settling after the scene is revealed — i.e. the punch stays visible.
-const OPEN_DUR = 0.55;
+const OPEN_DUR = 1.715;
+const OPEN_EASE = "power4.out";
+const FOV_EASE = "power3.out";
 
 type DissolveTransitionState = {
   active: boolean;
   progress: number;
+  useHoldout: boolean;
+  holdout: THREE.Texture | null;
   start: () => void;
   setProgress: (progress: number) => void;
+  setHoldout: (texture: THREE.Texture) => void;
+  setUseHoldout: (useHoldout: boolean) => void;
   finish: () => void;
   reset: () => void;
 };
 
-/**
- * Drives the live dissolve. `progress` (0→1) is read every frame by the in-canvas
- * DissolveTransition postprocessing effect (src/scenes/transition/DissolveEffect.tsx)
- * — there is no overlay, no extra renderer, and no canvas snapshot.
- */
 export const useDissolveTransitionStore = create<DissolveTransitionState>((set, get) => ({
   active: false,
   progress: 0,
+  useHoldout: false,
+  holdout: null,
   start: () => set({ active: true, progress: 0 }),
   setProgress: (progress) => {
     if (!get().active) return;
     set({ progress: Math.min(1, Math.max(0, progress)) });
   },
+  setHoldout: (holdout) => set({ holdout }),
+  setUseHoldout: (useHoldout) => set({ useHoldout }),
   finish: () => get().reset(),
-  reset: () => set({ active: false, progress: 0 }),
+  reset: () => set({ active: false, progress: 0, useHoldout: false, holdout: null }),
 }));
 
 export function shouldUseDissolveTransition(fromPath: string, toPath: string): boolean {
@@ -77,43 +82,46 @@ function tweenCover(from: number, to: number, duration: number, ease: string): P
 }
 
 type DissolveOpts = {
-  // Boot-style FOV punch (wide → normal) running alongside the open.
   fov?: boolean;
-  // Route handover, run once while the screen is fully covered.
+  targetFov?: number;
+  holdout?: boolean;
   swap?: () => void;
 };
 
-/**
- * Single open-from-centre. The iris starts fully covered (cover = 1), the route swaps
- * underneath, then the live destination opens from the centre (cover → 0). The radial
- * dissolve effect reads `cover` (store.progress) every frame. A boot-style FOV punch
- * runs concurrently and outlasts the open, so the zoom stays visible after the reveal.
- * Used for archive enter/leave AND the post-preloader boot reveal.
- */
-export async function playDissolve({ fov = false, swap }: DissolveOpts = {}): Promise<void> {
+function targetFovForPath(path: string): number {
+  if (path === "/archive") return ARCHIVE_FOV;
+  const ns = getRouteNamespace(path);
+  if (ns === "main" || ns === "work" || ns === "contact") {
+    return ROOM_POSES[ns as RoomNamespace].fov;
+  }
+  return SHARED_FOV;
+}
+
+export async function playDissolve({
+  fov = false,
+  targetFov = SHARED_FOV,
+  holdout = false,
+  swap,
+}: DissolveOpts = {}): Promise<void> {
   const store = useDissolveTransitionStore.getState();
-  store.start();
-  store.setProgress(1); // iris fully closed — hides the route swap
 
-  swap?.();
-  await waitFrames(2); // let the destination scene render under full cover
-
-  if (fov) {
-    // Owns the FOV for every dissolve (archive + boot). Punch from wide → normal over a
-    // span longer than OPEN_DUR so the settle is visible once the scene is revealed.
-    // Runs after RoomCam's same-pose snap so it isn't clobbered.
-    gsap.killTweensOf(cameraBasePoseRef.current, "fov");
-    cameraBasePoseRef.current.fov = BOOT_FOV;
-    gsap.to(cameraBasePoseRef.current, {
-      fov: SHARED_FOV,
-      duration: BOOT_FOV_DURATION,
-      ease: "power2.out",
-    });
+  if (holdout) {
+    store.setUseHoldout(true);
+    await requestDepartingHoldout();
   }
 
-  await tweenCover(1, 0, OPEN_DUR, "power2.out"); // open from centre
+  store.start();
+  store.setProgress(1);
+
+  swap?.();
+  await waitFrames(2);
+
+  if (fov) {
+    runTransitionFovPunch(targetFov, FOV_EASE);
+  }
+
+  await tweenCover(1, 0, OPEN_DUR, OPEN_EASE);
   store.finish();
-  // The FOV tween (longer than OPEN_DUR) keeps settling after the reveal → stays visible.
 }
 
 export async function runArchiveRouteTransition(
@@ -132,7 +140,9 @@ export async function runArchiveRouteTransition(
   }
 
   await playDissolve({
-    fov: !toArchive,
+    fov: true,
+    targetFov: targetFovForPath(toPath),
+    holdout: true,
     swap: () => {
       snapHidePageChrome();
       snapHideAllRegisteredPageText();
@@ -145,12 +155,12 @@ export async function runArchiveRouteTransition(
   if (!toArchive) await showAllRegisteredPageText();
 }
 
-export function runBootDissolveTransition(onComplete: () => void): void {
+export function runBootDissolveTransition(onComplete: () => void, targetFov = SHARED_FOV): void {
   if (!canRunDissolve()) {
     onComplete();
     return;
   }
-  // Boot reveal (after the preloader): same single open-from-centre + FOV punch as the
-  // archive transitions, so the home scene pierces in with a visible FOV settle.
-  void playDissolve({ fov: true }).then(onComplete);
+  // `targetFov` is the landing room's resting fov so a deep-link/refresh into /work settles the
+  // boot punch at the work fov, not SHARED_FOV (which left work rendering at the wrong FOV).
+  void playDissolve({ fov: true, targetFov }).then(onComplete);
 }

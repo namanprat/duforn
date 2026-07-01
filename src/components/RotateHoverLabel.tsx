@@ -4,7 +4,6 @@ import { useGSAP } from "@gsap/react";
 import { MOTION_TOKENS } from "../lib/animation/motionTokens";
 import { prefersReducedMotion } from "../lib/prefersReducedMotion";
 
-const CLIP_BUFFER_PX = 0.5;
 const INTERACTIVE_SELECTOR = "a, button, [role=\"button\"]";
 
 type RotateHoverLabelProps = {
@@ -32,7 +31,6 @@ export default function RotateHoverLabel({
   paused = false,
 }: RotateHoverLabelProps) {
   const clipRef = useRef<HTMLSpanElement | null>(null);
-  const isHoveredRef = useRef(false);
   const prevChangeKeyRef = useRef<string | null>(null);
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
@@ -48,6 +46,8 @@ export default function RotateHoverLabel({
       const host = clip.closest(INTERACTIVE_SELECTOR) as HTMLElement | null;
       if (!host) return;
 
+      // The CSS (.nav-link-hover__track + .nav-link-hover__track) positions the second track one
+      // line below and crops it via overflow:hidden — so there is no clip-height to measure here.
       host.classList.add("nav-link-hover");
 
       const { duration, staggerAmount, ease } = MOTION_TOKENS.navHover;
@@ -56,117 +56,41 @@ export default function RotateHoverLabel({
       const getSpans = () =>
         Array.from(clip.querySelectorAll<HTMLElement>(".nav-link-hover__track > span"));
 
-      const applyClipHeight = () => {
-        const firstTrack = clip.querySelector(".nav-link-hover__track") as HTMLElement | null;
-        if (!firstTrack) return;
-
-        const resolveLineHeightPx = () => {
-          const cs = getComputedStyle(host);
-          const lh = cs.lineHeight;
-          if (lh === "normal") {
-            const fs = parseFloat(cs.fontSize) || 16;
-            return fs * 1.2;
-          }
-          const px = parseFloat(lh);
-          return Number.isFinite(px) && px > 0 ? px : 20;
-        };
-
-        void clip.offsetHeight;
-        void firstTrack.offsetHeight;
-
-        const rectH = firstTrack.getBoundingClientRect().height;
-        const offsetH = firstTrack.offsetHeight;
-        const h = Math.max(rectH, offsetH, resolveLineHeightPx());
-        clip.style.height = `${Math.max(1, Math.round(h + CLIP_BUFFER_PX))}px`;
-      };
-
-      const applyHover = (on: boolean) => {
-        if (pausedRef.current || prefersReducedMotion()) return;
+      // Single source of truth: read the DOM's real :hover / :focus-within and drive the roll to
+      // match. No isHovered bookkeeping to drift → the lift can never get stuck out of sync.
+      const sync = () => {
         const spans = getSpans();
         if (!spans.length) return;
-        gsap.to(spans, {
-          yPercent: on ? -100 : 0,
-          duration,
-          ease,
-          stagger,
-          overwrite: "auto",
-        });
-      };
-
-      const syncPointerState = () => {
-        const reduce = prefersReducedMotion();
-        if (pausedRef.current || reduce) {
-          isHoveredRef.current = false;
-          const spans = getSpans();
-          if (spans.length) {
-            gsap.killTweensOf(spans);
-            gsap.set(spans, { yPercent: 0 });
-          }
+        if (pausedRef.current || prefersReducedMotion()) {
+          gsap.killTweensOf(spans);
+          gsap.set(spans, { yPercent: 0 });
           return;
         }
-
         const on = resolveHoverLift(host, false, false);
-        isHoveredRef.current = on;
-        applyHover(on);
+        gsap.to(spans, { yPercent: on ? -100 : 0, duration, ease, stagger, overwrite: "auto" });
       };
 
-      const onPointerEnter = () => {
-        if (pausedRef.current || prefersReducedMotion()) return;
-        if (host.getAttribute("aria-current") === "page") return;
-        isHoveredRef.current = true;
-        applyHover(true);
-      };
-
-      const onPointerLeave = () => {
-        isHoveredRef.current = false;
-        applyHover(false);
-      };
-
-      const onFocusChange = () => syncPointerState();
-
-      host.addEventListener("pointerenter", onPointerEnter);
-      host.addEventListener("pointerleave", onPointerLeave);
-      host.addEventListener("focusin", onFocusChange);
-      host.addEventListener("focusout", onFocusChange);
-
-      const firstTrack = clip.querySelector(".nav-link-hover__track");
-      const ro =
-        typeof ResizeObserver !== "undefined"
-          ? new ResizeObserver(() => {
-              applyClipHeight();
-              syncPointerState();
-            })
-          : null;
-      if (ro) {
-        if (firstTrack) ro.observe(firstTrack);
-        ro.observe(host);
-      }
-
-      applyClipHeight();
-      if (typeof document !== "undefined" && document.fonts?.ready) {
-        void document.fonts.ready.then(() => {
-          applyClipHeight();
-          syncPointerState();
-        });
-      }
+      host.addEventListener("pointerenter", sync);
+      host.addEventListener("pointerleave", sync);
+      host.addEventListener("focusin", sync);
+      host.addEventListener("focusout", sync);
 
       const spanEls = getSpans();
       const reduce = prefersReducedMotion();
       const prev = prevChangeKeyRef.current;
 
-      applyClipHeight();
-      requestAnimationFrame(() => applyClipHeight());
-
       if (paused || reduce) {
         gsap.killTweensOf(spanEls);
         gsap.set(spanEls, { yPercent: 0 });
         if (!paused) prevChangeKeyRef.current = effectiveChangeKey;
-        syncPointerState();
-      } else if (prev === null) {
+        sync();
+      } else if (prev === null || prev === effectiveChangeKey) {
+        // First mount or unchanged label — no entrance, just reconcile to live hover state.
         prevChangeKeyRef.current = effectiveChangeKey;
-        gsap.set(spanEls, { yPercent: 0 });
-        syncPointerState();
-      } else if (prev !== effectiveChangeKey) {
+        if (prev === null) gsap.set(spanEls, { yPercent: 0 });
+        sync();
+      } else {
+        // Label text changed — roll the new characters in, then reconcile to live hover state.
         prevChangeKeyRef.current = effectiveChangeKey;
         gsap.killTweensOf(spanEls);
         gsap.fromTo(
@@ -178,21 +102,17 @@ export default function RotateHoverLabel({
             ease,
             stagger,
             overwrite: "auto",
-            onComplete: () => syncPointerState(),
+            onComplete: () => sync(),
           },
         );
-      } else {
-        syncPointerState();
       }
 
       return () => {
-        host.removeEventListener("pointerenter", onPointerEnter);
-        host.removeEventListener("pointerleave", onPointerLeave);
-        host.removeEventListener("focusin", onFocusChange);
-        host.removeEventListener("focusout", onFocusChange);
+        host.removeEventListener("pointerenter", sync);
+        host.removeEventListener("pointerleave", sync);
+        host.removeEventListener("focusin", sync);
+        host.removeEventListener("focusout", sync);
         host.classList.remove("nav-link-hover");
-        ro?.disconnect();
-        clip.style.height = "";
       };
     },
     { scope: clipRef, dependencies: [effectiveChangeKey, text, paused] },
@@ -202,12 +122,12 @@ export default function RotateHoverLabel({
     <span ref={clipRef} className="nav-link-hover__clip">
       <span className="nav-link-hover__track">
         {chars.map((c, i) => (
-          <span key={i}>{c === " " ? "\u00A0" : c}</span>
+          <span key={i}>{c === " " ? " " : c}</span>
         ))}
       </span>
       <span className="nav-link-hover__track" aria-hidden="true">
         {chars.map((c, i) => (
-          <span key={i}>{c === " " ? "\u00A0" : c}</span>
+          <span key={i}>{c === " " ? " " : c}</span>
         ))}
       </span>
     </span>

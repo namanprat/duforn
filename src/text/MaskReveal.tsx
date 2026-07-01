@@ -9,7 +9,7 @@ import {
   waitForCamera as waitForCameraGate,
 } from "./useRevealGate";
 
-const HIDDEN_Y = `${MOTION_TOKENS.textReveal.revealOvershootPercent}%`;
+const HIDDEN_Y = `${MOTION_TOKENS.textReveal.revealHiddenPercent}%`;
 
 interface MaskRevealProps {
   children: React.ReactNode;

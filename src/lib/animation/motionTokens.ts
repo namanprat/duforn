@@ -8,7 +8,10 @@ export const MOTION_TOKENS = {
     hideEase: "power3.in",
     showDurationScale: 0.75,
     showStaggerScale: 0.8,
-    revealOvershootPercent: 115,
+    // Hidden start/travel for line & mask reveals. Must exceed 100% so tight line-heights
+    // (e.g. 0.85 on display headings) still fully clear the line mask — at exactly 100% the
+    // top of the glyphs peeks out the bottom of the clip. 115% is the smallest safe overshoot.
+    revealHiddenPercent: 115,
   },
   navHover: {
     staggerAmount: 0.161,

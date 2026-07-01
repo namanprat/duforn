@@ -15,7 +15,7 @@ import { armScrollLineReveal, type ScrollLineRevealController } from "./scrollLi
 gsap.registerPlugin(SplitText);
 
 const LINE_CLASS = "text-reveal-line";
-const HIDDEN_Y = `${MOTION_TOKENS.textReveal.revealOvershootPercent}%`;
+const HIDDEN_Y = `${MOTION_TOKENS.textReveal.revealHiddenPercent}%`;
 
 function mergeRefs<T>(...refs: Array<React.Ref<T> | undefined>) {
   return (node: T | null) => {

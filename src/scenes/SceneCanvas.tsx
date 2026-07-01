@@ -6,6 +6,7 @@ import * as THREE from "three";
 import CameraRig from "./CameraRig";
 import RoomCam from "./RoomCam";
 import ScenePostFX from "./ScenePostFX";
+import TransitionCameraRegistrar from "./cam/TransitionCameraRegistrar";
 import ArchiveScene from "./ArchiveScene";
 import ProjectDetailScene from "../projectDetail/ProjectDetailScene";
 import ProjectCoverScene from "../projectDetail/ProjectCoverScene";
@@ -129,6 +130,7 @@ export default function SceneCanvas() {
           </Suspense>
         ) : null}
         <ScenePostFX />
+        <TransitionCameraRegistrar />
         {import.meta.env.DEV ? (
           <Suspense fallback={null}>
             <DevSceneControls isRoom={isRoom} activeRoom={activeRoom} />

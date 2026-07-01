@@ -4,7 +4,7 @@ import BakedScene from "../BakedScene";
 import Env from "../Env";
 import { WorkClothStripScene } from "../../work/ClothStrip";
 import { cameraBasePoseRef } from "../cam/pose";
-import { SHARED_FOV } from "../cam/roomPoses";
+import { ROOM_POSES } from "../cam/roomPoses";
 import type { RoomNamespace } from "../../lib/route";
 import { setArrivedRoom } from "../../lib/cam/arrival";
 import { prefersReducedMotion } from "../../lib/prefersReducedMotion";
@@ -43,9 +43,10 @@ export default function HomeSceneBoot({
 
   useEffect(() => {
     if (!skipBoot) return;
-    cameraBasePoseRef.current.fov = SHARED_FOV;
+    // ponytail: RoomCam's prev==null branch already snaps returning visitors to the room's own
+    // fov, so don't force SHARED_FOV here — it was wrong for /work. RoomCam is the sole fov owner.
     if (!getSceneReady()) setSceneReady(true);
-    // ponytail: arrival is owned by RoomCam — don't fire here on route change or copy
+    // arrival is owned by RoomCam — don't fire here on route change or copy
     // reveals before the camera tween's 200ms lead.
   }, [activeRoom, skipBoot]);
 
@@ -131,12 +132,12 @@ export default function HomeSceneBoot({
     };
 
     if (prefersReducedMotion()) {
-      cameraBasePoseRef.current.fov = SHARED_FOV; // no punch under reduced motion
+      cameraBasePoseRef.current.fov = ROOM_POSES[activeRoom].fov; // no punch under reduced motion
       finishReveal();
       return;
     }
 
-    runBootDissolveTransition(finishReveal);
+    runBootDissolveTransition(finishReveal, ROOM_POSES[activeRoom].fov);
   }, [activeRoom, revealNonce, setPhase, skipBoot]);
 
   const handleGlbReady = useCallback(() => {

@@ -1,8 +1,9 @@
 import { hasInitialBootCompleted, useSceneBootStore } from "./sceneReady";
 import { cameraRigControlsRef } from "../cam/pose";
 import { tryEnableGyroParallax } from "../../lib/deviceOrientation";
-import { hasFinePointerHover } from "../../lib/link-hover";
+import { hasFinePointerHover, shouldUseNavRotateHover } from "../../lib/link-hover";
 import { prefersReducedMotion } from "../../lib/prefersReducedMotion";
+import RotateHoverLabel from "../../components/RotateHoverLabel";
 
 export default function PreloadOverlay() {
   const phase = useSceneBootStore((s) => s.phase);
@@ -44,7 +45,7 @@ export default function PreloadOverlay() {
                 className="button button-primary scene_preload_enter_btn"
                 onClick={() => handleEnter(false)}
               >
-                Enter
+                {shouldUseNavRotateHover() ? <RotateHoverLabel text="Enter" /> : "Enter"}
               </button>
               <button
                 type="button"

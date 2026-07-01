@@ -33,8 +33,11 @@ export function poseToCameraPosition(pose: CameraPose): { x: number; y: number; 
  */
 // Main pose uses shared fov / center Y; work and contact override per-room.
 export const SHARED_FOV = 70;
-export const BOOT_FOV = 85;
-export const BOOT_FOV_DURATION = 1.6;
+// Single source of truth for the work room FOV. The "View Work" hover previews this exact
+// value (Main.tsx eases the offset to WORK_FOV - SHARED_FOV), so hover ↔ arrival never drift.
+export const WORK_FOV = 69.5;
+export const BOOT_FOV = 92;
+export const BOOT_FOV_DURATION = 3.08;
 const SHARED_CENTER_Y = 19.6;
 
 export const MAIN_POSE: CameraPose = Object.freeze({
@@ -59,7 +62,7 @@ export const ROOM_POSES: Record<RoomNamespace, CameraPose> = Object.freeze({
     orbitCenterZ: -2,
     orbitRadius: 5,
     cameraHeight: 0,
-    fov: 69,
+    fov: WORK_FOV,
     orbitAngleDeg: 90,
     lookAtYawDeg: 0,
     lookAtPitchDeg: 0,
