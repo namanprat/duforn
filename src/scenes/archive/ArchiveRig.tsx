@@ -15,20 +15,23 @@ const _qDelta = new THREE.Quaternion();
 const _qTmp = new THREE.Quaternion();
 const _qSpin = new THREE.Quaternion();
 
-const isTouchDevice = () => "ontouchstart" in window;
-
 export default function ArchiveRig() {
   const { camera, gl } = useThree();
 
   useEffect(() => {
     const canvas = gl.domElement;
     let down = false;
+    let isTouch = false;
     let startX = 0;
     let startY = 0;
     const baseQuat = new THREE.Quaternion();
     let basePanX = 0;
     let basePanY = 0;
     let maxTravel = 0;
+    // Release-fling velocity (world units/ms), exponentially smoothed over moves.
+    let velX = 0;
+    let velY = 0;
+    let lastMoveT = 0;
 
     const orbMode = () => rigState.morph < 0.05 && !rigState.isMorphing;
     const gridMode = () => rigState.morph > 0.95 && !rigState.isMorphing;
@@ -36,9 +39,13 @@ export default function ArchiveRig() {
     const onDown = (e: PointerEvent) => {
       if (rigState.isMorphing) return;
       down = true;
+      isTouch = e.pointerType === "touch";
       startX = e.clientX;
       startY = e.clientY;
       maxTravel = 0;
+      velX = 0;
+      velY = 0;
+      lastMoveT = e.timeStamp;
       rigState.isDragging = false;
       rigState.isGridPanning = gridMode();
       baseQuat.copy(rigState.orientationTarget);
@@ -60,15 +67,26 @@ export default function ArchiveRig() {
         const halfFov = (cam.fov * Math.PI) / 360;
         const h = gl.domElement.clientHeight || 1;
         const worldPerPx = (2.5 * camera.position.z * Math.tan(halfFov)) / h;
-        const panScale = isTouchDevice() ? 1 : ARCHIVE_CONFIG.gridPanDesktopScale;
-        rigState.gridPanTarget.x = basePanX + dx * worldPerPx * panScale;
-        rigState.gridPanTarget.y = basePanY - dy * worldPerPx * panScale;
+        const panScale = isTouch
+          ? ARCHIVE_CONFIG.gridPanTouchScale
+          : ARCHIVE_CONFIG.gridPanDesktopScale;
+        const nextX = basePanX + dx * worldPerPx * panScale;
+        const nextY = basePanY - dy * worldPerPx * panScale;
+        const dt = e.timeStamp - lastMoveT;
+        if (dt > 0) {
+          // ponytail: EMA over move deltas — good enough for a fling; no sample buffer.
+          velX = velX * 0.8 + ((nextX - rigState.gridPanTarget.x) / dt) * 0.2;
+          velY = velY * 0.8 + ((nextY - rigState.gridPanTarget.y) / dt) * 0.2;
+          lastMoveT = e.timeStamp;
+        }
+        rigState.gridPanTarget.x = nextX;
+        rigState.gridPanTarget.y = nextY;
         return;
       }
 
       if (!orbMode()) return;
 
-      const threshold = isTouchDevice() ? 15 : ARCHIVE_CONFIG.clickThreshold;
+      const threshold = isTouch ? 15 : ARCHIVE_CONFIG.clickThreshold;
       if (maxTravel > threshold) rigState.isDragging = true;
 
       // Arcball: apply the drag as a rotation around the world (= screen) axes,
@@ -80,9 +98,15 @@ export default function ArchiveRig() {
       rigState.orientationTarget.copy(_qDelta).multiply(baseQuat);
     };
 
-    const onUp = () => {
+    const onUp = (e: PointerEvent) => {
       if (!down) return;
       down = false;
+      // Fling: project the release velocity forward; the idle damp in useFrame
+      // glides there. Skip when the finger rested before lifting (stale velocity).
+      if (rigState.isGridPanning && e.timeStamp - lastMoveT < 80) {
+        rigState.gridPanTarget.x += velX * ARCHIVE_CONFIG.gridPanFlingMs;
+        rigState.gridPanTarget.y += velY * ARCHIVE_CONFIG.gridPanFlingMs;
+      }
       rigState.isDragging = false;
       rigState.isGridPanning = false;
       canvas.style.cursor = gridMode() || orbMode() ? "grab" : "default";
@@ -123,7 +147,7 @@ export default function ArchiveRig() {
 
     rigState.orientation.slerp(rigState.orientationTarget, 1 - Math.exp(-SPIN_DAMP * delta));
 
-    if (rigState.isGridPanning && !isTouchDevice()) {
+    if (rigState.isGridPanning) {
       rigState.gridPan.x = damp(
         rigState.gridPan.x,
         rigState.gridPanTarget.x,
@@ -136,9 +160,6 @@ export default function ArchiveRig() {
         ARCHIVE_CONFIG.gridPanDragLerp,
         delta,
       );
-    } else if (rigState.isGridPanning) {
-      rigState.gridPan.x = rigState.gridPanTarget.x;
-      rigState.gridPan.y = rigState.gridPanTarget.y;
     } else {
       rigState.gridPan.x = damp(rigState.gridPan.x, rigState.gridPanTarget.x, 8, delta);
       rigState.gridPan.y = damp(rigState.gridPan.y, rigState.gridPanTarget.y, 8, delta);

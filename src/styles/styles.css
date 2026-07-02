@@ -1196,6 +1196,8 @@ button.button .nav-link-hover__clip {
   appearance: none;
   background: none;
   border: 0;
+  padding: 0;
+  text-align: left;
   cursor: pointer;
   font: inherit;
 }
@@ -1698,8 +1700,9 @@ button.button .nav-link-hover__clip {
     overscroll-behavior: none;
   }
 
-  body.page-wrap:has([data-page-namespace="work"]) {
-    /* ponytail: stop iOS edge-swipe / rubber-band stealing horizontal drags */
+  body.page-wrap:has([data-page-namespace="work"]),
+  body.page-wrap:has([data-page-namespace="archive"]) {
+    /* ponytail: stop iOS edge-swipe / rubber-band stealing drags */
     touch-action: none;
   }
 }

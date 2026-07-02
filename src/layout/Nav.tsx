@@ -170,12 +170,6 @@ export default function Nav() {
     openMenu();
   };
 
-  const handleAboutKeyDown = (event: KeyboardEvent<HTMLAnchorElement>) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    openAbout();
-  };
-
   const toggleAriaLabel =
     toggleLabel === "Menu" ? "Open menu" : toggleLabel === "Back" ? "Back to menu" : "Close menu";
 
@@ -258,25 +252,22 @@ export default function Nav() {
                   ))}
                   <li className="menu-nav__item">
                     <span className="menu-nav__line">
-                      <a
-                        href="#about"
+                      {/* button, not <a href="#about">: no default hash navigation to fall
+                          back to if the click handler ever doesn't run (iOS taps). */}
+                      <button
+                        type="button"
                         className="menu-nav__link menu-nav__about-toggle u-text-style-h4"
-                        role="button"
                         aria-expanded={isAbout}
                         aria-controls="site-about"
                         data-rotate-hover={useRotateHover ? "" : undefined}
-                        onClick={(event) => {
-                          event.preventDefault();
-                          openAbout();
-                        }}
-                        onKeyDown={handleAboutKeyDown}
+                        onClick={openAbout}
                       >
                         {useRotateHover ? (
                           <RotateHoverLabel text="About" paused={isMorphing} />
                         ) : (
                           "About"
                         )}
-                      </a>
+                      </button>
                     </span>
                   </li>
                 </ul>

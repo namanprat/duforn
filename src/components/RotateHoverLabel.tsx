@@ -38,6 +38,9 @@ export default function RotateHoverLabel({
   const effectiveChangeKey = changeKey ?? text;
   const chars = [...(text ?? "")];
 
+  // NOTE: `text` is intentionally NOT an effect dependency — the nav clock updates it
+  // every second and the span nodes persist across renders (index keys, fixed length),
+  // so the timeline built below stays valid. Re-running per tick fired idle tweens.
   useGSAP(
     () => {
       const clip = clipRef.current;
@@ -53,21 +56,29 @@ export default function RotateHoverLabel({
       const { duration, staggerAmount, ease } = MOTION_TOKENS.navHover;
       const stagger = { amount: staggerAmount, from: "start" as const };
 
-      const getSpans = () =>
-        Array.from(clip.querySelectorAll<HTMLElement>(".nav-link-hover__track > span"));
+      const spans = Array.from(
+        clip.querySelectorAll<HTMLElement>(".nav-link-hover__track > span"),
+      );
+      if (!spans.length) return;
 
-      // Single source of truth: read the DOM's real :hover / :focus-within and drive the roll to
-      // match. No isHovered bookkeeping to drift → the lift can never get stuck out of sync.
+      // One persistent, reversible timeline owns the hover roll. play()/reverse() can
+      // interrupt each other mid-flight without overlapping tweens or stuck chars.
+      const hoverTl = gsap
+        .timeline({ paused: true })
+        .to(spans, { yPercent: -100, duration, ease, stagger });
+
+      // Hover events during the entrance roll are deferred to its onComplete sync.
+      let entering = false;
+
       const sync = () => {
-        const spans = getSpans();
-        if (!spans.length) return;
+        if (entering) return;
         if (pausedRef.current || prefersReducedMotion()) {
-          gsap.killTweensOf(spans);
+          hoverTl.pause(0);
           gsap.set(spans, { yPercent: 0 });
           return;
         }
-        const on = resolveHoverLift(host, false, false);
-        gsap.to(spans, { yPercent: on ? -100 : 0, duration, ease, stagger, overwrite: "auto" });
+        if (resolveHoverLift(host, false, false)) hoverTl.play();
+        else hoverTl.reverse();
       };
 
       host.addEventListener("pointerenter", sync);
@@ -75,34 +86,36 @@ export default function RotateHoverLabel({
       host.addEventListener("focusin", sync);
       host.addEventListener("focusout", sync);
 
-      const spanEls = getSpans();
       const reduce = prefersReducedMotion();
       const prev = prevChangeKeyRef.current;
+      let entranceTween: gsap.core.Tween | null = null;
 
       if (paused || reduce) {
-        gsap.killTweensOf(spanEls);
-        gsap.set(spanEls, { yPercent: 0 });
+        gsap.set(spans, { yPercent: 0 });
         if (!paused) prevChangeKeyRef.current = effectiveChangeKey;
-        sync();
       } else if (prev === null || prev === effectiveChangeKey) {
         // First mount or unchanged label — no entrance, just reconcile to live hover state.
         prevChangeKeyRef.current = effectiveChangeKey;
-        if (prev === null) gsap.set(spanEls, { yPercent: 0 });
+        if (prev === null) gsap.set(spans, { yPercent: 0 });
         sync();
       } else {
-        // Label text changed — roll the new characters in, then reconcile to live hover state.
+        // Label text changed — roll the new characters in, then hand off to the hover
+        // timeline snapped to the live hover state (no race between the two).
         prevChangeKeyRef.current = effectiveChangeKey;
-        gsap.killTweensOf(spanEls);
-        gsap.fromTo(
-          spanEls,
+        entering = true;
+        entranceTween = gsap.fromTo(
+          spans,
           { yPercent: 100 },
           {
             yPercent: 0,
             duration,
             ease,
             stagger,
-            overwrite: "auto",
-            onComplete: () => sync(),
+            onComplete: () => {
+              entering = false;
+              hoverTl.invalidate().pause(0);
+              sync();
+            },
           },
         );
       }
@@ -113,21 +126,25 @@ export default function RotateHoverLabel({
         host.removeEventListener("focusin", sync);
         host.removeEventListener("focusout", sync);
         host.classList.remove("nav-link-hover");
+        entranceTween?.kill();
+        hoverTl.kill();
+        gsap.killTweensOf(spans);
+        gsap.set(spans, { yPercent: 0 });
       };
     },
-    { scope: clipRef, dependencies: [effectiveChangeKey, text, paused] },
+    { scope: clipRef, dependencies: [effectiveChangeKey, paused] },
   );
 
   return (
     <span ref={clipRef} className="nav-link-hover__clip">
       <span className="nav-link-hover__track">
         {chars.map((c, i) => (
-          <span key={i}>{c === " " ? " " : c}</span>
+          <span key={i}>{c === " " ? " " : c}</span>
         ))}
       </span>
       <span className="nav-link-hover__track" aria-hidden="true">
         {chars.map((c, i) => (
-          <span key={i}>{c === " " ? " " : c}</span>
+          <span key={i}>{c === " " ? " " : c}</span>
         ))}
       </span>
     </span>

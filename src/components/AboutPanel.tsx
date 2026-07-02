@@ -11,7 +11,7 @@ import { SplitText } from "gsap/SplitText";
 import { ABOUT_CLIENTS, ABOUT_INTRO_PARAGRAPHS, ABOUT_SERVICES } from "../content/studio";
 import AboutDitherCanvas from "./AboutDitherCanvas";
 import { MOTION_TOKENS } from "../lib/animation/motionTokens";
-import { getDeviceTier } from "../lib/deviceTier";
+import { getDeviceTier, isMobileDevice } from "../lib/deviceTier";
 import { prefersReducedMotion } from "../lib/prefersReducedMotion";
 gsap.registerPlugin(SplitText);
 
@@ -20,9 +20,12 @@ const CLIENT_COLS = [
   ABOUT_CLIENTS.filter((_, i) => i % 2 === 1),
 ] as const;
 
-/** ponytail: skip tier-0 / reduced-motion; distortion hover stays fine-pointer-only */
+/** ponytail: skip tier-0 / mobile / reduced-motion; distortion hover stays fine-pointer-only.
+    Mobile: a second WebGL context (env map + GLTF + postFX) next to the main scene canvas
+    trips iOS Safari's memory kill and force-reloads the page. */
 function shouldMountAboutHelmet(): boolean {
   if (getDeviceTier() === 0) return false;
+  if (isMobileDevice()) return false;
   return !prefersReducedMotion();
 }
 

@@ -15,8 +15,12 @@ export const ARCHIVE_CONFIG = {
   spinSensitivity: 0.005,
   /** Desktop grid pan — 44% lighter than base (0.7 × 0.8 of pointer travel). */
   gridPanDesktopScale: 0.56,
-  /** Desktop grid drag smoothing while panning (higher = tighter follow). */
+  /** Touch grid pan — worldPerPx carries a 2.5 fudge (vs the true 2.0), so 0.8 restores 1:1 finger tracking. */
+  gridPanTouchScale: 0.8,
+  /** Grid drag smoothing while panning, all pointers (higher = tighter follow). */
   gridPanDragLerp: 11,
+  /** Release momentum — how many ms of the release velocity to glide past the lift point. */
+  gridPanFlingMs: 220,
 
   sphereRadius: 5,
   baseHeight: 0.6,
