@@ -13,6 +13,15 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 const mediaRoot = path.resolve(root, "../public/media");
 const force = process.argv.includes("--force");
 
+/**
+ * Cap the longest edge before encoding. Source heroes run up to 6480×4860,
+ * far past what a screen-mapped GPU texture needs, and ETC1S is a fixed-ratio
+ * block format so bytes scale with pixels — encoding at source resolution is
+ * what ballooned the old UASTC output. 2048 keeps full-screen heroes crisp
+ * while landing every file under its source WebP. Smaller images are untouched.
+ */
+const MAX_DIM = 2048;
+
 /** Basis ETC1S/UASTC requires multiple-of-four dimensions; edge-replicate pad. */
 function padToMultipleOfFour(data, width, height, channels = 4) {
   const padW = Math.ceil(width / 4) * 4;
@@ -33,7 +42,11 @@ function padToMultipleOfFour(data, width, height, channels = 4) {
 }
 
 async function imageDecoder(buffer) {
-  const { data, info } = await sharp(buffer).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const { data, info } = await sharp(buffer)
+    .resize(MAX_DIM, MAX_DIM, { fit: "inside", withoutEnlargement: true })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
   return padToMultipleOfFour(data, info.width, info.height);
 }
 
@@ -49,34 +62,20 @@ function findWebps(dir) {
 
 async function encodeWebp(input) {
   const buf = fs.readFileSync(input);
-  const base = {
+  // ETC1S, not UASTC: UASTC is ~1 byte/px and made every .ktx2 3-13x larger
+  // than its WebP. ETC1S at max quality (qualityLevel 255) stays visually clean
+  // on full-screen heroes while landing well under WebP once MAX_DIM is applied.
+  return encodeToKTX2(new Uint8Array(buf), {
     imageDecoder,
     isKTX2File: true,
     generateMipmap: false,
     isPerceptual: true,
     isSetKTX2SRGBTransferFunc: true,
     isYFlip: true, // match OpenGL bottom-origin; flipY is ignored on compressed GPU upload
-  };
-
-  try {
-    return {
-      data: await encodeToKTX2(new Uint8Array(buf), {
-        ...base,
-        isUASTC: true,
-        uastcLDRQualityLevel: 2,
-      }),
-      mode: "uastc",
-    };
-  } catch {
-    return {
-      data: await encodeToKTX2(new Uint8Array(buf), {
-        ...base,
-        isUASTC: false,
-        compressionLevel: 2,
-      }),
-      mode: "etc1s",
-    };
-  }
+    isUASTC: false,
+    qualityLevel: 255,
+    compressionLevel: 4,
+  });
 }
 
 const webps = findWebps(mediaRoot);
@@ -105,11 +104,11 @@ for (const input of webps) {
   process.stdout.write(`→ ${rel} … `);
   try {
     const buf = fs.readFileSync(input);
-    const { data: ktx2, mode } = await encodeWebp(input);
+    const ktx2 = await encodeWebp(input);
     fs.writeFileSync(output, ktx2);
     const inKb = (buf.length / 1024).toFixed(0);
     const outKb = (ktx2.length / 1024).toFixed(0);
-    console.log(`${inKb}KB → ${outKb}KB (${mode})`);
+    console.log(`${inKb}KB → ${outKb}KB (etc1s)`);
     ok++;
   } catch (err) {
     console.log("failed");
