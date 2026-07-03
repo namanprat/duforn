@@ -64,8 +64,6 @@ export const POOL_WATER_DEFAULTS = {
   reflectionRoughness: 0.12,
   /** Cubemap fill weight for upward reflections (sky). */
   planarSkyFill: 0.85,
-  /** RGB channel split on refracted backdrop (subtle). */
-  chromaticAberration: 0.12,
   waterDepth: 1.15,
   waterClarity: 0.38,
   opacity: 0.72,

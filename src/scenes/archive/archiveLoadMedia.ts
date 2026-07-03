@@ -50,7 +50,9 @@ export function loadArchiveMediaSource(url: string): Promise<ArchiveMediaSource>
     });
   }
 
-  return loadTextureAsset(url, { generateMipmaps: false }).then((texture) => {
+  // Archive shows ~10 posters at once; the .webp sources are ~4x smaller than
+  // the UASTC .ktx2 variants, so skip ktx2 here to cut load time.
+  return loadTextureAsset(url, { generateMipmaps: false, preferKtx2: false }).then((texture) => {
     configureArchiveTexture(texture);
     const img = texture.image as { width: number; height: number };
     return {

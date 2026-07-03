@@ -58,7 +58,10 @@ export const MOTION_TOKENS = {
   bootReveal: {
     /** Full-cover hold before iris opens — star gather beat. */
     holdDuration: 0.28,
-    openDuration: 1.715,
+    // Trimmed from 1.715 → 1.30: the old tail spent ~0.65s compositing an
+    // already-invisible effect after the reveal. pierceRevealAt is normalized so
+    // the reveal still lands at ~48% of the (now tighter) open.
+    openDuration: 1.3,
     openEase: "power3.inOut",
     fovDuration: 3.08,
     fovEase: "power3.out",

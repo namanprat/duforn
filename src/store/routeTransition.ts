@@ -19,7 +19,6 @@ import {
   snapShowPageChrome,
 } from "../lib/pageChrome";
 import {
-  hideAllRegisteredPageText,
   showAllRegisteredPageText,
   snapHideAllRegisteredPageText,
 } from "../lib/text";
@@ -218,8 +217,12 @@ export async function runArchiveRouteTransition(
       fov: true,
       fromFov: ARCHIVE_FOV,
       targetFov,
-      holdout: "departing",
-      beforeDissolve: () => Promise.all([hideAllRegisteredPageText(), hidePageChrome()]),
+      // No holdout: the pierce stylizes the live canvas directly (no screengrab).
+      // Text collapses first, then the pierce plays right after; chrome just snaps.
+      beforeDissolve: async () => {
+        snapHidePageChrome();
+        await hideAllRegisteredPageText();
+      },
       swap: () => {
         snapHidePageChrome();
         snapHideAllRegisteredPageText();
@@ -249,7 +252,12 @@ export async function runArchiveRouteTransition(
     targetFov,
     holdout: "departing",
     swapAt: "pre",
-    beforeDissolve: () => Promise.all([hideAllRegisteredPageText(), hidePageChrome()]),
+    // Snap-hide (see fromArchive branch): avoids the ~0.55s exit-animation stall
+    // before the pierce starts.
+    beforeDissolve: () => {
+      snapHideAllRegisteredPageText();
+      snapHidePageChrome();
+    },
     swap: () => {
       snapHidePageChrome();
       snapHideAllRegisteredPageText();

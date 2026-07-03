@@ -11,6 +11,14 @@ HOLDOUT_FALLBACK.needsUpdate = true;
 HOLDOUT_FALLBACK.colorSpace = THREE.SRGBColorSpace;
 
 const NOISE_AMP = 0.192;
+// Rim/glow fade as the iris finishes opening: 1 at open=FADE_START → 0 at open=FADE_END.
+// Kills the "bright ring lingering off-screen after reveal" pop.
+const GLOW_FADE_START = 0.45;
+const GLOW_FADE_END = 0.85;
+// Wide soft bloom halo around the crisp rim. Larger width = more spread; higher
+// intensity = brighter, more intense glow.
+const GLOW_WIDTH = 0.22;
+const GLOW_INTENSITY = 2.6;
 
 /**
  * Center-pierce dissolve on the live frame. Boot uses solid black outside the iris;
@@ -87,7 +95,7 @@ const fragmentShader = /* glsl */ `
       float fi = float(i);
       vec2 cell = floor(polar * (1.0 + fi * 0.4));
       float h = hash(cell + fi * 17.0);
-      float size = 0.002 + h * 0.004;
+      float size = 0.0026 + h * 0.0052;
       float d = length(fract(polar * (1.0 + fi * 0.4)) - 0.5);
       stars += smoothstep(size, 0.0, d) * h;
     }
@@ -110,13 +118,16 @@ const fragmentShader = /* glsl */ `
     c.x *= aspect;
     float dist = length(c);
     float angle = atan(c.y, c.x);
-    float blockNoise = fbm(floor(uv * resolution / 2.0) * 2.0 / resolution * 100.0) * ${NOISE_AMP.toFixed(3)};
-    float angularNoise = fbm(vec2(angle * 6.0, 0.0)) * ${NOISE_AMP.toFixed(3)};
+    // Organic, rounded iris edge: smooth flow noise sampled continuously around
+    // the ring (cos/sin so it wraps) and along the radius — no blocky quantization
+    // and no fixed-N angular symmetry, so the pierce reads radial, not star-shaped.
+    vec2 edgeSample = vec2(cos(angle), sin(angle)) * 1.7 + dist * 1.5;
+    float edgeNoise = (fbm(edgeSample + open) - 0.5) * ${(NOISE_AMP * 1.6).toFixed(3)};
     float maxDist = length(vec2(aspect * 0.5, 0.5));
-    float normDist = (dist + blockNoise + angularNoise) / maxDist;
+    float normDist = (dist + edgeNoise) / maxDist;
 
     float radius = open * 1.28;
-    float mask = smoothstep(radius - 0.065, radius + 0.03, normDist);
+    float mask = smoothstep(radius - 0.082, radius + 0.039, normDist);
 
     // Fully closed — dark preview everywhere (no center pinhole)
     if (open < 0.02) {
@@ -125,7 +136,11 @@ const fragmentShader = /* glsl */ `
       return;
     }
 
-    float ringWidth = 0.12;
+    // Fade the white out as the iris finishes opening so it dissolves away
+    // smoothly instead of brightening while it decelerates off-screen.
+    float exitFade = 1.0 - smoothstep(${GLOW_FADE_START.toFixed(3)}, ${GLOW_FADE_END.toFixed(3)}, open);
+
+    float ringWidth = 0.144;
     float ringInner = smoothstep(radius - ringWidth, radius, normDist);
     float ringOuter = 1.0 - smoothstep(radius, radius + ringWidth * 0.6, normDist);
     float ring = ringInner * ringOuter;
@@ -133,16 +148,22 @@ const fragmentShader = /* glsl */ `
     float sparkle = hash(floor(uv * resolution / 1.5)) * ring;
     vec3 rimGlow = vec3(1.0, 0.96, 0.88) * ring * (1.2 + sparkle * 4.0) * open;
 
+    // Wide soft bloom halo centered on the iris edge — the bright, intense glow.
+    float halo = exp(-pow((normDist - radius) / ${GLOW_WIDTH.toFixed(3)}, 2.0));
+    rimGlow += vec3(1.0, 0.96, 0.88) * halo * ${GLOW_INTENSITY.toFixed(3)} * open;
+
     vec2 rimOff = normalize(c + 0.0001) * texelSize * 2.5;
     vec3 insideRim = sampleInside(uv + rimOff);
     vec3 outsideRim = sampleOutside(uv - rimOff);
     rimGlow += mix(outsideRim, insideRim, 0.5) * ring * 0.35;
 
+    rimGlow *= exitFade;
+
     vec3 inside = sampleInside(uv);
     vec3 outside = sampleOutside(uv);
     vec3 baseMix = mix(inside, outside, mask);
 
-    vec3 stars = starBurst(uv, open, cover);
+    vec3 stars = starBurst(uv, open, cover) * exitFade;
     vec3 outc = baseMix + stars + rimGlow;
     outputColor = vec4(outc, inputColor.a);
   }

@@ -70,7 +70,6 @@ const FRAG =
   uniform float uOpacity;
   uniform float uExposure;
   uniform float uReflectionRoughness;
-  uniform float uChromaticAberration;
   uniform float uSunGlintStrength;
   uniform vec3 uSunDir;
   uniform float uSunStrength;
@@ -131,13 +130,9 @@ const FRAG =
     vec3 transmittance = exp(-extinction * pathLength * 0.05);
 
     vec2 screenUV = gl_FragCoord.xy / uResolution;
-    float chroma = uChromaticAberration * 0.012;
     vec2 refrBase = screenUV + surfaceN.xz * uRefractionOffset;
-    vec3 backdrop;
-    backdrop.r = texture2D(uBackdrop, clamp(refrBase + surfaceN.xz * chroma, vec2(0.001), vec2(0.999))).r;
-    backdrop.g = texture2D(uBackdrop, clamp(refrBase, vec2(0.001), vec2(0.999))).g;
-    backdrop.b = texture2D(uBackdrop, clamp(refrBase - surfaceN.xz * chroma, vec2(0.001), vec2(0.999))).b;
-    vec3 refractedColor = backdrop * uAboveTint * transmittance;
+    vec3 refractedColor =
+      texture2D(uBackdrop, clamp(refrBase, vec2(0.001), vec2(0.999))).rgb * uAboveTint * transmittance;
 
     vec3 reflectDir = reflect(-viewDir, fresnelN);
     vec3 sunDirN = normalize(uSunDir);
@@ -212,7 +207,6 @@ export function applyPoolWaterStaticParams(
     hdrBlend: w.hdrBlend,
     planarSkyFill: w.planarSkyFill,
     reflectionRoughness: w.reflectionRoughness,
-    chromaticAberration: w.chromaticAberration,
     sunGlintStrength: w.sunGlintStrength,
     normalScale,
     maxSlope: s.maxSlope,
@@ -272,7 +266,6 @@ export function createPoolWaterMaterialWebGl({
     uOpacity: { value: p.opacity },
     uExposure: { value: p.exposure },
     uReflectionRoughness: { value: p.reflectionRoughness },
-    uChromaticAberration: { value: p.chromaticAberration },
     uSunGlintStrength: { value: p.sunGlintStrength },
     uSunDir: { value: SCENE_SUN_DIR.clone() },
     uSunStrength: { value: p.sunStrength },
@@ -350,7 +343,6 @@ export function createPoolWaterMaterialWebGl({
         hdrBlend?: number;
         planarSkyFill?: number;
         reflectionRoughness?: number;
-        chromaticAberration?: number;
         sunGlintStrength?: number;
         normalScale?: number;
         maxSlope?: number;
@@ -384,7 +376,6 @@ export function createPoolWaterMaterialWebGl({
       if (next.hdrBlend !== undefined) uniforms.uHdrBlend.value = next.hdrBlend;
       if (next.planarSkyFill !== undefined) uniforms.uPlanarSkyFill.value = next.planarSkyFill;
       if (next.reflectionRoughness !== undefined) uniforms.uReflectionRoughness.value = next.reflectionRoughness;
-      if (next.chromaticAberration !== undefined) uniforms.uChromaticAberration.value = next.chromaticAberration;
       if (next.sunGlintStrength !== undefined) uniforms.uSunGlintStrength.value = next.sunGlintStrength;
       if (next.normalScale !== undefined) uniforms.uNormalScale.value = next.normalScale;
       if (next.maxSlope !== undefined) uniforms.uMaxSlope.value = next.maxSlope;
