@@ -1,5 +1,7 @@
 import * as THREE from "three";
 import { meshMatchesName, stripBakedSuffix } from "./sceneUtils";
+import { useGlassControlsStore } from "../store/glass";
+import type { GlassControls } from "./config/glassDefaults";
 
 const GLASS_FRAME_TOKENS = ["beam", "frame", "mullion", "sill", "trim"];
 
@@ -30,35 +32,49 @@ export function isGlassMesh(mesh: THREE.Mesh): boolean {
   );
 }
 
-function readBakedMap(src?: THREE.MeshStandardMaterial) {
-  const baked = src?.emissiveMap || src?.map || null;
-  if (baked) baked.colorSpace = THREE.SRGBColorSpace;
-  return baked;
+// Live registry so the dev Glass panel can retune every pane at once.
+const glassMaterials = new Set<THREE.MeshPhysicalMaterial>();
+
+function applyControls(mat: THREE.MeshPhysicalMaterial, c: GlassControls): void {
+  mat.color.set(c.color);
+  mat.transmission = c.transmission;
+  mat.roughness = c.roughness;
+  mat.metalness = c.metalness;
+  mat.ior = c.ior;
+  mat.thickness = c.thickness;
+  mat.envMapIntensity = c.envMapIntensity;
+  mat.reflectivity = c.reflectivity;
+  mat.opacity = c.opacity;
+  mat.needsUpdate = true;
 }
 
-/** Near-black pane: interior bake + transmission behind it — no HDR / exterior env. */
-export function applySceneGlass(mesh: THREE.Mesh, src?: THREE.MeshStandardMaterial): void {
-  const baked = readBakedMap(src);
+/** Retune every live glass pane from the current control values (dev GUI). */
+export function applyGlassControls(controls: GlassControls): void {
+  glassMaterials.forEach((mat) => applyControls(mat, controls));
+}
 
+// Keep live panes in sync with dev-GUI edits. No-op in prod (store never changes).
+useGlassControlsStore.subscribe((state) => applyGlassControls(state.controls));
+
+/**
+ * Tinted, HDR-reflecting glass pane. Reflects scene.environment (main.hdr) so it
+ * reads as real glass instead of an invisible dark hole; transmission lets the
+ * interior/exterior show through. Tune live via the dev Glass panel.
+ */
+export function applySceneGlass(mesh: THREE.Mesh, _src?: THREE.MeshStandardMaterial): void {
+  void _src;
   mesh.userData.isGlass = true;
-  mesh.material = new THREE.MeshPhysicalMaterial({
-    color: new THREE.Color("#030303"),
-    emissiveMap: baked,
-    emissive: new THREE.Color(0.42, 0.44, 0.4),
-    metalness: 0,
-    roughness: 0.14,
-    transmission: 0.9,
-    thickness: 0.22,
-    ior: 1.5,
+
+  const mat = new THREE.MeshPhysicalMaterial({
     transparent: true,
     depthWrite: false,
     side: THREE.DoubleSide,
-    envMap: null,
-    envMapIntensity: 0,
-    specularIntensity: 0.12,
-    clearcoat: 0,
     toneMapped: false,
   });
+  applyControls(mat, useGlassControlsStore.getState().controls);
+  glassMaterials.add(mat);
+
+  mesh.material = mat;
   mesh.castShadow = false;
   mesh.receiveShadow = false;
   mesh.renderOrder = 2;

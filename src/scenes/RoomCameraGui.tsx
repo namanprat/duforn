@@ -16,48 +16,6 @@ export default function RoomCameraGui({ activeRoom }: { activeRoom: RoomNamespac
   useControls(
     `Camera (${room})`,
     {
-      Position: folder({
-        orbitCenterX: {
-          label: "center x",
-          value: camera.orbitCenterX,
-          min: -120,
-          max: 120,
-          step: 0.1,
-          onChange: (v) => setCam("orbitCenterX", v),
-        },
-        orbitCenterY: {
-          label: "center y",
-          value: camera.orbitCenterY,
-          min: -120,
-          max: 120,
-          step: 0.1,
-          onChange: (v) => setCam("orbitCenterY", v),
-        },
-        orbitCenterZ: {
-          label: "center z",
-          value: camera.orbitCenterZ,
-          min: -120,
-          max: 120,
-          step: 0.1,
-          onChange: (v) => setCam("orbitCenterZ", v),
-        },
-        orbitRadius: {
-          label: "radius",
-          value: camera.orbitRadius,
-          min: 0,
-          max: 60,
-          step: 0.1,
-          onChange: (v) => setCam("orbitRadius", v),
-        },
-        cameraHeight: {
-          label: "height",
-          value: camera.cameraHeight,
-          min: -60,
-          max: 60,
-          step: 0.1,
-          onChange: (v) => setCam("cameraHeight", v),
-        },
-      }),
       Rotation: folder({
         orbitAngleDeg: {
           label: "orbit (deg)",

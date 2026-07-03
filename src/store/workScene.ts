@@ -3,9 +3,9 @@ import { createSceneControlsStore } from "./scene";
 export const DEFAULT_WORK_SCENE_CONTROLS = {
   strip: {
     // ponytail: matches ROOM_POSES.work.orbitCenterX; nudge y/z in Leva if needed
-    x: 37.0,
+    x: 28.3,
     y: 17.0,
-    z: -12.0,
+    z: -17.7,
     rx: (3.0 * Math.PI) / 180,
     ry: 0,
     rz: 0,

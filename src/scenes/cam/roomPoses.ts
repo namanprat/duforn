@@ -56,9 +56,9 @@ export const ROOM_POSES: Record<RoomNamespace, CameraPose> = Object.freeze({
   main: MAIN_POSE,
   work: Object.freeze({
     ...DEFAULT_CAMERA_BASE_POSE,
-    orbitCenterX: 37,
+    orbitCenterX: 28.3,
     orbitCenterY: 20,
-    orbitCenterZ: -2,
+    orbitCenterZ: -7.7,
     orbitRadius: 5,
     cameraHeight: 0,
     fov: WORK_FOV,

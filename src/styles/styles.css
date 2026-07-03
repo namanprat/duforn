@@ -831,6 +831,7 @@ button.button .nav-link-hover__clip {
 
 .nav-link-hover__track > span {
   display: inline-block;
+  white-space: pre;
   line-height: var(--hover-line-height, 1);
   vertical-align: baseline;
   will-change: transform;
@@ -1198,6 +1199,7 @@ button.button .nav-link-hover__clip {
   border: 0;
   padding: 0;
   text-align: left;
+  text-transform: none;
   cursor: pointer;
   font: inherit;
 }
