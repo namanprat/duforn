@@ -10,18 +10,18 @@ export const WORK_STRIP_BASE_TRANSFORM = {
 
 export const DEFAULT_WORK_SCENE_CONTROLS = {
   strip: {
-    x: -3.3,
+    x: -3.9,
     y: 1.75,
-    z: 0,
+    z: 1.15,
     rx: 0,
     ry: -Math.PI / 2,
     rz: 0,
     scale: 1,
     visibleItems: 7,
     gapSize: 0.04,
-    curveRadius: 4.4,
+    curveRadius: 4.2,
     curveAmount: 2,
-    stripHeight: 1.7,
+    stripHeight: 1.9,
     stripYOffset: 0,
     windStrength: 1,
     flutterAmplitude: 0.07,

@@ -20,22 +20,8 @@ const fragmentShader = /* glsl */ `
   uniform float uProgress;
   uniform float uUseHoldout;
   uniform sampler2D uHoldout;
-  uniform float uEdgeNoiseAmp;
-  uniform float uGlowFadeStart;
-  uniform float uGlowFadeEnd;
-  uniform float uGlowWidth;
-  uniform float uGlowIntensity;
-  uniform float uRingWidth;
-  uniform float uRadiusScale;
-  uniform float uMaskInner;
-  uniform float uMaskOuter;
-  uniform float uRingOuterScale;
-  uniform float uStarIntensity;
-  uniform float uRimTexelOffset;
-  uniform float uRimMix;
   uniform float uOutsideDarkness;
   uniform float uOutsideDesat;
-  uniform float uClosedThreshold;
 
   float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
@@ -85,86 +71,40 @@ const fragmentShader = /* glsl */ `
     return desat * vig;
   }
 
-  vec3 starBurst(vec2 uv, float open, float cover) {
-    vec2 c = uv - 0.5;
-    c.x *= aspect;
-    float dist = length(c);
-    float angle = atan(c.y, c.x);
-
-    float gather = smoothstep(0.0, 0.22, open);
-    float burst = smoothstep(0.18, 0.42, open) * (1.0 - smoothstep(0.5, 0.82, open));
-    float voidRadius = mix(0.28, 0.0, open) * length(vec2(aspect * 0.5, 0.5));
-    float inVoid = 1.0 - smoothstep(voidRadius * 0.7, voidRadius, dist);
-
-    vec2 polar = vec2(angle * 8.0 + open * 4.0, dist * 120.0 - open * 80.0);
-    float stars = 0.0;
-    for (int i = 0; i < 3; i++) {
-      float fi = float(i);
-      vec2 cell = floor(polar * (1.0 + fi * 0.4));
-      float h = hash(cell + fi * 17.0);
-      float size = 0.0026 + h * 0.0052;
-      float d = length(fract(polar * (1.0 + fi * 0.4)) - 0.5);
-      stars += smoothstep(size, 0.0, d) * h;
-    }
-
-    float scatter = dist * burst * 2.5;
-    stars *= inVoid * (gather * 0.6 + burst * 1.8);
-    stars *= 1.0 + scatter;
-
-    vec3 tint = mix(vec3(1.0), vec3(1.0, 0.92, 0.72), burst);
-    return tint * stars * cover * uStarIntensity;
-  }
-
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
     float cover = clamp(uProgress, 0.0, 1.0);
     if (cover <= 0.0) { outputColor = inputColor; return; }
 
-    float open = 1.0 - cover;
+    // Torn boundary — domain-warped fbm, driven by cover (no time).
+    vec2 p = uv - 0.5;
+    p.x *= aspect;
+    float dist = length(p);
 
-    vec2 c = uv - 0.5;
-    c.x *= aspect;
-    float dist = length(c);
-    float angle = atan(c.y, c.x);
-    vec2 edgeSample = vec2(cos(angle), sin(angle)) * 1.7 + dist * 1.5;
-    float edgeNoise = (fbm(edgeSample + open) - 0.5) * uEdgeNoiseAmp;
+    vec2 q = vec2(fbm(p * 3.0), fbm(p * 3.0 + vec2(5.2, 1.3)));
+    float edgeNoise = fbm(p * 5.0 + q * 2.5);
     float maxDist = length(vec2(aspect * 0.5, 0.5));
-    float normDist = (dist + edgeNoise) / maxDist;
+    float norm = (dist + (edgeNoise - 0.5) * 0.45) / maxDist;
 
-    float radius = open * uRadiusScale;
-    float mask = smoothstep(radius - uMaskInner, radius + uMaskOuter, normDist);
+    // cover 1 → void covers everything; cover 0 → no void (caught by early-out).
+    float threshold = cover * 1.3;
+    float inside = 1.0 - smoothstep(threshold - 0.01, threshold + 0.01, norm);
 
-    if (open < uClosedThreshold) {
-      vec3 closed = sampleOutside(uv) + starBurst(uv, open, cover);
-      outputColor = vec4(closed, inputColor.a);
-      return;
-    }
+    // inside the tear = departing/void (black holdout on boot, washed old page on archive);
+    // outside = the revealed live scene.
+    vec3 col = mix(sampleInside(uv), sampleOutside(uv), inside);
 
-    float exitFade = 1.0 - smoothstep(uGlowFadeStart, uGlowFadeEnd, open);
+    // Soft glowing rim — layered falloffs off the boundary distance.
+    float ad = abs(norm - threshold);
+    float core = smoothstep(0.035, 0.0, ad);
+    float mid  = smoothstep(0.12, 0.0, ad);
+    float wide = smoothstep(0.30, 0.0, ad);
+    float glow = core + mid * 0.6 + wide * 0.25;
+    glow *= 0.65 + 0.7 * fbm(uv * vec2(aspect, 1.0) * 14.0);
+    glow = 1.0 - exp(-glow * 2.0);
 
-    float ringInner = smoothstep(radius - uRingWidth, radius, normDist);
-    float ringOuter = 1.0 - smoothstep(radius, radius + uRingWidth * uRingOuterScale, normDist);
-    float ring = ringInner * ringOuter;
+    col = mix(col, vec3(1.0, 0.98, 0.93), glow);
 
-    float sparkle = hash(floor(uv * resolution / 1.5)) * ring;
-    vec3 rimGlow = vec3(1.0, 0.96, 0.88) * ring * (1.2 + sparkle * 4.0) * open;
-
-    float halo = exp(-pow((normDist - radius) / uGlowWidth, 2.0));
-    rimGlow += vec3(1.0, 0.96, 0.88) * halo * uGlowIntensity * open;
-
-    vec2 rimOff = normalize(c + 0.0001) * texelSize * uRimTexelOffset;
-    vec3 insideRim = sampleInside(uv + rimOff);
-    vec3 outsideRim = sampleOutside(uv - rimOff);
-    rimGlow += mix(outsideRim, insideRim, 0.5) * ring * uRimMix;
-
-    rimGlow *= exitFade;
-
-    vec3 inside = sampleInside(uv);
-    vec3 outside = sampleOutside(uv);
-    vec3 baseMix = mix(inside, outside, mask);
-
-    vec3 stars = starBurst(uv, open, cover) * exitFade;
-    vec3 outc = baseMix + stars + rimGlow;
-    outputColor = vec4(outc, inputColor.a);
+    outputColor = vec4(col, inputColor.a);
   }
 `;
 
@@ -182,22 +122,8 @@ class DissolveEffectImpl extends Effect {
         ["uProgress", new Uniform(0)],
         ["uHoldout", uHoldout],
         ["uUseHoldout", uUseHoldout],
-        ["uEdgeNoiseAmp", new Uniform(dissolve.edgeNoiseAmp)],
-        ["uGlowFadeStart", new Uniform(dissolve.glowFadeStart)],
-        ["uGlowFadeEnd", new Uniform(dissolve.glowFadeEnd)],
-        ["uGlowWidth", new Uniform(dissolve.glowWidth)],
-        ["uGlowIntensity", new Uniform(dissolve.glowIntensity)],
-        ["uRingWidth", new Uniform(dissolve.ringWidth)],
-        ["uRadiusScale", new Uniform(dissolve.radiusScale)],
-        ["uMaskInner", new Uniform(dissolve.maskInner)],
-        ["uMaskOuter", new Uniform(dissolve.maskOuter)],
-        ["uRingOuterScale", new Uniform(dissolve.ringOuterScale)],
-        ["uStarIntensity", new Uniform(dissolve.starIntensity)],
-        ["uRimTexelOffset", new Uniform(dissolve.rimTexelOffset)],
-        ["uRimMix", new Uniform(dissolve.rimMix)],
         ["uOutsideDarkness", new Uniform(dissolve.outsideDarkness)],
         ["uOutsideDesat", new Uniform(dissolve.outsideDesat)],
-        ["uClosedThreshold", new Uniform(dissolve.closedThreshold)],
       ]),
     });
 
@@ -211,22 +137,8 @@ class DissolveEffectImpl extends Effect {
       if (uniform) uniform.value = value;
     };
 
-    set("uEdgeNoiseAmp", dissolve.edgeNoiseAmp);
-    set("uGlowFadeStart", dissolve.glowFadeStart);
-    set("uGlowFadeEnd", dissolve.glowFadeEnd);
-    set("uGlowWidth", dissolve.glowWidth);
-    set("uGlowIntensity", dissolve.glowIntensity);
-    set("uRingWidth", dissolve.ringWidth);
-    set("uRadiusScale", dissolve.radiusScale);
-    set("uMaskInner", dissolve.maskInner);
-    set("uMaskOuter", dissolve.maskOuter);
-    set("uRingOuterScale", dissolve.ringOuterScale);
-    set("uStarIntensity", dissolve.starIntensity);
-    set("uRimTexelOffset", dissolve.rimTexelOffset);
-    set("uRimMix", dissolve.rimMix);
     set("uOutsideDarkness", dissolve.outsideDarkness);
     set("uOutsideDesat", dissolve.outsideDesat);
-    set("uClosedThreshold", dissolve.closedThreshold);
   }
 
   update(renderer: THREE.WebGLRenderer, inputBuffer: THREE.WebGLRenderTarget, _delta: number) {

@@ -434,7 +434,7 @@ export default function WaterRipples({ mesh, sceneRoot, onReady }: WaterRipplesP
       ctx.caustics.setParams({
         normalScale: c.normalScale,
       });
-      if (c.enabled && passFrameRef.current % 2 === 0) ctx.caustics.update();
+      if (c.enabled) ctx.caustics.update();
     }
   });
 

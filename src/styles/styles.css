@@ -170,7 +170,7 @@ html {
   --typography-font-size-text-small: clamp(0.875rem, 0.8393rem + 0.1786vw, 1.0625rem);
   --typography-font-size-body-small: var(--typography-font-size-text-small);
   /* Fixed (non-fluid) so p / a / h5 / h6 / button read identically on every screen size. */
-  --typography-font-size-text-main: 1rem;
+  --typography-font-size-text-main: 1.2rem;
   --typography-font-size-large: clamp(1.125rem, 1.0893rem + 0.1786vw, 1.3125rem);
   --typography-font-size-h6: var(--typography-font-size-text-main);
   --typography-font-size-h5: var(--typography-font-size-text-main);
@@ -648,6 +648,10 @@ html:not(.scene-live) .site-header {
   pointer-events: auto;
 }
 
+.scene_preload_overlay--scene-visible {
+  background: transparent;
+}
+
 .scene_preload_overlay--revealing {
   background: transparent;
   pointer-events: none;
@@ -658,6 +662,7 @@ html:not(.scene-live) .site-header {
   flex-direction: column;
   align-items: center;
   gap: var(--size-2rem);
+  text-shadow: 0 0.08em 0.45em var(--swatch-dark);
   transition: opacity 0.2s ease;
 }
 
@@ -761,15 +766,19 @@ body.menu-open .site-header .menu-nav-backdrop {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding-inline-start: var(--site--margin);
+  box-sizing: border-box;
+  margin-left: auto;
+  margin-right: auto;
+  width: calc(100% - var(--site--margin) * 2);
+  max-width: var(--container--main);
 }
 
 .site-header__brand {
   display: inline-flex;
   align-items: center;
   white-space: nowrap;
-  /* Match menu toggle block pad so brand + Menu share the same vertical rhythm on desktop. */
-  padding-block: var(--button-pad-block);
+  /* Match menu toggle pad so brand + Menu share the same desktop inset/rhythm. */
+  padding: var(--button-pad-block) var(--button-pad-inline);
   line-height: var(--typography-line-height-medium);
   transition: color 0.4s ease;
 }
@@ -1104,13 +1113,17 @@ body.menu-open .site-header .menu-nav-backdrop {
     align-self: start;
     align-items: center;
     min-height: calc(var(--menu-pad-block) * 2 + 1em);
+    width: auto;
+    max-width: none;
+    margin: 0;
+    padding-inline-start: var(--site--margin);
     padding-block: var(--menu-pad-block);
     z-index: calc(var(--z-menu) + 1);
   }
 
   /* Inner already carries block pad — don't stack brand pad on top. */
   .site-header__brand {
-    padding-block: 0;
+    padding: 0;
   }
 
   .nav-brand__clip {
@@ -1155,7 +1168,7 @@ body.menu-open .site-header .menu-nav-backdrop {
 
   .menu-nav-track {
     align-items: flex-start;
-    width: calc((100vw - var(--site--margin) * 2) * 1.265);
+    width: calc((100vw - var(--site--margin) * 2) * 1.113);
     max-width: calc(100vw - var(--site--margin));
     margin-left: auto;
     margin-right: var(--site--margin);
@@ -1200,8 +1213,8 @@ body.menu-open .site-header .menu-nav-backdrop {
   }
 
   .menu-nav.is-open:not(.is-about) .menu-nav__surface {
-    --menu-surface-w: min(16.72rem, calc(100vw - var(--site--margin) * 2));
-    max-width: calc(100vw - var(--site--margin) * 2);
+    --menu-surface-w: min(14.71rem, calc((100vw - var(--site--margin) * 2) * 0.88));
+    max-width: calc((100vw - var(--site--margin) * 2) * 0.88);
   }
 
   .menu-nav.is-about .menu-nav__surface {

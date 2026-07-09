@@ -18,6 +18,7 @@ const FLOOR_NAME = "tiles";
 const WORK_PLATFORM_NAMES = ["Floor_Mid", "floor"] as const;
 /** Work strip anchor — keep inside the ortho shadow frustum. */
 const WORK_SHADOW_ANCHOR = new THREE.Vector3(32, 0, 52);
+const SHADOW_FRUSTUM_EXTRA_PAD = 22;
 
 // Low, raking sun (points *toward* the light) so the back structures throw long
 // shadows across the open pool deck. Low y = long shadows.
@@ -70,10 +71,16 @@ function computeShadowSetup(scene: THREE.Object3D, size: THREE.Vector3): ShadowS
   const dist = span * 1.2 + h;
   const sunPos = target.clone().add(SHADOW_SUN_DIR.clone().multiplyScalar(dist));
 
-  // Deck footprint + rim casters + raking shadow stretch from the low sun.
-  const rakingPad = h * 0.5;
+  // Deck footprint + back/window casters + raking shadow stretch from the low sun.
+  // The beam shadows in the loaded GLB land outside the tight deck-only box.
+  const rakingPad = h * 1.15;
   const workPad = Math.max(Math.abs(WORK_SHADOW_ANCHOR.x), Math.abs(WORK_SHADOW_ANCHOR.z));
-  const orthoHalf = Math.max(deckHalf * 1.2 + rakingPad, workPad + 12);
+  const scenePad = Math.max(w, d) * 0.62;
+  const orthoHalf = Math.max(
+    deckHalf * 1.45 + rakingPad,
+    workPad + SHADOW_FRUSTUM_EXTRA_PAD,
+    scenePad,
+  );
 
   return {
     sunPos,
@@ -84,6 +91,23 @@ function computeShadowSetup(scene: THREE.Object3D, size: THREE.Vector3): ShadowS
     catcherW: deckHalfX * 2,
     catcherD: deckHalfZ * 2,
   };
+}
+
+function createShadowReceiverMaterial(src: THREE.MeshStandardMaterial) {
+  const baked = src.emissiveMap || src.map || null;
+  const mat = new THREE.MeshStandardMaterial({ roughness: 0.95, metalness: 0 });
+  if (baked) {
+    baked.colorSpace = THREE.SRGBColorSpace;
+    mat.map = baked;
+  } else {
+    mat.color =
+      src.emissive && src.emissive.getHex() !== 0
+        ? src.emissive.clone()
+        : (src.color && src.color.clone()) || new THREE.Color("#808080");
+  }
+  mat.side = THREE.DoubleSide;
+  mat.envMapIntensity = 0.35;
+  return mat;
 }
 
 export default function BakedScene({
@@ -149,16 +173,7 @@ export default function BakedScene({
         // Lit floor so the sun's shadows read on it. Baked texture as albedo,
         // lit by the scene HDR (ambient) + the directional sun (shadow-casting).
         const fsrc = mesh.material as THREE.MeshStandardMaterial;
-        const fbaked = fsrc.emissiveMap || fsrc.map || null;
-        const std = new THREE.MeshStandardMaterial({ roughness: 0.95, metalness: 0 });
-        if (fbaked) {
-          fbaked.colorSpace = THREE.SRGBColorSpace;
-          std.map = fbaked;
-        }
-        std.side = THREE.DoubleSide;
-        // Low ambient fill so shadowed regions go dark enough to read.
-        std.envMapIntensity = 0.35;
-        mesh.material = std;
+        mesh.material = createShadowReceiverMaterial(fsrc);
         mesh.castShadow = false;
         mesh.receiveShadow = true;
         return;
@@ -166,20 +181,7 @@ export default function BakedScene({
 
       if (WORK_PLATFORM_NAMES.some((name) => meshMatchesName(mesh.name, name))) {
         const src = mesh.material as THREE.MeshStandardMaterial;
-        const baked = src.emissiveMap || src.map || null;
-        const basic = new THREE.MeshBasicMaterial();
-        if (baked) {
-          baked.colorSpace = THREE.SRGBColorSpace;
-          basic.map = baked;
-        } else {
-          basic.color =
-            src.emissive && src.emissive.getHex() !== 0
-              ? src.emissive.clone()
-              : (src.color && src.color.clone()) || new THREE.Color("#808080");
-        }
-        basic.toneMapped = false;
-        basic.side = THREE.DoubleSide;
-        mesh.material = basic;
+        mesh.material = createShadowReceiverMaterial(src);
         mesh.castShadow = false;
         mesh.receiveShadow = true;
         return;

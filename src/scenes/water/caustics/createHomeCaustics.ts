@@ -168,7 +168,9 @@ export function createHomeCaustics(
     side: THREE.DoubleSide,
   });
 
-  const grid = Math.max(32, Math.min(320, Math.round(sim.getResolutionW() / 2)));
+  // ponytail: update every visible frame, so keep the splat mesh at/below the
+  // old half-rate average triangle budget. Upgrade path: adaptive grid by GPU timer.
+  const grid = Math.max(48, Math.min(160, Math.round(Math.min(sim.getResolutionW(), size) / 3)));
   const geometry = new THREE.PlaneGeometry(2, 2, grid, grid);
   const mesh = new THREE.Mesh(geometry, material);
   mesh.frustumCulled = false;

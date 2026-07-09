@@ -47,6 +47,26 @@ function loadTextureAssets(urls: string[], options = {}) {
   return Promise.all(urls.map((url) => loadTextureAsset(url, options)));
 }
 
+/** Width/height of a loaded texture image; 1 for placeholders. */
+function textureAspect(texture: THREE.Texture): number {
+  const img = texture.image as { width?: number; height?: number } | undefined;
+  const w = img?.width ?? 1;
+  const h = img?.height ?? 1;
+  return w / Math.max(h, 1);
+}
+
+/** World-space content width of one strip slot (arc length minus gaps). */
+function slotWorldWidth(arcRadius: number, arcSpan: number, itemsOnStrip: number, gapSize: number) {
+  return (arcSpan * arcRadius) / Math.max(itemsOnStrip, 1) * Math.max(1 - gapSize, 1e-4);
+}
+
+// ponytail: self-check — taller strip must shrink slot aspect (cover crops more vertically).
+if (import.meta.env.DEV) {
+  const short = slotWorldWidth(4.2, 2, 7, 0.04) / 1.7;
+  const tall = slotWorldWidth(4.2, 2, 7, 0.04) / 1.9;
+  console.assert(tall < short && tall > 0, "strip height increases → slot aspect decreases");
+}
+
 function buildArcGeometry(
   cols: number,
   rows: number,
@@ -209,6 +229,17 @@ function createWebGLStripMaterial(
     uHoverScale: { value: 1 },
     uHoverSlotPrev: { value: -1 },
     uHoverScalePrev: { value: 1 },
+    // Slot aspect (world width / height) so UVs cover without stretching when height changes.
+    uSlotAspect: {
+      value:
+        slotWorldWidth(
+          stripConfig.arcRadius,
+          stripConfig.arcSpan,
+          stripConfig.itemsOnStrip,
+          stripConfig.gapSize,
+        ) / Math.max(stripConfig.stripHeight, 1e-4),
+    },
+    uTexAspect: { value: textures.map(textureAspect) },
     uTex0: { value: textures[0] },
     uTex1: { value: textures[1] },
     uTex2: { value: textures[2] },
@@ -257,6 +288,8 @@ function createWebGLStripMaterial(
       uniform float uHoverScale;
       uniform float uHoverSlotPrev;
       uniform float uHoverScalePrev;
+      uniform float uSlotAspect;
+      uniform float uTexAspect[6];
       varying vec2 vUv;
       varying float vLooseness;
       varying vec3 vNormal;
@@ -290,6 +323,15 @@ function createWebGLStripMaterial(
         return texture2D(uTex5, coord).rgb;
       }
 
+      float stripTexAspect(int index) {
+        if (index == 0) return uTexAspect[0];
+        if (index == 1) return uTexAspect[1];
+        if (index == 2) return uTexAspect[2];
+        if (index == 3) return uTexAspect[3];
+        if (index == 4) return uTexAspect[4];
+        return uTexAspect[5];
+      }
+
       void main() {
         float totalU = vUv.x * uItemsOnStrip + uScrollOffset;
         float itemFloor = floor(totalU);
@@ -306,8 +348,19 @@ function createWebGLStripMaterial(
         else if (uHoverSlotPrev >= 0.0 && itemFloor == uHoverSlotPrev) cellScale = uHoverScalePrev;
         texU = (texU - 0.5) / cellScale + 0.5;
         float texV = (vUv.y - 0.5) / cellScale + 0.5;
-        vec2 texCoord = clamp(vec2(texU, texV), vec2(0.001), vec2(0.999));
+
+        // Cover: scale UVs so the image fills the slot at its native aspect (crop overflow).
         int wrappedIndex = int(mod(itemFloor + uNumUnique, uNumUnique));
+        float texAspect = stripTexAspect(wrappedIndex);
+        float slotAspect = max(uSlotAspect, 1e-4);
+        if (texAspect > slotAspect) {
+          float s = slotAspect / texAspect;
+          texU = (texU - 0.5) * s + 0.5;
+        } else {
+          float s = texAspect / slotAspect;
+          texV = (texV - 0.5) * s + 0.5;
+        }
+        vec2 texCoord = clamp(vec2(texU, texV), vec2(0.001), vec2(0.999));
         vec3 color = sampleStripTexture(wrappedIndex, texCoord);
         color *= exp2(uExposure);
         color = applyLevels(color);
@@ -629,6 +682,13 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
     sys.uniforms.uHoverSlotPrev.value = anim.prev.slot;
     sys.uniforms.uHoverScalePrev.value = anim.prev.value;
 
+    const gs = sc.gapSize ?? DEFAULT_GAP_SIZE;
+    const slotW = slotWorldWidth(sc.curveRadius, sc.curveAmount, visibleItems, gs);
+    sys.uniforms.uSlotAspect.value = slotW / Math.max(sc.stripHeight, 1e-4);
+    sys.uniforms.uStripHeight.value = sc.stripHeight;
+    sys.uniforms.uArcRadius.value = sc.curveRadius;
+    sys.uniforms.uArcSpan.value = sc.curveAmount;
+
     if (group) {
       const baseScale = (sc.scale ?? 1) * WORK_STRIP_BASE_TRANSFORM.scale;
       const grabScale = grabScaleRef.current;
@@ -695,9 +755,7 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
       sys.uniforms.uGravityScale.value = sc.gravityScale ?? 1.2;
     }
 
-    const vi = visibleItems;
-    const gs = sc.gapSize ?? DEFAULT_GAP_SIZE;
-    const centerIdx = getActiveStripItemIndex(s.current, vi, gs, NUM_UNIQUE);
+    const centerIdx = getActiveStripItemIndex(s.current, visibleItems, gs, NUM_UNIQUE);
     const newTitle = workItems[centerIdx]?.title || "";
     if (newTitle !== currentTitleRef.current) {
       currentTitleRef.current = newTitle;

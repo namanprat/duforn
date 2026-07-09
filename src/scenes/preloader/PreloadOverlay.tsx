@@ -24,6 +24,7 @@ export default function PreloadOverlay() {
     phase === "fetching" || phase === "compiling" || (phase === "ready" && displayed < 100);
   const showEnter = phase === "ready" && displayed >= 100 && !exiting;
   const isRevealing = phase === "revealing";
+  const sceneVisible = phase !== "fetching";
 
   const handleEnter = (muted: boolean) => {
     if (exiting || isRevealing) return;
@@ -40,7 +41,7 @@ export default function PreloadOverlay() {
 
   return (
     <div
-      className={`scene_preload_overlay${isRevealing ? " scene_preload_overlay--revealing" : ""}`}
+      className={`scene_preload_overlay${sceneVisible ? " scene_preload_overlay--scene-visible" : ""}${isRevealing ? " scene_preload_overlay--revealing" : ""}`}
       data-no-strip-drag
       aria-hidden={isRevealing}
     >
