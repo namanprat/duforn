@@ -113,6 +113,8 @@ export default function SceneCanvas() {
         onCreated={({ gl, setFrameloop }) => {
           gl.toneMapping = THREE.NoToneMapping;
           gl.outputColorSpace = THREE.SRGBColorSpace;
+          gl.shadowMap.enabled = true;
+          gl.shadowMap.type = THREE.PCFShadowMap;
           initKtx2Support(gl);
           startWorkTexturePreload().catch(() => {});
           if (!hasInitialBootCompleted()) {

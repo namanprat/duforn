@@ -16,6 +16,7 @@ import { usePostFxControlsStore } from "../store/postFx";
 import { toToneMappingMode } from "./postFxToneMapping";
 import ColorGrade from "./ColorGradeEffect";
 import DissolveTransition from "./transition/DissolveEffect";
+import { postFxComposerRef } from "./postFxComposerRef";
 
 const drawBufferSize = new THREE.Vector2();
 
@@ -26,8 +27,12 @@ function SyncComposerDrawingBuffer() {
 
   useEffect(() => {
     if (!composer) return;
+    postFxComposerRef.current = composer;
     gl.getDrawingBufferSize(drawBufferSize);
     composer.setSize(drawBufferSize.x, drawBufferSize.y);
+    return () => {
+      if (postFxComposerRef.current === composer) postFxComposerRef.current = null;
+    };
   }, [gl, composer, size.width, size.height, viewport.dpr]);
 
   return null;
@@ -69,6 +74,7 @@ export default function ScenePostFX({ children }: { children?: ReactNode }) {
             ? toToneMappingMode(fx.toneMapping.mode)
             : ToneMappingMode.LINEAR
         }
+        opacity={stackOn && fx.toneMapping.enabled ? fx.toneMapping.amount : 0}
       />
       {stackOn && fx.grain.enabled ? <Noise opacity={fx.grain.opacity} /> : null}
       {stackOn && fx.dof.enabled ? (

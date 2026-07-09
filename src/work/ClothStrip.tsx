@@ -8,12 +8,11 @@ import { navigateTo, isNavigableHref } from "../lib/nav";
 import { useWorkSceneControlsStore, WORK_STRIP_BASE_TRANSFORM } from "../store/workScene";
 import { useWorkProjectTransitionStore } from "../store/workProjectTransition";
 import {
-  COLS,
   DEFAULT_GAP_SIZE,
   DEFAULT_VISIBLE_ITEMS,
+  getStripMeshDensity,
   MOBILE_STRIP_MQ,
   NUM_UNIQUE_FALLBACK as NUM_UNIQUE,
-  ROWS,
 } from "./config";
 import { getActiveStripItemIndex, getScrollToCenterSlot, resolveVisibleSlotAtUv } from "./math";
 import { SCENE_SUN_DIR } from "../scenes/lighting/sun";
@@ -94,11 +93,83 @@ function buildArcGeometry(
   return geometry;
 }
 
-// Finite-difference step in UV for the displaced-surface normal — one grid cell.
-const NORMAL_DU = (1 / (COLS - 1)).toFixed(6);
-const NORMAL_DV = (1 / (ROWS - 1)).toFixed(6);
+function buildStripDisplacementVertexShader(normalDu: string, normalDv: string, withNormals: boolean) {
+  const normalPass = withNormals
+    ? `
+        const float DU = ${normalDu};
+        const float DV = ${normalDv};
+        vec3 pu = displace(uv + vec2(DU, 0.0), arcBase(uv + vec2(DU, 0.0)));
+        vec3 pv = displace(uv + vec2(0.0, DV), arcBase(uv + vec2(0.0, DV)));
+        vNormal = normalMatrix * normalize(cross(pu - p, pv - p));
+      `
+    : "";
 
-function createWebGLStripMaterial(textures: THREE.Texture[], stripConfig: Record<string, number>) {
+  const varyings = withNormals
+    ? `
+      varying vec2 vUv;
+      varying float vLooseness;
+      varying vec3 vNormal;
+    `
+    : "";
+
+  const preamble = withNormals
+    ? `
+        vUv = uv;
+        vLooseness = smoothstep(0.0, 0.25, uv.y);
+      `
+    : "";
+
+  return `
+    uniform float uTime;
+    uniform float uWaveAmplitude;
+    uniform float uWaveFrequency;
+    uniform float uWindStrength;
+    uniform float uGravityScale;
+    uniform float uArcRadius;
+    uniform float uArcSpan;
+    uniform float uStripHeight;
+    uniform float uStripYOffset;
+    ${varyings}
+
+    vec3 arcBase(vec2 quv) {
+      float angle = (quv.x - 0.5) * uArcSpan;
+      return vec3(
+        sin(angle) * uArcRadius,
+        uStripYOffset + (quv.y - 0.5) * uStripHeight,
+        (cos(angle) - 1.0) * uArcRadius
+      );
+    }
+
+    vec3 displace(vec2 quv, vec3 base) {
+      float looseness = smoothstep(0.0, 0.25, quv.y);
+      float wind = uWindStrength * 0.01;
+      float wave1 = sin(quv.x * uWaveFrequency - uTime * (2.0 + wind)) * looseness;
+      float wave2 = sin((quv.x + quv.y) * (uWaveFrequency * 0.7) - uTime * 1.8) * looseness * 0.5;
+      float flutter = sin(quv.x * (uWaveFrequency * 2.5) - uTime * 4.0) * looseness * looseness * 0.18;
+      vec3 p = base;
+      p.y -= quv.y * quv.y * (uGravityScale * 0.08) * looseness;
+      p.z += (wave1 + wave2) * uWaveAmplitude + flutter * uWaveAmplitude;
+      p.x += sin(uTime * 0.18) * looseness * 0.04;
+      return p;
+    }
+
+    void main() {
+      ${preamble}
+      vec3 p = displace(uv, position);
+      ${normalPass}
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+    }
+  `;
+}
+
+// Finite-difference step in UV for the displaced-surface normal — one grid cell.
+function createWebGLStripMaterial(
+  textures: THREE.Texture[],
+  stripConfig: Record<string, number>,
+  meshDensity: { cols: number; rows: number },
+) {
+  const normalDu = (1 / (meshDensity.cols - 1)).toFixed(6);
+  const normalDv = (1 / (meshDensity.rows - 1)).toFixed(6);
   const uniforms = {
     uScrollOffset: { value: 0 },
     uGapSize: { value: stripConfig.gapSize },
@@ -151,62 +222,7 @@ function createWebGLStripMaterial(textures: THREE.Texture[], stripConfig: Record
     side: THREE.DoubleSide,
     depthWrite: false,
     uniforms,
-    vertexShader: `
-      uniform float uTime;
-      uniform float uWaveAmplitude;
-      uniform float uWaveFrequency;
-      uniform float uWindStrength;
-      uniform float uGravityScale;
-      uniform float uArcRadius;
-      uniform float uArcSpan;
-      uniform float uStripHeight;
-      uniform float uStripYOffset;
-
-      varying vec2 vUv;
-      varying float vLooseness;
-      varying vec3 vNormal;
-
-      // Rest-pose arc position — must match buildArcGeometry().
-      vec3 arcBase(vec2 quv) {
-        float angle = (quv.x - 0.5) * uArcSpan;
-        return vec3(
-          sin(angle) * uArcRadius,
-          uStripYOffset + (quv.y - 0.5) * uStripHeight,
-          (cos(angle) - 1.0) * uArcRadius
-        );
-      }
-
-      vec3 displace(vec2 quv, vec3 base) {
-        float looseness = smoothstep(0.0, 0.25, quv.y);
-        float wind = uWindStrength * 0.01;
-        float wave1 = sin(quv.x * uWaveFrequency - uTime * (2.0 + wind)) * looseness;
-        float wave2 = sin((quv.x + quv.y) * (uWaveFrequency * 0.7) - uTime * 1.8) * looseness * 0.5;
-        float flutter = sin(quv.x * (uWaveFrequency * 2.5) - uTime * 4.0) * looseness * looseness * 0.18;
-        vec3 p = base;
-        p.y -= quv.y * quv.y * (uGravityScale * 0.08) * looseness;
-        p.z += (wave1 + wave2) * uWaveAmplitude + flutter * uWaveAmplitude;
-        p.x += sin(uTime * 0.18) * looseness * 0.04;
-        return p;
-      }
-
-      void main() {
-        vUv = uv;
-        vLooseness = smoothstep(0.0, 0.25, uv.y);
-
-        // Rendered vertex uses the position attribute (bit-identical to before).
-        vec3 p = displace(uv, position);
-
-        // Two uv-neighbors via the rest-pose arc → exact face normal of the
-        // displaced cloth (winding matches buildArcGeometry's triangles).
-        const float DU = ${NORMAL_DU};
-        const float DV = ${NORMAL_DV};
-        vec3 pu = displace(uv + vec2(DU, 0.0), arcBase(uv + vec2(DU, 0.0)));
-        vec3 pv = displace(uv + vec2(0.0, DV), arcBase(uv + vec2(0.0, DV)));
-        vNormal = normalMatrix * normalize(cross(pu - p, pv - p));
-
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
-      }
-    `,
+    vertexShader: buildStripDisplacementVertexShader(normalDu, normalDv, true),
     fragmentShader: `
       uniform sampler2D uTex0;
       uniform sampler2D uTex1;
@@ -314,6 +330,12 @@ function createWebGLStripMaterial(textures: THREE.Texture[], stripConfig: Record
     `,
   });
 
+  material.customDepthMaterial = new THREE.MeshDepthMaterial({
+    side: THREE.DoubleSide,
+    depthPacking: THREE.RGBADepthPacking,
+  });
+  material.shadowSide = THREE.DoubleSide;
+
   return { material, uniforms };
 }
 
@@ -332,6 +354,7 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
   const transitionStripOpacity = useWorkProjectTransitionStore((state) => state.stripOpacity);
   const transitionStripDissolve = useWorkProjectTransitionStore((state) => state.stripDissolve);
   const isMobileStrip = useMediaQuery(MOBILE_STRIP_MQ);
+  const meshDensity = useMemo(() => getStripMeshDensity(), []);
   const visibleItems = DEFAULT_VISIBLE_ITEMS;
   const gapSize = stripControls.gapSize ?? DEFAULT_GAP_SIZE;
   const scrollConfig = {
@@ -515,14 +538,21 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
   const geometry = useMemo(
     () =>
       buildArcGeometry(
-        COLS,
-        ROWS,
+        meshDensity.cols,
+        meshDensity.rows,
         arcConfig.arcRadius,
         arcConfig.arcSpan,
         arcConfig.stripHeight,
         arcConfig.stripYOffset,
       ),
-    [arcConfig.arcRadius, arcConfig.arcSpan, arcConfig.stripHeight, arcConfig.stripYOffset],
+    [
+      meshDensity.cols,
+      meshDensity.rows,
+      arcConfig.arcRadius,
+      arcConfig.arcSpan,
+      arcConfig.stripHeight,
+      arcConfig.stripYOffset,
+    ],
   );
 
   useEffect(() => () => geometry.dispose(), [geometry]);
@@ -552,7 +582,7 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
 
   useEffect(() => {
     if (!activeTextures) return;
-    const system = createWebGLStripMaterial(activeTextures, stripConfig);
+    const system = createWebGLStripMaterial(activeTextures, stripConfig, meshDensity);
     setStripMaterial(system.material);
     systemRef.current = system;
 
@@ -560,7 +590,7 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
       system.material.dispose();
       systemRef.current = null;
     };
-  }, [activeTextures, stripConfig]);
+  }, [activeTextures, stripConfig, meshDensity]);
 
   useFrame((state) => {
     const sys = systemRef.current;
@@ -677,6 +707,15 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
     }
   });
 
+  const shadowCatcher = useMemo(() => {
+    const halfSpan = arcConfig.arcSpan * 0.5;
+    const width = Math.sin(halfSpan) * arcConfig.arcRadius * 2.4;
+    const depth = arcConfig.arcRadius * 0.95;
+    const y = arcConfig.stripYOffset - arcConfig.stripHeight * 0.5 - 0.06;
+    const z = -(1 - Math.cos(halfSpan)) * arcConfig.arcRadius * 0.35;
+    return { width: Math.max(width, 2.5), depth: Math.max(depth, 1.2), y, z };
+  }, [arcConfig.arcRadius, arcConfig.arcSpan, arcConfig.stripHeight, arcConfig.stripYOffset]);
+
   if (!activeTextures || !stripMaterial) return null;
 
   const handleStripPointerDown = (e: ThreeEvent<PointerEvent>) => {
@@ -763,8 +802,19 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
   return (
     <group ref={groupRef}>
       <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, shadowCatcher.y, shadowCatcher.z]}
+        receiveShadow
+        renderOrder={-2}
+        raycast={() => null}
+      >
+        <planeGeometry args={[shadowCatcher.width, shadowCatcher.depth]} />
+        <shadowMaterial transparent opacity={0.38} color="#14100c" />
+      </mesh>
+      <mesh
         geometry={geometry}
         material={stripMaterial}
+        castShadow
         frustumCulled={false}
         onPointerDown={handleStripPointerDown}
         onPointerOver={handleStripPointerOver}

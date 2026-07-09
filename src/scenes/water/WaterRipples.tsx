@@ -70,6 +70,7 @@ export default function WaterRipples({ mesh, sceneRoot, onReady }: WaterRipplesP
   const planeSnapshotRef = useRef(planeAlignmentSnapshot());
   const basinMeshesRef = useRef<THREE.Object3D[]>([]);
   const passFrameRef = useRef(0);
+  const waterVisibleRef = useRef(true);
   const readyReportedRef = useRef(false);
 
   const reportReady = () => {
@@ -82,6 +83,7 @@ export default function WaterRipples({ mesh, sceneRoot, onReady }: WaterRipplesP
   const gridSize = waterQuality.simRes;
   const causticsSize = waterQuality.causticsSize;
   const waterPassInterval = waterQuality.passInterval;
+  const waterBackdropInterval = waterQuality.backdropInterval;
   const nwRef = useRef(gridSize);
   const nhRef = useRef(gridSize);
 
@@ -353,15 +355,20 @@ export default function WaterRipples({ mesh, sceneRoot, onReady }: WaterRipplesP
     // view — by far the cheapest big win when the camera is elsewhere.
     mesh.updateWorldMatrix(true, false);
     if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
+    let visible = true;
     if (mesh.geometry.boundingSphere) {
       waterSphereRef.current.copy(mesh.geometry.boundingSphere).applyMatrix4(mesh.matrixWorld);
       frustumMatrixRef.current.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
       frustumRef.current.setFromProjectionMatrix(frustumMatrixRef.current);
-      if (!frustumRef.current.intersectsSphere(waterSphereRef.current)) return;
+      visible = frustumRef.current.intersectsSphere(waterSphereRef.current);
     }
+    waterVisibleRef.current = visible;
+    if (!visible) return;
 
-    // Backdrop (basin-only, half-res) every frame so refraction tracks ripples.
-    if (backdrop) {
+    const frame = passFrameRef.current++;
+
+    // Basin backdrop — amortize on lower tiers (still every frame on tier 3).
+    if (backdrop && frame % waterBackdropInterval === 0) {
       backdrop.resize();
       const size = gl.getDrawingBufferSize(drawSizeRef.current);
       materialApiRef.current?.setResolution(size.x, size.y);
@@ -369,7 +376,7 @@ export default function WaterRipples({ mesh, sceneRoot, onReady }: WaterRipplesP
     }
 
     // Planar reflection is heavier — amortize to every Nth frame.
-    if (passFrameRef.current++ % waterPassInterval !== 0) return;
+    if (frame % waterPassInterval !== 0) return;
 
     if (planar) {
       planar.resize();
@@ -379,6 +386,8 @@ export default function WaterRipples({ mesh, sceneRoot, onReady }: WaterRipplesP
   }, -1);
 
   useFrame(() => {
+    if (!waterVisibleRef.current) return;
+
     maybeRefreshBounds();
 
     const reducedMotion = prefersReducedMotion();
@@ -425,7 +434,7 @@ export default function WaterRipples({ mesh, sceneRoot, onReady }: WaterRipplesP
       ctx.caustics.setParams({
         normalScale: c.normalScale,
       });
-      if (c.enabled) ctx.caustics.update();
+      if (c.enabled && passFrameRef.current % 2 === 0) ctx.caustics.update();
     }
   });
 

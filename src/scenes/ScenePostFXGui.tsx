@@ -200,6 +200,22 @@ export default function ScenePostFXGui() {
             step: 0.01,
             onChange: (v) => setControl("colorGrade.saturation", v),
           },
+          hue: {
+            label: "hue (°)",
+            value: fx.colorGrade.hue,
+            min: -180,
+            max: 180,
+            step: 1,
+            onChange: (v) => setControl("colorGrade.hue", v),
+          },
+          tint: {
+            label: "tint (green ↔ magenta)",
+            value: fx.colorGrade.tint,
+            min: -1,
+            max: 1,
+            step: 0.01,
+            onChange: (v) => setControl("colorGrade.tint", v),
+          },
         }),
       }),
       ToneMapping: folder({
@@ -212,6 +228,14 @@ export default function ScenePostFXGui() {
           value: fx.toneMapping.mode,
           options: TONE_MAPPING_OPTIONS,
           onChange: (v) => setControl("toneMapping.mode", v),
+        },
+        amount: {
+          label: "amount",
+          value: fx.toneMapping.amount,
+          min: 0,
+          max: 1,
+          step: 0.01,
+          onChange: (v) => setControl("toneMapping.amount", v),
         },
       }),
       ChromaticAberration: folder({

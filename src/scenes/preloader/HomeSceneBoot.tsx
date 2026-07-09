@@ -19,6 +19,7 @@ import { SWATCH_DARK_NUM } from "../../lib/siteColors";
 import { MOTION_TOKENS } from "../../lib/animation/motionTokens";
 import { runBootDissolveTransition } from "../../store/routeTransition";
 import { useWorkProjectTransitionStore } from "../../store/workProjectTransition";
+import { postFxComposerRef, warmPostFxFrames } from "../postFxComposerRef";
 
 type HomeSceneBootProps = {
   activeRoom: RoomNamespace;
@@ -110,8 +111,15 @@ export default function HomeSceneBoot({
         ]);
         if (cancelled) return;
         reportCompileProgress(0.75);
-        gl.render(scene, camera);
-        gl.render(scene, camera);
+        for (let i = 0; i < 30 && !postFxComposerRef.current; i++) {
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+          if (cancelled) return;
+        }
+        warmPostFxFrames(2);
+        if (!postFxComposerRef.current) {
+          gl.render(scene, camera);
+          gl.render(scene, camera);
+        }
         finish();
       } catch {
         finish();

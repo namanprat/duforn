@@ -14,7 +14,9 @@ export function getWaterQuality() {
     simRes: p.waterSimRes,
     causticsSize: p.causticsSize,
     passInterval: p.waterPassInterval,
+    backdropInterval: p.waterBackdropInterval,
     planarReflectionScale: p.planarReflectionScale,
+    backdropScale: p.waterBackdropScale,
   };
 }
 /** Grid cells from the domain edge over which ripples are damped (sim units). */

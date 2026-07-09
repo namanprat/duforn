@@ -43,10 +43,13 @@ export const DEFAULT_POST_FX_CONTROLS = {
     brightness: 1,
     contrast: 1,
     saturation: 1,
+    hue: 0,
+    tint: 0,
   },
   toneMapping: {
     enabled: true,
     mode: "ACES_FILMIC" as const,
+    amount: 1,
   },
   chromaticAberration: {
     enabled: false,
@@ -56,14 +59,14 @@ export const DEFAULT_POST_FX_CONTROLS = {
     modulationOffset: 0.25,
   },
   vignette: {
-    enabled: true,
+    enabled: false,
     offset: 0.32,
     darkness: 0.57,
     eskil: false,
   },
   grain: {
     enabled: true,
-    opacity: 0.042,
+    opacity: 0.0336,
   },
   dissolve: {
     devPreview: true,
@@ -120,10 +123,13 @@ export type PostFxControls = {
     brightness: number;
     contrast: number;
     saturation: number;
+    hue: number;
+    tint: number;
   };
   toneMapping: {
     enabled: boolean;
     mode: ToneMappingModeName;
+    amount: number;
   };
   chromaticAberration: {
     enabled: boolean;

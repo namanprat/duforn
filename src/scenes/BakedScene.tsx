@@ -14,6 +14,10 @@ const MODEL_SCALE = 13;
 // The full patio deck/floor — kept lit (MeshStandard) so it receives the sun's
 // cast shadows, while the rest of the scene stays baked-unlit.
 const FLOOR_NAME = "tiles";
+/** Baked wood platform under the work strip — must receive shadows too. */
+const WORK_PLATFORM_NAMES = ["Floor_Mid", "floor"] as const;
+/** Work strip anchor — keep inside the ortho shadow frustum. */
+const WORK_SHADOW_ANCHOR = new THREE.Vector3(32, 0, 52);
 
 // Low, raking sun (points *toward* the light) so the back structures throw long
 // shadows across the open pool deck. Low y = long shadows.
@@ -68,7 +72,8 @@ function computeShadowSetup(scene: THREE.Object3D, size: THREE.Vector3): ShadowS
 
   // Deck footprint + rim casters + raking shadow stretch from the low sun.
   const rakingPad = h * 0.5;
-  const orthoHalf = deckHalf * 1.2 + rakingPad;
+  const workPad = Math.max(Math.abs(WORK_SHADOW_ANCHOR.x), Math.abs(WORK_SHADOW_ANCHOR.z));
+  const orthoHalf = Math.max(deckHalf * 1.2 + rakingPad, workPad + 12);
 
   return {
     sunPos,
@@ -159,6 +164,27 @@ export default function BakedScene({
         return;
       }
 
+      if (WORK_PLATFORM_NAMES.some((name) => meshMatchesName(mesh.name, name))) {
+        const src = mesh.material as THREE.MeshStandardMaterial;
+        const baked = src.emissiveMap || src.map || null;
+        const basic = new THREE.MeshBasicMaterial();
+        if (baked) {
+          baked.colorSpace = THREE.SRGBColorSpace;
+          basic.map = baked;
+        } else {
+          basic.color =
+            src.emissive && src.emissive.getHex() !== 0
+              ? src.emissive.clone()
+              : (src.color && src.color.clone()) || new THREE.Color("#808080");
+        }
+        basic.toneMapped = false;
+        basic.side = THREE.DoubleSide;
+        mesh.material = basic;
+        mesh.castShadow = false;
+        mesh.receiveShadow = true;
+        return;
+      }
+
       // Baked lightmap surfaces stay UNLIT (MeshBasic). The GLB textures already
       // contain the baked lighting (stored as emissiveMap), so showing them at
       // full brightness preserves the authored look — and keeps glowing light
@@ -220,8 +246,8 @@ export default function BakedScene({
     cam.far = shadow.shadowFar;
     cam.updateProjectionMatrix();
     light.shadow.radius = 2.5;
-    light.shadow.bias = -0.00025;
-    light.shadow.normalBias = 0.35;
+    light.shadow.bias = -0.00015;
+    light.shadow.normalBias = 0.12;
   }, [shadow]);
 
   useEffect(() => {
@@ -254,8 +280,8 @@ export default function BakedScene({
         shadow-mapSize-width={shadowMapSize}
         shadow-mapSize-height={shadowMapSize}
         shadow-radius={2.5}
-        shadow-bias={-0.00025}
-        shadow-normalBias={0.35}
+        shadow-bias={-0.00015}
+        shadow-normalBias={0.12}
       />
     </group>
   );
