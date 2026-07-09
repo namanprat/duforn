@@ -13,7 +13,7 @@
  */
 import fs from "node:fs";
 import { NodeIO } from "@gltf-transform/core";
-import { KHRDracoMeshCompression, KHRTextureBasisu } from "@gltf-transform/extensions";
+import { KHRDracoMeshCompression, KHRTextureBasisu, KHRTextureTransform } from "@gltf-transform/extensions";
 import { draco, textureCompress } from "@gltf-transform/functions";
 import draco3d from "draco3d";
 import sharp from "sharp";
@@ -27,7 +27,7 @@ const MAX_DIM = Number(maxDimArg) || 1024;
 const FORMAT = formatArg || "webp";
 
 const io = new NodeIO()
-  .registerExtensions([KHRDracoMeshCompression, KHRTextureBasisu])
+  .registerExtensions([KHRDracoMeshCompression, KHRTextureBasisu, KHRTextureTransform])
   .registerDependencies({
     "draco3d.decoder": await draco3d.createDecoderModule(),
     "draco3d.encoder": await draco3d.createEncoderModule(),

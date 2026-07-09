@@ -35,7 +35,7 @@ export function poseToCameraPosition(pose: CameraPose): { x: number; y: number; 
 export const SHARED_FOV = 70;
 // Single source of truth for the work room FOV. The "View Work" hover previews this exact
 // value (Main.tsx eases the offset to WORK_FOV - main.fov), so hover ↔ arrival never drift.
-export const WORK_FOV = 55;
+export const WORK_FOV = 64.5;
 export const BOOT_FOV = 92;
 const SHARED_CENTER_Y = 19.6;
 

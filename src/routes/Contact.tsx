@@ -11,6 +11,7 @@ const DESKTOP_MQ = "(min-width: 50em)";
 
 export default function ContactPage() {
   const buttonsRef = useRef<HTMLDivElement>(null);
+  const emailLinkRef = useRef<HTMLAnchorElement>(null);
   const [buttonsHeight, setButtonsHeight] = useState<number | null>(null);
   const [isDesktop, setIsDesktop] = useState(() =>
     typeof window !== "undefined" ? window.matchMedia(DESKTOP_MQ).matches : true,
@@ -44,6 +45,61 @@ export default function ContactPage() {
     return () => {
       ro.disconnect();
       mq.removeEventListener("change", update);
+    };
+  }, []);
+
+  // Mobile stack: scale email so rendered text matches button width.
+  useLayoutEffect(() => {
+    const buttons = buttonsRef.current;
+    const email = emailLinkRef.current;
+    const contain = email?.closest(".contact_contain");
+    if (!buttons || !email || !contain) return;
+
+    const probe = document.createElement("span");
+    probe.setAttribute("aria-hidden", "true");
+    probe.style.cssText =
+      "position:absolute;left:-9999px;top:0;visibility:hidden;white-space:nowrap;pointer-events:none;";
+    probe.textContent = CONTACT_EMAIL;
+    document.body.appendChild(probe);
+
+    const inkWidth = () => {
+      const cs = getComputedStyle(email);
+      probe.style.font = cs.font;
+      probe.style.letterSpacing = cs.letterSpacing;
+      probe.style.textTransform = cs.textTransform;
+      probe.style.fontSize = cs.fontSize;
+      return probe.getBoundingClientRect().width;
+    };
+
+    const isStacked = () => {
+      const b = buttons.getBoundingClientRect();
+      const e = email.getBoundingClientRect();
+      return e.top >= b.bottom - 1;
+    };
+
+    const fit = () => {
+      email.style.fontSize = "";
+      if (!isStacked()) return;
+
+      const targetW = buttons.getBoundingClientRect().width;
+      const textW = inkWidth();
+      if (textW <= 0 || targetW <= 0) return;
+
+      const base = parseFloat(getComputedStyle(email).fontSize);
+      email.style.fontSize = `${(base * targetW) / textW}px`;
+    };
+
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(buttons);
+    ro.observe(contain);
+    window.addEventListener("resize", fit);
+    void document.fonts?.ready.then(fit);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", fit);
+      email.style.fontSize = "";
+      probe.remove();
     };
   }, []);
 
@@ -92,6 +148,7 @@ export default function ContactPage() {
             </div>
             <h2 className="contact_email">
               <a
+                ref={emailLinkRef}
                 className="contact_email_link_wrap u-text-style-h2 u-text-lowercase"
                 href={`mailto:${CONTACT_EMAIL}`}
               >

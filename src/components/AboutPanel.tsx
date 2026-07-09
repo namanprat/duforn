@@ -1,5 +1,6 @@
 import {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useLayoutEffect,
@@ -76,6 +77,7 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
   activeRef.current = active;
   const [mountCanvas, setMountCanvas] = useState(false);
   const [bustReady, setBustReady] = useState(false);
+  const onBustReady = useCallback(() => setBustReady(true), []);
 
   const runHide = (up: boolean) => {
     revealTweenRef.current?.kill();
@@ -224,7 +226,7 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
 
         <div className="about-panel__media" ref={mediaRef}>
           {mountCanvas && (
-            <AboutDitherCanvas eventSource={mediaRef} onReady={() => setBustReady(true)} />
+            <AboutDitherCanvas eventSource={mediaRef} onReady={onBustReady} />
           )}
         </div>
 

@@ -1,7 +1,7 @@
 import { OrbitControls, Center, Environment, Float, Lightformer, useGLTF } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { wrapEffect } from "@react-three/postprocessing";
-import { Suspense, useEffect, useRef, type RefObject } from "react";
+import { Suspense, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import * as THREE from "three";
 import AboutPostFX from "./AboutPostFX";
 import { DitheringEffect } from "./aboutDitherEffect";
@@ -24,7 +24,9 @@ const Dither = wrapEffect(DitheringEffect, {
 
 const Distortion = wrapEffect(AboutDistortionEffect);
 
-useGLTF.preload(BUST_URL);
+// Bust GLB requires KHR_draco_mesh_compression — load without DRACO → empty/hanging Suspense.
+useGLTF.setDecoderPath("/draco/gltf/");
+useGLTF.preload(BUST_URL, true);
 
 const boxGeometry = new THREE.BoxGeometry();
 const whiteMaterial = new THREE.MeshStandardMaterial({ color: SWATCH_LIGHT_NUM });
@@ -60,7 +62,7 @@ function Room({ highlight }: { highlight: string }) {
 }
 
 function Bust() {
-  const { nodes, materials } = useGLTF(BUST_URL) as {
+  const { nodes, materials } = useGLTF(BUST_URL, true) as {
     nodes: Record<string, THREE.Mesh>;
     materials: Record<string, THREE.MeshStandardMaterial>;
   };
@@ -149,19 +151,15 @@ function AboutDistortionHover() {
 }
 
 function BustReadyGate({ onReady }: { onReady?: () => void }) {
-  const { setFrameloop, invalidate } = useThree();
   const fired = useRef(false);
 
-  useEffect(() => {
-    setFrameloop("always");
-    invalidate();
-  }, [setFrameloop, invalidate]);
-
-  useFrame(() => {
+  // Fire once Suspense has mounted the bust — don't wait on useFrame (that deadlocks
+  // if Canvas ever starts on frameloop="never", and AboutPanel keeps media at autoAlpha 0).
+  useLayoutEffect(() => {
     if (fired.current) return;
     fired.current = true;
     onReady?.();
-  });
+  }, [onReady]);
 
   return null;
 }
@@ -194,23 +192,26 @@ function AboutDitherScene({ onReady }: { onReady?: () => void }) {
 type AboutDitherCanvasProps = {
   /** Stable pointer target; avoids R3F connect(null) when the canvas wrapper unmounts mid-init. */
   eventSource?: RefObject<HTMLElement | null>;
-  /** Fires once after the bust scene paints its first frame. */
+  /** Fires once after the bust scene has mounted (Suspense resolved). */
   onReady?: () => void;
 };
 
 export default function AboutDitherCanvas({ eventSource, onReady }: AboutDitherCanvasProps) {
   const profile = getQualityProfile();
+  const [alive, setAlive] = useState(true);
+
+  if (!alive) return null;
 
   return (
     <Canvas
       className="about-panel__canvas"
       eventSource={eventSource}
-      frameloop="never"
+      frameloop="always"
       shadows={{ type: THREE.PCFShadowMap }}
       dpr={[1, profile.maxDpr]}
       camera={{ position: [0, -1, 4], fov: 65 }}
       gl={{ alpha: false }}
-      onCreated={({ gl, setFrameloop }) => {
+      onCreated={({ gl }) => {
         gl.setClearColor(new THREE.Color(BG));
         gl.toneMapping = THREE.NoToneMapping;
         gl.outputColorSpace = THREE.SRGBColorSpace;
@@ -218,7 +219,7 @@ export default function AboutDitherCanvas({ eventSource, onReady }: AboutDitherC
           "webglcontextlost",
           (event) => {
             event.preventDefault();
-            setFrameloop("never");
+            setAlive(false);
           },
           { once: true },
         );
