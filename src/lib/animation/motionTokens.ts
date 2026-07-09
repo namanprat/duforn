@@ -13,17 +13,19 @@ export const MOTION_TOKENS = {
     // top of the glyphs peeks out the bottom of the clip. 115% is the smallest safe overshoot.
     revealHiddenPercent: 115,
   },
-  navHover: {
-    staggerAmount: 0.161,
-    duration: 0.45,
-    ease: "power1.out",
-  },
   buttonHover: {
     enterDuration: 0.28,
     leaveDuration: 0.32,
     ease: "power2.out",
     enterScale: 0.95,
     leaveScale: 1,
+  },
+  charHover: {
+    staggerStep: 0.01,
+    duration: 0.6,
+    ease: "cubic-bezier(0.625, 0.05, 0, 1)",
+    travelEm: 1.3,
+    bgInsetEm: 0.125,
   },
   menu: {
     // Box morph beats.
@@ -40,10 +42,13 @@ export const MOTION_TOKENS = {
     ease: "power3.out",
     closeEase: "power3.in",
     aboutRevealDelay: 0.1,
-    aboutHelmetMountMaxMs: 320,
-    aboutHelmetFadeIn: 0.45,
+    aboutBustFadeIn: 0.45,
   },
   workProjectTransition: {
+    stripFadeDuration: 0.55,
+    stripFadeEase: "power3.in",
+    bgFadeDuration: 0.7,
+    bgFadeEase: "power2.out",
     stripDissolveDuration: 0.65,
     stripDissolveEase: "power2.in",
     titleHideDelay: 0,

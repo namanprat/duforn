@@ -2,9 +2,11 @@ import { useState } from "react";
 import { hasInitialBootCompleted, useSceneBootStore } from "./sceneReady";
 import { cameraRigControlsRef } from "../cam/pose";
 import { tryEnableGyroParallax } from "../../lib/deviceOrientation";
-import { hasFinePointerHover, shouldUseNavRotateHover } from "../../lib/link-hover";
+import { hasFinePointerHover } from "../../lib/link-hover";
 import { prefersReducedMotion } from "../../lib/prefersReducedMotion";
-import RotateHoverLabel from "../../components/RotateHoverLabel";
+import { useSequentialCounter } from "./useSequentialCounter";
+import StaggerHoverButton from "../../components/StaggerHoverButton";
+import StaggerHoverChars from "../../components/StaggerHoverChars";
 
 export default function PreloadOverlay() {
   const phase = useSceneBootStore((s) => s.phase);
@@ -12,10 +14,15 @@ export default function PreloadOverlay() {
   const requestReveal = useSceneBootStore((s) => s.requestReveal);
   const [exiting, setExiting] = useState(false);
 
+  const counterActive =
+    phase === "fetching" || phase === "compiling" || phase === "ready";
+  const displayed = useSequentialCounter(progress, counterActive);
+
   if (hasInitialBootCompleted() || phase === "live") return null;
 
-  const showProgress = phase === "fetching" || phase === "compiling";
-  const showEnter = phase === "ready" && !exiting;
+  const showProgress =
+    phase === "fetching" || phase === "compiling" || (phase === "ready" && displayed < 100);
+  const showEnter = phase === "ready" && displayed >= 100 && !exiting;
   const isRevealing = phase === "revealing";
 
   const handleEnter = (muted: boolean) => {
@@ -43,24 +50,23 @@ export default function PreloadOverlay() {
         >
           {showProgress ? (
             <p className="scene_preload_progress" aria-live="polite">
-              {progress}%
+              {displayed}%
             </p>
           ) : null}
           {showEnter ? (
             <div className="scene_preload_enter">
-              <button
-                type="button"
-                className="button button-primary scene_preload_enter_btn"
+              <StaggerHoverButton
+                as="button"
+                className="scene_preload_enter_btn"
+                label="Enter"
                 onClick={() => handleEnter(false)}
-              >
-                {shouldUseNavRotateHover() ? <RotateHoverLabel text="Enter" /> : "Enter"}
-              </button>
+              />
               <button
                 type="button"
                 className="scene_preload_enter_muted"
                 onClick={() => handleEnter(true)}
               >
-                Enter without sound
+                <StaggerHoverChars>Enter without sound</StaggerHoverChars>
               </button>
             </div>
           ) : null}

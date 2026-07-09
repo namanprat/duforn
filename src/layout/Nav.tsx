@@ -9,9 +9,9 @@ import {
 } from "react";
 import { useLocation } from "react-router-dom";
 import { navigateTo } from "../lib/nav";
-import RotateHoverLabel from "../components/RotateHoverLabel";
-import AboutPanel, { type AboutPanelHandle } from "../components/AboutPanel";
-import { shouldUseNavRotateHover } from "../lib/link-hover";
+import StaggerHoverChars from "../components/StaggerHoverChars";
+import AboutPanel, { type AboutPanelHandle, shouldMountAboutBust } from "../components/AboutPanel";
+import { BUST_URL } from "../components/AboutDitherCanvas";
 import { useMenuMorph, type MenuPhase } from "./useMenuMorph";
 
 const MENU_LINKS = [
@@ -39,27 +39,13 @@ function useISTTime() {
   return time;
 }
 
-function NavBrand({
-  isHome,
-  paused = false,
-  showName,
-}: {
-  isHome: boolean;
-  paused?: boolean;
-  showName?: boolean;
-}) {
+function NavBrand({ isHome, showName }: { isHome: boolean; showName?: boolean }) {
   const time = useISTTime();
   const brandText = isHome && !showName ? `${time} IST` : "Naman Pratulya";
 
-  // Always rendered (not gated to fine-pointer) so the clock ↔ "Naman Pratulya"
-  // swap rolls in on page changes and menu state changes on touch devices too.
   return (
     <span className="nav-brand__clip">
-      <RotateHoverLabel
-        text={brandText}
-        changeKey={showName ? "brand" : "home"}
-        paused={paused}
-      />
+      <StaggerHoverChars>{brandText}</StaggerHoverChars>
     </span>
   );
 }
@@ -69,13 +55,13 @@ interface NavLinkProps {
   className?: string;
   children: ReactNode;
   onClick?: () => void;
-  rotateHover?: boolean;
+  label?: string;
 }
 
-function NavLink({ to, className, children, onClick, rotateHover = false }: NavLinkProps) {
+function NavLink({ to, className, children, onClick, label }: NavLinkProps) {
   const location = useLocation();
   const isCurrent = location.pathname === to;
-  const enableRotateHover = rotateHover && !isCurrent;
+  const hoverLabel = label ?? (typeof children === "string" ? children : "");
 
   const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
     onClick?.();
@@ -90,10 +76,13 @@ function NavLink({ to, className, children, onClick, rotateHover = false }: NavL
       className={className}
       onClick={handleClick}
       aria-current={isCurrent ? "page" : undefined}
-      data-rotate-hover={enableRotateHover ? "" : undefined}
       aria-disabled={isCurrent ? true : undefined}
     >
-      {children}
+      {hoverLabel ? (
+        <StaggerHoverChars disabled={isCurrent}>{hoverLabel}</StaggerHoverChars>
+      ) : (
+        children
+      )}
     </a>
   );
 }
@@ -104,7 +93,6 @@ export default function Nav() {
   const [isMobileNav, setIsMobileNav] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches,
   );
-  const useRotateHover = shouldUseNavRotateHover();
   const isHome = location.pathname === "/";
 
   useEffect(() => {
@@ -151,6 +139,20 @@ export default function Nav() {
     return () => document.body.classList.remove("menu-open");
   }, [isOpen]);
 
+  // ponytail: warm bust GLB while the user browses menu links, before they tap About.
+  useEffect(() => {
+    if (phase !== "links" || !shouldMountAboutBust()) return;
+    const warm = () => {
+      void fetch(BUST_URL, { cache: "force-cache" });
+    };
+    if (typeof requestIdleCallback === "function") {
+      const id = requestIdleCallback(warm, { timeout: 2500 });
+      return () => cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(warm, 400);
+    return () => window.clearTimeout(id);
+  }, [phase]);
+
   useEffect(() => {
     if (!isOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -190,8 +192,8 @@ export default function Nav() {
       />
 
       <div className="site-header__inner">
-        <NavLink className="link-main site-header__brand" to="/" rotateHover={useRotateHover && !isHome}>
-          <NavBrand isHome={isHome} paused={isMorphing} showName={showBrandName} />
+        <NavLink className="link-main site-header__brand" to="/">
+          <NavBrand isHome={isHome} showName={showBrandName} />
         </NavLink>
       </div>
 
@@ -214,19 +216,10 @@ export default function Nav() {
                   aria-expanded={isOpen}
                   aria-controls="site-menu-body"
                   tabIndex={0}
-                  data-rotate-hover={useRotateHover ? "" : undefined}
                   onClick={shellOpen ? handleToggleClick : openMenu}
                   onKeyDown={!shellOpen ? handleToggleKeyDown : undefined}
                 >
-                  {useRotateHover ? (
-                    <RotateHoverLabel
-                      text={toggleLabel}
-                      changeKey={toggleLabel}
-                      paused={isMorphing}
-                    />
-                  ) : (
-                    toggleLabel
-                  )}
+                  <StaggerHoverChars>{toggleLabel}</StaggerHoverChars>
                 </button>
               </div>
 
@@ -238,15 +231,9 @@ export default function Nav() {
                         <NavLink
                           to={path}
                           className="menu-nav__link u-text-style-h4"
+                          label={label}
                           onClick={closeAll}
-                          rotateHover={useRotateHover}
-                        >
-                          {useRotateHover && location.pathname !== path ? (
-                            <RotateHoverLabel text={label} paused={isMorphing} />
-                          ) : (
-                            label
-                          )}
-                        </NavLink>
+                        />
                       </span>
                     </li>
                   ))}
@@ -259,14 +246,9 @@ export default function Nav() {
                         className="menu-nav__link menu-nav__about-toggle u-text-style-h4"
                         aria-expanded={isAbout}
                         aria-controls="site-about"
-                        data-rotate-hover={useRotateHover ? "" : undefined}
                         onClick={openAbout}
                       >
-                        {useRotateHover ? (
-                          <RotateHoverLabel text="About" paused={isMorphing} />
-                        ) : (
-                          "About"
-                        )}
+                        <StaggerHoverChars>About</StaggerHoverChars>
                       </button>
                     </span>
                   </li>

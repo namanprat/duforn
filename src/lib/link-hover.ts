@@ -8,8 +8,3 @@ export function hasFinePointerHover(): boolean {
   if (prefersReducedMotion()) return false;
   return true;
 }
-
-/** Used by components to decide if rotate markup runs in React (survives re-renders). */
-export function shouldUseNavRotateHover() {
-  return hasFinePointerHover();
-}

@@ -3,16 +3,15 @@ import ContactWordmark from "./ContactWordmark";
 import TextRevealLines from "../text/Reveal";
 import CameraRevealGroup from "../text/CameraRevealGroup";
 import MaskReveal from "../text/MaskReveal";
+import StaggerHoverButton from "../components/StaggerHoverButton";
+import StaggerHoverChars from "../components/StaggerHoverChars";
 import { CONTACT_EMAIL, CONTACT_INTRO_COPY, CONTACT_LINKS } from "../content/studio";
-import RotateHoverLabel from "../components/RotateHoverLabel";
-import { shouldUseNavRotateHover } from "../lib/link-hover";
 
 const DESKTOP_MQ = "(min-width: 50em)";
 
 export default function ContactPage() {
   const buttonsRef = useRef<HTMLDivElement>(null);
   const [buttonsHeight, setButtonsHeight] = useState<number | null>(null);
-  const useRotateHover = shouldUseNavRotateHover();
   const [isDesktop, setIsDesktop] = useState(() =>
     typeof window !== "undefined" ? window.matchMedia(DESKTOP_MQ).matches : true,
   );
@@ -75,30 +74,28 @@ export default function ContactPage() {
           <CameraRevealGroup delay={0.12}>
             <div ref={buttonsRef} className="contact_buttons_wrap">
               {CONTACT_LINKS.map((link, index) => (
-                <a
+                <StaggerHoverButton
                   key={link.href}
-                  className={`button ${index === 0 ? "button-primary" : "button-secondary"} contact_button_wrap`}
                   href={link.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  data-rotate-hover={useRotateHover ? "" : undefined}
-                >
-                  <span className="contact_button_text">
-                    {useRotateHover ? <RotateHoverLabel text={link.label} /> : link.label}
-                  </span>
-                  <span className="contact_button_icon" aria-hidden="true">
-                    ↗
-                  </span>
-                </a>
+                  variant={index === 0 ? "primary" : "secondary"}
+                  className="contact_button_wrap"
+                  label={link.label}
+                  icon={
+                    <span className="contact_button_icon" aria-hidden="true">
+                      ↗
+                    </span>
+                  }
+                />
               ))}
             </div>
             <h2 className="contact_email">
               <a
                 className="contact_email_link_wrap u-text-style-h2 u-text-lowercase"
                 href={`mailto:${CONTACT_EMAIL}`}
-                data-rotate-hover={useRotateHover ? "" : undefined}
               >
-                {useRotateHover ? <RotateHoverLabel text={CONTACT_EMAIL} /> : CONTACT_EMAIL}
+                <StaggerHoverChars>{CONTACT_EMAIL}</StaggerHoverChars>
               </a>
             </h2>
           </CameraRevealGroup>

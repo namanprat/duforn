@@ -28,17 +28,22 @@ type WorkProjectTransitionState = {
   active: boolean;
   direction: TransitionDirection | null;
   phase: TransitionPhase;
+  stripOpacity: number;
   stripDissolve: number;
+  projectBgOpacity: number;
   riseOffset: number;
   mountProjectLayer: boolean;
   projectBgReady: boolean;
   departedOrbitCenterY: number | null;
   targetPath: string | null;
   setPhase: (phase: TransitionPhase) => void;
+  setStripOpacity: (value: number) => void;
   setStripDissolve: (value: number) => void;
+  setProjectBgOpacity: (value: number) => void;
   setRiseOffset: (value: number) => void;
   setMountProjectLayer: (mount: boolean) => void;
   setProjectBgReady: (ready: boolean) => void;
+  beginToProject: (targetPath: string) => void;
   beginToWork: () => void;
   reset: () => void;
 };
@@ -50,7 +55,9 @@ const IDLE_STATE = {
   active: false,
   direction: null as TransitionDirection | null,
   phase: "idle" as TransitionPhase,
+  stripOpacity: 1,
   stripDissolve: 0,
+  projectBgOpacity: 0,
   riseOffset: 0,
   mountProjectLayer: false,
   projectBgReady: false,
@@ -61,10 +68,25 @@ export const useWorkProjectTransitionStore = create<WorkProjectTransitionState>(
   ...IDLE_STATE,
   departedOrbitCenterY: null,
   setPhase: (phase) => set({ phase }),
+  setStripOpacity: (stripOpacity) => set({ stripOpacity }),
   setStripDissolve: (stripDissolve) => set({ stripDissolve }),
+  setProjectBgOpacity: (projectBgOpacity) => set({ projectBgOpacity }),
   setRiseOffset: (riseOffset) => set({ riseOffset }),
   setMountProjectLayer: (mountProjectLayer) => set({ mountProjectLayer }),
   setProjectBgReady: (projectBgReady) => set({ projectBgReady }),
+  beginToProject: (targetPath) =>
+    set({
+      active: true,
+      direction: "toProject",
+      phase: "stripDissolve",
+      stripOpacity: 1,
+      stripDissolve: 0,
+      projectBgOpacity: 0,
+      riseOffset: 0,
+      mountProjectLayer: true,
+      projectBgReady: false,
+      targetPath,
+    }),
   beginToWork: () =>
     set({
       active: true,
@@ -138,6 +160,24 @@ function tweenValue(
   });
 }
 
+function waitForProjectBgReady(timeoutMs: number): Promise<void> {
+  if (useWorkProjectTransitionStore.getState().projectBgReady) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(finish, timeoutMs);
+    const unsub = useWorkProjectTransitionStore.subscribe((state) => {
+      if (state.projectBgReady) finish();
+    });
+
+    function finish() {
+      window.clearTimeout(timer);
+      unsub();
+      resolve();
+    }
+  });
+}
+
 function workOrbitY(): number {
   return ROOM_POSES.work.orbitCenterY;
 }
@@ -175,19 +215,51 @@ export async function runWorkToProjectTransition(
   toPath: string,
   navigate: (path: string) => void,
 ): Promise<void> {
-  // ponytail: work→project transition removed — always do an instant swap
-  // (this is the same path canRunTransition()===false already took).
+  const store = useWorkProjectTransitionStore.getState();
   const departedY = departedOrbitY();
 
+  if (!canRunTransition()) {
+    snapHidePageChrome();
+    snapHideAllRegisteredPageText();
+    navigate(toPath);
+    applyProjectDetailSideEffects();
+    await waitFrames(2);
+    snapShowPageChrome(false);
+    await showAllRegisteredPageText();
+    useWorkProjectTransitionStore.setState({ departedOrbitCenterY: departedY });
+    window.dispatchEvent(new CustomEvent(PROJECT_DETAIL_ARRIVED_EVENT));
+    return;
+  }
+
+  store.beginToProject(toPath);
   snapHidePageChrome();
-  snapHideAllRegisteredPageText();
+
+  await Promise.all([
+    tweenValue(1, 0, TOKENS.stripFadeDuration, TOKENS.stripFadeEase, store.setStripOpacity),
+    hideAllRegisteredPageText(),
+  ]);
+
+  await waitForProjectBgReady(TOKENS.bgReadyTimeoutMs);
+  await tweenValue(0, 1, TOKENS.bgFadeDuration, TOKENS.bgFadeEase, store.setProjectBgOpacity);
+
+  store.setPhase("swap");
+  useWorkProjectTransitionStore.setState({
+    departedOrbitCenterY: departedY,
+    projectBgOpacity: 1,
+  });
   navigate(toPath);
   applyProjectDetailSideEffects();
+  useWorkProjectTransitionStore.setState({ projectBgReady: false });
+  await waitForProjectBgReady(TOKENS.bgReadyTimeoutMs);
+  useWorkProjectTransitionStore.setState({ mountProjectLayer: false });
   await waitFrames(2);
-  snapShowPageChrome(false);
-  await showAllRegisteredPageText();
-  useWorkProjectTransitionStore.setState({ departedOrbitCenterY: departedY });
+
+  store.setPhase("textReveal");
+  if (TOKENS.textRevealDelay > 0) await delay(TOKENS.textRevealDelay);
   window.dispatchEvent(new CustomEvent(PROJECT_DETAIL_ARRIVED_EVENT));
+  await showAllRegisteredPageText();
+  snapShowPageChrome(false);
+  useWorkProjectTransitionStore.getState().reset();
 }
 
 export async function runProjectToWorkTransition(

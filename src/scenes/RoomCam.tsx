@@ -1,6 +1,11 @@
 import { useLayoutEffect, useRef } from "react";
 import gsap from "gsap";
-import { cameraBasePoseRef, cameraTransitionRef, POSE_KEYS } from "./cam/pose";
+import {
+  cameraBasePoseRef,
+  cameraTransitionRef,
+  POSE_KEYS,
+  requestParallaxRecenter,
+} from "./cam/pose";
 import { prefersReducedMotion } from "../lib/prefersReducedMotion";
 import {
   ROOM_POSES,
@@ -45,6 +50,8 @@ export default function RoomCam({ activeRoom }: { activeRoom: RoomNamespace }) {
     }
 
     if (prev === next) return;
+
+    requestParallaxRecenter();
 
     const transition = useWorkProjectTransitionStore.getState();
     if (transition.active && transition.direction === "toProject") {

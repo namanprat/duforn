@@ -3,22 +3,13 @@ import * as THREE from "three";
 import { Effect } from "postprocessing";
 import { wrapEffect } from "@react-three/postprocessing";
 import { useDissolveTransitionStore } from "../../store/routeTransition";
+import { usePostFxControlsStore } from "../../store/postFx";
 import { getDissolveProgress } from "../preloader/bootRevealTimeline";
 import { tryCaptureDepartingHoldout } from "./departingHoldout";
 
 const HOLDOUT_FALLBACK = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1);
 HOLDOUT_FALLBACK.needsUpdate = true;
 HOLDOUT_FALLBACK.colorSpace = THREE.SRGBColorSpace;
-
-const NOISE_AMP = 0.192;
-// Rim/glow fade as the iris finishes opening: 1 at open=FADE_START → 0 at open=FADE_END.
-// Kills the "bright ring lingering off-screen after reveal" pop.
-const GLOW_FADE_START = 0.45;
-const GLOW_FADE_END = 0.85;
-// Wide soft bloom halo around the crisp rim. Larger width = more spread; higher
-// intensity = brighter, more intense glow.
-const GLOW_WIDTH = 0.22;
-const GLOW_INTENSITY = 2.6;
 
 /**
  * Center-pierce dissolve on the live frame. Boot uses solid black outside the iris;
@@ -29,6 +20,22 @@ const fragmentShader = /* glsl */ `
   uniform float uProgress;
   uniform float uUseHoldout;
   uniform sampler2D uHoldout;
+  uniform float uEdgeNoiseAmp;
+  uniform float uGlowFadeStart;
+  uniform float uGlowFadeEnd;
+  uniform float uGlowWidth;
+  uniform float uGlowIntensity;
+  uniform float uRingWidth;
+  uniform float uRadiusScale;
+  uniform float uMaskInner;
+  uniform float uMaskOuter;
+  uniform float uRingOuterScale;
+  uniform float uStarIntensity;
+  uniform float uRimTexelOffset;
+  uniform float uRimMix;
+  uniform float uOutsideDarkness;
+  uniform float uOutsideDesat;
+  uniform float uClosedThreshold;
 
   float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
@@ -67,9 +74,9 @@ const fragmentShader = /* glsl */ `
     }
     vec3 live = sampleInside(uvc);
     float lum = luminance(live);
-    vec3 desat = mix(vec3(lum), live, 0.18);
+    vec3 desat = mix(vec3(lum), live, uOutsideDesat);
     desat = pow(desat, vec3(1.35));
-    desat *= 0.22;
+    desat *= uOutsideDarkness;
     float edge = abs(luminance(sampleInside(uvc + texelSize)) - luminance(sampleInside(uvc - texelSize)));
     edge += abs(luminance(sampleInside(uvc + vec2(texelSize.x, 0.0))) - luminance(sampleInside(uvc - vec2(texelSize.x, 0.0))));
     float sketch = smoothstep(0.02, 0.14, edge) * 0.55;
@@ -105,7 +112,7 @@ const fragmentShader = /* glsl */ `
     stars *= 1.0 + scatter;
 
     vec3 tint = mix(vec3(1.0), vec3(1.0, 0.92, 0.72), burst);
-    return tint * stars * cover * 3.5;
+    return tint * stars * cover * uStarIntensity;
   }
 
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
@@ -118,44 +125,36 @@ const fragmentShader = /* glsl */ `
     c.x *= aspect;
     float dist = length(c);
     float angle = atan(c.y, c.x);
-    // Organic, rounded iris edge: smooth flow noise sampled continuously around
-    // the ring (cos/sin so it wraps) and along the radius — no blocky quantization
-    // and no fixed-N angular symmetry, so the pierce reads radial, not star-shaped.
     vec2 edgeSample = vec2(cos(angle), sin(angle)) * 1.7 + dist * 1.5;
-    float edgeNoise = (fbm(edgeSample + open) - 0.5) * ${(NOISE_AMP * 1.6).toFixed(3)};
+    float edgeNoise = (fbm(edgeSample + open) - 0.5) * uEdgeNoiseAmp;
     float maxDist = length(vec2(aspect * 0.5, 0.5));
     float normDist = (dist + edgeNoise) / maxDist;
 
-    float radius = open * 1.28;
-    float mask = smoothstep(radius - 0.082, radius + 0.039, normDist);
+    float radius = open * uRadiusScale;
+    float mask = smoothstep(radius - uMaskInner, radius + uMaskOuter, normDist);
 
-    // Fully closed — dark preview everywhere (no center pinhole)
-    if (open < 0.02) {
+    if (open < uClosedThreshold) {
       vec3 closed = sampleOutside(uv) + starBurst(uv, open, cover);
       outputColor = vec4(closed, inputColor.a);
       return;
     }
 
-    // Fade the white out as the iris finishes opening so it dissolves away
-    // smoothly instead of brightening while it decelerates off-screen.
-    float exitFade = 1.0 - smoothstep(${GLOW_FADE_START.toFixed(3)}, ${GLOW_FADE_END.toFixed(3)}, open);
+    float exitFade = 1.0 - smoothstep(uGlowFadeStart, uGlowFadeEnd, open);
 
-    float ringWidth = 0.144;
-    float ringInner = smoothstep(radius - ringWidth, radius, normDist);
-    float ringOuter = 1.0 - smoothstep(radius, radius + ringWidth * 0.6, normDist);
+    float ringInner = smoothstep(radius - uRingWidth, radius, normDist);
+    float ringOuter = 1.0 - smoothstep(radius, radius + uRingWidth * uRingOuterScale, normDist);
     float ring = ringInner * ringOuter;
 
     float sparkle = hash(floor(uv * resolution / 1.5)) * ring;
     vec3 rimGlow = vec3(1.0, 0.96, 0.88) * ring * (1.2 + sparkle * 4.0) * open;
 
-    // Wide soft bloom halo centered on the iris edge — the bright, intense glow.
-    float halo = exp(-pow((normDist - radius) / ${GLOW_WIDTH.toFixed(3)}, 2.0));
-    rimGlow += vec3(1.0, 0.96, 0.88) * halo * ${GLOW_INTENSITY.toFixed(3)} * open;
+    float halo = exp(-pow((normDist - radius) / uGlowWidth, 2.0));
+    rimGlow += vec3(1.0, 0.96, 0.88) * halo * uGlowIntensity * open;
 
-    vec2 rimOff = normalize(c + 0.0001) * texelSize * 2.5;
+    vec2 rimOff = normalize(c + 0.0001) * texelSize * uRimTexelOffset;
     vec3 insideRim = sampleInside(uv + rimOff);
     vec3 outsideRim = sampleOutside(uv - rimOff);
-    rimGlow += mix(outsideRim, insideRim, 0.5) * ring * 0.35;
+    rimGlow += mix(outsideRim, insideRim, 0.5) * ring * uRimMix;
 
     rimGlow *= exitFade;
 
@@ -176,12 +175,29 @@ class DissolveEffectImpl extends Effect {
   constructor() {
     const uHoldout = new Uniform(HOLDOUT_FALLBACK);
     const uUseHoldout = new Uniform(0);
+    const dissolve = usePostFxControlsStore.getState().controls.dissolve;
 
     super("DissolveTransition", fragmentShader, {
       uniforms: new Map([
         ["uProgress", new Uniform(0)],
         ["uHoldout", uHoldout],
         ["uUseHoldout", uUseHoldout],
+        ["uEdgeNoiseAmp", new Uniform(dissolve.edgeNoiseAmp)],
+        ["uGlowFadeStart", new Uniform(dissolve.glowFadeStart)],
+        ["uGlowFadeEnd", new Uniform(dissolve.glowFadeEnd)],
+        ["uGlowWidth", new Uniform(dissolve.glowWidth)],
+        ["uGlowIntensity", new Uniform(dissolve.glowIntensity)],
+        ["uRingWidth", new Uniform(dissolve.ringWidth)],
+        ["uRadiusScale", new Uniform(dissolve.radiusScale)],
+        ["uMaskInner", new Uniform(dissolve.maskInner)],
+        ["uMaskOuter", new Uniform(dissolve.maskOuter)],
+        ["uRingOuterScale", new Uniform(dissolve.ringOuterScale)],
+        ["uStarIntensity", new Uniform(dissolve.starIntensity)],
+        ["uRimTexelOffset", new Uniform(dissolve.rimTexelOffset)],
+        ["uRimMix", new Uniform(dissolve.rimMix)],
+        ["uOutsideDarkness", new Uniform(dissolve.outsideDarkness)],
+        ["uOutsideDesat", new Uniform(dissolve.outsideDesat)],
+        ["uClosedThreshold", new Uniform(dissolve.closedThreshold)],
       ]),
     });
 
@@ -189,13 +205,43 @@ class DissolveEffectImpl extends Effect {
     this.uUseHoldout = uUseHoldout;
   }
 
+  private syncDissolveUniforms(dissolve: ReturnType<typeof usePostFxControlsStore.getState>["controls"]["dissolve"]) {
+    const set = (key: string, value: number) => {
+      const uniform = this.uniforms.get(key) as THREE.Uniform<number> | undefined;
+      if (uniform) uniform.value = value;
+    };
+
+    set("uEdgeNoiseAmp", dissolve.edgeNoiseAmp);
+    set("uGlowFadeStart", dissolve.glowFadeStart);
+    set("uGlowFadeEnd", dissolve.glowFadeEnd);
+    set("uGlowWidth", dissolve.glowWidth);
+    set("uGlowIntensity", dissolve.glowIntensity);
+    set("uRingWidth", dissolve.ringWidth);
+    set("uRadiusScale", dissolve.radiusScale);
+    set("uMaskInner", dissolve.maskInner);
+    set("uMaskOuter", dissolve.maskOuter);
+    set("uRingOuterScale", dissolve.ringOuterScale);
+    set("uStarIntensity", dissolve.starIntensity);
+    set("uRimTexelOffset", dissolve.rimTexelOffset);
+    set("uRimMix", dissolve.rimMix);
+    set("uOutsideDarkness", dissolve.outsideDarkness);
+    set("uOutsideDesat", dissolve.outsideDesat);
+    set("uClosedThreshold", dissolve.closedThreshold);
+  }
+
   update(renderer: THREE.WebGLRenderer, inputBuffer: THREE.WebGLRenderTarget, _delta: number) {
     const captured = tryCaptureDepartingHoldout(renderer, inputBuffer);
     if (captured) useDissolveTransitionStore.getState().setHoldout(captured);
 
     const { holdout, useHoldout, active } = useDissolveTransitionStore.getState();
+    const dissolve = usePostFxControlsStore.getState().controls.dissolve;
+    this.syncDissolveUniforms(dissolve);
+
+    const devPreview = import.meta.env.DEV && dissolve.devPreview;
+    const progress = devPreview ? dissolve.devProgress : active ? getDissolveProgress() : 0;
+
     const uProgress = this.uniforms.get("uProgress");
-    if (uProgress) uProgress.value = active ? getDissolveProgress() : 0;
+    if (uProgress) uProgress.value = progress;
     this.uUseHoldout.value = useHoldout ? 1 : 0;
     if (holdout) this.uHoldout.value = holdout;
   }

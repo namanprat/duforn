@@ -18,6 +18,7 @@ import { getSceneReady, hasInitialBootCompleted, setSceneReady, useSceneBootStor
 import { SWATCH_DARK_NUM } from "../../lib/siteColors";
 import { MOTION_TOKENS } from "../../lib/animation/motionTokens";
 import { runBootDissolveTransition } from "../../store/routeTransition";
+import { useWorkProjectTransitionStore } from "../../store/workProjectTransition";
 
 type HomeSceneBootProps = {
   activeRoom: RoomNamespace;
@@ -35,6 +36,9 @@ export default function HomeSceneBoot({
   const revealNonce = useSceneBootStore((s) => s.revealNonce);
   const setPhase = useSceneBootStore((s) => s.setPhase);
   const setProgress = useSceneBootStore((s) => s.setProgress);
+  const suppressRoom = useWorkProjectTransitionStore(
+    (s) => s.active && s.direction === "toProject",
+  );
 
   const [glbReady, setGlbReady] = useState(false);
   const [hdrReady, setHdrReady] = useState(false);
@@ -167,19 +171,23 @@ export default function HomeSceneBoot({
   if (skipBoot) {
     return (
       <>
-        <Suspense fallback={null}>
-          <Env
-            hdrFiles="/main.hdr"
-            showHdriBackground
-            fogColor={SWATCH_DARK_NUM}
-            fogDensity={0}
-            showShadowCatcher={false}
-          />
-        </Suspense>
-        <Suspense fallback={null}>
-          <BakedScene enableWater={enableWater} />
-          {enableStrip ? <WorkClothStripScene activeRoom={activeRoom} /> : null}
-        </Suspense>
+        {!suppressRoom ? (
+          <Suspense fallback={null}>
+            <Env
+              hdrFiles="/main.hdr"
+              showHdriBackground
+              fogColor={SWATCH_DARK_NUM}
+              fogDensity={0}
+              showShadowCatcher={false}
+            />
+          </Suspense>
+        ) : null}
+        {!suppressRoom ? (
+          <Suspense fallback={null}>
+            <BakedScene enableWater={enableWater} />
+            {enableStrip ? <WorkClothStripScene activeRoom={activeRoom} /> : null}
+          </Suspense>
+        ) : null}
       </>
     );
   }

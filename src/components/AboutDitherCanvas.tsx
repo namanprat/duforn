@@ -1,7 +1,7 @@
 import { OrbitControls, Center, Environment, Float, Lightformer, useGLTF } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { wrapEffect } from "@react-three/postprocessing";
-import { Suspense, useEffect, type RefObject } from "react";
+import { Suspense, useEffect, useRef, type RefObject } from "react";
 import * as THREE from "three";
 import AboutPostFX from "./AboutPostFX";
 import { DitheringEffect } from "./aboutDitherEffect";
@@ -11,7 +11,8 @@ import { getQualityProfile } from "../lib/qualityProfile";
 import { hasFinePointerHover } from "../lib/link-hover";
 import { prefersReducedMotion } from "../lib/prefersReducedMotion";
 
-const HELMET_URL = "/jousting_helmet-transformed.glb";
+const BUST_URL = "/naman_bust.glb";
+export { BUST_URL };
 const BG = SWATCH_DARK;
 
 // ponytail: wrapEffect once; tune gridSize/pixelSizeRatio/grayscaleOnly here
@@ -23,7 +24,7 @@ const Dither = wrapEffect(DitheringEffect, {
 
 const Distortion = wrapEffect(AboutDistortionEffect);
 
-useGLTF.preload(HELMET_URL);
+useGLTF.preload(BUST_URL);
 
 const boxGeometry = new THREE.BoxGeometry();
 const whiteMaterial = new THREE.MeshStandardMaterial({ color: SWATCH_LIGHT_NUM });
@@ -58,8 +59,8 @@ function Room({ highlight }: { highlight: string }) {
   );
 }
 
-function Helmet() {
-  const { nodes, materials } = useGLTF(HELMET_URL) as {
+function Bust() {
+  const { nodes, materials } = useGLTF(BUST_URL) as {
     nodes: Record<string, THREE.Mesh>;
     materials: Record<string, THREE.MeshStandardMaterial>;
   };
@@ -147,18 +148,37 @@ function AboutDistortionHover() {
   return null;
 }
 
-function AboutDitherScene() {
+function BustReadyGate({ onReady }: { onReady?: () => void }) {
+  const { setFrameloop, invalidate } = useThree();
+  const fired = useRef(false);
+
+  useEffect(() => {
+    setFrameloop("always");
+    invalidate();
+  }, [setFrameloop, invalidate]);
+
+  useFrame(() => {
+    if (fired.current) return;
+    fired.current = true;
+    onReady?.();
+  });
+
+  return null;
+}
+
+function AboutDitherScene({ onReady }: { onReady?: () => void }) {
   return (
     <>
       <group position={[0, -0.5, 0]}>
         <Float floatIntensity={2} rotationIntensity={1} speed={2}>
           <Center scale={3} position={[0, 0.8, 0]} rotation={[0, -Math.PI / 3.5, -0.4]}>
-            <Helmet />
+            <Bust />
           </Center>
         </Float>
       </group>
       <OrbitControls enableDamping enableZoom={false} enablePan={false} />
-      <Environment resolution={1024} background={false} environmentIntensity={1.5}>
+      {/* ponytail: 256 (drei default) — the dither pass erases any env-map detail above this */}
+      <Environment resolution={256} background={false} environmentIntensity={1.5}>
         <Room highlight="#066aff" />
       </Environment>
       <AboutDistortionHover />
@@ -166,6 +186,7 @@ function AboutDitherScene() {
         <Distortion />
         <Dither />
       </AboutPostFX>
+      <BustReadyGate onReady={onReady} />
     </>
   );
 }
@@ -173,15 +194,18 @@ function AboutDitherScene() {
 type AboutDitherCanvasProps = {
   /** Stable pointer target; avoids R3F connect(null) when the canvas wrapper unmounts mid-init. */
   eventSource?: RefObject<HTMLElement | null>;
+  /** Fires once after the bust scene paints its first frame. */
+  onReady?: () => void;
 };
 
-export default function AboutDitherCanvas({ eventSource }: AboutDitherCanvasProps) {
+export default function AboutDitherCanvas({ eventSource, onReady }: AboutDitherCanvasProps) {
   const profile = getQualityProfile();
 
   return (
     <Canvas
       className="about-panel__canvas"
       eventSource={eventSource}
+      frameloop="never"
       shadows={{ type: THREE.PCFShadowMap }}
       dpr={[1, profile.maxDpr]}
       camera={{ position: [0, -1, 4], fov: 65 }}
@@ -201,7 +225,7 @@ export default function AboutDitherCanvas({ eventSource }: AboutDitherCanvasProp
       }}
     >
       <Suspense fallback={null}>
-        <AboutDitherScene />
+        <AboutDitherScene onReady={onReady} />
       </Suspense>
     </Canvas>
   );

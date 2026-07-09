@@ -6,6 +6,7 @@ import {
   cameraFovOffsetRef,
   cameraRigControlsRef,
   cameraTransitionRef,
+  parallaxRecenterRef,
 } from "./cam/pose";
 import { mapDeviceOrientationToParallax, tryEnableGyroParallax } from "../lib/deviceOrientation";
 import { hasFinePointerHover } from "../lib/link-hover";
@@ -66,6 +67,22 @@ function zeroOffset(target: ParallaxOffset) {
   target.tilt = 0;
 }
 
+function isParallaxSuppressed(): boolean {
+  return (
+    !cameraRigControlsRef.current.parallaxEnabled ||
+    cameraTransitionRef.current ||
+    parallaxRecenterRef.current
+  );
+}
+
+function offsetNearZero(offset: ParallaxOffset, epsilon = 0.001): boolean {
+  return (
+    Math.abs(offset.angle) < epsilon &&
+    Math.abs(offset.y) < epsilon &&
+    Math.abs(offset.tilt) < epsilon
+  );
+}
+
 function applyParallaxInput(
   target: ParallaxOffset,
   x: number,
@@ -102,7 +119,7 @@ export default function CameraRig({
     if (!usePointerParallax) return;
 
     const onPointerMove = (event: PointerEvent) => {
-      if (!cameraRigControlsRef.current.parallaxEnabled) {
+      if (isParallaxSuppressed()) {
         zeroOffset(pointerTarget.current);
         return;
       }
@@ -128,7 +145,7 @@ export default function CameraRig({
     if (usePointerParallax || prefersReducedMotion()) return;
 
     const onDeviceOrientation = (event: DeviceOrientationEvent) => {
-      if (!cameraRigControlsRef.current.gyroEnabled) {
+      if (!cameraRigControlsRef.current.gyroEnabled || isParallaxSuppressed()) {
         zeroOffset(gyroTarget.current);
         return;
       }
@@ -169,12 +186,12 @@ export default function CameraRig({
   }, [usePointerParallax]);
 
   useFrame((state, delta) => {
-    if (locked) return;
+    if (locked || cameraRigControlsRef.current.orbitControlEnabled) return;
 
     const base = cameraBasePoseRef.current;
     const activeTarget = usePointerParallax ? pointerTarget.current : gyroTarget.current;
 
-    if (!cameraRigControlsRef.current.parallaxEnabled) {
+    if (isParallaxSuppressed()) {
       zeroOffset(activeTarget);
     }
     if (!usePointerParallax && !cameraRigControlsRef.current.gyroEnabled) {
@@ -191,6 +208,10 @@ export default function CameraRig({
     cur.angle += (activeTarget.angle - cur.angle) * lerpFactor;
     cur.y += (activeTarget.y - cur.y) * lerpFactor;
     cur.tilt += (activeTarget.tilt - cur.tilt) * lerpFactor;
+
+    if (parallaxRecenterRef.current && offsetNearZero(cur)) {
+      parallaxRecenterRef.current = false;
+    }
 
     const cx = base.orbitCenterX;
     const cy = base.orbitCenterY;

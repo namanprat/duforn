@@ -23,10 +23,33 @@ const CLIENT_COLS = [
 /** ponytail: skip tier-0 / mobile / reduced-motion; distortion hover stays fine-pointer-only.
     Mobile: a second WebGL context (env map + GLTF + postFX) next to the main scene canvas
     trips iOS Safari's memory kill and force-reloads the page. */
-function shouldMountAboutHelmet(): boolean {
+export function shouldMountAboutBust(): boolean {
   if (getDeviceTier() === 0) return false;
   if (isMobileDevice()) return false;
   return !prefersReducedMotion();
+}
+
+const BUST_MOUNT_IDLE_MS = 350;
+
+/** Yield Canvas mount to idle time so GSAP line reveal keeps the main thread. */
+function scheduleAboutBustMount(onMount: () => void): () => void {
+  let cancelled = false;
+  const run = () => {
+    if (cancelled) return;
+    onMount();
+  };
+  if (typeof requestIdleCallback === "function") {
+    const id = requestIdleCallback(run, { timeout: BUST_MOUNT_IDLE_MS });
+    return () => {
+      cancelled = true;
+      cancelIdleCallback(id);
+    };
+  }
+  const id = window.setTimeout(run, 0);
+  return () => {
+    cancelled = true;
+    window.clearTimeout(id);
+  };
 }
 
 export type AboutPanelHandle = {
@@ -49,10 +72,10 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
   const splitsRef = useRef<SplitText[]>([]);
   const revealTweenRef = useRef<gsap.core.Tween | null>(null);
   const hideTweenRef = useRef<gsap.core.Tween | null>(null);
-  // ponytail: the helmet Canvas does heavy synchronous Three.js init (env map, GLTF,
-  // postFX). Mounting it on the same frame as the reveal froze the line tween until init
-  // finished. Defer it until the reveal has played, then dissolve it in.
+  const activeRef = useRef(active);
+  activeRef.current = active;
   const [mountCanvas, setMountCanvas] = useState(false);
+  const [bustReady, setBustReady] = useState(false);
 
   const runHide = (up: boolean) => {
     revealTweenRef.current?.kill();
@@ -99,7 +122,7 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
     if (prefersReducedMotion()) {
       gsap.set(content, { clearProps: "opacity,visibility" });
       if (mediaRef.current) gsap.set(mediaRef.current, { autoAlpha: 1 });
-      if (shouldMountAboutHelmet()) setMountCanvas(true);
+      if (shouldMountAboutBust()) setMountCanvas(true);
       return;
     }
 
@@ -122,13 +145,13 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
       allLines = splits.flatMap((split) => split.lines) as HTMLElement[];
     } catch {
       gsap.set(content, { autoAlpha: 1 });
-      if (shouldMountAboutHelmet()) setMountCanvas(true);
+      if (shouldMountAboutBust()) setMountCanvas(true);
       return;
     }
 
     if (!allLines.length) {
       gsap.set(content, { autoAlpha: 1 });
-      if (shouldMountAboutHelmet()) setMountCanvas(true);
+      if (shouldMountAboutBust()) setMountCanvas(true);
       return;
     }
 
@@ -145,13 +168,20 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
       ease: revealEase,
     });
 
-    // Mount helmet early in the reveal so init overlaps text (preload handles GLTF).
-    const canvasRaf = shouldMountAboutHelmet()
-      ? requestAnimationFrame(() => setMountCanvas(true))
-      : undefined;
+    let cancelBustMount: (() => void) | undefined;
+    if (shouldMountAboutBust()) {
+      if (mediaRef.current) gsap.set(mediaRef.current, { autoAlpha: 0 });
+      cancelBustMount = scheduleAboutBustMount(() => {
+        if (import.meta.env.DEV) {
+          console.assert(activeRef.current, "about bust mount should not fire when panel inactive");
+        }
+        if (!activeRef.current) return;
+        setMountCanvas(true);
+      });
+    }
 
     return () => {
-      if (canvasRaf !== undefined) cancelAnimationFrame(canvasRaf);
+      cancelBustMount?.();
       revealTweenRef.current?.kill();
       hideTweenRef.current?.kill();
       splits.forEach((split) => {
@@ -168,18 +198,20 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
   }, [active]);
 
   useEffect(() => {
-    if (!active) setMountCanvas(false);
+    if (!active) {
+      setMountCanvas(false);
+      setBustReady(false);
+    }
   }, [active]);
 
-  // Dissolve the helmet canvas in once it mounts (after the text reveal).
   useEffect(() => {
-    if (!mountCanvas || !mediaRef.current || prefersReducedMotion()) return;
+    if (!bustReady || !mediaRef.current || prefersReducedMotion()) return;
     gsap.fromTo(
       mediaRef.current,
       { autoAlpha: 0 },
-      { autoAlpha: 1, duration: MOTION_TOKENS.menu.aboutHelmetFadeIn, ease: MOTION_TOKENS.textReveal.revealEase },
+      { autoAlpha: 1, duration: MOTION_TOKENS.menu.aboutBustFadeIn, ease: MOTION_TOKENS.textReveal.revealEase },
     );
-  }, [mountCanvas]);
+  }, [bustReady]);
 
   return (
     <div className="about-panel__scroll">
@@ -191,7 +223,9 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
         ))}
 
         <div className="about-panel__media" ref={mediaRef}>
-          {mountCanvas && <AboutDitherCanvas eventSource={mediaRef} />}
+          {mountCanvas && (
+            <AboutDitherCanvas eventSource={mediaRef} onReady={() => setBustReady(true)} />
+          )}
         </div>
 
         <div className="about-panel__columns">

@@ -34,20 +34,20 @@ export function poseToCameraPosition(pose: CameraPose): { x: number; y: number; 
 // Main pose uses shared fov / center Y; work and contact override per-room.
 export const SHARED_FOV = 70;
 // Single source of truth for the work room FOV. The "View Work" hover previews this exact
-// value (Main.tsx eases the offset to WORK_FOV - SHARED_FOV), so hover ↔ arrival never drift.
-export const WORK_FOV = 69;
+// value (Main.tsx eases the offset to WORK_FOV - main.fov), so hover ↔ arrival never drift.
+export const WORK_FOV = 55;
 export const BOOT_FOV = 92;
 const SHARED_CENTER_Y = 19.6;
 
 export const MAIN_POSE: CameraPose = Object.freeze({
   ...DEFAULT_CAMERA_BASE_POSE,
-  orbitCenterX: 91.714,
-  orbitCenterY: 20,
-  orbitCenterZ: 11.275,
+  orbitCenterX: -24,
+  orbitCenterY: 26.5,
+  orbitCenterZ: 150,
   orbitRadius: 5,
   cameraHeight: 0,
-  fov: SHARED_FOV,
-  orbitAngleDeg: -31,
+  fov: 65,
+  orbitAngleDeg: 56,
   lookAtYawDeg: 0,
   lookAtPitchDeg: 0,
 });
@@ -56,33 +56,33 @@ export const ROOM_POSES: Record<RoomNamespace, CameraPose> = Object.freeze({
   main: MAIN_POSE,
   work: Object.freeze({
     ...DEFAULT_CAMERA_BASE_POSE,
-    orbitCenterX: 28.3,
-    orbitCenterY: 20,
-    orbitCenterZ: -7.7,
+    orbitCenterX: 6.54,
+    orbitCenterY: 26.5,
+    orbitCenterZ: 53,
     orbitRadius: 5,
     cameraHeight: 0,
     fov: WORK_FOV,
-    orbitAngleDeg: 90,
+    orbitAngleDeg: 180,
     lookAtYawDeg: 0,
     lookAtPitchDeg: 0,
   }),
   contact: Object.freeze({
     ...DEFAULT_CAMERA_BASE_POSE,
-    orbitCenterX: -60,
-    orbitCenterY: 20,
-    orbitCenterZ: 7,
+    orbitCenterX: -32.5,
+    orbitCenterY: 37.1,
+    orbitCenterZ: -103,
     orbitRadius: 5,
     cameraHeight: 0,
-    fov: SHARED_FOV,
-    orbitAngleDeg: 0,
+    fov: 65,
+    orbitAngleDeg: 90,
     lookAtYawDeg: 0,
     lookAtPitchDeg: 0,
   }),
   archive: MAIN_POSE,
 });
 
-/** Seconds per directed route transition. */
-export const ROOM_TRANSITION_SECONDS = 1.8;
+/** Seconds per directed route transition. Slightly slowed for smoother moves. */
+export const ROOM_TRANSITION_SECONDS = 2.2;
 
 /** Mount water/strip after this delay on room change (not initial boot). */
 export const SUBGRAPH_ACTIVATE_SECONDS = 0.55;

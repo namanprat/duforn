@@ -119,6 +119,27 @@ export default function BakedScene({
         return;
       }
 
+      // Unbaked foliage (ivy cards + leafy planters): a Combined bake self-shadows
+      // these to black, so they keep their original textured material and stay LIT
+      // here with a hard cutout alpha — instead of flattening to unlit MeshBasic,
+      // which made leaves render as flat opaque quads.
+      if (/planter|leaf|ivy/i.test(matName || "")) {
+        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        for (const raw of mats) {
+          const m = raw as THREE.MeshStandardMaterial;
+          if (!m) continue;
+          if (m.map) m.map.colorSpace = THREE.SRGBColorSpace;
+          m.alphaTest = 0.5; // hard cutout — no transparency sort artifacts
+          m.transparent = false;
+          m.metalness = 0;
+          m.side = THREE.DoubleSide;
+          m.needsUpdate = true;
+        }
+        mesh.castShadow = true;
+        mesh.receiveShadow = false;
+        return;
+      }
+
       if (meshMatchesName(mesh.name, FLOOR_NAME)) {
         // Lit floor so the sun's shadows read on it. Baked texture as albedo,
         // lit by the scene HDR (ambient) + the directional sun (shadow-casting).

@@ -12,12 +12,12 @@ import {
 } from "./projectBgPipeline";
 import { useWorkProjectTransitionStore } from "../store/workProjectTransition";
 
-/** Rising project bg on the work camera during work→project bridge. */
+/** Project bg fade bridge on the work camera during work→project. */
 export default function ProjectBgRiseLayer() {
   const { gl, camera, size } = useThree();
   const { scene: gltfScene } = useGLTF(PROJECT_BG_MODEL_URL);
   const { pointerRef, step } = usePointerField();
-  const riseOffset = useWorkProjectTransitionStore((s) => s.riseOffset);
+  const projectBgOpacity = useWorkProjectTransitionStore((s) => s.projectBgOpacity);
   const setProjectBgReady = useWorkProjectTransitionStore((s) => s.setProjectBgReady);
 
   const pipelineRef = useRef<ProjectBgPipeline | null>(null);
@@ -66,9 +66,12 @@ export default function ProjectBgRiseLayer() {
     });
 
     const mat = materialRef.current;
-    if (mat && mat.map !== pipeline.renderTarget.texture) {
-      mat.map = pipeline.renderTarget.texture;
-      mat.needsUpdate = true;
+    if (mat) {
+      if (mat.map !== pipeline.renderTarget.texture) {
+        mat.map = pipeline.renderTarget.texture;
+        mat.needsUpdate = true;
+      }
+      mat.opacity = projectBgOpacity;
     }
 
     camera.updateMatrixWorld();
@@ -82,7 +85,7 @@ export default function ProjectBgRiseLayer() {
     const planeH = 2 * Math.tan(vFov / 2) * dist;
     const planeW = planeH * (size.width / Math.max(size.height, 1));
 
-    mesh.position.set(0, -riseOffset * planeH, -dist);
+    mesh.position.set(0, 0, -dist);
     mesh.scale.set(planeW, planeH, 1);
   });
 

@@ -42,7 +42,15 @@ export const cameraRigControlsRef = {
   current: {
     parallaxEnabled: true,
     gyroEnabled: false,
+    orbitControlEnabled: false,
   },
 };
+
+/** Set by RoomCam on room change; CameraRig recenters parallax on snap arrivals. */
+export const parallaxRecenterRef = { current: false };
+
+export function requestParallaxRecenter(): void {
+  parallaxRecenterRef.current = true;
+}
 
 export const POSE_KEYS = Object.keys(DEFAULT_CAMERA_BASE_POSE) as (keyof CameraPose)[];

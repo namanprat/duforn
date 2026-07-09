@@ -1,3 +1,4 @@
+import ScenePostFXGui from "./ScenePostFXGui";
 import WorkSceneGui from "./WorkSceneGui";
 import RoomCameraGui from "./RoomCameraGui";
 import WaterGui from "./WaterGui";
@@ -12,6 +13,7 @@ type DevSceneControlsProps = {
 export default function DevSceneControls({ isRoom, activeRoom }: DevSceneControlsProps) {
   return (
     <>
+      <ScenePostFXGui />
       {isRoom ? <RoomCameraGui activeRoom={activeRoom} /> : null}
       <WorkSceneGui enabled={activeRoom === "work"} />
       {isRoom ? <WaterGui /> : null}

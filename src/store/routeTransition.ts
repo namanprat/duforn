@@ -19,6 +19,7 @@ import {
   snapShowPageChrome,
 } from "../lib/pageChrome";
 import {
+  hideAllRegisteredPageText,
   showAllRegisteredPageText,
   snapHideAllRegisteredPageText,
 } from "../lib/text";

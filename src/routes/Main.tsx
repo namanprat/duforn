@@ -3,11 +3,11 @@ import gsap from "gsap";
 import { CustomEase } from "gsap/CustomEase";
 import { navigateTo } from "../lib/nav";
 import { cameraFovOffsetRef } from "../scenes/cam/pose";
-import { ROOM_TRANSITION_SECONDS, SHARED_FOV, ROOM_POSES } from "../scenes/cam/roomPoses";
+import { ROOM_TRANSITION_SECONDS, ROOM_POSES, WORK_FOV } from "../scenes/cam/roomPoses";
 import TextRevealLines from "../text/Reveal";
 import CameraRevealGroup from "../text/CameraRevealGroup";
-import RotateHoverLabel from "../components/RotateHoverLabel";
-import { shouldUseNavRotateHover, hasFinePointerHover } from "../lib/link-hover";
+import StaggerHoverButton from "../components/StaggerHoverButton";
+import { hasFinePointerHover } from "../lib/link-hover";
 import {
   STUDIO_INTRO_COPY,
   HERO_EYEBROW,
@@ -23,7 +23,6 @@ const VIEW_WORK_FOV_DURATION = 0.5;
 
 export default function MainPage() {
   const pillRef = useRef<HTMLAnchorElement | null>(null);
-  const useRotateHover = shouldUseNavRotateHover();
   const usePillFovHover = hasFinePointerHover();
   // Width of the centered pill. The copy rail is sized to this so the
   // left-aligned paragraph shares the button's left edge (per Figma), while the
@@ -66,7 +65,7 @@ export default function MainPage() {
   // Derived from the work pose so it always tracks whatever work fov is tuned in roomPoses.
   const onPillEnter = () =>
     gsap.to(cameraFovOffsetRef, {
-      current: ROOM_POSES.work.fov - SHARED_FOV,
+      current: WORK_FOV - ROOM_POSES.main.fov,
       duration: VIEW_WORK_FOV_DURATION,
       ease: VIEW_WORK_FOV_EASE,
       overwrite: true,
@@ -124,12 +123,17 @@ export default function MainPage() {
             </div>
             <CameraRevealGroup waitForCamera waitForScene delay={0.18}>
               <div className="hero_actions">
-                <a
+                <StaggerHoverButton
                   ref={pillRef}
-                  className="button button-primary hero_pill"
+                  className="hero_pill"
                   href="/work"
                   data-no-strip-drag
-                  data-rotate-hover={useRotateHover ? "" : undefined}
+                  label="View Work"
+                  icon={
+                    <span className="hero_pill_arrow" aria-hidden="true">
+                      ↗
+                    </span>
+                  }
                   onClick={(e) => go(e, "/work")}
                   {...(usePillFovHover
                     ? {
@@ -139,14 +143,7 @@ export default function MainPage() {
                         onBlur: onPillLeave,
                       }
                     : {})}
-                >
-                  <span className="hero_pill_text">
-                    {useRotateHover ? <RotateHoverLabel text="View Work" /> : "View Work"}
-                  </span>
-                  <span className="hero_pill_arrow" aria-hidden="true">
-                    ↗
-                  </span>
-                </a>
+                />
               </div>
             </CameraRevealGroup>
           </div>

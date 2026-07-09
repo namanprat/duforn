@@ -186,6 +186,10 @@ html {
   --spacing-section-space-page-top: clamp(10rem, 9.1111rem + 4.4444vw, 14rem);
   --button-pad-block: 0.7rem;
   --button-pad-inline: 1.25rem;
+  --char-hover-duration: 0.6s;
+  --char-hover-ease: cubic-bezier(0.625, 0.05, 0, 1);
+  --char-hover-travel: 1.3em;
+  --char-hover-bg-inset: 0.125em;
   --spacing-space-1: clamp(
     0.375 * 1rem,
     (
@@ -690,18 +694,13 @@ html:not(.scene-live) .site-header {
   border: none;
   padding: 0;
   cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 0.2em;
   opacity: 0.7;
-  transition:
-    opacity 0.2s ease,
-    text-underline-offset 0.2s ease;
+  transition: opacity 0.2s ease;
 }
 
 @media (hover: hover) and (pointer: fine) {
   .scene_preload_enter_muted:hover {
     opacity: 1;
-    text-underline-offset: 0.32em;
   }
 }
 
@@ -787,54 +786,105 @@ body.menu-open .site-header .menu-nav-backdrop {
   color: inherit;
 }
 
-[data-rotate-hover] {
-  --hover-line-height: var(--typography-line-height-medium);
-  line-height: var(--hover-line-height);
-  overflow: visible;
-}
-
-.nav-link-hover__clip {
-  display: block;
+.char-hover__clip {
+  display: inline-block;
   overflow: hidden;
   position: relative;
   width: max-content;
   max-width: 100%;
-  margin-bottom: 0;
-  line-height: var(--hover-line-height, 1);
+  line-height: 1.3;
   vertical-align: middle;
 }
 
-a.button .nav-link-hover__clip,
-button.button .nav-link-hover__clip {
-  margin-bottom: 0;
-  width: max-content;
-  max-width: 100%;
-}
-
-.nav-link-hover__track {
-  display: block;
+.char-hover__track {
+  display: inline-block;
   margin: 0;
   padding: 0;
-  line-height: var(--hover-line-height, 1);
+  line-height: 1.3;
   white-space: nowrap;
 }
 
-/* The second (duplicate) track sits exactly one clip-height below, out of flow, so the clip is
-   naturally one line tall — no JS height measurement needed. yPercent:-100 rolls it up into view.
-   Only position props: the flex/align overrides for menu toggle & links still apply. */
-.nav-link-hover__track + .nav-link-hover__track {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  width: 100%;
-}
-
-.nav-link-hover__track > span {
+.char-hover__track > span {
   display: inline-block;
+  position: relative;
   white-space: pre;
-  line-height: var(--hover-line-height, 1);
+  line-height: 1.3;
   vertical-align: baseline;
   will-change: transform;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .char-hover__track > span {
+    text-shadow: 0 var(--char-hover-travel) currentColor;
+    transform: translateY(0) rotate(0.001deg);
+    transition: transform var(--char-hover-duration) var(--char-hover-ease);
+  }
+
+  :is(a, button):not([aria-disabled="true"]):not([disabled]):hover
+    .char-hover__clip:not(.char-hover--disabled)
+    .char-hover__track
+    > span,
+  :is(a, button):not([aria-disabled="true"]):not([disabled]):focus-visible
+    .char-hover__clip:not(.char-hover--disabled)
+    .char-hover__track
+    > span {
+    transform: translateY(calc(-1 * var(--char-hover-travel))) rotate(0.001deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .char-hover__track > span {
+    text-shadow: none;
+    transition: none;
+  }
+}
+
+.stagger-hover-btn {
+  position: relative;
+  isolation: isolate;
+  background: transparent !important;
+}
+
+.stagger-hover-btn__bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  transition: inset var(--char-hover-duration) var(--char-hover-ease);
+}
+
+.button-primary.stagger-hover-btn {
+  --stagger-hover-btn-bg: var(--swatch-light);
+  border-color: var(--swatch-light);
+}
+
+.button-primary.stagger-hover-btn .stagger-hover-btn__bg {
+  background-color: var(--stagger-hover-btn-bg);
+}
+
+.button-secondary.stagger-hover-btn {
+  border-color: transparent;
+}
+
+.button-secondary.stagger-hover-btn .stagger-hover-btn__bg {
+  background-color: transparent;
+  border: 1px solid color-mix(in srgb, var(--swatch-light) 72%, transparent);
+  box-sizing: border-box;
+}
+
+.stagger-hover-btn__text,
+.stagger-hover-btn__icon {
+  position: relative;
+  z-index: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .stagger-hover-btn:not([aria-disabled="true"]):not([disabled]):hover .stagger-hover-btn__bg,
+  .stagger-hover-btn:not([aria-disabled="true"]):not([disabled]):focus-visible
+    .stagger-hover-btn__bg {
+    inset: var(--char-hover-bg-inset);
+  }
 }
 
 .nav-brand__clip {
@@ -845,7 +895,7 @@ button.button .nav-link-hover__clip {
   font-variant-numeric: tabular-nums;
 }
 
-.nav-brand__clip .nav-link-hover__clip {
+.nav-brand__clip .char-hover__clip {
   width: max-content;
 }
 
@@ -943,7 +993,6 @@ button.button .nav-link-hover__clip {
   width: 100%;
 }
 
-.site-header .menu-nav__toggle[data-rotate-hover],
 .site-header .menu-nav__toggle {
   display: inline-flex;
   align-items: center;
@@ -979,7 +1028,7 @@ button.button .nav-link-hover__clip {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .menu-nav__toggle[data-rotate-hover]:hover {
+  .menu-nav__toggle:hover {
     transform: scale(0.98);
   }
 }
@@ -998,24 +1047,24 @@ button.button .nav-link-hover__clip {
   line-height: var(--typography-line-height-medium);
 }
 
-.menu-nav:not(.is-open):not(.is-about) .menu-nav__toggle .nav-link-hover__clip {
+.menu-nav:not(.is-open):not(.is-about) .menu-nav__toggle .char-hover__clip {
   width: max-content;
 }
 
-.menu-nav.is-open .menu-nav__toggle .nav-link-hover__clip,
-.menu-nav.is-about .menu-nav__toggle .nav-link-hover__clip {
+.menu-nav.is-open .menu-nav__toggle .char-hover__clip,
+.menu-nav.is-about .menu-nav__toggle .char-hover__clip {
   width: 100%;
   margin-left: 0;
 }
 
-.menu-nav__toggle .nav-link-hover__track {
+.menu-nav__toggle .char-hover__track {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   text-align: right;
 }
 
-.menu-nav__toggle .nav-link-hover__track > span {
+.menu-nav__toggle .char-hover__track > span {
   vertical-align: middle;
 }
 
@@ -1180,17 +1229,6 @@ button.button .nav-link-hover__clip {
   min-height: 1.25em;
   text-decoration: none;
   color: var(--swatch-light);
-}
-
-.menu-nav__link .nav-link-hover__clip {
-  width: max-content;
-  max-width: none;
-  white-space: nowrap;
-}
-
-.menu-nav__link .nav-link-hover__track {
-  display: flex;
-  align-items: center;
 }
 
 .menu-nav__about-toggle {
@@ -1435,12 +1473,14 @@ button.button .nav-link-hover__clip {
   padding: 0.7rem 0.85rem;
 }
 
-.hero_pill_text {
+.hero_pill .stagger-hover-btn__text,
+.hero_pill .stagger-hover-btn__icon,
+.hero_pill_arrow {
   color: currentColor;
 }
 
+.hero_pill .stagger-hover-btn__icon,
 .hero_pill_arrow {
-  color: currentColor;
   line-height: 1;
   flex-shrink: 0;
 }

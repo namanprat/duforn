@@ -6,6 +6,10 @@ import type { AboutPanelHandle } from "../components/AboutPanel";
 
 export type MenuPhase = "closed" | "links" | "about";
 
+// Every transition is the same three beats — old content exits, box morphs,
+// new content enters — with direction derived from this depth order.
+const ORDER: Record<MenuPhase, number> = { closed: 0, links: 1, about: 2 };
+
 type MenuFlags = {
   open: boolean;
   about: boolean;
@@ -99,6 +103,18 @@ export function useMenuMorph({
     };
   }, []);
 
+  // Viewport resize (rotation, breakpoint cross) while at rest: drop the tweened
+  // px dims so the CSS-defined natural size takes over. Any snap is masked by the
+  // resize itself; mid-morph resizes are left to the in-flight timeline.
+  useLayoutEffect(() => {
+    const onResize = () => {
+      if (tlRef.current || !surfaceRef.current) return;
+      gsap.set(surfaceRef.current, { clearProps: SURFACE_DIM_PROPS });
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [surfaceRef]);
+
   useLayoutEffect(() => {
     const scope = scopeRef.current;
     const menuNav = menuNavRef.current;
@@ -116,6 +132,7 @@ export function useMenuMorph({
     const { menu } = MOTION_TOKENS;
     const target = phase;
     const from = settledRef.current;
+    const dir = ORDER[target] - ORDER[from]; // >0 deeper, <0 back, 0 interrupt
 
     const hadInFlight = !!tlRef.current;
     tlRef.current?.kill();
@@ -126,7 +143,7 @@ export function useMenuMorph({
       settledRef.current = next;
       tlRef.current = null;
       // ponytail: keep tweened px dims at rest — clearProps caused CSS handoff snap;
-      // upgrade path: ResizeObserver remeasure if viewport-resize-while-open matters
+      // viewport resizes remeasure via the resize listener above.
       if (aboutEl && phaseAbout(next)) {
         gsap.set(aboutEl, { clearProps: "opacity,visibility" });
       }
@@ -162,147 +179,71 @@ export function useMenuMorph({
       return;
     }
 
-    const start = (during: MenuFlags, fromD: { width: number; height: number }) => {
-      setPresented(during);
-      setIsMorphing(true);
-      gsap.set(surface, { width: fromD.width, height: fromD.height });
-    };
+    const { fromD, toD } = measureFromTo(menuFlags(target, phaseOpen(target)));
 
-    const lineCount = lines.length;
+    // While morphing, present whichever open phase owns the visible content;
+    // the enter beat switches to the target's flags when its content reveals.
+    setPresented(menuFlags(from === "closed" ? target : from, true));
+    setIsMorphing(true);
+    gsap.set(surface, { width: fromD.width, height: fromD.height });
 
-    // closed -> links: grow, then headers reveal in from below.
-    if (from === "closed" && target === "links") {
-      const { fromD, toD } = measureFromTo(menuFlags("links", true));
-      start(menuFlags("links", true), fromD);
-      gsap.set(lines, { yPercent: 120, autoAlpha: 0 });
+    const tl = gsap.timeline();
 
-      const tl = gsap.timeline();
-      tl.to(surface, { width: toD.width, height: toD.height, duration: menu.boxOpen, ease: menu.boxOpenEase }, 0);
+    // Beat 1 — exit old content. `.to()` (not set+fromTo) so interrupted lines
+    // animate out from wherever they are instead of snapping.
+    let exitDur = 0;
+    if (from === "links" && target !== "links") {
+      const deeper = dir > 0;
+      const lineDur = menu.line * (deeper ? menu.lineFlipScale : menu.closeSpeedScale);
+      const lineStag = menu.lineStagger * (deeper ? 1 : menu.closeSpeedScale);
+      exitDur = lineSpan(lines.length, lineDur, lineStag);
+      tl.to(
+        lines,
+        {
+          yPercent: deeper ? -120 : 120,
+          autoAlpha: 0,
+          duration: lineDur,
+          ease: menu.closeEase,
+          stagger: { each: lineStag, from: "end" },
+        },
+        0,
+      );
+    } else if (from === "about") {
+      exitDur = aboutPanelRef.current?.hide(target === "links") ?? 0;
+    }
+
+    // Beat 2 — box morph (brand indent rides along).
+    const boxDur = phaseAbout(from) || phaseAbout(target) ? menu.boxAbout : menu.boxOpen;
+    const growing = dir > 0 || (dir === 0 && toD.height >= fromD.height);
+    const boxEase = growing ? menu.boxOpenEase : menu.boxShrinkEase;
+    tl.to(surface, { width: toD.width, height: toD.height, duration: boxDur, ease: boxEase }, exitDur);
+    if (brand) {
+      tl.to(brand, { x: phaseAbout(target) ? brandIndent : 0, duration: boxDur, ease: boxEase }, exitDur);
+    }
+
+    // Beat 3 — enter new content.
+    const enterAt = exitDur + boxDur;
+    if (target === "links" && from !== "links") {
+      const entryY = dir < 0 ? -120 : 120;
+      gsap.set(lines, { yPercent: entryY, autoAlpha: 0 });
+      tl.call(() => setPresented(menuFlags("links", true)), [], enterAt);
       tl.fromTo(
         lines,
-        { yPercent: 120, autoAlpha: 0 },
+        { yPercent: entryY, autoAlpha: 0 },
         { yPercent: 0, autoAlpha: 1, duration: menu.line, ease: menu.ease, stagger: menu.lineStagger },
-        menu.boxOpen,
+        enterAt,
       );
-      tl.eventCallback("onComplete", () => settle("links"));
-      tlRef.current = tl;
-      return;
-    }
-
-    // links -> closed: headers out (down), then shrink to pill.
-    if (from === "links" && target === "closed") {
-      const { fromD, toD } = measureFromTo(menuFlags("closed"));
-      start(menuFlags("links", true), fromD);
-      gsap.set(lines, { yPercent: 0, autoAlpha: 1 });
-
-      const close = menu.closeSpeedScale;
-      const boxDuration = menu.boxOpen;
-      const lineDur = menu.line * close;
-      const lineStag = menu.lineStagger * close;
-      const headerOut = lineSpan(lineCount, lineDur, lineStag);
-      const tl = gsap.timeline();
-      tl.to(
-        lines,
-        { yPercent: 120, autoAlpha: 0, duration: lineDur, ease: menu.closeEase, stagger: { each: lineStag, from: "end" } },
-        0,
-      );
-      tl.to(surface, { width: toD.width, height: toD.height, duration: boxDuration, ease: menu.boxShrinkEase }, headerOut);
-      // Safety: if About was mid-open when this fired, ease the brand back in unison.
-      if (brand) tl.to(brand, { x: 0, duration: boxDuration, ease: menu.boxShrinkEase }, headerOut);
-      tl.eventCallback("onComplete", () => settle("closed"));
-      tlRef.current = tl;
-      return;
-    }
-
-    // links -> about: headers flip up & out, grow, pause, then about text reveals.
-    if (from === "links" && target === "about") {
-      const { fromD, toD } = measureFromTo(menuFlags("about", true));
-      start(menuFlags("links", true), fromD);
+    } else if (target === "about") {
       if (aboutEl) gsap.set(aboutEl, { autoAlpha: 0 });
-      gsap.set(lines, { yPercent: 0, autoAlpha: 1 });
-
-      const lineFlip = menu.line * menu.lineFlipScale;
-      const headerOut = lineSpan(lineCount, lineFlip, menu.lineStagger);
-      const aboutAt = headerOut + menu.boxAbout;
-      const tl = gsap.timeline();
-      tl.to(
-        lines,
-        { yPercent: -120, autoAlpha: 0, duration: lineFlip, ease: menu.closeEase, stagger: { each: menu.lineStagger, from: "end" } },
-        0,
-      );
-      tl.to(surface, { width: toD.width, height: toD.height, duration: menu.boxAbout, ease: menu.boxOpenEase }, headerOut);
-      if (brand) tl.to(brand, { x: brandIndent, duration: menu.boxAbout, ease: menu.boxOpenEase }, headerOut);
-      tl.to({}, { duration: menu.aboutRevealDelay }, aboutAt);
       tl.call(() => {
         setPresented(menuFlags("about", true));
         if (aboutEl) gsap.set(aboutEl, { clearProps: "opacity,visibility" });
-      }, [], aboutAt + menu.aboutRevealDelay);
-      tl.eventCallback("onComplete", () => settle("about"));
-      tlRef.current = tl;
-      return;
-    }
-
-    // about -> links (Back): about text up, shrink, then headers reveal in from top.
-    if (from === "about" && target === "links") {
-      const { fromD, toD } = measureFromTo(menuFlags("links", true));
-      start(menuFlags("about", true), fromD);
-
-      const close = menu.closeSpeedScale;
-      const hideDur = aboutPanelRef.current?.hide(true) ?? 0;
-      const boxDuration = menu.boxAbout;
-      const revealAt = hideDur + boxDuration;
-      const tl = gsap.timeline();
-      tl.to(surface, { width: toD.width, height: toD.height, duration: boxDuration, ease: menu.boxShrinkEase }, hideDur);
-      if (brand) tl.to(brand, { x: 0, duration: boxDuration, ease: menu.boxShrinkEase }, hideDur);
-      tl.call(() => {
-        setPresented(menuFlags("links", true));
-        gsap.set(lines, { yPercent: -120, autoAlpha: 0 });
-      }, [], revealAt);
-      tl.fromTo(
-        lines,
-        { yPercent: -120, autoAlpha: 0 },
-        { yPercent: 0, autoAlpha: 1, duration: menu.line, ease: menu.ease, stagger: menu.lineStagger },
-        revealAt,
-      );
-      tl.eventCallback("onComplete", () => settle("links"));
-      tlRef.current = tl;
-      return;
-    }
-
-    // about -> closed (click outside): about text down, shrink straight to pill.
-    if (from === "about" && target === "closed") {
-      const { fromD, toD } = measureFromTo(menuFlags("closed"));
-      start(menuFlags("about", true), fromD);
-
-      const hideDur = aboutPanelRef.current?.hide(false) ?? 0;
-      const boxDuration = menu.boxAbout;
-      const tl = gsap.timeline();
-      tl.to(surface, { width: toD.width, height: toD.height, duration: boxDuration, ease: menu.boxShrinkEase }, hideDur);
-      if (brand) tl.to(brand, { x: 0, duration: boxDuration, ease: menu.boxShrinkEase }, hideDur);
-      tl.eventCallback("onComplete", () => settle("closed"));
-      tlRef.current = tl;
-      return;
-    }
-
-    // Fallback (rapid interrupts): morph the box, snap content.
-    const { fromD, toD } = measureFromTo(menuFlags(target, phaseOpen(target)));
-    start(menuFlags(target, phaseOpen(target)), fromD);
-    if (phaseOpen(target) && !phaseAbout(target)) {
+      }, [], enterAt + menu.aboutRevealDelay);
+    } else if (target === "links") {
+      // links -> links interrupt: box remorphs, lines just need to be at rest.
       gsap.set(lines, { yPercent: 0, autoAlpha: 1 });
     }
-    const grow = toD.height >= fromD.height;
-    const tl = gsap.timeline();
-    tl.to(surface, {
-      width: toD.width,
-      height: toD.height,
-      duration: grow ? menu.boxOpen : menu.boxAbout,
-      ease: grow ? menu.boxOpenEase : menu.boxShrinkEase,
-    }, 0);
-    if (brand) tl.to(brand, {
-      x: phaseAbout(target) ? brandIndent : 0,
-      duration: grow ? menu.boxOpen : menu.boxAbout,
-      ease: grow ? menu.boxOpenEase : menu.boxShrinkEase,
-    }, 0);
+
     tl.eventCallback("onComplete", () => settle(target));
     tlRef.current = tl;
   }, [aboutPanelRef, menuNavRef, phase, scopeRef, surfaceRef]);
@@ -318,4 +259,8 @@ export function useMenuMorph({
 
 if (import.meta.env.DEV) {
   console.assert(lineSpan(4, 0.55, 0.07) === 0.76, "menu lineSpan invariant");
+  console.assert(
+    ORDER.closed < ORDER.links && ORDER.links < ORDER.about,
+    "menu phase depth order invariant",
+  );
 }

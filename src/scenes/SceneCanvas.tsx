@@ -4,6 +4,7 @@ import { Canvas } from "@react-three/fiber";
 import { PerspectiveCamera, useEnvironment } from "@react-three/drei";
 import * as THREE from "three";
 import CameraRig from "./CameraRig";
+import DevOrbitControls from "./DevOrbitControls";
 import RoomCam from "./RoomCam";
 import ScenePostFX from "./ScenePostFX";
 import TransitionCameraRegistrar from "./cam/TransitionCameraRegistrar";
@@ -46,11 +47,9 @@ export default function SceneCanvas() {
   const isProject = activePage === "projectDetail";
   const transitionActive = useWorkProjectTransitionStore((s) => s.active);
   const transitionDirection = useWorkProjectTransitionStore((s) => s.direction);
-  const mountProjectLayer = useWorkProjectTransitionStore((s) => s.mountProjectLayer);
   const isRoom = !isProject && !isArchive;
   const showRoom = isRoom || (transitionActive && transitionDirection === "toWork");
-  const showProjectRise = mountProjectLayer && transitionDirection === "toProject";
-  const showProject = isProject && !showProjectRise;
+  const showProject = isProject;
   const activeRoom = (isProject ? "main" : activePage) as RoomNamespace;
   const isInteractive =
     isProject || isArchive || activeRoom === "work" || activeRoom === "main";
@@ -141,6 +140,7 @@ export default function SceneCanvas() {
             />
             <RoomCam activeRoom={activeRoom} />
             <CameraRig />
+            {import.meta.env.DEV ? <DevOrbitControls /> : null}
             <Suspense fallback={null}>
               <HomeSceneBoot
                 activeRoom={activeRoom}
@@ -148,9 +148,9 @@ export default function SceneCanvas() {
                 enableStrip={enableStrip}
               />
             </Suspense>
-            <ProjectBgRiseLayerGate />
           </>
         ) : null}
+        <ProjectBgRiseLayerGate />
         {showProject ? (
           <>
             <Suspense fallback={null}>

@@ -5,7 +5,7 @@ import { createColorFallbackTexture, loadTextureAsset } from "../lib/assets";
 import { getPreloadedTextures } from "../lib/work-preload";
 import { workItems } from "../content/work-items";
 import { navigateTo, isNavigableHref } from "../lib/nav";
-import { useWorkSceneControlsStore } from "../store/workScene";
+import { useWorkSceneControlsStore, WORK_STRIP_BASE_TRANSFORM } from "../store/workScene";
 import { useWorkProjectTransitionStore } from "../store/workProjectTransition";
 import {
   COLS,
@@ -17,6 +17,7 @@ import {
 } from "./config";
 import { getActiveStripItemIndex, getScrollToCenterSlot, resolveVisibleSlotAtUv } from "./math";
 import { SCENE_SUN_DIR } from "../scenes/lighting/sun";
+import { cameraRigControlsRef } from "../scenes/cam/pose";
 
 const GRAB_SCALE = 0.96;
 const GRAB_SCALE_LERP = 0.14;
@@ -327,6 +328,8 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
   onWorkRef.current = activeRoom === "work";
   const stripControls = useWorkSceneControlsStore((state) => state.controls.strip);
   const transitionActive = useWorkProjectTransitionStore((state) => state.active);
+  const transitionDirection = useWorkProjectTransitionStore((state) => state.direction);
+  const transitionStripOpacity = useWorkProjectTransitionStore((state) => state.stripOpacity);
   const transitionStripDissolve = useWorkProjectTransitionStore((state) => state.stripDissolve);
   const isMobileStrip = useMediaQuery(MOBILE_STRIP_MQ);
   const visibleItems = DEFAULT_VISIBLE_ITEMS;
@@ -416,6 +419,8 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
     // overlay is open so its own scroll keeps working.
     const canInteract = () =>
       onWorkRef.current &&
+      !cameraRigControlsRef.current.orbitControlEnabled &&
+      useWorkSceneControlsStore.getState().controls.strip.scrollEnabled !== false &&
       !document.body.classList.contains("menu-open") &&
       !useWorkProjectTransitionStore.getState().active;
     const onWheel = (e: WheelEvent) => {
@@ -595,29 +600,46 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
     sys.uniforms.uHoverScalePrev.value = anim.prev.value;
 
     if (group) {
-      const baseScale = sc.scale ?? 1;
+      const baseScale = (sc.scale ?? 1) * WORK_STRIP_BASE_TRANSFORM.scale;
       const grabScale = grabScaleRef.current;
-      group.position.set(sc.x ?? 0, sc.y ?? 0, sc.z ?? 0);
+      group.position.set(
+        (sc.x ?? 0) + WORK_STRIP_BASE_TRANSFORM.x,
+        (sc.y ?? 0) + WORK_STRIP_BASE_TRANSFORM.y,
+        (sc.z ?? 0) + WORK_STRIP_BASE_TRANSFORM.z,
+      );
       group.rotation.set(sc.rx ?? 0, sc.ry ?? 0, sc.rz ?? 0);
       group.scale.set(baseScale * grabScale, baseScale * grabScale, baseScale * grabScale);
     }
 
-    s.current += (s.target - s.current) * scrollConfig.scrollLerp;
-    s.velocity *= isDraggingStrip
-      ? scrollConfig.scrollDraggingDamping
-      : scrollConfig.scrollDamping;
-    if (!isDraggingStrip && Math.abs(s.velocity) < scrollConfig.snapVelocityThreshold) {
-      const snapTarget = Math.round(s.target);
-      if (Math.abs(snapTarget - s.target) > scrollConfig.snapEpsilon) {
-        s.target += (snapTarget - s.target) * scrollConfig.snapLerp;
-      } else {
-        s.target = snapTarget;
+    if (sc.scrollEnabled !== false) {
+      s.current += (s.target - s.current) * scrollConfig.scrollLerp;
+      s.velocity *= isDraggingStrip
+        ? scrollConfig.scrollDraggingDamping
+        : scrollConfig.scrollDamping;
+      if (!isDraggingStrip && Math.abs(s.velocity) < scrollConfig.snapVelocityThreshold) {
+        const snapTarget = Math.round(s.target);
+        if (Math.abs(snapTarget - s.target) > scrollConfig.snapEpsilon) {
+          s.target += (snapTarget - s.target) * scrollConfig.snapLerp;
+        } else {
+          s.target = snapTarget;
+        }
       }
+    } else {
+      s.velocity = 0;
+      s.target = s.current;
     }
 
     sys.uniforms.uScrollOffset.value = s.current;
-    sys.uniforms.uOpacity.value = sc.opacity ?? 1;
-    sys.uniforms.uDissolve.value = transitionActive ? transitionStripDissolve : 0;
+    if (transitionActive && transitionDirection === "toProject") {
+      sys.uniforms.uOpacity.value = transitionStripOpacity;
+      sys.uniforms.uDissolve.value = 0;
+    } else if (transitionActive && transitionDirection === "toWork") {
+      sys.uniforms.uOpacity.value = sc.opacity ?? 1;
+      sys.uniforms.uDissolve.value = transitionStripDissolve;
+    } else {
+      sys.uniforms.uOpacity.value = sc.opacity ?? 1;
+      sys.uniforms.uDissolve.value = 0;
+    }
     sys.uniforms.uExposure.value = sc.exposure ?? 0;
     sys.uniforms.uLevelsInLow.value = sc.levelsInLow ?? 0;
     sys.uniforms.uLevelsInHigh.value = sc.levelsInHigh ?? 1;
@@ -658,7 +680,13 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
   if (!activeTextures || !stripMaterial) return null;
 
   const handleStripPointerDown = (e: ThreeEvent<PointerEvent>) => {
-    if (!onWorkRef.current || transitionActive || document.body.classList.contains("menu-open"))
+    if (
+      !onWorkRef.current ||
+      cameraRigControlsRef.current.orbitControlEnabled ||
+      !stripControls.scrollEnabled ||
+      transitionActive ||
+      document.body.classList.contains("menu-open")
+    )
       return;
     e.stopPropagation();
     beginStripDrag(e.clientX, e.pointerId);
@@ -671,7 +699,12 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
   };
 
   const handleStripPointerMove = (e: ThreeEvent<PointerEvent>) => {
-    if (!onWorkRef.current || transitionActive || document.body.classList.contains("menu-open"))
+    if (
+      !onWorkRef.current ||
+      cameraRigControlsRef.current.orbitControlEnabled ||
+      transitionActive ||
+      document.body.classList.contains("menu-open")
+    )
       return;
     if (inputRef.current.isDown && inputRef.current.startedOnStrip) {
       hoverSlotRef.current = -1;
@@ -698,7 +731,8 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
   };
 
   const handleStripClick = (e: any) => {
-    if (!onWorkRef.current || transitionActive) return;
+    if (!onWorkRef.current || cameraRigControlsRef.current.orbitControlEnabled || transitionActive)
+      return;
     if (inputRef.current.dragDist > DRAG_THRESHOLD_PX || !e.uv) return;
     e.stopPropagation();
     const resolvedSlot = resolveVisibleSlotAtUv(
@@ -720,6 +754,7 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
       if (isNavigableHref(href)) navigateTo(href);
       return;
     }
+    if (!stripControls.scrollEnabled) return;
     // off-center → glide it to center; useFrame's dispatch updates the title.
     scrollRef.current.target = getScrollToCenterSlot(resolvedSlot.slotIndex, visibleItems);
     scrollRef.current.velocity = 0;

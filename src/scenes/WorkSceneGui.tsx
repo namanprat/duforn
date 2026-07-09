@@ -13,11 +13,16 @@ export default function WorkSceneGui({ enabled }: { enabled: boolean }) {
   useControls(
     "Work Strip",
     {
+      scrollEnabled: {
+        label: "scroll",
+        value: strip.scrollEnabled,
+        onChange: (v) => setControl("strip.scrollEnabled", v),
+      },
       Position: folder({
         x: {
           value: strip.x,
-          min: -40,
-          max: 40,
+          min: -100,
+          max: 100,
           step: 0.01,
           onChange: (v) => setControl("strip.x", v),
         },
@@ -30,8 +35,8 @@ export default function WorkSceneGui({ enabled }: { enabled: boolean }) {
         },
         z: {
           value: strip.z,
-          min: -40,
-          max: 40,
+          min: -100,
+          max: 100,
           step: 0.01,
           onChange: (v) => setControl("strip.z", v),
         },
@@ -65,9 +70,24 @@ export default function WorkSceneGui({ enabled }: { enabled: boolean }) {
       scale: {
         value: strip.scale,
         min: 0.1,
-        max: 4,
+        max: 10,
         step: 0.01,
         onChange: (v) => setControl("strip.scale", v),
+      },
+      curveRadius: {
+        label: "curve radius",
+        value: strip.curveRadius,
+        min: 1,
+        max: 50,
+        step: 0.1,
+        onChange: (v) => setControl("strip.curveRadius", v),
+      },
+      height: {
+        value: strip.stripHeight,
+        min: 0.5,
+        max: 20,
+        step: 0.1,
+        onChange: (v) => setControl("strip.stripHeight", v),
       },
       "Cloth Physics": folder({
         windStrength: {
