@@ -23,23 +23,7 @@ import {
   WATER_BASIN_LAYER,
   WATER_DEBUG_HIGHLIGHT_PLANE,
 } from "./config/poolWaterDefaults";
-import { uvToSimGrid } from "./waterSimUtils";
 import { prefersReducedMotion } from "../../lib/prefersReducedMotion";
-
-function buildStartupImpulseQueue(nw: number, nh: number) {
-  const s = POOL_SIM_DEFAULTS.startupImpulseStrengthScale * 1.25;
-  return [
-    { uv: new THREE.Vector2(0.36, 0.42), strengthScale: s },
-    { uv: new THREE.Vector2(0.62, 0.35), strengthScale: s * 0.9 },
-    { uv: new THREE.Vector2(0.48, 0.58), strengthScale: s * 1.05 },
-    { uv: new THREE.Vector2(0.71, 0.63), strengthScale: s * 0.85 },
-    { uv: new THREE.Vector2(0.27, 0.68), strengthScale: s * 0.95 },
-    { uv: new THREE.Vector2(0.82, 0.5), strengthScale: s * 0.88 },
-  ].map(({ uv, strengthScale }) => ({
-    ...uvToSimGrid(uv, nw, nh),
-    strengthScale,
-  }));
-}
 
 function simDimsFromBounds(bounds: WaterPlanarBounds, baseGridSize: number) {
   const sqrtAspect = Math.sqrt(bounds.width / bounds.depth);
@@ -112,7 +96,7 @@ export default function WaterRipples({ mesh, sceneRoot, onReady }: WaterRipplesP
 
     const ctx = causticsCtxRef.current;
     if (ctx) {
-      ctx.caustics.setBounds();
+      ctx.caustics.setBounds(bounds);
       ctx.receivers.setBounds(bounds);
       ctx.receivers.setWaterY(box.max.y);
     }
@@ -136,7 +120,7 @@ export default function WaterRipples({ mesh, sceneRoot, onReady }: WaterRipplesP
     }
   };
 
-  const queueImpulseFromHit = (hit: THREE.Intersection) => {
+  const hitToGrid = (hit: THREE.Intersection) => {
     const bounds = boundsRef.current ?? refreshBounds();
     if (!bounds) return null;
     return {
@@ -222,10 +206,19 @@ export default function WaterRipples({ mesh, sceneRoot, onReady }: WaterRipplesP
         }
         basinMeshesRef.current = receiverMeshes;
         if (receiverMeshes.length > 0 && causticsSize > 0) {
+          // Real pool depth for the refracted-ray floor projection.
+          let basinMinY = waterY;
+          const rmBox = new THREE.Box3();
+          for (const rm of receiverMeshes) {
+            rm.updateWorldMatrix(true, false);
+            rmBox.setFromObject(rm);
+            basinMinY = Math.min(basinMinY, rmBox.min.y);
+          }
           const caustics = createHomeCaustics(renderer, {
             sim,
             bounds,
             size: causticsSize,
+            poolDepth: waterY - basinMinY,
           });
           if (cancelled) {
             caustics.dispose();
@@ -259,8 +252,6 @@ export default function WaterRipples({ mesh, sceneRoot, onReady }: WaterRipplesP
         } else if (import.meta.env.DEV) {
           console.warn("[WaterRipples] no caustics receiver meshes found under the pool");
         }
-
-        impulseQueueRef.current = buildStartupImpulseQueue(nw, nh);
       } catch (err) {
         if (import.meta.env.DEV) {
           console.error("[WaterRipples] failed to build pool water", err);
@@ -306,7 +297,6 @@ export default function WaterRipples({ mesh, sceneRoot, onReady }: WaterRipplesP
 
     const queueImpulseAtEvent = (event: PointerEvent, strengthScale = 1) => {
       if (!simRef.current || prefersReducedMotion()) return;
-      refreshBounds();
 
       const rect = canvas.getBoundingClientRect();
       ndc.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -315,7 +305,7 @@ export default function WaterRipples({ mesh, sceneRoot, onReady }: WaterRipplesP
       const hits = raycaster.intersectObject(mesh, false);
       if (!hits.length) return;
 
-      const gridPoint = queueImpulseFromHit(hits[0]);
+      const gridPoint = hitToGrid(hits[0]);
       if (!gridPoint) return;
 
       const now = performance.now();
@@ -337,7 +327,7 @@ export default function WaterRipples({ mesh, sceneRoot, onReady }: WaterRipplesP
     const onPointerDown = (event: PointerEvent) => {
       lastSpawnTimeRef.current = 0;
       lastSpawnCellRef.current.set(-1, -1);
-      queueImpulseAtEvent(event, 1.2);
+      queueImpulseAtEvent(event, 1.15);
     };
 
     window.addEventListener("pointermove", onPointerMove, { passive: true });
@@ -428,13 +418,12 @@ export default function WaterRipples({ mesh, sceneRoot, onReady }: WaterRipplesP
         strength: c.strength,
         enabled: c.enabled,
         depthFade: c.depthFade,
+        edgeFade: c.edgeFade,
+        chromaShift: c.chromaShift,
+        maxBoost: c.maxBoost,
       });
       ctx.caustics.setParams({
         normalScale: c.normalScale,
-        depth: c.depth,
-        maxIntensity: c.maxIntensity,
-        gain: c.gain,
-        edgeFade: c.edgeFade,
       });
       if (c.enabled) ctx.caustics.update();
     }

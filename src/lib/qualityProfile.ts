@@ -5,6 +5,7 @@ export type QualityProfile = {
   waterSimRes: number;
   causticsSize: number;
   waterPassInterval: number;
+  planarReflectionScale: number;
   shadowMapSize: number;
 };
 
@@ -14,20 +15,23 @@ const PROFILES: Record<DeviceTier, QualityProfile> = {
     waterSimRes: 0,
     causticsSize: 0,
     waterPassInterval: 4,
+    planarReflectionScale: 0.35,
     shadowMapSize: 1536,
   },
   1: {
     maxDpr: 1,
     waterSimRes: 320,
     causticsSize: 0,
-    waterPassInterval: 3,
+    waterPassInterval: 4,
+    planarReflectionScale: 0.35,
     shadowMapSize: 1536,
   },
   2: {
     maxDpr: 1.5,
     waterSimRes: 448,
     causticsSize: 640,
-    waterPassInterval: 2,
+    waterPassInterval: 3,
+    planarReflectionScale: 0.45,
     shadowMapSize: 2048,
   },
   3: {
@@ -35,6 +39,7 @@ const PROFILES: Record<DeviceTier, QualityProfile> = {
     waterSimRes: 576,
     causticsSize: 896,
     waterPassInterval: 2,
+    planarReflectionScale: 0.6,
     shadowMapSize: 3072,
   },
 };

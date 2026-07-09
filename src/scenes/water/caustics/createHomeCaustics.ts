@@ -1,14 +1,21 @@
 /**
- * Home-pool caustics pass — WebGL Laplacian curvature caustics.
+ * Home-pool caustics — refracted-ray mesh splat (Evan Wallace style).
  *
- * RT channels: r = intensity (1 = neutral), g = edge-fade mask.
- * Receivers apply `base * (1 + (r - 1) * strength * g)`.
+ * A grid mesh (one cell per ~2 sim texels) is rendered into the caustics RT.
+ * Each vertex refracts the scene sun through the sim surface normal and moves
+ * to its floor-hit position in pool-UV space; the fragment shader compares
+ * screen-space triangle area before/after (dFdx/dFdy) so compressed triangles
+ * get bright. Additive blending lets converging rays overlap and accumulate —
+ * that overlap is what produces the sharp HDR filament network of real pools.
+ *
+ * RT: r = intensity (flat water sums to ~1 = neutral).
+ * Receivers apply `base * clamp(1 + (r - 1) * strength, 0, maxBoost)`.
  */
 import * as THREE from "three";
 import { POOL_CAUSTICS_DEFAULTS } from "../config/poolWaterDefaults";
 import { halfFloatMinMagFilter } from "../halfFloatTextureFilter";
 import { SCENE_SUN_DIR } from "../../lighting/sun";
-import type { WaterPlanarBounds } from "../waterPlanarMapping";
+import { planarBoundsToUniform, type WaterPlanarBounds } from "../waterPlanarMapping";
 
 type WaterSimLike = {
   getHeightTexture(): THREE.Texture;
@@ -34,55 +41,80 @@ export function causticsLightDirFromSceneSun() {
   return SCENE_SUN_DIR.clone();
 }
 
+// ponytail: single refraction bounce off a flat floor plane at uPoolDepth.
+// Ceiling: no wall bounces / no per-receiver depth — upgrade to a depth-aware
+// hit if the floor stops reading as flat.
 const WEBGL_VERT = /* glsl */ `
-  varying vec2 vUv;
+  precision highp float;
+
+  uniform sampler2D uHeightMap;
+  uniform vec2 uSimRes;
+  uniform vec4 uBounds;
+  uniform float uPoolDepth;
+  uniform vec3 uLightDir;
+  uniform float uNormalScale;
+
+  varying vec2 vOldUv;
+  varying vec2 vNewUv;
+
+  const float IOR_AIR = 1.0;
+  const float IOR_WATER = 1.333;
+
+  float decodeH(float r) { return (r - 0.5) * 2.0; }
+
+  float sampleH(vec2 uvIn) {
+    return decodeH(texture2D(uHeightMap, clamp(uvIn, 0.0, 1.0)).r);
+  }
+
+  vec3 sampleNormal(vec2 uvIn) {
+    float texelU = 1.0 / max(uSimRes.x - 1.0, 1.0);
+    float texelV = 1.0 / max(uSimRes.y - 1.0, 1.0);
+    float hL = sampleH(uvIn + vec2(-texelU, 0.0));
+    float hR = sampleH(uvIn + vec2( texelU, 0.0));
+    float hU = sampleH(uvIn + vec2(0.0, -texelV));
+    float hD = sampleH(uvIn + vec2(0.0,  texelV));
+    float nx = (hL - hR) * 0.5 * uNormalScale;
+    float nz = (hU - hD) * 0.5 * uNormalScale;
+    return normalize(vec3(nx, 1.0, nz));
+  }
 
   void main() {
-    vUv = position.xy * 0.5 + 0.5;
-    gl_Position = vec4(position.xy, 0.0, 1.0);
+    // Grid uv parameterizes the sim domain; sim v is flipped vs world-z fraction.
+    vec2 simUv = uv;
+    vec2 fracXZ = vec2(simUv.x, 1.0 - simUv.y);
+    vOldUv = fracXZ;
+
+    vec3 N = sampleNormal(simUv);
+    vec3 I = -normalize(uLightDir);
+    vec3 T = refract(I, N, IOR_AIR / IOR_WATER);
+    if (dot(T, T) < 1e-6) {
+      // TIR — throw the vertex off-screen so its triangles are clipped.
+      vNewUv = fracXZ;
+      gl_Position = vec4(2.0e3, 2.0e3, 2.0, 1.0);
+      return;
+    }
+
+    // Surface world XZ → refracted ray → hit on floor plane at uPoolDepth below.
+    vec2 worldXZ = uBounds.xy + fracXZ * uBounds.zw;
+    float t = -uPoolDepth / min(T.y, -1e-3);
+    vec2 hitXZ = worldXZ + T.xz * t;
+    vNewUv = (hitXZ - uBounds.xy) / uBounds.zw;
+
+    gl_Position = vec4(vNewUv * 2.0 - 1.0, 0.0, 1.0);
   }
 `;
 
 const WEBGL_FRAG = /* glsl */ `
   precision highp float;
 
-  varying vec2 vUv;
-
-  uniform sampler2D uHeightMap;
-  uniform vec2 uSimRes;
-  uniform float uDepth;
-  uniform vec3 uLightDir;
-  uniform float uNormalScale;
-  uniform float uMaxIntensity;
-  uniform float uEdgeFade;
-  uniform float uGain;
-
-  float decodeH(float r) { return (r - 0.5) * 2.0; }
-
-  float sampleHBilinear(vec2 uvIn) {
-    return decodeH(texture2D(uHeightMap, clamp(uvIn, 0.0, 1.0)).r);
-  }
+  varying vec2 vOldUv;
+  varying vec2 vNewUv;
 
   void main() {
-    vec2 simUv = vec2(vUv.x, 1.0 - vUv.y);
-    vec2 s = simUv + vec2(uLightDir.x, uLightDir.z) * uDepth;
-
-    float texelU = 1.0 / max(uSimRes.x - 1.0, 1.0);
-    float texelV = 1.0 / max(uSimRes.y - 1.0, 1.0);
-    float h  = sampleHBilinear(s);
-    float hL = sampleHBilinear(s + vec2(-texelU, 0.0));
-    float hR = sampleHBilinear(s + vec2( texelU, 0.0));
-    float hU = sampleHBilinear(s + vec2(0.0, -texelV));
-    float hD = sampleHBilinear(s + vec2(0.0,  texelV));
-
-    float lap = (hL + hR + hU + hD - 4.0 * h) * uNormalScale;
-    float intensity = clamp(1.0 + uGain * (-lap), 0.0, uMaxIntensity);
-
-    float fx = smoothstep(0.0, uEdgeFade, min(vUv.x, 1.0 - vUv.x));
-    float fy = smoothstep(0.0, uEdgeFade, min(vUv.y, 1.0 - vUv.y));
-    float edge = fx * fy;
-
-    gl_FragColor = vec4(mix(1.0, intensity, edge), edge, 0.0, 1.0);
+    float oldArea = length(dFdx(vOldUv)) * length(dFdy(vOldUv));
+    float newArea = length(dFdx(vNewUv)) * length(dFdy(vNewUv));
+    // Unclamped HDR — half-float RT + additive overlap builds the filaments.
+    gl_FragColor = vec4(oldArea / max(newArea, 1e-6), 0.0, 0.0, 1.0);
   }
 `;
 
@@ -92,11 +124,14 @@ export function createHomeCaustics(
   renderer: THREE.WebGLRenderer,
   {
     sim,
+    bounds,
     size,
+    poolDepth = 1,
   }: {
     sim: WaterSimLike;
     bounds: WaterPlanarBounds;
     size: number;
+    poolDepth?: number;
   },
 ) {
   const d = POOL_CAUSTICS_DEFAULTS;
@@ -116,36 +151,44 @@ export function createHomeCaustics(
   const uniforms = {
     uHeightMap: { value: sim.getHeightTexture() },
     uSimRes: { value: new THREE.Vector2(sim.getResolutionW(), sim.getResolutionH()) },
-    uDepth: { value: d.depth },
+    uBounds: { value: planarBoundsToUniform(bounds) },
+    uPoolDepth: { value: Math.max(poolDepth, 0.05) },
     uLightDir: { value: causticsLightDirFromSceneSun() },
     uNormalScale: { value: d.normalScale },
-    uMaxIntensity: { value: d.maxIntensity },
-    uEdgeFade: { value: d.edgeFade },
-    uGain: { value: d.gain },
   };
 
   const material = new THREE.ShaderMaterial({
     uniforms,
     vertexShader: WEBGL_VERT,
     fragmentShader: WEBGL_FRAG,
+    blending: THREE.AdditiveBlending,
     depthTest: false,
     depthWrite: false,
+    // Folding triangles flip winding — both faces must splat.
     side: THREE.DoubleSide,
   });
 
-  const geometry = new THREE.PlaneGeometry(2, 2);
+  const grid = Math.max(32, Math.min(320, Math.round(sim.getResolutionW() / 2)));
+  const geometry = new THREE.PlaneGeometry(2, 2, grid, grid);
   const mesh = new THREE.Mesh(geometry, material);
   mesh.frustumCulled = false;
   const scene = new THREE.Scene();
   scene.add(mesh);
   const camera = new THREE.OrthographicCamera();
 
+  const prevClearColor = new THREE.Color();
+
   const renderPass = () => {
     uniforms.uHeightMap.value = sim.getHeightTexture();
     const prevTarget = renderer.getRenderTarget();
+    renderer.getClearColor(prevClearColor);
+    const prevClearAlpha = renderer.getClearAlpha();
+    renderer.setClearColor(0x000000, 1);
     renderer.setRenderTarget(target);
+    renderer.clear(true, false, false);
     renderer.render(scene, camera);
     renderer.setRenderTarget(prevTarget);
+    renderer.setClearColor(prevClearColor, prevClearAlpha);
   };
 
   renderPass();
@@ -155,23 +198,19 @@ export function createHomeCaustics(
       return target.texture;
     },
     target,
-    setBounds() {},
+    setBounds(next: WaterPlanarBounds) {
+      uniforms.uBounds.value.copy(planarBoundsToUniform(next));
+    },
     setParams(
       next: {
         normalScale?: number;
-        depth?: number;
-        maxIntensity?: number;
-        gain?: number;
-        edgeFade?: number;
+        poolDepth?: number;
         lightElevationDeg?: number;
         lightAzimuthDeg?: number;
       } = {},
     ) {
       if (next.normalScale !== undefined) uniforms.uNormalScale.value = next.normalScale;
-      if (next.depth !== undefined) uniforms.uDepth.value = next.depth;
-      if (next.maxIntensity !== undefined) uniforms.uMaxIntensity.value = next.maxIntensity;
-      if (next.gain !== undefined) uniforms.uGain.value = next.gain;
-      if (next.edgeFade !== undefined) uniforms.uEdgeFade.value = next.edgeFade;
+      if (next.poolDepth !== undefined) uniforms.uPoolDepth.value = Math.max(next.poolDepth, 0.05);
       if (next.lightElevationDeg !== undefined || next.lightAzimuthDeg !== undefined) {
         uniforms.uLightDir.value.copy(
           causticsLightDirFromAngles(next.lightElevationDeg, next.lightAzimuthDeg),

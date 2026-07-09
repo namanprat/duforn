@@ -103,23 +103,33 @@ uniform vec4 uCausticBounds;
 uniform float uCausticWaterY;
 uniform float uCausticStrength;
 uniform float uCausticDepthFade;
+uniform float uCausticEdgeFade;
+uniform float uCausticChroma;
+uniform float uCausticMaxBoost;
 uniform float uCausticEnabled;
 `;
 
 const FRAG_APPLY = /* glsl */ `
 {
-  vec2 cUv = clamp(
-    vec2(
-      (vCausticWorld.x - uCausticBounds.x) / uCausticBounds.z,
-      (vCausticWorld.z - uCausticBounds.y) / uCausticBounds.w
-    ),
-    0.0,
-    1.0
+  vec2 cUv = vec2(
+    (vCausticWorld.x - uCausticBounds.x) / uCausticBounds.z,
+    (vCausticWorld.z - uCausticBounds.y) / uCausticBounds.w
   );
-  vec4 cSample = texture2D(uCausticTex, cUv);
+  float cEdge = smoothstep(0.0, uCausticEdgeFade, min(cUv.x, 1.0 - cUv.x))
+    * smoothstep(0.0, uCausticEdgeFade, min(cUv.y, 1.0 - cUv.y));
+  cUv = clamp(cUv, 0.0, 1.0);
+  // ponytail: chromatic fringe faked with 3 shifted samples of one caustics RT
+  // (radial shift), not per-IOR refraction passes. Ceiling: fringe direction is
+  // approximate — upgrade to 3 refraction passes if it reads wrong up close.
+  vec2 cDir = normalize(cUv - 0.5 + 1e-4);
+  vec3 cI = vec3(
+    texture2D(uCausticTex, cUv - cDir * uCausticChroma).r,
+    texture2D(uCausticTex, cUv).r,
+    texture2D(uCausticTex, cUv + cDir * uCausticChroma).r
+  );
   float cBelow = 1.0 - smoothstep(uCausticWaterY - uCausticDepthFade, uCausticWaterY, vCausticWorld.y);
-  float cK = (cSample.r - 1.0) * uCausticStrength * cSample.g * cBelow * uCausticEnabled;
-  outgoingLight *= max(1.0 + cK, 0.0);
+  vec3 cK = (cI - 1.0) * (uCausticStrength * cEdge * cBelow * uCausticEnabled);
+  outgoingLight *= clamp(vec3(1.0) + cK, 0.0, uCausticMaxBoost);
 }
 `;
 
@@ -151,7 +161,14 @@ function injectCausticsShader(shader: THREE.WebGLProgramParametersWithUniforms) 
   );
 }
 
-type ReceiverParams = { strength?: number; enabled?: boolean; depthFade?: number };
+type ReceiverParams = {
+  strength?: number;
+  enabled?: boolean;
+  depthFade?: number;
+  edgeFade?: number;
+  chromaShift?: number;
+  maxBoost?: number;
+};
 
 export type CausticsReceivers = {
   setBounds: (next: WaterPlanarBounds) => void;
@@ -182,6 +199,9 @@ export function applyCausticsReceivers(
     uCausticWaterY: { value: waterY },
     uCausticStrength: { value: d.strength },
     uCausticDepthFade: { value: d.depthFade },
+    uCausticEdgeFade: { value: d.edgeFade },
+    uCausticChroma: { value: d.chromaShift },
+    uCausticMaxBoost: { value: d.maxBoost },
     uCausticEnabled: { value: d.enabled ? 1 : 0 },
   };
 
@@ -208,10 +228,13 @@ export function applyCausticsReceivers(
     setWaterY(nextWaterY) {
       shared.uCausticWaterY.value = nextWaterY;
     },
-    setParams({ strength, enabled, depthFade }: ReceiverParams = {}) {
+    setParams({ strength, enabled, depthFade, edgeFade, chromaShift, maxBoost }: ReceiverParams = {}) {
       if (strength !== undefined) shared.uCausticStrength.value = strength;
       if (enabled !== undefined) shared.uCausticEnabled.value = enabled ? 1 : 0;
       if (depthFade !== undefined) shared.uCausticDepthFade.value = depthFade;
+      if (edgeFade !== undefined) shared.uCausticEdgeFade.value = edgeFade;
+      if (chromaShift !== undefined) shared.uCausticChroma.value = chromaShift;
+      if (maxBoost !== undefined) shared.uCausticMaxBoost.value = maxBoost;
     },
     restore() {
       for (const { mesh, original, replacement } of patched) {

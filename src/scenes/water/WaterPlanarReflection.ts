@@ -5,12 +5,12 @@
  * The water shader samples this via projective texture coordinates (mirror VP matrix).
  */
 import * as THREE from "three";
-import { REFLECTION_SCALE } from "./config/poolWaterDefaults";
+import { getWaterQuality } from "./config/poolWaterDefaults";
 
 const CLIP_BIAS = new THREE.Matrix4().set(0.5, 0.0, 0.0, 0.5, 0.0, 0.5, 0.0, 0.5, 0.0, 0.0, 0.5, 0.5, 0.0, 0.0, 0.0, 1.0);
 
-/** Scale a drawing-buffer dimension down to the reflection render-target size. */
-const rtDim = (px: number) => Math.max(1, Math.floor(px * REFLECTION_SCALE));
+/** Scale a drawing-buffer dimension down to the planar reflection RT size (tier-gated). */
+const rtDim = (px: number) => Math.max(1, Math.floor(px * getWaterQuality().planarReflectionScale));
 
 const tmpCamPos = new THREE.Vector3();
 const tmpLookAt = new THREE.Vector3();

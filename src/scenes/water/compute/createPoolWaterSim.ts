@@ -4,9 +4,9 @@ import { PoolShallowWaterSimGPU } from "./PoolShallowWaterSimGPU";
 export type PoolWaterSim = PoolShallowWaterSimGPU;
 
 /**
- * GPU ping-pong shallow-water factory. The CPU implementation
- * (`PoolShallowWaterSimCPU` / `shallowWaterCPU.ts`) is retained as the validated
- * reference for the wave equation the GPU shader ports — see its selfcheck.
+ * GPU ping-pong shallow-water factory. The CPU wave equation in
+ * `shallowWaterCPU.ts` is the validated reference the GPU shader ports —
+ * see its selfcheck.
  */
 export function createPoolWaterSim(
   gl: THREE.WebGLRenderer,

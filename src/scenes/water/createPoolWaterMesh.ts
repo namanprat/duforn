@@ -1,11 +1,16 @@
 import * as THREE from "three";
 import { SWATCH_LIGHT_NUM } from "../../lib/siteColors";
 import { findObjectByName } from "../sceneUtils";
-import { POOL_PLANE_DEFAULTS } from "./config/poolWaterDefaults";
+import { getWaterQuality, POOL_PLANE_DEFAULTS } from "./config/poolWaterDefaults";
 import { findWaterMesh } from "./findWaterMesh";
 
 const WATER_EXACT_NAME = "Water";
 const GENERATED_WATER_KEY = "__generatedPoolWater";
+
+/** Tessellation so vertex displacement gives real crest silhouettes; tied to sim res. */
+function waterPlaneSegments() {
+  return Math.max(1, Math.min(192, Math.round(getWaterQuality().simRes / 3)));
+}
 
 function meshWorldBox(mesh: THREE.Mesh) {
   mesh.updateWorldMatrix(true, false);
@@ -44,7 +49,8 @@ function createGeneratedWaterMesh(root: THREE.Object3D): THREE.Mesh | null {
     return null;
   }
 
-  const geometry = new THREE.PlaneGeometry(placement.width, placement.depth, 1, 1);
+  const segs = waterPlaneSegments();
+  const geometry = new THREE.PlaneGeometry(placement.width, placement.depth, segs, segs);
   geometry.rotateX(-Math.PI / 2);
 
   const mesh = new THREE.Mesh(
@@ -77,7 +83,8 @@ export function syncPoolWaterPlane(mesh: THREE.Mesh, root: THREE.Object3D) {
     if (!placement) return;
 
     mesh.geometry.dispose();
-    const geometry = new THREE.PlaneGeometry(placement.width, placement.depth, 1, 1);
+    const segs = waterPlaneSegments();
+    const geometry = new THREE.PlaneGeometry(placement.width, placement.depth, segs, segs);
     geometry.rotateX(-Math.PI / 2);
     mesh.geometry = geometry;
     mesh.position.copy(placement.localPosition);

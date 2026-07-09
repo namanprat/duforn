@@ -134,14 +134,17 @@ const FRAG =
     vec3 refractedColor =
       texture2D(uBackdrop, clamp(refrBase, vec2(0.001), vec2(0.999))).rgb * uAboveTint * transmittance;
 
-    vec3 reflectDir = reflect(-viewDir, fresnelN);
+    vec3 reflectDir = reflect(-viewDir, surfaceN);
     vec3 sunDirN = normalize(uSunDir);
 
     vec3 reflectionColor = vec3(0.0);
     if (uHasPlanarReflection > 0.5) {
-      vec3 distortedPos = vWorldPos + vec3(surfaceN.x, 0.0, surfaceN.z) * uReflectionDistortion;
-      vec4 reflectCoord = uReflectionMatrix * vec4(distortedPos, 1.0);
-      reflectionColor = texture2DProj(uPlanarReflection, reflectCoord).rgb;
+      // UV-space perturbation after the w-divide — resolution-independent, so
+      // ripples visibly wobble the mirror image.
+      vec4 reflectCoord = uReflectionMatrix * vec4(vWorldPos, 1.0);
+      vec2 reflectUv = reflectCoord.xy / max(reflectCoord.w, 1e-4)
+        + surfaceN.xz * uReflectionDistortion;
+      reflectionColor = texture2D(uPlanarReflection, clamp(reflectUv, 0.001, 0.999)).rgb;
     }
 
     if (uHasEnvCube > 0.5) {
@@ -158,7 +161,10 @@ const FRAG =
 
     float rippleSpec = pow(max(dot(normalize(reflect(-viewDir, surfaceN)), sunDirN), 0.0), uSunShininess * 0.32);
     float sunGlint = pow(max(dot(reflectDir, sunDirN), 0.0), uSunShininess);
-    finalColor += (rippleSpec * 0.65 + sunGlint * 0.35) * uSunGlintStrength * uSunColor * mix(0.35, 1.0, fresnel);
+    // Fade the tight lobes where the highlight angle changes fast per-pixel —
+    // kills sparkle crawl on the discrete sim grid.
+    float glintAA = 1.0 / (1.0 + 40.0 * fwidth(dot(reflectDir, sunDirN)));
+    finalColor += (rippleSpec * 0.65 + sunGlint * 0.35) * glintAA * uSunGlintStrength * uSunColor * mix(0.35, 1.0, fresnel);
 
     float alpha = clamp(mix(uOpacity, 1.0, fresnel), 0.0, 1.0);
     gl_FragColor = vec4(finalColor * uExposure, alpha);

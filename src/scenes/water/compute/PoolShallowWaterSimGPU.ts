@@ -187,9 +187,14 @@ export class PoolShallowWaterSimGPU {
   }
 
   /** Queue a ripple impulse at grid cell (gx, gy). Drained on the next step(). */
-  setImpulse(gx: number, gy: number, strengthScale = 1) {
+  setImpulse(gx: number, gy: number, strengthScale = 1, radiusScale = 1) {
     if (this.impulses.length >= MAX_IMPULSES * 4) return;
-    this.impulses.push(gx, gy, this.impulseStrength * strengthScale, this.impulseRadius);
+    this.impulses.push(
+      gx,
+      gy,
+      this.impulseStrength * strengthScale,
+      this.impulseRadius * radiusScale,
+    );
   }
 
   setSimParams(
