@@ -5,16 +5,15 @@ import { wrapEffect } from "@react-three/postprocessing";
 import { useDissolveTransitionStore } from "../../store/routeTransition";
 import { usePostFxControlsStore } from "../../store/postFx";
 import { getDissolveProgress } from "../preloader/bootRevealTimeline";
-import { tryCaptureDepartingHoldout } from "./departingHoldout";
 
 const HOLDOUT_FALLBACK = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1);
 HOLDOUT_FALLBACK.needsUpdate = true;
 HOLDOUT_FALLBACK.colorSpace = THREE.SRGBColorSpace;
 
 /**
- * Center-pierce dissolve on the live frame. Boot uses solid black outside the iris;
- * archive route changes freeze the departing page into uHoldout. Both use the full
- * stylized pierce (stars, rim glow, hold beat).
+ * Exact codegrid-ironhill wipe on the live frame.
+ * uProgress matches the demo: 0 = open (live), 1.1 = closed (holdout).
+ * Holdout fills where ironhill drew solid color — black on boot only.
  */
 const fragmentShader = /* glsl */ `
   uniform float uProgress;
@@ -22,29 +21,29 @@ const fragmentShader = /* glsl */ `
   uniform sampler2D uHoldout;
   uniform float uOutsideDarkness;
   uniform float uOutsideDesat;
+  uniform float uSpread;
 
-  float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float Hash(vec2 p) {
+    vec3 p2 = vec3(p.xy, 1.0);
+    return fract(sin(dot(p2, vec3(37.1, 61.7, 12.4))) * 3758.5453123);
+  }
 
-  float noise(vec2 p) {
+  float noise(in vec2 p) {
     vec2 i = floor(p);
     vec2 f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);
-    float a = hash(i);
-    float b = hash(i + vec2(1.0, 0.0));
-    float c = hash(i + vec2(0.0, 1.0));
-    float d = hash(i + vec2(1.0, 1.0));
-    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+    f *= f * (3.0 - 2.0 * f);
+    return mix(
+      mix(Hash(i + vec2(0.0, 0.0)), Hash(i + vec2(1.0, 0.0)), f.x),
+      mix(Hash(i + vec2(0.0, 1.0)), Hash(i + vec2(1.0, 1.0)), f.x),
+      f.y
+    );
   }
 
   float fbm(vec2 p) {
     float v = 0.0;
-    float amp = 0.5;
-    float freq = 1.0;
-    for (int i = 0; i < 3; i++) {
-      v += amp * noise(p * freq);
-      amp *= 0.5;
-      freq *= 2.0;
-    }
+    v += noise(p * 1.0) * 0.5;
+    v += noise(p * 2.0) * 0.25;
+    v += noise(p * 4.0) * 0.125;
     return v;
   }
 
@@ -72,38 +71,22 @@ const fragmentShader = /* glsl */ `
   }
 
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-    float cover = clamp(uProgress, 0.0, 1.0);
-    if (cover <= 0.0) { outputColor = inputColor; return; }
+    float progress = uProgress;
+    if (progress <= 0.0) { outputColor = inputColor; return; }
+    if (progress >= 1.1) {
+      outputColor = vec4(sampleOutside(uv), inputColor.a);
+      return;
+    }
 
-    // Torn boundary — domain-warped fbm, driven by cover (no time).
-    vec2 p = uv - 0.5;
-    p.x *= aspect;
-    float dist = length(p);
+    // Flipped ironhill edge — wipe travels the opposite vertical direction.
+    vec2 centeredUv = (uv - 0.5) * vec2(aspect, 1.0);
+    float dissolveEdge = (1.0 - uv.y) - progress * 1.2;
+    float noiseValue = fbm(centeredUv * 15.0);
+    float d = dissolveEdge + noiseValue * uSpread;
+    float pixelSize = texelSize.y;
+    float alpha = 1.0 - smoothstep(-pixelSize, pixelSize, d);
 
-    vec2 q = vec2(fbm(p * 3.0), fbm(p * 3.0 + vec2(5.2, 1.3)));
-    float edgeNoise = fbm(p * 5.0 + q * 2.5);
-    float maxDist = length(vec2(aspect * 0.5, 0.5));
-    float norm = (dist + (edgeNoise - 0.5) * 0.45) / maxDist;
-
-    // cover 1 → void covers everything; cover 0 → no void (caught by early-out).
-    float threshold = cover * 1.3;
-    float inside = 1.0 - smoothstep(threshold - 0.01, threshold + 0.01, norm);
-
-    // inside the tear = departing/void (black holdout on boot, washed old page on archive);
-    // outside = the revealed live scene.
-    vec3 col = mix(sampleInside(uv), sampleOutside(uv), inside);
-
-    // Soft glowing rim — layered falloffs off the boundary distance.
-    float ad = abs(norm - threshold);
-    float core = smoothstep(0.035, 0.0, ad);
-    float mid  = smoothstep(0.12, 0.0, ad);
-    float wide = smoothstep(0.30, 0.0, ad);
-    float glow = core + mid * 0.6 + wide * 0.25;
-    glow *= 0.65 + 0.7 * fbm(uv * vec2(aspect, 1.0) * 14.0);
-    glow = 1.0 - exp(-glow * 2.0);
-
-    col = mix(col, vec3(1.0, 0.98, 0.93), glow);
-
+    vec3 col = mix(sampleInside(uv), sampleOutside(uv), alpha);
     outputColor = vec4(col, inputColor.a);
   }
 `;
@@ -118,12 +101,13 @@ class DissolveEffectImpl extends Effect {
     const dissolve = usePostFxControlsStore.getState().controls.dissolve;
 
     super("DissolveTransition", fragmentShader, {
-      uniforms: new Map([
+      uniforms: new Map<string, Uniform<unknown>>([
         ["uProgress", new Uniform(0)],
         ["uHoldout", uHoldout],
         ["uUseHoldout", uUseHoldout],
         ["uOutsideDarkness", new Uniform(dissolve.outsideDarkness)],
         ["uOutsideDesat", new Uniform(dissolve.outsideDesat)],
+        ["uSpread", new Uniform(dissolve.edgeNoiseAmp)],
       ]),
     });
 
@@ -132,28 +116,29 @@ class DissolveEffectImpl extends Effect {
   }
 
   private syncDissolveUniforms(dissolve: ReturnType<typeof usePostFxControlsStore.getState>["controls"]["dissolve"]) {
-    const set = (key: string, value: number) => {
+    const set = (key: "uOutsideDarkness" | "uOutsideDesat" | "uSpread", value: number) => {
       const uniform = this.uniforms.get(key) as THREE.Uniform<number> | undefined;
       if (uniform) uniform.value = value;
     };
 
     set("uOutsideDarkness", dissolve.outsideDarkness);
     set("uOutsideDesat", dissolve.outsideDesat);
+    set("uSpread", dissolve.edgeNoiseAmp);
   }
 
-  update(renderer: THREE.WebGLRenderer, inputBuffer: THREE.WebGLRenderTarget, _delta: number) {
-    const captured = tryCaptureDepartingHoldout(renderer, inputBuffer);
-    if (captured) useDissolveTransitionStore.getState().setHoldout(captured);
-
+  update(_renderer: THREE.WebGLRenderer, inputBuffer: THREE.WebGLRenderTarget, _delta: number) {
     const { holdout, useHoldout, active } = useDissolveTransitionStore.getState();
     const dissolve = usePostFxControlsStore.getState().controls.dissolve;
-    this.syncDissolveUniforms(dissolve);
-
     const devPreview = import.meta.env.DEV && dissolve.devPreview;
-    const progress = devPreview ? dissolve.devProgress : active ? getDissolveProgress() : 0;
+    const progress = active ? getDissolveProgress() : devPreview ? dissolve.devProgress : 0;
 
     const uProgress = this.uniforms.get("uProgress");
     if (uProgress) uProgress.value = progress;
+
+    // ponytail: idle pass is a no-op — skip uniform churn when the wipe isn't running
+    if (progress <= 0 && !active) return;
+
+    this.syncDissolveUniforms(dissolve);
     this.uUseHoldout.value = useHoldout ? 1 : 0;
     if (holdout) this.uHoldout.value = holdout;
   }

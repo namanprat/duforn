@@ -4,8 +4,10 @@ import { useGSAP } from "@gsap/react";
 import { registerPageTextReveal } from "../lib/text";
 import { MOTION_TOKENS } from "../lib/animation/motionTokens";
 import {
+  isRouteTransitionActive,
   prefersReducedMotion,
   resolveMotionTokens,
+  waitForRouteTransitionIdle,
   waitForCamera as waitForCameraGate,
   waitForSceneAndCamera,
 } from "./useRevealGate";
@@ -59,7 +61,15 @@ export default function CameraRevealGroup({
         });
       };
 
-      if (waitForCamera && waitForScene) {
+      if (isRouteTransitionActive()) {
+        // Route transition owns the reveal — stay hidden until its show() call.
+        // Lazy mounts can miss that one-shot, so arm once the transition idles.
+        disposeCamera = waitForRouteTransitionIdle(() => {
+          if (waitForCamera && waitForScene) disposeCamera = waitForSceneAndCamera(root, runReveal);
+          else if (waitForCamera) disposeCamera = waitForCameraGate(root, runReveal);
+          else runReveal();
+        });
+      } else if (waitForCamera && waitForScene) {
         disposeCamera = waitForSceneAndCamera(root, runReveal);
       } else if (waitForCamera) {
         disposeCamera = waitForCameraGate(root, runReveal);

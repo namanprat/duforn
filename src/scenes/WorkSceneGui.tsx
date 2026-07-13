@@ -89,13 +89,27 @@ export default function WorkSceneGui({ enabled }: { enabled: boolean }) {
         step: 0.1,
         onChange: (v) => setControl("strip.stripHeight", v),
       },
+      visibleItems: {
+        label: "panels",
+        value: strip.visibleItems ?? 7,
+        min: 3,
+        max: 12,
+        step: 1,
+        onChange: (v) => setControl("strip.visibleItems", v),
+      },
       "Cloth Physics": folder({
+        windEnabled: {
+          label: "wind",
+          value: strip.windEnabled !== false,
+          onChange: (v) => setControl("strip.windEnabled", v),
+        },
         windStrength: {
           value: strip.windStrength,
           min: 0,
           max: 4,
           step: 0.01,
           onChange: (v) => setControl("strip.windStrength", v),
+          render: (get) => get("Work Strip.Cloth Physics.windEnabled"),
         },
         flutterAmplitude: {
           value: strip.flutterAmplitude,
@@ -117,6 +131,27 @@ export default function WorkSceneGui({ enabled }: { enabled: boolean }) {
           max: 4,
           step: 0.01,
           onChange: (v) => setControl("strip.gravityScale", v),
+        },
+      }),
+      Debug: folder({
+        showStripBack: {
+          label: "show strip back",
+          value: strip.showStripBack === true,
+          onChange: (v) => setControl("strip.showStripBack", v),
+        },
+        loopPreview: {
+          label: "see loop",
+          value: strip.loopPreview === true,
+          onChange: (v) => setControl("strip.loopPreview", v),
+        },
+        loopScrollSpeed: {
+          label: "loop speed",
+          value: strip.loopScrollSpeed ?? 0.02,
+          min: 0.002,
+          max: 0.2,
+          step: 0.002,
+          onChange: (v) => setControl("strip.loopScrollSpeed", v),
+          render: (get) => get("Work Strip.Debug.loopPreview"),
         },
       }),
       "Exposure / Levels": folder({

@@ -1,18 +1,14 @@
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import SiteLayout from "./layout/Site";
-import MainPage from "./routes/Main";
-import WorkPage from "./routes/Work";
-import ContactPage from "./routes/Contact";
-import CaseStudyPage from "./projectDetail/CaseStudyPage";
-import { getCaseStudyTitle } from "./content/projects";
-import ArchivePage from "./routes/Archive";
 import { setNavigateHandler } from "./lib/nav";
 import { getRouteNamespace } from "./lib/route";
-import { hideAllRegisteredPageText, showAllRegisteredPageText } from "./lib/text";
+import { showAllRegisteredPageText } from "./lib/text";
 import {
-  runArchiveRouteTransition,
-  shouldUseDissolveTransition,
+  runArchiveLiveWipeTransition,
+  runRoomCameraRouteTransition,
+  shouldUseArchiveLiveWipe,
+  shouldUseRoomCameraTransition,
 } from "./store/routeTransition";
 import {
   isWorkProjectTransitionActive,
@@ -23,12 +19,27 @@ import {
 import { destroyLenis, initLenis } from "./lib/lenis-scroll";
 import { PROJECT_DETAIL_SWATCH, SWATCH_DARK } from "./lib/siteColors";
 
+const MainPage = lazy(() => import("./routes/Main"));
+const WorkPage = lazy(() => import("./routes/Work"));
+const ContactPage = lazy(() => import("./routes/Contact"));
+const ArchivePage = lazy(() => import("./routes/Archive"));
+const CaseStudyPage = lazy(() => import("./projectDetail/CaseStudyPage"));
+
 const TITLES: Record<string, string> = {
   main: "Naman Pratulya",
   work: "Naman Pratulya | Work",
   contact: "Naman Pratulya | Contact",
   archive: "Naman Pratulya | Archive",
 };
+
+const CASE_STUDY_TITLES: Record<string, string> = {
+  "/money-me": "money.me",
+  "/haptic": "Haptic",
+};
+
+function RouteChunk({ children }: { children: ReactNode }) {
+  return <Suspense fallback={null}>{children}</Suspense>;
+}
 
 function AppShell() {
   const location = useLocation();
@@ -44,19 +55,17 @@ function AppShell() {
 
       transitionRef.current = true;
       try {
-        if (shouldUseDissolveTransition(location.pathname, nextPath)) {
-          await runArchiveRouteTransition(location.pathname, nextPath, navigate);
-        } else if (shouldUseProjectWorkTransition(location.pathname, nextPath)) {
+        if (shouldUseProjectWorkTransition(location.pathname, nextPath)) {
           if (getRouteNamespace(nextPath) === "projectDetail") {
             await runWorkToProjectTransition(nextPath, navigate);
           } else {
             await runProjectToWorkTransition(location.pathname, navigate);
           }
+        } else if (shouldUseRoomCameraTransition(location.pathname, nextPath)) {
+          await runRoomCameraRouteTransition(nextPath, navigate);
+        } else if (shouldUseArchiveLiveWipe(location.pathname, nextPath)) {
+          await runArchiveLiveWipeTransition(location.pathname, nextPath, navigate);
         } else {
-          await Promise.race([
-            hideAllRegisteredPageText(),
-            new Promise<void>((resolve) => window.setTimeout(resolve, 1200)),
-          ]);
           navigate(nextPath);
         }
       } finally {
@@ -67,7 +76,7 @@ function AppShell() {
   }, [navigate, location.pathname]);
 
   useLayoutEffect(() => {
-    const projectTitle = getCaseStudyTitle(location.pathname);
+    const projectTitle = CASE_STUDY_TITLES[location.pathname];
     document.title =
       projectTitle != null
         ? `Naman Pratulya | ${projectTitle}`
@@ -117,13 +126,62 @@ export default function App() {
   return (
     <Routes>
       <Route element={<AppShell />}>
-        <Route path="/" element={<MainPage />} />
-        <Route path="/work" element={<WorkPage />} />
-        <Route path="/contact" element={<ContactPage />} />
-        <Route path="/archive" element={<ArchivePage />} />
-        <Route path="/money-me" element={<CaseStudyPage />} />
-        <Route path="/haptic" element={<CaseStudyPage />} />
-        <Route path="*" element={<MainPage />} />
+        <Route
+          path="/"
+          element={
+            <RouteChunk>
+              <MainPage />
+            </RouteChunk>
+          }
+        />
+        <Route
+          path="/work"
+          element={
+            <RouteChunk>
+              <WorkPage />
+            </RouteChunk>
+          }
+        />
+        <Route
+          path="/contact"
+          element={
+            <RouteChunk>
+              <ContactPage />
+            </RouteChunk>
+          }
+        />
+        <Route
+          path="/archive"
+          element={
+            <RouteChunk>
+              <ArchivePage />
+            </RouteChunk>
+          }
+        />
+        <Route
+          path="/money-me"
+          element={
+            <RouteChunk>
+              <CaseStudyPage />
+            </RouteChunk>
+          }
+        />
+        <Route
+          path="/haptic"
+          element={
+            <RouteChunk>
+              <CaseStudyPage />
+            </RouteChunk>
+          }
+        />
+        <Route
+          path="*"
+          element={
+            <RouteChunk>
+              <MainPage />
+            </RouteChunk>
+          }
+        />
       </Route>
     </Routes>
   );

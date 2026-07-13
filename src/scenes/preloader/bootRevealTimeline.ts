@@ -5,29 +5,35 @@ import {
   runTransitionFovPunch,
   killTransitionFovTweens,
 } from "../cam/transitionFov";
-import { ARCHIVE_FOV } from "../cam/transitionFov";
 
 const TOKENS = MOTION_TOKENS.bootReveal;
 
-const progressTweenProxy = { value: 1 };
+/** Ironhill CONFIG max — full closed cover. */
+export const WIPE_CLOSED = 1.1;
+
+const progressTweenProxy = { value: WIPE_CLOSED };
+let activeProgressTimeline: gsap.core.Timeline | null = null;
 
 // ponytail: per-frame progress lives outside zustand — DissolveEffect reads this in update()
-let dissolveProgress = 1;
+let dissolveProgress = WIPE_CLOSED;
 
 export function getDissolveProgress(): number {
   return dissolveProgress;
 }
 
-function setCover(progress: number): void {
-  dissolveProgress = Math.min(1, Math.max(0, progress));
+function setProgress(progress: number): void {
+  dissolveProgress = Math.min(WIPE_CLOSED, Math.max(0, progress));
 }
 
+/** Set ironhill wipe progress (0 = open, 1.1 = closed). */
 export function setDissolveCover(progress: number): void {
-  setCover(progress);
-  progressTweenProxy.value = progress;
+  setProgress(progress);
+  progressTweenProxy.value = dissolveProgress;
 }
 
 export function killDissolveProgressTweens(): void {
+  activeProgressTimeline?.kill();
+  activeProgressTimeline = null;
   gsap.killTweensOf(progressTweenProxy);
   killTransitionFovTweens();
 }
@@ -35,107 +41,102 @@ export function killDissolveProgressTweens(): void {
 type PierceTimelineOpts = {
   targetFov?: number;
   fov?: boolean;
-  onSwap?: () => void;
   onPierceReveal?: () => void;
   onComplete?: () => void;
 };
 
-/**
- * Single GSAP timeline: hold at full cover → iris 1→0, optional FOV punch, pierce-reveal at burst peak.
- */
-export function runPierceTimeline({
-  targetFov = 70,
-  fov = false,
-  onSwap,
-  onPierceReveal,
-  onComplete,
-}: PierceTimelineOpts = {}): Promise<void> {
-  killDissolveProgressTweens();
-  setDissolveCover(1);
-
-  return new Promise((resolve) => {
-    const tl = gsap.timeline({
-      onComplete: () => {
-        onComplete?.();
-        resolve();
-      },
-    });
-
-    // Beat 1 — full cover, stars gather (no iris hole yet)
-    tl.to(progressTweenProxy, {
-      value: 1,
-      duration: TOKENS.holdDuration,
-      onUpdate: () => setCover(progressTweenProxy.value),
-    });
-
-    // Beat 2 — iris opens center-out
-    tl.to(
-      progressTweenProxy,
-      {
-        value: 0,
-        duration: TOKENS.openDuration,
-        ease: TOKENS.openEase,
-        onUpdate: () => setCover(progressTweenProxy.value),
-      },
-      ">0",
-    );
-
-    if (onSwap) {
-      tl.call(onSwap, [], TOKENS.holdDuration);
-    }
-
-    if (fov) {
-      tl.call(() => runTransitionFovPunch(targetFov, TOKENS.fovEase), [], TOKENS.holdDuration);
-    }
-
-    const pierceAt =
-      TOKENS.holdDuration + TOKENS.openDuration * TOKENS.pierceRevealAt;
-    tl.call(() => onPierceReveal?.(), [], pierceAt);
-  });
-}
-
-type PierceCloseTimelineOpts = {
+type CloseTimelineOpts = {
   fromFov?: number;
   fov?: boolean;
   onComplete?: () => void;
 };
 
-/** Reverse of runPierceTimeline: iris closes outside-in, hold at full cover. */
-export function runPierceCloseTimeline({
-  fromFov = ARCHIVE_FOV,
+/**
+ * Ironhill-style wipe close: linear progress 0 → 1.1, optional FOV widen.
+ */
+export function runIronhillCloseTimeline({
+  fromFov = 70,
   fov = false,
   onComplete,
-}: PierceCloseTimelineOpts = {}): Promise<void> {
+}: CloseTimelineOpts = {}): Promise<void> {
   killDissolveProgressTweens();
   setDissolveCover(0);
 
   return new Promise((resolve) => {
+    let settled = false;
+    const settle = (completed: boolean) => {
+      if (settled) return;
+      settled = true;
+      if (activeProgressTimeline === tl) activeProgressTimeline = null;
+      if (completed) onComplete?.();
+      resolve();
+    };
     const tl = gsap.timeline({
-      onComplete: () => {
-        onComplete?.();
-        resolve();
-      },
+      onComplete: () => settle(true),
+      onInterrupt: () => settle(false),
     });
+    activeProgressTimeline = tl;
 
     tl.to(progressTweenProxy, {
-      value: 1,
+      value: WIPE_CLOSED,
       duration: TOKENS.openDuration,
       ease: TOKENS.openEase,
-      onUpdate: () => setCover(progressTweenProxy.value),
+      onUpdate: () => setProgress(progressTweenProxy.value),
     });
 
     if (fov) {
       tl.call(() => runTransitionFovClose(fromFov, TOKENS.fovEase), [], 0);
     }
+  });
+}
 
-    tl.to(
-      progressTweenProxy,
-      {
-        value: 1,
-        duration: TOKENS.holdDuration,
-        onUpdate: () => setCover(progressTweenProxy.value),
-      },
-      ">0",
-    );
+/**
+ * Ironhill-style wipe open: linear progress 1.1 → 0 (scroll-driven feel), optional FOV punch.
+ */
+export function runPierceTimeline({
+  targetFov = 70,
+  fov = false,
+  onPierceReveal,
+  onComplete,
+}: PierceTimelineOpts = {}): Promise<void> {
+  killDissolveProgressTweens();
+  setDissolveCover(WIPE_CLOSED);
+
+  return new Promise((resolve) => {
+    let settled = false;
+    let pierced = false;
+    const reveal = () => {
+      if (pierced) return;
+      pierced = true;
+      onPierceReveal?.();
+    };
+    const settle = (completed: boolean) => {
+      if (settled) return;
+      settled = true;
+      if (activeProgressTimeline === tl) activeProgressTimeline = null;
+      reveal();
+      if (completed) onComplete?.();
+      resolve();
+    };
+    const tl = gsap.timeline({
+      onComplete: () => settle(true),
+      // ponytail: interruption is cleanup, not an error; let playDissolve reach finally.
+      onInterrupt: () => settle(false),
+    });
+    activeProgressTimeline = tl;
+
+    // Linear like ironhill scroll — no hold beat, continuous wipe.
+    tl.to(progressTweenProxy, {
+      value: 0,
+      duration: TOKENS.openDuration,
+      ease: TOKENS.openEase,
+      onUpdate: () => setProgress(progressTweenProxy.value),
+    });
+
+    if (fov) {
+      tl.call(() => runTransitionFovPunch(targetFov, TOKENS.fovEase), [], 0);
+    }
+
+    tl.call(reveal, [], TOKENS.openDuration * TOKENS.pierceRevealAt);
   });
 }

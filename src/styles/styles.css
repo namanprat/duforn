@@ -32,9 +32,13 @@ html {
 }
 
 :root {
-  /* ─── Fonts ─────────────────────────────────────────── */
+  /* ─── Fonts ─────────────────────────────────────────── 
+    --text-style-font-secondary: "trade-gothic-next-condensed", sans-serif;
+    */
   --text-style-font-primary: ivypresto-display, serif;
-  --text-style-font-secondary: "trade-gothic-next-condensed", sans-serif;
+
+
+  --text-style-font-secondary: ivypresto-display, serif;
   --text-style-font-tertiary: DufornMono, monospace;
 
 
@@ -135,49 +139,54 @@ html {
   --site--screen-height: 100svh;
   --site--safe-area-top: env(safe-area-inset-top, 0px);
   --site--safe-area-bottom: env(safe-area-inset-bottom, 0px);
-  --site--margin: clamp(1rem, 0.5556rem + 2.2222vw, 3rem);
+  /* ponytail: pure-proportional margin/gutter — calibrated to the 1080px look
+     (3.05% / 2.26% of viewport). max() floors mobile at 1rem; no upper cap so
+     every desktop size is a uniform scale of 1080 instead of a drifting %. */
+  --site--margin: max(1rem, 3.05vw);
   --page-top-pad: max(6rem, calc(env(safe-area-inset-top) + 4rem));
-  --site--gutter: clamp(1rem, 0.7778rem + 1.1111vw, 2rem);
+  --site--gutter: max(1rem, 2.26vw);
   --site--gutter-total: calc(var(--site--gutter) * (var(--site--column-count) - 1));
+  --site--grid-width: calc(100vw - var(--site--margin) * 2);
   --max-width--small: 50rem;
-  --max-width--main: calc(var(--site--viewport-max) * 1rem);
-  --container--main: var(--max-width--main);
+  --container--main: var(--site--grid-width);
   --container--small: var(--max-width--small);
-  --container--full: calc(100vw - (var(--site--margin) * 2));
+  --container--full: var(--site--grid-width);
   --site--viewport-min-height-cover: min(88svh, 62rem);
   --site--viewport-min-height-supporting: min(78svh, 60rem);
   --site--viewport-min-height-row: 56svh;
   --column-width: calc(
     (
-        min(var(--max-width--main), 100% - var(--site--margin) * 2) -
+        var(--site--grid-width) -
           (var(--site--gutter) * (var(--site--column-count) - 1))
       ) /
       var(--site--column-count)
   );
   --column-width-plus-gutter: calc(var(--column-width) + var(--site--gutter));
-  --column-width-2: calc(var(--column-width-plus-gutter) * 2 - var(--site--gutter));
-  --column-width-3: calc(var(--column-width-plus-gutter) * 3 - var(--site--gutter));
-  --column-width-4: calc(var(--column-width-plus-gutter) * 4 - var(--site--gutter));
-  --column-width-5: calc(var(--column-width-plus-gutter) * 5 - var(--site--gutter));
-  --column-width-6: calc(var(--column-width-plus-gutter) * 6 - var(--site--gutter));
-  --column-width-7: calc(var(--column-width-plus-gutter) * 7 - var(--site--gutter));
-  --column-width-8: calc(var(--column-width-plus-gutter) * 8 - var(--site--gutter));
-  --column-width-9: calc(var(--column-width-plus-gutter) * 9 - var(--site--gutter));
-  --column-width-10: calc(var(--column-width-plus-gutter) * 10 - var(--site--gutter));
-  --column-width-11: calc(var(--column-width-plus-gutter) * 11 - var(--site--gutter));
-  --column-width-12: calc(var(--column-width-plus-gutter) * 12 - var(--site--gutter));
+  /* min(N, count) clamps a span to the columns that actually exist, so a -10 span
+     doesn't overflow when the count drops to 8 (tablet) or 4 (mobile). */
+  --column-width-2: calc(var(--column-width-plus-gutter) * min(2, var(--site--column-count)) - var(--site--gutter));
+  --column-width-3: calc(var(--column-width-plus-gutter) * min(3, var(--site--column-count)) - var(--site--gutter));
+  --column-width-4: calc(var(--column-width-plus-gutter) * min(4, var(--site--column-count)) - var(--site--gutter));
+  --column-width-5: calc(var(--column-width-plus-gutter) * min(5, var(--site--column-count)) - var(--site--gutter));
+  --column-width-6: calc(var(--column-width-plus-gutter) * min(6, var(--site--column-count)) - var(--site--gutter));
+  --column-width-7: calc(var(--column-width-plus-gutter) * min(7, var(--site--column-count)) - var(--site--gutter));
+  --column-width-8: calc(var(--column-width-plus-gutter) * min(8, var(--site--column-count)) - var(--site--gutter));
+  --column-width-9: calc(var(--column-width-plus-gutter) * min(9, var(--site--column-count)) - var(--site--gutter));
+  --column-width-10: calc(var(--column-width-plus-gutter) * min(10, var(--site--column-count)) - var(--site--gutter));
+  --column-width-11: calc(var(--column-width-plus-gutter) * min(11, var(--site--column-count)) - var(--site--gutter));
+  --column-width-12: calc(var(--column-width-plus-gutter) * min(12, var(--site--column-count)) - var(--site--gutter));
 
   --typography-font-size-text-small: clamp(0.875rem, 0.8393rem + 0.1786vw, 1.0625rem);
   --typography-font-size-body-small: var(--typography-font-size-text-small);
-  /* Fixed (non-fluid) so p / a / h5 / h6 / button read identically on every screen size. */
-  --typography-font-size-text-main: 1.2rem;
+  --typography-font-size-text-main: 1rem;
   --typography-font-size-large: clamp(1.125rem, 1.0893rem + 0.1786vw, 1.3125rem);
-  --typography-font-size-h6: var(--typography-font-size-text-main);
   --typography-font-size-h5: var(--typography-font-size-text-main);
+  --typography-font-size-h6: calc(var(--typography-font-size-text-main) * 1.3);
   --typography-font-size-h4: clamp(1.75rem, 1.6944rem + 0.2778vw, 2rem);
   --typography-font-size-h3: clamp(2rem, 2.5rem + 0.8333vw, 2.5rem);
   --typography-font-size-h2: clamp(2.5rem, 2.1667rem + 1.6667vw, 4rem);
   --typography-font-size-h1: clamp(3rem, 2.5556rem + 2.2222vw, 5rem);
+  --typography-font-size-hero: clamp(3.5rem, 2.8rem + 3.5vw, 7.5rem);
   --typography-font-size-display: calc(clamp(5rem, 5.5rem + 4.45vw, 12rem));
 
   --spacing-section-space-small: clamp(3rem, 2.5556rem + 2.2222vw, 5rem);
@@ -390,7 +399,7 @@ h3 {
   font-family: var(--text-style-font-primary);
   font-size: var(--typography-font-size-h3);
   font-weight: 500;
-  line-height: var(--typography-line-height-small);
+  line-height: var(--typography-line-height-1);
   letter-spacing: var(--typography-letter-spacing);
 }
 
@@ -400,6 +409,16 @@ h4 {
   font-weight: 700;
   line-height: var(--typography-line-height-1);
 }
+h5 {
+  font-family: var(--text-style-font-tertiary);
+  font-size: var(--typography-font-size-main);
+  line-height: var(--typography-line-height-1);
+}
+h6 {
+  font-family: var(--text-style-font-primary);
+  font-size: var(--typography-font-size-h6);
+  line-height: var(--typography-line-height-1-3);
+}
 button,
 a.button,
 a,
@@ -407,13 +426,11 @@ h5,
 h6 {
   font-family: var(--text-style-font-tertiary);
   text-decoration: none;
-  line-height: var(--typography-line-height-medium);
+  line-height: var(--typography-line-height-1);
   letter-spacing: var(--typography-letter-spacing);
 }
 
-h5,
 h6,
-p,
 a,
 button,
 a.button {
@@ -433,7 +450,7 @@ p {
   font-weight: 400;
   font-style: normal;
   text-decoration: none;
-  line-height: var(--typography-line-height-medium);
+  line-height: var(--typography-line-height-1-3);
 }
 
 button,
@@ -648,7 +665,7 @@ html:not(.scene-live) .site-header {
   pointer-events: auto;
 }
 
-.scene_preload_overlay--scene-visible {
+.scene_preload_overlay--gpu-background {
   background: transparent;
 }
 
@@ -670,11 +687,89 @@ html:not(.scene-live) .site-header {
   opacity: 0;
 }
 
-.scene_preload_progress {
-  font-family: var(--text-style-font-tertiary);
-  font-size: var(--typography-font-size-body-small);
-  letter-spacing: var(--typography-letter-spacing);
-  text-transform: uppercase;
+/* Shared column-grid overlay: the canonical dashed grid (from the preloader),
+   reused by <GridLines> for both the boot overlay and the Shift+G aid. It matches
+   the real layout box exactly — same width/cap as .u-container-main — so the N
+   columns land on the same lines --column-width derives from. Count is responsive
+   via --site--column-count (rendered as N flex children). Red fill/lines apply
+   only under .grid-overlay (Shift+G); preloader keeps the subtle light dashes. */
+.grid-lines {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - var(--site--margin) * 2);
+  max-width: var(--container--main);
+  display: flex;
+  gap: var(--site--gutter);
+  pointer-events: none;
+}
+
+.grid-lines_col {
+  flex: 1 1 0;
+  border-inline: 1px dashed color-mix(in srgb, var(--swatch-light) 8%, transparent);
+}
+
+/* Full-viewport wrapper for the Shift+G aid — above everything, never clickable. */
+.grid-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  pointer-events: none;
+}
+
+.grid-overlay .grid-lines_col {
+  border-inline: 1px solid red;
+  background: rgb(255 0 0 / 10%);
+}
+
+.scene_preload_counter {
+  display: flex;
+  font-family: var(--text-style-font-primary);
+  font-size: var(--typography-font-size-h1);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.scene_preload_odometer_slot {
+  height: 1em;
+  overflow: hidden;
+}
+
+.scene_preload_odometer_strip {
+  display: block;
+  will-change: transform;
+}
+
+.scene_preload_odometer_strip span {
+  display: block;
+  height: 1em;
+  text-align: center;
+}
+
+.scene_preload_name {
+  margin: 0;
+  font-family: var(--text-style-font-primary);
+  font-style: italic;
+  font-size: var(--typography-font-size-h1);
+  line-height: 1;
+  white-space: pre;
+}
+
+.scene_preload_name span {
+  display: inline-block;
+  opacity: 0;
+  will-change: transform;
+}
+
+.scene_preload_sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
   margin: 0;
 }
 
@@ -683,6 +778,8 @@ html:not(.scene-live) .site-header {
   flex-direction: column;
   align-items: center;
   gap: var(--size-1-5rem);
+  opacity: 0;
+  visibility: hidden;
 }
 
 .scene_preload_enter_btn {
@@ -691,7 +788,7 @@ html:not(.scene-live) .site-header {
 
 .scene_preload_enter_muted {
   font-family: var(--text-style-font-tertiary);
-  font-size: var(--typography-font-size-body-small);
+  font-size: var(--typography-font-size-text-main);
   letter-spacing: var(--typography-letter-spacing);
   text-transform: uppercase;
   color: var(--swatch-light);
@@ -741,6 +838,9 @@ body.page-wrap.page-wrap--scrollable:has([data-page-namespace="projectDetail"])
   padding-top: calc(var(--spacing-space-5) + var(--site--safe-area-top));
   color: var(--swatch-light);
   pointer-events: none;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto;
 }
 
 .site-header__brand,
@@ -762,7 +862,9 @@ body.menu-open .site-header .menu-nav-backdrop {
 
 .site-header .site-header__inner {
   position: relative;
-  z-index: 60;
+  z-index: calc(var(--z-menu) + 1);
+  grid-area: 1 / 1;
+  align-self: start;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -771,14 +873,18 @@ body.menu-open .site-header .menu-nav-backdrop {
   margin-right: auto;
   width: calc(100% - var(--site--margin) * 2);
   max-width: var(--container--main);
+  min-height: calc(var(--button-pad-block) * 2 + 1em);
 }
 
 .site-header__brand {
   display: inline-flex;
   align-items: center;
   white-space: nowrap;
-  /* Match menu toggle pad so brand + Menu share the same desktop inset/rhythm. */
+  /* Match menu toggle pad so brand + Menu share the same desktop inset/rhythm.
+     Zero the outer (leading) pad so the wordmark lands on the col-1 gridline
+     while keeping the trailing pad for rhythm with the Menu cluster. */
   padding: var(--button-pad-block) var(--button-pad-inline);
+  padding-inline-start: 0;
   line-height: var(--typography-line-height-medium);
   transition: color 0.4s ease;
 }
@@ -792,9 +898,15 @@ body.menu-open .site-header .menu-nav-backdrop {
 
 .link-main {
   font-family: var(--text-style-font-primary);
+  font-size: var(--typography-font-size-text-main);
   letter-spacing: normal;
   text-decoration: none;
   color: inherit;
+}
+
+.site-header__brand .char-hover__clip,
+.menu-nav__toggle .char-hover__clip {
+  line-height: var(--typography-line-height-medium);
 }
 
 .char-hover__clip {
@@ -854,6 +966,12 @@ body.menu-open .site-header .menu-nav-backdrop {
   position: relative;
   isolation: isolate;
   background: transparent !important;
+  font-size: var(--typography-font-size-text-main);
+}
+
+.stagger-hover-btn__text,
+.stagger-hover-btn__icon {
+  font-size: var(--typography-font-size-text-main);
 }
 
 .stagger-hover-btn__bg {
@@ -932,7 +1050,11 @@ body.menu-open .site-header .menu-nav-backdrop {
 
 .menu-nav-wrap {
   position: relative;
-  margin-top: calc(-1 * (var(--spacing-space-5) + var(--site--safe-area-top)));
+  grid-area: 1 / 1;
+  align-self: start;
+  width: 100%;
+  margin-top: 0;
+  z-index: 2;
 }
 
 .menu-nav-track {
@@ -945,6 +1067,7 @@ body.menu-open .site-header .menu-nav-backdrop {
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  min-height: calc(var(--button-pad-block) * 2 + 1em);
 }
 
 .menu-nav {
@@ -975,11 +1098,19 @@ body.menu-open .site-header .menu-nav-backdrop {
 }
 
 .menu-nav.is-open:not(.is-about) .menu-nav__surface {
-  --menu-surface-w: min(16.72rem, calc((100vw - var(--site--margin) * 2) * 1.045));
+  --menu-surface-w: var(--column-width-3);
 }
 
 .menu-nav.is-about .menu-nav__surface {
-  --menu-surface-w: min(39rem, calc(100vw - var(--site--margin) * 2));
+  --menu-surface-w: var(--column-width-4);
+}
+
+/* Tablet only (769–1024): menu box narrows to 2 cols. Excludes ≤768 so the
+   mobile menu keeps the wider default. About stays 4 cols at every size. */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .menu-nav.is-open:not(.is-about) .menu-nav__surface {
+    --menu-surface-w: var(--column-width-2);
+  }
 }
 
 .menu-nav.is-open .menu-nav__surface,
@@ -990,7 +1121,7 @@ body.menu-open .site-header .menu-nav-backdrop {
 .menu-nav__chrome {
   display: inline-flex;
   justify-content: flex-end;
-  align-items: stretch;
+  align-items: center;
   width: auto;
   box-sizing: border-box;
   line-height: var(--typography-line-height-medium);
@@ -1026,7 +1157,6 @@ body.menu-open .site-header .menu-nav-backdrop {
   text-align: right;
   white-space: nowrap;
   min-height: calc(var(--button-pad-block) * 2 + 1em);
-  transition: transform 0.2s ease;
 }
 
 .menu-nav.is-open .menu-nav__toggle,
@@ -1039,12 +1169,6 @@ body.menu-open .site-header .menu-nav-backdrop {
   outline-offset: 4px;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .menu-nav__toggle:hover {
-    transform: scale(0.98);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .menu-nav__surface {
     transition: none;
@@ -1052,11 +1176,13 @@ body.menu-open .site-header .menu-nav-backdrop {
 }
 
 .menu-nav__toggle.link-main {
-  font-family: var(--text-style-font-primary);
-  letter-spacing: normal;
-  text-transform: none;
-  font-size: inherit;
+  /* Mono + uppercase, matching the site's anchor/button treatment. */
+  font-family: var(--text-style-font-tertiary);
+  letter-spacing: var(--typography-letter-spacing);
+  text-transform: uppercase;
+  font-size: var(--typography-font-size-text-main);
   line-height: var(--typography-line-height-medium);
+  color: var(--swatch-light);
 }
 
 .menu-nav:not(.is-open):not(.is-about) .menu-nav__toggle .char-hover__clip {
@@ -1092,6 +1218,7 @@ body.menu-open .site-header .menu-nav-backdrop {
 .menu-nav.is-about.is-body-visible .menu-nav__body {
   display: block;
   pointer-events: auto;
+  /* Match the toggle's own pad so the box interior lines up with the button's top/right. */
   padding: 0 var(--button-pad-inline) var(--button-pad-inline);
 }
 
@@ -1101,15 +1228,11 @@ body.menu-open .site-header .menu-nav-backdrop {
 
 @media (max-width: 768px) {
   .site-header {
-    display: grid;
-    grid-template-columns: 1fr;
-    grid-template-rows: auto;
     --menu-pad-block: 0.63rem;
     --menu-pad-inline: 1.125rem;
   }
 
   .site-header .site-header__inner {
-    grid-area: 1 / 1;
     align-self: start;
     align-items: center;
     min-height: calc(var(--menu-pad-block) * 2 + 1em);
@@ -1153,7 +1276,6 @@ body.menu-open .site-header .menu-nav-backdrop {
 
 
   .menu-nav-wrap {
-    grid-area: 1 / 1;
     margin-top: 0;
     align-self: start;
     z-index: 2;
@@ -1385,6 +1507,18 @@ body.menu-open .site-header .menu-nav-backdrop {
 }
 
 /* --- Archive -------------------------------------------------------------- */
+.archive-view-switcher__tab {
+  appearance: none;
+  border: none;
+  border-radius: 999px;
+  font-family: var(--text-style-font-tertiary);
+  font-size: var(--typography-font-size-text-main);
+  letter-spacing: var(--typography-letter-spacing);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s;
+}
+
 .archive-page {
   position: relative;
   width: 100%;
@@ -1415,7 +1549,7 @@ body.menu-open .site-header .menu-nav-backdrop {
 .hero_contain {
   margin: 0 auto;
   width: calc(100% - var(--site--margin) * 2);
-  max-width: var(--max-width--main);
+  max-width: var(--container--main);
 }
 
 .hero_stack {
@@ -1451,11 +1585,12 @@ body.menu-open .site-header .menu-nav-backdrop {
 .hero_title_lead {
   display: block;
   margin: 0;
-  font-family: var(--text-style-font-secondary);
-  font-size: clamp(3rem, 1.6rem + 6.4vw, 7rem);
-  line-height: 0.88;
-  letter-spacing: -0.02em;
-  text-transform: capitalize;
+  font-family: var(--text-style-font-primary);
+  font-style: italic;
+  font-weight: 100;
+  font-size: var(--typography-font-size-hero);
+  line-height: 1;
+  letter-spacing: var(--typography-letter-spacing-title);
 }
 
 .hero_title_serif {
@@ -1463,18 +1598,16 @@ body.menu-open .site-header .menu-nav-backdrop {
   margin-top: var(--spacing-space-2);
   font-family: var(--text-style-font-primary);
   font-weight: 100;
-  font-size: clamp(2.25rem, 1.3rem + 4.6vw, 5.875rem);
-  line-height: 1.1;
+  font-size: var(--typography-font-size-hero);
+  line-height: 0.95;
   text-transform: uppercase;
   letter-spacing: var(--typography-letter-spacing-title);
 }
 
 .hero_text {
-  /* Left-aligned, sized to its own content so it can overflow the (button-width)
-     rail to the right while its left edge stays pinned to the button's left edge. */
-  width: max-content;
   max-width: min(46ch, 80vw);
-  text-align: left;
+  margin-inline: auto;
+  text-align: center;
   font-family: var(--text-style-font-tertiary);
   text-transform: uppercase;
   letter-spacing: -0.05em;
@@ -1511,31 +1644,26 @@ body.menu-open .site-header .menu-nav-backdrop {
   align-items: center;
 }
 
-.contact_contain {
-  container-type: inline-size;
+.contact_wrap .contact_contain {
   display: grid;
-  grid-template-columns: auto auto;
+  grid-template-columns: repeat(var(--site--column-count), minmax(0, 1fr));
   grid-template-rows: auto auto;
-  row-gap: var(--spacing-space-3);
-  column-gap: clamp(2.25rem, 3.8vw, 3.75rem);
-  justify-content: center;
+  row-gap: var(--spacing-space-2);
+  column-gap: var(--site--gutter);
   align-items: start;
   align-content: start;
   height: auto;
-  width: calc(100% - var(--site--margin) * 2);
-  max-width: 72rem;
-  margin-inline: auto;
   --contact-buttons-height: auto;
 }
 
 .contact_title_wrap {
-  grid-column: 1;
+  grid-column: 4 / span 3;
   grid-row: 1;
   justify-self: end;
   align-self: start;
   overflow: clip;
-  width: fit-content;
-  max-width: 100%;
+  width: 100%;
+  max-width: var(--column-width-3);
   height: var(--contact-buttons-height);
   min-height: 0;
 }
@@ -1555,19 +1683,24 @@ body.menu-open .site-header .menu-nav-backdrop {
 }
 
 .contact_intro {
-  grid-column: 1;
+  grid-column: 4 / span 3;
   grid-row: 2;
   justify-self: end;
-  align-self: start;
-  width: fit-content;
-  max-width: min(100%, 24rem);
+  align-self: end;
+  width: 100%;
+  max-width: var(--column-width-3);
   margin-bottom: 0;
-  margin-left: auto;
+  margin-left: 0;
+  transform: translateY(-5px);
   text-align: right;
   font-family: var(--text-style-font-tertiary);
-  line-height: var(--typography-line-height-medium);
+  line-height: var(--typography-line-height-1-3);
   letter-spacing: -0.05em;
   text-transform: uppercase;
+}
+
+.contact_intro_break {
+  display: block;
 }
 
 .contact_actions_wrap {
@@ -1575,21 +1708,23 @@ body.menu-open .site-header .menu-nav-backdrop {
 }
 
 .contact_buttons_wrap {
-  grid-column: 2;
+  grid-column: 7 / span 3;
   grid-row: 1;
   align-self: start;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-space-2);
+  gap: 0.25rem;
   width: 100%;
+  max-width: var(--column-width-3);
 }
 
-.contact_button_wrap {
+.contact_buttons_wrap .contact_button_wrap {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--spacing-space-2);
   width: 100%;
+  padding-block: 0.625rem;
 }
 
 .contact_button_text,
@@ -1598,12 +1733,13 @@ body.menu-open .site-header .menu-nav-backdrop {
 }
 
 .contact_email {
-  grid-column: 2;
+  grid-column: 7 / span 3;
   grid-row: 2;
   justify-self: start;
-  align-self: start;
+  align-self: end;
   margin-bottom: 0;
   width: 100%;
+  max-width: var(--column-width-3);
 }
 
 .contact_email_link_wrap {
@@ -1614,82 +1750,37 @@ body.menu-open .site-header .menu-nav-backdrop {
   color: var(--swatch-light);
 }
 
-@container (max-width: 50em) {
-  .contact_contain {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto;
-    row-gap: var(--spacing-space-4);
-    justify-items: center;
-    justify-content: stretch;
-    text-align: center;
-    max-width: 28rem;
-  }
+/* Compound selector to outrank .u-text-style-h2's title tracking (defined later). */
+.contact_email_link_wrap.u-text-style-h2 {
+  letter-spacing: normal;
+}
 
-  .contact_title_wrap {
-    grid-column: 1;
-    grid-row: 1;
-    justify-self: center;
-    align-self: auto;
-    width: 100%;
-    max-width: none;
-    height: auto;
-  }
-
-  .contact_title {
-    height: auto;
-    width: 100%;
-  }
-
-  .contact_title_svg {
-    /* 3/4 of the buttons' width (buttons fill the container on mobile). */
-    width: 75%;
-    height: auto;
-    margin-inline: auto;
-  }
-
-  .contact_intro {
-    grid-column: 1;
-    grid-row: 2;
-    justify-self: center;
-    width: 100%;
-    max-width: none;
-    margin-left: 0;
-    text-align: center;
-  }
-
-  .contact_actions_wrap {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-space-3);
-    grid-column: 1;
-    grid-row: 3;
-    justify-self: center;
-    align-self: center;
-    align-items: stretch;
-    width: 100%;
-    max-width: 22rem;
-  }
-
+/* Above 1920px the 3-col right column reads too wide — narrow it to 2 cols.
+   Left column (title/intro) stays 3; inner edge at the col 6/7 boundary holds. */
+@media (min-width: 1921px) {
+  .contact_buttons_wrap,
   .contact_email {
-    text-align: center;
-    width: 100%;
-  }
-
-  .contact_email_link_wrap {
-    display: block;
-    width: 100%;
-    min-width: 0;
-    text-align: center;
-  }
-
-  /* Let ink measure freely; JS scales font to match buttons. */
-  .contact_email_link_wrap .char-hover__clip {
-    max-width: none;
+    grid-column: 7 / span 2;
+    max-width: var(--column-width-2);
   }
 }
 
-@media (max-width: 425px) {
-  .contact_contain {
+/* 1025-1440px: left/right widen to 4 cols each (symmetric 2-col outer margins),
+   independent of the >1921px rule above which still governs ultra-wide. */
+@media (min-width: 1025px) and (max-width: 1440px) {
+  .contact_title_wrap,
+  .contact_intro {
+    grid-column: 3 / span 4;
+  }
+
+  .contact_buttons_wrap,
+  .contact_email {
+    grid-column: 7 / span 4;
+  }
+}
+
+@media (max-width: 768px) {
+  .contact_wrap .contact_contain {
     display: flex;
     flex-flow: column;
     align-items: stretch;
@@ -1710,6 +1801,7 @@ body.menu-open .site-header .menu-nav-backdrop {
   }
 
   .contact_title_svg {
+    /* 3/4 of the buttons' width (buttons fill the container on mobile). */
     width: 75%;
     height: auto;
     margin-inline: auto;
@@ -1720,6 +1812,10 @@ body.menu-open .site-header .menu-nav-backdrop {
     max-width: none;
     margin-left: 0;
     text-align: center;
+  }
+
+  .contact_intro_break {
+    display: none;
   }
 
   .contact_actions_wrap {
@@ -1746,6 +1842,7 @@ body.menu-open .site-header .menu-nav-backdrop {
     text-align: center;
   }
 
+  /* Let ink measure freely; JS scales font to match buttons. */
   .contact_email_link_wrap .char-hover__clip {
     max-width: none;
   }
@@ -1778,7 +1875,7 @@ body.menu-open .site-header .menu-nav-backdrop {
 
 .u-grid-autofit {
   display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--site--column-count), minmax(0, 1fr));
   column-gap: var(--site--gutter);
   row-gap: var(--site--gutter);
 }
@@ -1979,7 +2076,7 @@ h2 .text-reveal-line,
 
 .u-text-style-h1 {
   font-size: var(--typography-font-size-h1);
-  line-height: var(--typography-line-height-small);
+  line-height: var(--typography-line-height-1);
   font-weight: var(--typography-font-primary-medium);
   letter-spacing: var(--typography-letter-spacing-title);
 }
@@ -1987,7 +2084,7 @@ h2 .text-reveal-line,
 .u-text-style-h2 {
   font-family: var(--text-style-font-primary);
   font-size: var(--typography-font-size-h2);
-  line-height: var(--typography-line-height-small);
+  line-height: var(--typography-line-height-1);
   font-weight: var(--typography-font-primary-medium);
   letter-spacing: var(--typography-letter-spacing-title);
 }
@@ -1995,7 +2092,7 @@ h2 .text-reveal-line,
 .u-text-style-h3 {
   font-family: var(--text-style-font-primary);
   font-size: var(--typography-font-size-h3);
-  line-height: var(--typography-line-height-small);
+  line-height: var(--typography-line-height-1);
   font-weight: var(--typography-font-primary-medium);
   letter-spacing: var(--typography-letter-spacing-title);
 }
@@ -2003,7 +2100,7 @@ h2 .text-reveal-line,
 .u-text-style-h4 {
   font-family: var(--text-style-font-primary);
   font-size: var(--typography-font-size-h4);
-  line-height: var(--typography-line-height-medium);
+  line-height: var(--typography-line-height-1);
   font-weight: var(--typography-font-primary-regular);
 }
 .u-text-align-center {
@@ -2060,28 +2157,34 @@ h2 .text-reveal-line,
 
 @media (max-width: 1024px) {
   :root {
-    --margin: 15px;
-    --frame-font-size: 10px;
+    /* Tablet: 8 columns. --column-width* + .u-grid-autofit + <GridLines> all
+       derive from --site--column-count, so they recompute together. */
+    --site--column-count: 8;
+  }
+
+  /* Contact: every block spans 3 cols (was 2), 1-col outer margins. */
+  .contact_title_wrap,
+  .contact_intro {
+    grid-column: 2 / span 3;
+  }
+
+  .contact_buttons_wrap,
+  .contact_email {
+    grid-column: 5 / span 3;
   }
 }
 
 @media (max-width: 768px) {
   :root {
     --site--margin: 1rem;
+    /* Mobile: 4 columns. */
+    --site--column-count: 4;
     /* ponytail: 100lvh avoids mobile browser chrome height jumps */
     --site--screen-height: 100lvh;
   }
 
-  /* No room to overflow right on phones — center the copy under the button. */
-  .hero-stage__copy-rail {
-    width: 100% !important;
-  }
-
   .hero_text {
-    width: auto;
     max-width: min(46ch, 88vw);
-    margin-inline: auto;
-    text-align: center;
   }
 
   html:has([data-page-namespace="projectDetail"]),
@@ -2097,15 +2200,6 @@ h2 .text-reveal-line,
 }
 
 /* --- HOME STYLES --- */
-.hero-stage__copy-rail {
-  /* Width is set to the pill's measured width in JS; the left-aligned paragraph
-     overflows to the right so its left edge aligns with the centered button.
-     min-width:0 stops the flex item from being forced wider by its content. */
-  width: max-content;
-  min-width: 0;
-  overflow: visible;
-}
-
 a:focus-visible,
 button:focus-visible {
   outline: 2px solid var(--swatch-light);
@@ -2113,12 +2207,6 @@ button:focus-visible {
 }
 
 @media (max-width: 768px) {
-  .hero-stage__copy-rail {
-    width: 100% !important;
-    max-width: none !important;
-    padding-inline: var(--site--margin);
-  }
-
   main a.button,
   main button.button {
     transition: opacity 0.55s ease;
@@ -2173,6 +2261,7 @@ img {
 
 @media (max-width: 768px) {
   :root {
+    --typography-font-size-hero: clamp(3.25rem, 2.6rem + 5vw, 5.5rem);
     --typography-font-size-display: clamp(3rem, 5.5rem + 4.45vw, 5rem);
     --spacing-section-space-medium: clamp(5.5rem, 4.5rem + 5vw, 10rem);
   }
@@ -2222,18 +2311,22 @@ img {
   gap: var(--spacing-section-space-large);
 }
 
-/* Body copy column — narrower than the visuals so long-form text stays
-   readable. 7 cols on desktop, full-width below 768px. */
+/* Body copy sits in a narrower 6-col measure; the strips/cover/hero visuals
+   stay at 8 cols (full-width below 768px via the overrides further down). */
 .project-details-content {
-  width: var(--column-width-7);
+  width: var(--column-width-6);
   margin-inline: auto;
 }
 
-/* Hero info row, cover image, and supporting image share the wider 10-col
-   centered column. */
-.project-details-hero-info,
+/* Overview block stays 8 cols; all project images span 10 cols. */
+.project-details-hero-info {
+  width: var(--column-width-8);
+  margin-inline: auto;
+}
+
 .project-details-cover-frame,
-.project-details-supporting-image {
+.project-details-supporting-image,
+.project-details-inline-media {
   width: var(--column-width-10);
   margin-inline: auto;
 }
@@ -2315,13 +2408,8 @@ img {
   max-height: var(--site--viewport-min-height-supporting);
 }
 
-@media (max-width: 1024px) {
-  .project-details-hero-info,
-  .project-details-cover-frame,
-  .project-details-supporting-image {
-    width: var(--column-width-11);
-  }
-}
+/* ≤1024 the grid is 8 cols, so overview (8) and images (10) both resolve to
+   full width via the base rules — no tablet width override needed. */
 
 @media (max-width: 991px) {
   .project-details-cover-frame {
@@ -2361,6 +2449,11 @@ img {
   .project-details-services h4 {
     white-space: nowrap;
   }
+}
+
+.project-details-overview-copy {
+  line-height: var(--typography-line-height-1);
+  max-width: var(--column-width-6);
 }
 
 @media (max-width: 640px) {

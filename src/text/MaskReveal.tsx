@@ -4,6 +4,7 @@ import { useGSAP } from "@gsap/react";
 import { registerPageTextReveal } from "../lib/text";
 import { MOTION_TOKENS } from "../lib/animation/motionTokens";
 import {
+  isRouteTransitionActive,
   prefersReducedMotion,
   resolveMotionTokens,
   waitForCamera as waitForCameraGate,
@@ -55,7 +56,9 @@ export default function MaskReveal({
         });
       };
 
-      if (waitForCamera) {
+      if (isRouteTransitionActive()) {
+        // Route transition owns the reveal — stay hidden until its show() call.
+      } else if (waitForCamera) {
         disposeCamera = waitForCameraGate(mask, runReveal);
       } else {
         runReveal();

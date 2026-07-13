@@ -3,10 +3,12 @@ export const STUDIO_INTRO_COPY =
 
 export const HERO_EYEBROW = "2026";
 export const HERO_TITLE_LEAD = "Naman Pratulya";
-export const HERO_TITLE_SERIF = "CREATIVE PORTFOLIO";
+export const HERO_TITLE_SERIF = "DESIGN PORTFOLIO";
 
-export const CONTACT_INTRO_COPY =
-  "Available for freelance projects, art direction, and digital design inquiries.";
+export const CONTACT_INTRO_LINE_1 = "Available for freelance projects,";
+export const CONTACT_INTRO_LINE_2 =
+  "art direction, and digital design inquiries.";
+export const CONTACT_INTRO_COPY = `${CONTACT_INTRO_LINE_1} ${CONTACT_INTRO_LINE_2}`;
 
 export const CONTACT_EMAIL = "naman@duforn.com";
 

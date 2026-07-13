@@ -2,6 +2,7 @@ import { Outlet } from "react-router-dom";
 import SceneCanvas from "../scenes/SceneCanvas";
 import Nav from "./Nav";
 import PreloadOverlay from "../scenes/preloader/PreloadOverlay";
+import GridOverlay from "../components/GridOverlay";
 import { ProjectCanvasAnchorProvider } from "../projectDetail/ProjectCanvasAnchor";
 
 /**
@@ -19,6 +20,7 @@ export default function SiteLayout() {
         <div className="site_content">
           <Outlet />
         </div>
+        <GridOverlay />
       </div>
     </ProjectCanvasAnchorProvider>
   );

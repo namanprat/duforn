@@ -170,8 +170,6 @@ export default function BakedScene({
       }
 
       if (meshMatchesName(mesh.name, FLOOR_NAME)) {
-        // Lit floor so the sun's shadows read on it. Baked texture as albedo,
-        // lit by the scene HDR (ambient) + the directional sun (shadow-casting).
         const fsrc = mesh.material as THREE.MeshStandardMaterial;
         mesh.material = createShadowReceiverMaterial(fsrc);
         mesh.castShadow = false;

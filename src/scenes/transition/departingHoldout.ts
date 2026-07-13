@@ -24,10 +24,12 @@ blitScene.add(blitMesh);
 
 function ensureHoldoutTarget(width: number, height: number): THREE.WebGLRenderTarget {
   if (!holdoutTarget) {
+    // ponytail: UnsignedByte is enough for a freeze-frame wipe; HalfFloat was free lag
     holdoutTarget = new THREE.WebGLRenderTarget(width, height, {
       minFilter: THREE.LinearFilter,
       magFilter: THREE.LinearFilter,
       format: THREE.RGBAFormat,
+      type: THREE.UnsignedByteType,
       colorSpace: THREE.SRGBColorSpace,
     });
   }

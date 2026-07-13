@@ -5,7 +5,12 @@ import CameraRevealGroup from "../text/CameraRevealGroup";
 import MaskReveal from "../text/MaskReveal";
 import StaggerHoverButton from "../components/StaggerHoverButton";
 import StaggerHoverChars from "../components/StaggerHoverChars";
-import { CONTACT_EMAIL, CONTACT_INTRO_COPY, CONTACT_LINKS } from "../content/studio";
+import {
+  CONTACT_EMAIL,
+  CONTACT_INTRO_LINE_1,
+  CONTACT_INTRO_LINE_2,
+  CONTACT_LINKS,
+} from "../content/studio";
 
 const DESKTOP_MQ = "(min-width: 50em)";
 
@@ -123,7 +128,11 @@ export default function ContactPage() {
         </div>
 
         <TextRevealLines animateOnScroll={false} waitForCamera delay={0.06}>
-          <p className="contact_intro u-width-full">{CONTACT_INTRO_COPY}</p>
+          <p className="contact_intro u-width-full">
+            {CONTACT_INTRO_LINE_1}
+            <br className="contact_intro_break" />{" "}
+            {CONTACT_INTRO_LINE_2}
+          </p>
         </TextRevealLines>
 
         <div className="contact_actions_wrap">

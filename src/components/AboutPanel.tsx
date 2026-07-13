@@ -1,5 +1,7 @@
 import {
   forwardRef,
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useImperativeHandle,
@@ -10,25 +12,16 @@ import {
 import gsap from "gsap";
 import { SplitText } from "gsap/SplitText";
 import { ABOUT_CLIENTS, ABOUT_INTRO_PARAGRAPHS, ABOUT_SERVICES } from "../content/studio";
-import AboutDitherCanvas from "./AboutDitherCanvas";
 import { MOTION_TOKENS } from "../lib/animation/motionTokens";
-import { getDeviceTier, isMobileDevice } from "../lib/deviceTier";
 import { prefersReducedMotion } from "../lib/prefersReducedMotion";
+import { shouldMountAboutBust } from "./aboutBust";
 gsap.registerPlugin(SplitText);
 
 const CLIENT_COLS = [
   ABOUT_CLIENTS.filter((_, i) => i % 2 === 0),
   ABOUT_CLIENTS.filter((_, i) => i % 2 === 1),
 ] as const;
-
-/** ponytail: skip tier-0 / mobile / reduced-motion; distortion hover stays fine-pointer-only.
-    Mobile: a second WebGL context (env map + GLTF + postFX) next to the main scene canvas
-    trips iOS Safari's memory kill and force-reloads the page. */
-export function shouldMountAboutBust(): boolean {
-  if (getDeviceTier() === 0) return false;
-  if (isMobileDevice()) return false;
-  return !prefersReducedMotion();
-}
+const AboutDitherCanvas = lazy(() => import("./AboutDitherCanvas"));
 
 const BUST_MOUNT_IDLE_MS = 350;
 
@@ -226,7 +219,9 @@ const AboutPanel = forwardRef<AboutPanelHandle, AboutPanelProps>(function AboutP
 
         <div className="about-panel__media" ref={mediaRef}>
           {mountCanvas && (
-            <AboutDitherCanvas eventSource={mediaRef} onReady={onBustReady} />
+            <Suspense fallback={null}>
+              <AboutDitherCanvas eventSource={mediaRef} onReady={onBustReady} />
+            </Suspense>
           )}
         </div>
 

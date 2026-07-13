@@ -1,4 +1,4 @@
-import { type ReactNode, useContext, useEffect } from "react";
+import { useContext, useEffect } from "react";
 import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import {
@@ -38,8 +38,8 @@ function SyncComposerDrawingBuffer() {
   return null;
 }
 
-/** Post stack: optional AO/CA/grade/DOF/vignette, then route dissolve on the final frame. */
-export default function ScenePostFX({ children }: { children?: ReactNode }) {
+/** Spatial effects feed the dissolve; full-frame grading stays active over every transition pixel. */
+export default function ScenePostFX() {
   const fx = usePostFxControlsStore((s) => s.controls);
   const stackOn = fx.enabled;
 
@@ -67,6 +67,14 @@ export default function ScenePostFX({ children }: { children?: ReactNode }) {
           modulationOffset={fx.chromaticAberration.modulationOffset}
         />
       ) : null}
+      {stackOn && fx.dof.enabled ? (
+        <DepthOfField
+          worldFocusDistance={fx.dof.worldFocusDistance}
+          worldFocusRange={fx.dof.worldFocusRange}
+          bokehScale={fx.dof.bokehScale}
+        />
+      ) : null}
+      <DissolveTransition />
       {stackOn && fx.colorGrade.enabled ? <ColorGrade /> : null}
       <ToneMapping
         mode={
@@ -77,13 +85,6 @@ export default function ScenePostFX({ children }: { children?: ReactNode }) {
         opacity={stackOn && fx.toneMapping.enabled ? fx.toneMapping.amount : 0}
       />
       {stackOn && fx.grain.enabled ? <Noise opacity={fx.grain.opacity} /> : null}
-      {stackOn && fx.dof.enabled ? (
-        <DepthOfField
-          worldFocusDistance={fx.dof.worldFocusDistance}
-          worldFocusRange={fx.dof.worldFocusRange}
-          bokehScale={fx.dof.bokehScale}
-        />
-      ) : null}
       {stackOn && fx.vignette.enabled ? (
         <Vignette
           eskil={fx.vignette.eskil}
@@ -91,8 +92,6 @@ export default function ScenePostFX({ children }: { children?: ReactNode }) {
           darkness={fx.vignette.darkness}
         />
       ) : null}
-      {children}
-      <DissolveTransition />
     </EffectComposer>
   );
 }

@@ -59,8 +59,8 @@ export default function StaggerHoverButton(props: StaggerHoverButtonProps) {
         ref={ref as Ref<HTMLButtonElement>}
         type={buttonProps.type ?? "button"}
         className={classes}
-        data-button-hover-scale="false"
         {...buttonProps}
+        data-button-hover-scale="false"
       >
         {content}
       </button>
@@ -72,8 +72,8 @@ export default function StaggerHoverButton(props: StaggerHoverButtonProps) {
     <a
       ref={ref as Ref<HTMLAnchorElement>}
       className={classes}
-      data-button-hover-scale="false"
       {...anchorProps}
+      data-button-hover-scale="false"
     >
       {content}
     </a>

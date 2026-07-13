@@ -5,8 +5,10 @@ import { SplitText } from "gsap/SplitText";
 import { registerPageTextReveal } from "../lib/text";
 import { MOTION_TOKENS } from "../lib/animation/motionTokens";
 import {
+  isRouteTransitionActive,
   prefersReducedMotion,
   resolveMotionTokens,
+  waitForRouteTransitionIdle,
   waitForCamera as waitForCameraGate,
   waitForProjectArrival as waitForProjectArrivalGate,
   waitForSceneAndCamera,
@@ -151,6 +153,15 @@ export default function TextRevealLines({
 
       const armReveal = () => {
         if (!lineEls.length) return;
+
+        // A route transition owns the reveal: stay hidden and let its
+        // showAllRegisteredPageText() fire the single, pierce-synced reveal.
+        // If this component mounted after that one-shot but before transition
+        // store reset (lazy chunk race), re-arm once the route transition idles.
+        if (isRouteTransitionActive()) {
+          disposeCamera = waitForRouteTransitionIdle(armReveal);
+          return;
+        }
 
         if (!animate) {
           killScrollTriggers();

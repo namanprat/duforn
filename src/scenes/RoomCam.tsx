@@ -17,13 +17,21 @@ import {
 import { setArrivedRoom } from "../lib/cam/arrival";
 import { getSceneBootPhase, hasInitialBootCompleted } from "./preloader/sceneReady";
 import { useWorkProjectTransitionStore } from "../store/workProjectTransition";
+import { useDissolveTransitionStore } from "../store/routeTransition";
+import { killTransitionFovTweens } from "./cam/transitionFov";
 
-/** Text reveal lead — fire arrival this many seconds before the camera tween ends. */
-const ARRIVAL_LEAD_SECONDS = 0.2;
+/** Text reveal beat — fire arrival this many seconds after the camera tween starts,
+ * so incoming text reveals while the camera is still gliding. */
+const ARRIVAL_BEAT_SECONDS = 0.35;
 Object.assign(cameraBasePoseRef.current, ROOM_POSES.main);
 
-function snapTo(target: (typeof ROOM_POSES)[RoomNamespace], fov = target.fov) {
+function snapTo(
+  target: (typeof ROOM_POSES)[RoomNamespace],
+  fov = target.fov,
+  { skipFov = false }: { skipFov?: boolean } = {},
+) {
   for (const key of POSE_KEYS) {
+    if (skipFov && key === "fov") continue;
     cameraBasePoseRef.current[key] = key === "fov" ? fov : target[key];
   }
 }
@@ -38,6 +46,7 @@ export default function RoomCam({ activeRoom }: { activeRoom: RoomNamespace }) {
     const prev = prevRoomRef.current;
     const targetPose = ROOM_POSES[next];
     const prevPose = prev != null ? ROOM_POSES[prev] : null;
+    const dissolveActive = useDissolveTransitionStore.getState().active;
 
     if (tweenRef.current) {
       tweenRef.current.kill();
@@ -47,6 +56,9 @@ export default function RoomCam({ activeRoom }: { activeRoom: RoomNamespace }) {
     if (arrivalCallRef.current) {
       arrivalCallRef.current.kill();
       arrivalCallRef.current = null;
+    }
+    if (!dissolveActive) {
+      killTransitionFovTweens();
     }
 
     if (prev === next) return;
@@ -71,13 +83,20 @@ export default function RoomCam({ activeRoom }: { activeRoom: RoomNamespace }) {
         transition.direction === "toWork" &&
         transition.departedOrbitCenterY != null
       ) {
-        snapTo({ ...targetPose, orbitCenterY: transition.departedOrbitCenterY }, targetPose.fov);
+        snapTo(
+          { ...targetPose, orbitCenterY: transition.departedOrbitCenterY },
+          targetPose.fov,
+          { skipFov: dissolveActive },
+        );
       } else {
-        snapTo(targetPose, useBootFov ? BOOT_FOV : targetPose.fov);
+        snapTo(targetPose, useBootFov ? BOOT_FOV : targetPose.fov, {
+          skipFov: dissolveActive,
+        });
       }
       prevRoomRef.current = next;
       if (
         !transition.active &&
+        !dissolveActive &&
         (getSceneBootPhase() === "live" || hasInitialBootCompleted())
       ) {
         setArrivedRoom(next);
@@ -86,6 +105,9 @@ export default function RoomCam({ activeRoom }: { activeRoom: RoomNamespace }) {
     }
 
     cameraTransitionRef.current = true;
+    let arrivalFired = false;
+    // fov eases prev→target with the pose glide (killTransitionFovTweens above
+    // cancels any in-flight boot/archive punch so the handoff stays smooth).
     tweenRef.current = gsap.to(cameraBasePoseRef.current, {
       orbitCenterX: targetPose.orbitCenterX,
       orbitCenterY: targetPose.orbitCenterY,
@@ -97,8 +119,8 @@ export default function RoomCam({ activeRoom }: { activeRoom: RoomNamespace }) {
       lookAtYawDeg: targetPose.lookAtYawDeg,
       lookAtPitchDeg: targetPose.lookAtPitchDeg,
       duration: ROOM_TRANSITION_SECONDS,
-      ease: "power3.inOut",
-      overwrite: true,
+      ease: "power2.inOut",
+      overwrite: "auto",
       onComplete: () => {
         tweenRef.current = null;
         cameraTransitionRef.current = false;
@@ -106,13 +128,16 @@ export default function RoomCam({ activeRoom }: { activeRoom: RoomNamespace }) {
           arrivalCallRef.current.kill();
           arrivalCallRef.current = null;
         }
-        setArrivedRoom(next);
+        if (!arrivalFired) {
+          arrivalFired = true;
+          setArrivedRoom(next);
+        }
       },
     });
 
-    const leadDelay = Math.max(0, ROOM_TRANSITION_SECONDS - ARRIVAL_LEAD_SECONDS);
-    arrivalCallRef.current = gsap.delayedCall(leadDelay, () => {
+    arrivalCallRef.current = gsap.delayedCall(ARRIVAL_BEAT_SECONDS, () => {
       arrivalCallRef.current = null;
+      arrivalFired = true;
       setArrivedRoom(next);
     });
 
@@ -125,6 +150,9 @@ export default function RoomCam({ activeRoom }: { activeRoom: RoomNamespace }) {
       tweenRef.current = null;
       arrivalCallRef.current?.kill();
       arrivalCallRef.current = null;
+      if (!useDissolveTransitionStore.getState().active) {
+        killTransitionFovTweens();
+      }
       cameraTransitionRef.current = false;
       prevRoomRef.current = null;
     };

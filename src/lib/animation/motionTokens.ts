@@ -1,9 +1,9 @@
 export const MOTION_TOKENS = {
   textReveal: {
-    revealDuration: 1,
-    revealStagger: 0.12,
-    hideDuration: 0.55,
-    hideStagger: 0.072,
+    revealDuration: 0.85,
+    revealStagger: 0.1,
+    hideDuration: 0.35,
+    hideStagger: 0.04,
     revealEase: "power4.out",
     hideEase: "power3.in",
     showDurationScale: 0.75,
@@ -28,17 +28,16 @@ export const MOTION_TOKENS = {
     bgInsetEm: 0.125,
   },
   menu: {
-    // Box morph beats.
-    boxOpen: 0.62,
-    boxAbout: 0.9,
+    // Box morph — one expand + one shrink profile for every transition (menu, about, close).
+    boxExpand: 0.62,
+    boxShrink: 0.62,
+    boxExpandEase: "back.out(1.01)",
+    boxShrinkEase: "back.out(1.025)",
     line: 0.55,
     lineStagger: 0.07,
     lineFlipScale: 0.75,
     // Closing line animations run 20% faster; box shrink keeps open duration for symmetry.
     closeSpeedScale: 0.8,
-    boxOpenEase: "back.out(1.04)",
-    // ponytail: back.out undershoots past the pill size then settles — mirrors expand bounce
-    boxShrinkEase: "back.out(1.1)",
     ease: "power3.out",
     closeEase: "power3.in",
     aboutRevealDelay: 0.1,
@@ -61,17 +60,14 @@ export const MOTION_TOKENS = {
     bgReadyTimeoutMs: 1500,
   },
   bootReveal: {
-    /** Full-cover hold before iris opens — star gather beat. */
-    holdDuration: 0.28,
-    // Trimmed from 1.715 → 1.30: the old tail spent ~0.65s compositing an
-    // already-invisible effect after the reveal. pierceRevealAt is normalized so
-    // the reveal still lands at ~48% of the (now tighter) open.
-    openDuration: 1.3,
-    openEase: "power3.inOut",
-    fovDuration: 3.08,
-    fovEase: "power3.out",
-    /** Normalized position within the open tween when burst peaks and hero copy may reveal. */
-    pierceRevealAt: 0.48,
-    enterFadeDuration: 0.2,
+    // Ironhill is scroll-linear (CONFIG.speed 2 → progress 0…1.1). Timed open mirrors that
+    // continuous wipe with no gather/hold beat.
+    openDuration: 1.25,
+    openEase: "none",
+    fovDuration: 1.2,
+    fovEase: "power2.out",
+    /** Normalized position within the open tween when hero copy may reveal. */
+    pierceRevealAt: 0.42,
+    enterFadeDuration: 0.15,
   },
 } as const;

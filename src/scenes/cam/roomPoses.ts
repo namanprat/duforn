@@ -81,8 +81,8 @@ export const ROOM_POSES: Record<RoomNamespace, CameraPose> = Object.freeze({
   archive: MAIN_POSE,
 });
 
-/** Seconds per directed route transition. Slightly slowed for smoother moves. */
-export const ROOM_TRANSITION_SECONDS = 2.2;
+/** Seconds per directed route transition. */
+export const ROOM_TRANSITION_SECONDS = 1.6;
 
 /** Mount water/strip after this delay on room change (not initial boot). */
 export const SUBGRAPH_ACTIVATE_SECONDS = 0.55;

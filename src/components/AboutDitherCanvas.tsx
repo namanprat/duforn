@@ -10,9 +10,7 @@ import { SWATCH_DARK, SWATCH_LIGHT_NUM } from "../lib/siteColors";
 import { getQualityProfile } from "../lib/qualityProfile";
 import { hasFinePointerHover } from "../lib/link-hover";
 import { prefersReducedMotion } from "../lib/prefersReducedMotion";
-
-const BUST_URL = "/naman_bust.glb";
-export { BUST_URL };
+import { BUST_URL } from "./aboutBust";
 const BG = SWATCH_DARK;
 
 // ponytail: wrapEffect once; tune gridSize/pixelSizeRatio/grayscaleOnly here

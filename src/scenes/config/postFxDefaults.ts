@@ -71,7 +71,7 @@ export const DEFAULT_POST_FX_CONTROLS = {
   dissolve: {
     devPreview: true,
     devProgress: 0,
-    edgeNoiseAmp: 0.2622,
+    edgeNoiseAmp: 0.5,
     glowFadeStart: 0,
     glowFadeEnd: 1,
     glowWidth: 0.06,

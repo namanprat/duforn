@@ -42,21 +42,15 @@ export default function ArchiveViewSwitcher() {
             key={id}
             type="button"
             role="tab"
+            className="archive-view-switcher__tab"
             aria-selected={active}
             disabled={morphing}
             onClick={() => setView(id)}
             style={{
-              appearance: "none",
-              border: "none",
-              borderRadius: 999,
-              cursor: morphing ? "wait" : "pointer",
               padding: "0.7em 1.6em",
-              fontSize: 13,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
               color: active ? SWATCH_DARK : SWATCH_LIGHT_RGBA(0.7),
               background: active ? SWATCH_LIGHT : "transparent",
-              transition: "color 0.2s, background 0.2s",
+              cursor: morphing ? "wait" : "pointer",
               opacity: morphing && !active ? 0.5 : 1,
             }}
           >

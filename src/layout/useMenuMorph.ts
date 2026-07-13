@@ -213,9 +213,9 @@ export function useMenuMorph({
     }
 
     // Beat 2 — box morph (brand indent rides along).
-    const boxDur = phaseAbout(from) || phaseAbout(target) ? menu.boxAbout : menu.boxOpen;
     const growing = dir > 0 || (dir === 0 && toD.height >= fromD.height);
-    const boxEase = growing ? menu.boxOpenEase : menu.boxShrinkEase;
+    const boxDur = growing ? menu.boxExpand : menu.boxShrink;
+    const boxEase = growing ? menu.boxExpandEase : menu.boxShrinkEase;
     tl.to(surface, { width: toD.width, height: toD.height, duration: boxDur, ease: boxEase }, exitDur);
     if (brand) {
       tl.to(brand, { x: phaseAbout(target) ? brandIndent : 0, duration: boxDur, ease: boxEase }, exitDur);

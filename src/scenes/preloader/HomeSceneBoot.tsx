@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useThree } from "@react-three/fiber";
 import BakedScene from "../BakedScene";
 import Env from "../Env";
@@ -17,7 +17,11 @@ import {
 import { getSceneReady, hasInitialBootCompleted, setSceneReady, useSceneBootStore } from "./sceneReady";
 import { SWATCH_DARK_NUM } from "../../lib/siteColors";
 import { MOTION_TOKENS } from "../../lib/animation/motionTokens";
-import { runBootDissolveTransition } from "../../store/routeTransition";
+import {
+  armBootDissolveCover,
+  resetDissolveTransition,
+  runBootDissolveTransition,
+} from "../../store/routeTransition";
 import { useWorkProjectTransitionStore } from "../../store/workProjectTransition";
 import { postFxComposerRef, warmPostFxFrames } from "../postFxComposerRef";
 
@@ -45,8 +49,17 @@ export default function HomeSceneBoot({
   const [hdrReady, setHdrReady] = useState(false);
   const [waterReady, setWaterReady] = useState(!enableWater);
   const compileStartedRef = useRef(false);
+  const bootAtMountRef = useRef(!skipBoot);
 
   const { gl, scene, camera } = useThree();
+
+  useLayoutEffect(() => {
+    if (!bootAtMountRef.current) return undefined;
+    armBootDissolveCover();
+    return () => {
+      if (!hasInitialBootCompleted()) resetDissolveTransition();
+    };
+  }, []);
 
   useEffect(() => {
     if (!skipBoot) return;
@@ -136,7 +149,7 @@ export default function HomeSceneBoot({
     if (revealNonce === 0) return;
 
     const finishReveal = () => {
-      // Same beat as archive open onPierceReveal — burst peak, not pierce end.
+      // Same beat as archive open onPierceReveal — mid-wipe, not wipe end.
       setPhase("live");
       setSceneReady(true);
       setArrivedRoom(activeRoom);

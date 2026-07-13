@@ -2,8 +2,15 @@ import { useGLTF } from "@react-three/drei";
 import type { ArchiveReturnRoom } from "../store/archiveReturn";
 import { useArchiveReturnStore } from "../store/archiveReturn";
 import { startWorkTexturePreload } from "./work-preload";
+import { ARCHIVE_MEDIA_URLS } from "../scenes/archive/archiveMedia";
 
 const MODEL_URL = "/main_scene.glb";
+
+// ponytail: warm the HTTP cache so archive media decode/upload during the closed
+// dissolve cover is cheap, instead of stalling the first pierce-open frames.
+export function warmArchiveMedia(): void {
+  ARCHIVE_MEDIA_URLS.forEach((u) => void fetch(u, { cache: "force-cache" }).catch(() => {}));
+}
 
 /** Warm the return destination while the user is still on archive. */
 export async function preloadArchiveReturnRoom(room: ArchiveReturnRoom): Promise<void> {

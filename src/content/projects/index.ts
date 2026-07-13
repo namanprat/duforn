@@ -7,6 +7,8 @@ const CASE_STUDIES: Record<string, CaseStudyContent> = {
   "/haptic": hapticCaseStudy,
 };
 
+export const ALL_CASE_STUDIES: readonly CaseStudyContent[] = Object.values(CASE_STUDIES);
+
 export function getCaseStudy(pathname: string): CaseStudyContent | undefined {
   return CASE_STUDIES[pathname];
 }

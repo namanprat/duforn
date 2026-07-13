@@ -7,12 +7,8 @@ import CameraRig from "./CameraRig";
 import DevOrbitControls from "./DevOrbitControls";
 import RoomCam from "./RoomCam";
 import ScenePostFX from "./ScenePostFX";
-import TransitionCameraRegistrar from "./cam/TransitionCameraRegistrar";
-import ArchiveScene from "./ArchiveScene";
-import ProjectDetailScene from "../projectDetail/ProjectDetailScene";
-import ProjectCoverScene from "../projectDetail/ProjectCoverScene";
-import ProjectStripSceneGate from "../projectDetail/ProjectStripSceneGate";
 import HomeSceneBoot from "./preloader/HomeSceneBoot";
+import TransitionCameraRegistrar from "./cam/TransitionCameraRegistrar";
 import { BOOT_FOV, MAIN_POSE, SUBGRAPH_ACTIVATE_SECONDS, poseToCameraPosition } from "./cam/roomPoses";
 import { getRouteNamespace, type RoomNamespace } from "../lib/route";
 import { getDeviceTier } from "../lib/deviceTier";
@@ -21,6 +17,8 @@ import { useDelayedActive } from "../lib/useDelayedActive";
 import { installBootProgressTracking } from "./preloader/bootProgress";
 import { initKtx2Support } from "../lib/ktx2";
 import { startWorkTexturePreload } from "../lib/work-preload";
+import { loadCoreWithProgress } from "../lib/preloadAllAssets";
+import { armBootDissolveCover, resetDissolveTransition } from "../store/routeTransition";
 import { useArchiveReturnStore } from "../store/archiveReturn";
 import { hasInitialBootCompleted, setSceneReady, useSceneBootStore } from "./preloader/sceneReady";
 import { useWorkProjectTransitionStore } from "../store/workProjectTransition";
@@ -29,6 +27,10 @@ import { ProjectBgRiseLayerGate } from "../projectDetail/ProjectBgRiseLayer";
 const DevSceneControls = import.meta.env.DEV
   ? lazy(() => import("./DevSceneControls"))
   : () => null;
+const ArchiveScene = lazy(() => import("./ArchiveScene"));
+const ProjectDetailScene = lazy(() => import("../projectDetail/ProjectDetailScene"));
+const ProjectCoverScene = lazy(() => import("../projectDetail/ProjectCoverScene"));
+const ProjectStripSceneGate = lazy(() => import("../projectDetail/ProjectStripSceneGate"));
 
 const MAIN_CAMERA = poseToCameraPosition(MAIN_POSE);
 const deviceTier = getDeviceTier();
@@ -38,7 +40,7 @@ useEnvironment.preload({ files: "/main.hdr" });
 
 /**
  * Single persistent canvas for all 3D. Route changes toggle scene subgraphs;
- * ScenePostFX processes the final frame (CA + sRGB) on every tier.
+ * ScenePostFX keeps spatial effects and final grading active across every route.
  */
 export default function SceneCanvas() {
   const location = useLocation();
@@ -71,6 +73,7 @@ export default function SceneCanvas() {
     subgraphActivateDelay,
   );
   const setProgress = useSceneBootStore((s) => s.setProgress);
+  const revealNonce = useSceneBootStore((s) => s.revealNonce);
   const bootProgressCleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
@@ -81,10 +84,37 @@ export default function SceneCanvas() {
   }, [skipSubgraphDelay, isRoom, activeRoom, enableWater, enableStrip]);
 
   useEffect(() => {
-    if (deviceTier === 0 || !showRoom) {
+    if (deviceTier === 0) {
       setSceneReady(true);
+      return;
     }
+    // Room pages: HomeSceneBoot owns the boot. Non-room deep-links (project/archive)
+    // used to skip the preloader entirely — instead show it and gate on the core
+    // GLB+HDR download so entering a room afterwards is instant.
+    if (showRoom || hasInitialBootCompleted()) return;
+    // Arm the same black dissolve cover the room boot uses, so the Enter reveal
+    // can wipe it open on non-room pages too.
+    armBootDissolveCover();
+    let cancelled = false;
+    loadCoreWithProgress((pct) => useSceneBootStore.getState().setProgress(pct)).finally(() => {
+      if (!cancelled) useSceneBootStore.getState().setPhase("ready");
+    });
+    return () => {
+      cancelled = true;
+      if (!hasInitialBootCompleted()) resetDissolveTransition();
+    };
   }, [showRoom]);
+
+  // Non-room reveal: PreloadOverlay's Enter bumps revealNonce, but there's no
+  // HomeSceneBoot off-room to handle it. ponytail: skip the GPU wipe here — it can
+  // stall (never firing scene-ready) and leave the page text stuck hidden. Open the
+  // cover and go live directly; setSceneReady fires SCENE_READY_EVENT, which releases
+  // the page text/line reveal.
+  useEffect(() => {
+    if (showRoom || revealNonce === 0 || hasInitialBootCompleted()) return;
+    resetDissolveTransition();
+    setSceneReady(true);
+  }, [revealNonce, showRoom]);
 
   useEffect(() => {
     const nudge = () => window.dispatchEvent(new Event("resize"));
@@ -108,7 +138,7 @@ export default function SceneCanvas() {
       <Canvas
         dpr={[1, qualityProfile.maxDpr]}
         frameloop="always"
-        gl={{ antialias: true, stencil: false, localClippingEnabled: true, preserveDrawingBuffer: true }}
+        gl={{ antialias: true, stencil: false, localClippingEnabled: true }}
         shadows={{ type: THREE.PCFShadowMap }}
         onCreated={({ gl, setFrameloop }) => {
           gl.toneMapping = THREE.NoToneMapping;
@@ -117,7 +147,7 @@ export default function SceneCanvas() {
           gl.shadowMap.type = THREE.PCFShadowMap;
           initKtx2Support(gl);
           startWorkTexturePreload().catch(() => {});
-          if (!hasInitialBootCompleted()) {
+          if (!hasInitialBootCompleted() && showRoom) {
             bootProgressCleanupRef.current?.();
             bootProgressCleanupRef.current = installBootProgressTracking(setProgress);
           }

@@ -10,8 +10,8 @@ import {
 import { useLocation } from "react-router-dom";
 import { navigateTo } from "../lib/nav";
 import StaggerHoverChars from "../components/StaggerHoverChars";
-import AboutPanel, { type AboutPanelHandle, shouldMountAboutBust } from "../components/AboutPanel";
-import { BUST_URL } from "../components/AboutDitherCanvas";
+import AboutPanel, { type AboutPanelHandle } from "../components/AboutPanel";
+import { BUST_URL, shouldMountAboutBust } from "../components/aboutBust";
 import { useMenuMorph, type MenuPhase } from "./useMenuMorph";
 
 const MENU_LINKS = [

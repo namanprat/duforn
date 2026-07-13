@@ -1,16 +1,13 @@
 import { create } from "zustand";
 import type * as THREE from "three";
-import { ROOM_POSES, SHARED_FOV } from "../scenes/cam/roomPoses";
-import { ARCHIVE_FOV } from "../scenes/cam/transitionFov";
-import {
-  getBlackHoldoutTexture,
-  requestDepartingHoldout,
-} from "../scenes/transition/departingHoldout";
+import { SHARED_FOV, ROOM_TRANSITION_SECONDS } from "../scenes/cam/roomPoses";
+import { getBlackHoldoutTexture } from "../scenes/transition/departingHoldout";
 import {
   killDissolveProgressTweens,
-  runPierceCloseTimeline,
+  runIronhillCloseTimeline,
   runPierceTimeline,
   setDissolveCover,
+  WIPE_CLOSED,
 } from "../scenes/preloader/bootRevealTimeline";
 import {
   hidePageChrome,
@@ -25,10 +22,14 @@ import {
 } from "../lib/text";
 import { getDeviceTier } from "../lib/deviceTier";
 import { prefersReducedMotion } from "../lib/prefersReducedMotion";
-import { getRouteNamespace, type RoomNamespace } from "../lib/route";
+import { getRouteNamespace } from "../lib/route";
+import { CAMERA_ARRIVED_EVENT } from "../lib/cam/arrival";
 import { resetArchiveToOrbView } from "./archiveView";
 import { useArchiveReturnStore, getArchiveReturnRoom } from "./archiveReturn";
-import { preloadArchiveReturnRoom } from "../lib/roomReturnPreload";
+import { preloadArchiveReturnRoom, warmArchiveMedia } from "../lib/roomReturnPreload";
+
+const TEXT_UNREVEAL_TIMEOUT_MS = 550;
+const ROOM_NAV_TIMEOUT_MS = ROOM_TRANSITION_SECONDS * 1000 + 400;
 
 type DissolveTransitionState = {
   active: boolean;
@@ -52,70 +53,90 @@ export const useDissolveTransitionStore = create<DissolveTransitionState>((set, 
   reset: () => set({ active: false, useHoldout: false, holdout: null }),
 }));
 
-export function shouldUseDissolveTransition(fromPath: string, toPath: string): boolean {
-  return (fromPath === "/archive") !== (toPath === "/archive");
-}
-
-function canRunDissolve(): boolean {
+export function canRunDissolveTransition(): boolean {
   return getDeviceTier() > 0 && !prefersReducedMotion();
 }
 
-function waitFrames(count: number): Promise<void> {
+export function isRoomRoute(path: string): boolean {
+  const ns = getRouteNamespace(path);
+  return ns === "main" || ns === "work" || ns === "contact";
+}
+
+export function shouldUseRoomCameraTransition(fromPath: string, toPath: string): boolean {
+  return isRoomRoute(fromPath) && isRoomRoute(toPath);
+}
+
+export function shouldUseArchiveLiveWipe(fromPath: string, toPath: string): boolean {
+  return fromPath === "/archive" || toPath === "/archive";
+}
+
+export function armBootDissolveCover(): boolean {
+  if (!canRunDissolveTransition()) return false;
+
+  killDissolveProgressTweens();
+  const store = useDissolveTransitionStore.getState();
+  store.setUseHoldout(true);
+  store.setHoldout(getBlackHoldoutTexture());
+  store.start();
+  setDissolveCover(WIPE_CLOSED);
+  return true;
+}
+
+export function resetDissolveTransition(): void {
+  killDissolveProgressTweens();
+  useDissolveTransitionStore.getState().reset();
+  setDissolveCover(0);
+}
+
+// ponytail: naive rAF-delta settle — treats a smooth frame as "heavy work done"
+// (shader compile / texture upload / water spin-up), so the pierce opens only
+// once those land behind the fully-closed cover. Upgrade path: await an explicit
+// scene-ready signal if this proves flaky.
+function waitUntilSettled(maxFrames = 12, smoothMs = 24): Promise<void> {
   return new Promise((resolve) => {
-    let remaining = count;
-    const step = () => {
-      remaining -= 1;
-      if (remaining <= 0) resolve();
+    let frames = 0;
+    let last = performance.now();
+    const step = (now: number) => {
+      const delta = now - last;
+      last = now;
+      frames += 1;
+      if ((frames >= 2 && delta <= smoothMs) || frames >= maxFrames) resolve();
       else requestAnimationFrame(step);
     };
     requestAnimationFrame(step);
   });
 }
 
-async function armDepartingHoldout(
-  store: Pick<DissolveTransitionState, "setUseHoldout" | "setHoldout">,
-): Promise<void> {
-  store.setUseHoldout(true);
-  store.setHoldout(getBlackHoldoutTexture());
-  const texture = await requestDepartingHoldout();
-  store.setHoldout(texture);
+async function unrevealPageText(): Promise<void> {
+  // ponytail: text controllers are third-party animation promises; cap the wait
+  // so a stale controller cannot strand navigation. The snap preserves ordering.
+  await Promise.race([
+    hideAllRegisteredPageText(),
+    new Promise<void>((resolve) => window.setTimeout(resolve, TEXT_UNREVEAL_TIMEOUT_MS)),
+  ]);
+  snapHideAllRegisteredPageText();
 }
 
+type DissolveMode = "boot" | "route-live";
+
 type DissolveOpts = {
+  mode?: DissolveMode;
   fov?: boolean;
   targetFov?: number;
-  holdout?: "black" | "departing";
-  /** When to run swap — archive delays until gather beat ends (live canvas). */
-  swapAt?: "pre" | "hold";
+  fromFov?: number;
+  /** Boot starts fully closed — skip animated close. */
+  skipClose?: boolean;
   swap?: () => void;
   beforeDissolve?: () => void | Promise<void>;
   onPierceReveal?: () => void;
 };
 
-type DissolveCloseOpts = {
-  fov?: boolean;
-  fromFov?: number;
-  targetFov?: number;
-  holdout?: "departing";
-  swap?: () => void;
-  beforeDissolve?: () => void | Promise<void>;
-  onComplete?: () => void;
-};
-
-function targetFovForPath(path: string): number {
-  if (path === "/archive") return ARCHIVE_FOV;
-  const ns = getRouteNamespace(path);
-  if (ns === "main" || ns === "work" || ns === "contact") {
-    return ROOM_POSES[ns as RoomNamespace].fov;
-  }
-  return SHARED_FOV;
-}
-
 export async function playDissolve({
+  mode = "route-live",
   fov = false,
   targetFov = SHARED_FOV,
-  holdout,
-  swapAt = "pre",
+  fromFov = SHARED_FOV,
+  skipClose = false,
   swap,
   beforeDissolve,
   onPierceReveal,
@@ -126,24 +147,31 @@ export async function playDissolve({
   try {
     await beforeDissolve?.();
 
-    if (holdout === "black") {
+    if (mode === "boot") {
       store.setUseHoldout(true);
       store.setHoldout(getBlackHoldoutTexture());
-    } else if (holdout === "departing") {
-      await armDepartingHoldout(store);
     } else {
       store.setUseHoldout(false);
     }
 
     store.start();
-    setDissolveCover(1);
-    if (swapAt === "pre") swap?.();
-    await waitFrames(2);
+
+    if (skipClose) {
+      setDissolveCover(WIPE_CLOSED);
+    } else {
+      setDissolveCover(0);
+      await runIronhillCloseTimeline({
+        fov,
+        fromFov,
+      });
+    }
+
+    swap?.();
+    await waitUntilSettled();
 
     await runPierceTimeline({
       fov,
       targetFov,
-      onSwap: swapAt === "hold" ? swap : undefined,
       onPierceReveal,
     });
   } finally {
@@ -151,47 +179,34 @@ export async function playDissolve({
   }
 }
 
-/** Exact reverse of playDissolve: capture → close → hold → swap → hold → open. */
-export async function playDissolveClose({
-  fov = false,
-  fromFov = ARCHIVE_FOV,
-  targetFov = SHARED_FOV,
-  holdout,
-  swap,
-  beforeDissolve,
-  onComplete,
-}: DissolveCloseOpts = {}): Promise<void> {
-  killDissolveProgressTweens();
-  const store = useDissolveTransitionStore.getState();
-
-  try {
-    await beforeDissolve?.();
-
-    if (holdout === "departing") {
-      await armDepartingHoldout(store);
-    } else {
-      store.setUseHoldout(false);
-    }
-
-    store.start();
-    setDissolveCover(0);
-    await waitFrames(2);
-
-    await runPierceCloseTimeline({ fov, fromFov });
-
-    swap?.();
-
-    await runPierceTimeline({
-      fov,
-      targetFov,
-      onPierceReveal: onComplete,
-    });
-  } finally {
-    store.finish();
-  }
+export async function runRoomCameraRouteTransition(
+  toPath: string,
+  navigate: (path: string) => void,
+): Promise<void> {
+  const expectedRoom = getRouteNamespace(toPath);
+  navigate(toPath);
+  await new Promise<void>((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      window.removeEventListener(CAMERA_ARRIVED_EVENT, onArrived);
+      window.clearTimeout(timer);
+      resolve();
+    };
+    const onArrived = (event: Event) => {
+      const detail = (event as CustomEvent<{ room?: string }>).detail;
+      if (detail?.room !== expectedRoom) return;
+      finish();
+    };
+    const timer = window.setTimeout(finish, ROOM_NAV_TIMEOUT_MS);
+    window.addEventListener(CAMERA_ARRIVED_EVENT, onArrived);
+  });
 }
 
-export async function runArchiveRouteTransition(
+// Archive uses one live-canvas wipe only. No departing-frame capture, no FOV punch,
+// no second visible pass.
+export async function runArchiveLiveWipeTransition(
   fromPath: string,
   toPath: string,
   navigate: (path: string) => void,
@@ -201,72 +216,40 @@ export async function runArchiveRouteTransition(
 
   if (fromArchive) {
     void preloadArchiveReturnRoom(getArchiveReturnRoom());
-
-    if (!canRunDissolve()) {
-      await hidePageChrome();
-      snapHidePageChrome();
-      snapHideAllRegisteredPageText();
-      navigate(toPath);
-      await showAllRegisteredPageText();
-      void showPageChrome(false);
-      return;
-    }
-
-    const targetFov = targetFovForPath(toPath);
-
-    await playDissolveClose({
-      fov: true,
-      fromFov: ARCHIVE_FOV,
-      targetFov,
-      // No holdout: the pierce stylizes the live canvas directly (no screengrab).
-      // Text collapses first, then the pierce plays right after; chrome just snaps.
-      beforeDissolve: async () => {
-        snapHidePageChrome();
-        await hideAllRegisteredPageText();
-      },
-      swap: () => {
-        snapHidePageChrome();
-        snapHideAllRegisteredPageText();
-        navigate(toPath);
-      },
-      onComplete: () => {
-        void showAllRegisteredPageText();
-        void showPageChrome(false);
-      },
-    });
-    return;
+  } else {
+    useArchiveReturnStore.getState().setOriginFromPath(fromPath);
   }
 
-  if (!canRunDissolve()) {
-    resetArchiveToOrbView();
+  if (toArchive) warmArchiveMedia();
+
+  if (!canRunDissolveTransition()) {
+    await hidePageChrome();
+    snapHidePageChrome();
+    await unrevealPageText();
+    if (toArchive) resetArchiveToOrbView();
     navigate(toPath);
-    snapShowPageChrome(true);
+    await showAllRegisteredPageText();
+    if (toArchive) snapShowPageChrome(true);
+    else void showPageChrome(false);
     return;
   }
-
-  useArchiveReturnStore.getState().setOriginFromPath(fromPath);
-
-  const targetFov = targetFovForPath(toPath);
 
   await playDissolve({
-    fov: true,
-    targetFov,
-    holdout: "departing",
-    swapAt: "pre",
-    // Snap-hide (see fromArchive branch): avoids the ~0.55s exit-animation stall
-    // before the pierce starts.
-    beforeDissolve: () => {
-      snapHideAllRegisteredPageText();
+    mode: "route-live",
+    fov: false,
+    beforeDissolve: async () => {
+      await unrevealPageText();
       snapHidePageChrome();
     },
     swap: () => {
       snapHidePageChrome();
       snapHideAllRegisteredPageText();
-      resetArchiveToOrbView();
+      if (toArchive) resetArchiveToOrbView();
       navigate(toPath);
     },
     onPierceReveal: () => {
-      void showPageChrome(true);
+      void showAllRegisteredPageText();
+      void showPageChrome(toArchive);
     },
   });
 }
@@ -282,17 +265,29 @@ export function runBootDissolveTransition(
     beforeDissolve?: () => void | Promise<void>;
   } = {},
 ): void {
-  if (!canRunDissolve()) {
+  if (!canRunDissolveTransition()) {
     onComplete();
     return;
   }
 
+  let completed = false;
+  const finish = () => {
+    if (completed) return;
+    completed = true;
+    onComplete();
+  };
+
   void playDissolve({
+    mode: "boot",
     fov: true,
     targetFov,
-    holdout: "black",
+    skipClose: true,
     beforeDissolve,
     swap,
-    onPierceReveal: onComplete,
+    onPierceReveal: finish,
+  }).catch((error: unknown) => {
+    resetDissolveTransition();
+    if (import.meta.env.DEV) console.error("[boot dissolve] transition failed", error);
+    finish();
   });
 }

@@ -246,10 +246,13 @@ function createWebGLStripMaterial(
     uTex3: { value: textures[3] },
     uTex4: { value: textures[4] },
     uTex5: { value: textures[5] },
+    uShowBackFace: { value: 0 },
   };
 
   const material = new THREE.ShaderMaterial({
     transparent: true,
+    // Double-sided so a panel curving away from the camera shows its reverse
+    // (mirrored, lit via the back-face normal flip below) instead of being culled.
     side: THREE.DoubleSide,
     depthWrite: false,
     uniforms,
@@ -290,6 +293,7 @@ function createWebGLStripMaterial(
       uniform float uHoverScalePrev;
       uniform float uSlotAspect;
       uniform float uTexAspect[6];
+      uniform float uShowBackFace;
       varying vec2 vUv;
       varying float vLooseness;
       varying vec3 vNormal;
@@ -371,13 +375,16 @@ function createWebGLStripMaterial(
 
         float center = 1.0 - abs(vUv.x - 0.5) * 2.0;
         // Wave-driven shading: the displaced normal makes light travel along crests.
-        float ndl = dot(normalize(vNormal), normalize(uLightDir)) * 0.5 + 0.5;
+        // Flip the normal on back faces so a revealed reverse side lights up instead of going black.
+        vec3 faceNormal = gl_FrontFacing ? normalize(vNormal) : -normalize(vNormal);
+        float ndl = dot(faceNormal, normalize(uLightDir)) * 0.5 + 0.5;
         float shade = mix(uShadeMin, uShadeMax, ndl);
         float light = (uBaseLight + vLooseness * uLoosenessLight + center * uCenterLight) * shade;
         float rim = pow(center, 2.0) * uRimStrength;
         float edgeFade = smoothstep(0.0, uEdgeFade, vUv.x) * smoothstep(0.0, uEdgeFade, 1.0 - vUv.x);
         float dissolve = smoothstep(uDissolve - 0.08, uDissolve + 0.02, dissolveNoise(vUv * 12.0));
         if (dissolve < 0.5) discard;
+        if (uShowBackFace > 0.5 && gl_FrontFacing) discard;
         gl_FragColor = vec4(color * light + rim, edgeFade * uOpacity * dissolve);
       }
     `,
@@ -408,7 +415,8 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
   const transitionStripDissolve = useWorkProjectTransitionStore((state) => state.stripDissolve);
   const isMobileStrip = useMediaQuery(MOBILE_STRIP_MQ);
   const meshDensity = useMemo(() => getStripMeshDensity(), []);
-  const visibleItems = DEFAULT_VISIBLE_ITEMS;
+  // Panel count across the arc — fewer panels ⇒ each one is physically wider.
+  const visibleItems = Math.max(2, Math.round(stripControls.visibleItems ?? DEFAULT_VISIBLE_ITEMS));
   const gapSize = stripControls.gapSize ?? DEFAULT_GAP_SIZE;
   const scrollConfig = {
     wheelSensitivity: stripControls.wheelSensitivity,
@@ -701,7 +709,11 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
       group.scale.set(baseScale * grabScale, baseScale * grabScale, baseScale * grabScale);
     }
 
-    if (sc.scrollEnabled !== false) {
+    if (sc.loopPreview) {
+      s.target += sc.loopScrollSpeed ?? 0.02;
+      s.current = s.target;
+      s.velocity = 0;
+    } else if (sc.scrollEnabled !== false) {
       s.current += (s.target - s.current) * scrollConfig.scrollLerp;
       s.velocity *= isDraggingStrip
         ? scrollConfig.scrollDraggingDamping
@@ -749,11 +761,13 @@ export function WorkClothStripScene({ activeRoom }: { activeRoom?: string }) {
 
     if ("uTime" in sys.uniforms) {
       sys.uniforms.uTime.value = state.clock.getElapsedTime();
-      sys.uniforms.uWindStrength.value = sc.windStrength ?? 0.8;
-      sys.uniforms.uWaveAmplitude.value = sc.flutterAmplitude ?? 0.05;
+      const windOn = sc.windEnabled !== false;
+      sys.uniforms.uWindStrength.value = windOn ? (sc.windStrength ?? 0.8) : 0;
+      sys.uniforms.uWaveAmplitude.value = windOn ? (sc.flutterAmplitude ?? 0.05) : 0;
       sys.uniforms.uWaveFrequency.value = sc.flutterFrequency ?? 16;
       sys.uniforms.uGravityScale.value = sc.gravityScale ?? 1.2;
     }
+    sys.uniforms.uShowBackFace.value = sc.showStripBack ? 1 : 0;
 
     const centerIdx = getActiveStripItemIndex(s.current, visibleItems, gs, NUM_UNIQUE);
     const newTitle = workItems[centerIdx]?.title || "";

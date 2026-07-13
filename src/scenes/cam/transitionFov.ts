@@ -23,7 +23,7 @@ export function killTransitionFovTweens(): void {
   if (activeCamera) gsap.killTweensOf(activeCamera, "fov");
 }
 
-/** Narrow → wide FOV on archive exit. */
+/** Narrow → wide FOV on archive exit close beat. */
 export function runTransitionFovClose(fromFov: number, ease: string): void {
   gsap.killTweensOf(cameraBasePoseRef.current, "fov");
   cameraBasePoseRef.current.fov = fromFov;

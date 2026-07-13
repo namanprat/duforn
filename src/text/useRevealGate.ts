@@ -1,12 +1,13 @@
 import { MOTION_TOKENS } from "../lib/animation/motionTokens";
 import { CAMERA_ARRIVED_EVENT, getArrivedRoom } from "../lib/cam/arrival";
-import { cameraTransitionRef } from "../scenes/cam/pose";
-import { getSceneReady, SCENE_READY_EVENT } from "../scenes/preloader/sceneReady";
+import { getSceneReady, SCENE_READY_EVENT, useSceneBootStore } from "../scenes/preloader/sceneReady";
 import { ROOM_TRANSITION_SECONDS } from "../scenes/cam/roomPoses";
 import {
   PROJECT_DETAIL_ARRIVED_EVENT,
+  isWorkProjectTransitionActive,
   useWorkProjectTransitionStore,
 } from "../store/workProjectTransition";
+import { useDissolveTransitionStore } from "../store/routeTransition";
 
 // ponytail: the arrival event is a one-shot; if a consumer mounts and never sees
 // it (missed dispatch, no camera move for the target room), the text would stay
@@ -16,9 +17,47 @@ import {
 const CAMERA_GATE_FALLBACK_MS = ROOM_TRANSITION_SECONDS * 1000 + 300;
 
 function isCameraReadyForRoom(expectedRoom: string | null): boolean {
-  if (cameraTransitionRef.current) return false;
   if (expectedRoom) return getArrivedRoom() === expectedRoom;
   return getArrivedRoom() != null;
+}
+
+/** True while an orchestrated route transition (archive dissolve or work↔project)
+ * owns the text reveal — components must not self-arm; the transition's
+ * showAllRegisteredPageText() is the sole reveal driver. */
+export function isRouteTransitionActive(): boolean {
+  return useDissolveTransitionStore.getState().active || isWorkProjectTransitionActive();
+}
+
+export function waitForRouteTransitionIdle(onReady: () => void): () => void {
+  if (!isRouteTransitionActive()) {
+    onReady();
+    return () => {};
+  }
+
+  let done = false;
+  let unsubDissolve: (() => void) | null = null;
+  let unsubProject: (() => void) | null = null;
+
+  const finish = () => {
+    if (done || isRouteTransitionActive()) return;
+    done = true;
+    unsubDissolve?.();
+    unsubProject?.();
+    onReady();
+  };
+
+  unsubDissolve = useDissolveTransitionStore.subscribe((state) => {
+    if (!state.active) finish();
+  });
+  unsubProject = useWorkProjectTransitionStore.subscribe((state) => {
+    if (!state.active) finish();
+  });
+
+  return () => {
+    done = true;
+    unsubDissolve?.();
+    unsubProject?.();
+  };
 }
 
 export { prefersReducedMotion } from "../lib/prefersReducedMotion";
@@ -65,15 +104,17 @@ export function waitForCamera(root: Element | null, onReady: () => void): () => 
   };
 }
 
+// Reveal the boot text once the preloader is 70% loaded, without waiting for the
+// full scene-ready + camera-arrival beat at the end of boot.
+const BOOT_REVEAL_PROGRESS = 70;
+
 export function waitForSceneAndCamera(root: Element | null, onReady: () => void): () => void {
   const host = root?.closest?.("[data-page-namespace]") ?? null;
   const expectedRoom = host?.getAttribute("data-page-namespace") ?? null;
 
-  const check = () => {
-    if (cameraTransitionRef.current) return false;
-    const cameraOk = expectedRoom ? getArrivedRoom() === expectedRoom : getArrivedRoom() != null;
-    return cameraOk && getSceneReady();
-  };
+  const check = () =>
+    useSceneBootStore.getState().progress >= BOOT_REVEAL_PROGRESS ||
+    (isCameraReadyForRoom(expectedRoom) && getSceneReady());
 
   if (check()) {
     onReady();
@@ -95,10 +136,12 @@ export function waitForSceneAndCamera(root: Element | null, onReady: () => void)
   };
 
   const onScene = () => maybeFire();
+  const unsubProgress = useSceneBootStore.subscribe(maybeFire);
 
   const cleanup = () => {
     window.removeEventListener(CAMERA_ARRIVED_EVENT, onCamera);
     window.removeEventListener(SCENE_READY_EVENT, onScene);
+    unsubProgress();
   };
 
   window.addEventListener(CAMERA_ARRIVED_EVENT, onCamera);
@@ -107,9 +150,26 @@ export function waitForSceneAndCamera(root: Element | null, onReady: () => void)
 }
 
 export function waitForProjectArrival(onReady: () => void): () => void {
+  // Direct load / refresh (no work→project transition): hold the reveal until the
+  // boot preloader has lifted, so the text animates in on-screen instead of while
+  // it's still hidden behind the overlay.
   if (!useWorkProjectTransitionStore.getState().active) {
-    onReady();
-    return () => {};
+    if (getSceneReady()) {
+      onReady();
+      return () => {};
+    }
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      window.removeEventListener(SCENE_READY_EVENT, finish);
+      onReady();
+    };
+    window.addEventListener(SCENE_READY_EVENT, finish);
+    return () => {
+      done = true;
+      window.removeEventListener(SCENE_READY_EVENT, finish);
+    };
   }
 
   let done = false;
